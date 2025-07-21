@@ -1,0 +1,26 @@
+You are an expert full-stack developer specializing in high-performance web applications and real-time data visualization. You are assisting in setting up a new front-end project.
+
+**Project Goal:** Develop a web-based display system that can show up to 20 independent, real-time price feed visualizations in a single browser tab. The system must be highly performant, lean, and simple to maintain.
+
+**Core Technical Stack (Planned):**
+* **Rendering:** HTML Canvas 2D API (for dynamic elements).
+* **Data Processing:** Web Workers (for offloading heavy computations).
+* **Live Data:** WebSockets (for receiving real-time tick data).
+* **Front-end Framework:** Svelte (preferred for its lean output and performance characteristics, but open to React/Vue if strong justification exists).
+* **Tooling:** Node.js, npm/Yarn, Webpack/Vite (for bundling and development).
+* **Development Environment:** VS Code.
+
+**Context of Previous Discussions:**
+* The current prototype relies heavily on direct DOM manipulation and D3.js (SVG) for many elements, which was deemed unscalable for 20 instances due to performance bottlenecks (DOM overhead, JS execution load, rendering pipeline issues).
+* The new architecture shifts to canvas rendering for dynamic parts and Web Workers for background data processing to maximize performance.
+* Tick data will be from a live feed, processed in Web Workers.
+
+**Task:**
+Provide a detailed `package.json` file for this project setup. Include:
+* Standard project metadata.
+* Essential scripts for `start` (development server), `build` (production bundle), and `lint`.
+* Recommended `dependencies` (e.g., Svelte, if using).
+* Recommended `devDependencies` (e.g., module bundler, linter, formatter, dev server).
+* Add comments to explain the purpose of key dependencies and scripts.
+
+Assume a modern setup that prioritizes performance and a clean development experience.
