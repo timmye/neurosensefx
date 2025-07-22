@@ -12,7 +12,7 @@ function generateTick() {
     // console.log('generateTick called. Current state:', state); // Removed debug log
     const now = performance.now();
     const settings = frequencySettings[config.frequencyMode];
-    if (!settings || (now - state.lastTickTime < (settings.baseInterval + (Math.random() * settings.randomness)))) return;
+    if (!settings || !state.lastTickTime || (now - state.lastTickTime < (settings.baseInterval + (Math.random() * settings.randomness)))) return;
     state.momentum = (state.momentum || 0) * 0.85;
     let bias = state.momentum * settings.momentumStrength;
     if (Math.abs(state.momentum) > settings.meanReversionPoint) {
@@ -114,6 +114,19 @@ self.onmessage = (event) => {
             config = payload.config;
             state = payload.initialState;
             console.log('Worker received init message. Payload:', payload, 'State after assignment:', state); // Add this line
+            
+            // Ensure state has all required properties
+            if (!state.lastTickTime) state.lastTickTime = performance.now();
+            if (!state.currentPrice) state.currentPrice = 1.0;
+            if (!state.midPrice) state.midPrice = 1.0;
+            if (!state.minObservedPrice) state.minObservedPrice = 1.0;
+            if (!state.maxObservedPrice) state.maxObservedPrice = 1.0;
+            if (!state.ticks) state.ticks = [];
+            if (!state.allTicks) state.allTicks = [];
+            if (!state.maxDeflection) state.maxDeflection = { up: 0, down: 0, lastUpdateTime: 0 };
+            if (!state.volatility) state.volatility = 0.5;
+            if (!state.momentum) state.momentum = 0;
+            
             if (simulationInterval) clearInterval(simulationInterval);
             simulationInterval = setInterval(generateTick, 50); // Start simulation
             break;
