@@ -51,19 +51,16 @@
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     
-    const meterCenterX = canvasElement.width / 2 + (state.meterHorizontalOffset || 0);
+    const meterCenterX = config.centralAxisXPosition || (canvasElement.width / 2);
 
-    // --- Drawing Order Fix ---
-    // Draw background elements first
     drawVolatilityOrb(ctx);
     if (config.showMarketProfile) drawMarketProfile(ctx, meterCenterX);
 
-    // Draw foreground elements
     drawDayRangeMeter(ctx, meterCenterX);
+    drawADRProximityPulse(ctx, meterCenterX);
     drawPriceFloat(ctx, meterCenterX);
     drawCurrentPrice(ctx);
     
-    // Draw border and debug info last
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
     ctx.strokeRect(0, 0, canvasElement.width, canvasElement.height);
@@ -91,7 +88,7 @@
     requestAnimationFrame(animate);
   }
 
-    function drawVolatilityOrb(ctx, flashColor = null, flashOpacity = null) {
+  function drawVolatilityOrb(ctx, flashColor = null, flashOpacity = null) {
     if (!config.showVolatilityOrb) return;
 
     ctx.save();
@@ -102,27 +99,26 @@
 
     let currentOrbColorR, currentOrbColorG, currentOrbColorB;
 
-    // Determine base color based on color mode
     if (flashColor) {
       [currentOrbColorR, currentOrbColorG, currentOrbColorB] = flashColor.split(',').map(Number);
     } else {
       switch (config.volatilityColorMode) {
           case 'directional':
-              currentOrbColorR = 150; currentOrbColorG = 150; currentOrbColorB = 150; // Greyish neutral
-              if (state.lastTickDirection === 'up') { currentOrbColorR = 96; currentOrbColorG = 165; currentOrbColorB = 250; } // Blue for up
-              else if (state.lastTickDirection === 'down') { currentOrbColorR = 239; currentOrbColorG = 68; currentOrbColorB = 68; } // Red for down
+              currentOrbColorR = 150; currentOrbColorG = 150; currentOrbColorB = 150; 
+              if (state.lastTickDirection === 'up') { currentOrbColorR = 96; currentOrbColorG = 165; currentOrbColorB = 250; }
+              else if (state.lastTickDirection === 'down') { currentOrbColorR = 239; currentOrbColorG = 68; currentOrbColorB = 68; }
               break;
           case 'intensity':
               currentOrbColorR = Math.round(75 + (147 - 75) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
               currentOrbColorG = Math.round(85 + (197 - 85) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
               currentOrbColorB = Math.round(99 + (253 - 99) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
               break;
-          case 'singleHue': // Purple Spectrum
+          case 'singleHue': 
               currentOrbColorR = Math.round(167 - (167 - 109) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
               currentOrbColorG = Math.round(139 - (139 - 40) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
               currentOrbColorB = Math.round(250 - (250 - 217) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
               break;
-          default: // Fallback to intensity
+          default: 
               currentOrbColorR = Math.round(75 + (147 - 75) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
               currentOrbColorG = Math.round(85 + (197 - 85) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
               currentOrbColorB = Math.round(99 + (253 - 99) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
@@ -157,7 +153,7 @@
         gradient.addColorStop(1, `rgba(${finalColorString}, 0)`);
     }
 
-    ctx.globalAlpha = 1.0; // Ensure globalAlpha is reset before drawing
+    ctx.globalAlpha = 1.0;
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.arc(centerX, centerY, displayRadius, 0, 2 * Math.PI, false);
@@ -167,18 +163,53 @@
 
   function flashVolatilityOrb(direction) {
     if (!config.showOrbFlash || !ctx || !canvasElement) return;
-
     isOrbFlashing = true;
-
-    const flashColor = direction === 'up' ? '96,165,250' : '248,113,113'; // Blue for up, Red for down
+    const flashColor = direction === 'up' ? '96,165,250' : '248,113,113';
     const flashOpacity = config.orbFlashIntensity;
-
     drawVolatilityOrb(ctx, flashColor, flashOpacity);
-
     setTimeout(() => {
       isOrbFlashing = false;
-      drawVisualization(); // Redraw everything to revert orb to normal
+      drawVisualization();
     }, 150);
+  }
+  
+  function drawADRProximityPulse(ctx, meterCenterX) {
+    if (!config.adrProximityThreshold) return;
+    ctx.save();
+    const proximityThresholdPips = config.adrProximityThreshold;
+    const priceRange = state.adrHigh - state.adrLow;
+    if (priceRange <= 0) { ctx.restore(); return; }
+    
+    const pipsToPrice = priceRange / config.adrRange;
+    const proximityThresholdPrice = proximityThresholdPips * pipsToPrice;
+
+    const highProximity = Math.abs(state.adrHigh - state.currentPrice) < proximityThresholdPrice;
+    const lowProximity = Math.abs(state.adrLow - state.currentPrice) < proximityThresholdPrice;
+    const meterWidth = 40;
+
+    if (highProximity || lowProximity) {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#60a5fa';
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 2;
+
+        if (highProximity) {
+            const highY = priceToY(state.adrHigh);
+            ctx.beginPath();
+            ctx.moveTo(meterCenterX - meterWidth / 2, highY);
+            ctx.lineTo(meterCenterX + meterWidth / 2, highY);
+            ctx.stroke();
+        }
+
+        if (lowProximity) {
+            const lowY = priceToY(state.adrLow);
+            ctx.beginPath();
+            ctx.moveTo(meterCenterX - meterWidth / 2, lowY);
+            ctx.lineTo(meterCenterX + meterWidth / 2, lowY);
+            ctx.stroke();
+        }
+    }
+    ctx.restore();
   }
 
   function drawMarketProfile(ctx, meterCenterX) {
@@ -191,7 +222,7 @@
       return;
     }
 
-    const profileMaxWidth = (config.visualizationsContentWidth / 2) - 10;
+    const profileMaxWidth = (config.visualizationsContentWidth / 2) - 10; 
     const scaleFactor = profileMaxWidth / maxVolume;
 
     const profilePoints = marketProfileData.levels.map(level => ({
@@ -248,7 +279,6 @@
         drawBars('sell', '239, 68, 68');
       }
     }
-
     ctx.restore();
   }
 
@@ -257,12 +287,14 @@
     const meterWidth = 40;
     const lowY = priceToY(state.adrLow);
     const highY = priceToY(state.adrHigh);
+    
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(meterCenterX, 0);
     ctx.lineTo(meterCenterX, canvasElement.height);
     ctx.stroke();
+    
     ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -273,51 +305,111 @@
     ctx.moveTo(meterCenterX - meterWidth / 2, highY);
     ctx.lineTo(meterCenterX + meterWidth / 2, highY);
     ctx.stroke();
+    
     const adrRange = state.adrHigh - state.adrLow;
-    const steps = [0.25, 0.50, 0.75];
-    ctx.strokeStyle = '#64748b';
-    ctx.lineWidth = 1;
-    steps.forEach(step => {
-      const price = state.adrLow + adrRange * step;
-      const y = priceToY(price);
-      ctx.beginPath();
-      ctx.moveTo(meterCenterX - meterWidth / 4, y);
-      ctx.lineTo(meterCenterX + meterWidth / 4, y);
-      ctx.stroke();
-    });
+    if (adrRange > 0) {
+      const steps = [0.25, 0.50, 0.75];
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1;
+      steps.forEach(step => {
+        const price = state.adrLow + adrRange * step;
+        const y = priceToY(price);
+        ctx.beginPath();
+        ctx.moveTo(meterCenterX - meterWidth / 4, y);
+        ctx.lineTo(meterCenterX + meterWidth / 4, y);
+        ctx.stroke();
+      });
+    }
     ctx.restore();
   }
 
   function drawPriceFloat(ctx, meterCenterX) {
     ctx.save();
     const y = priceToY(state.currentPrice);
-    const floatWidth = (config.visualizationsContentWidth || 220) + 8;
+    const floatWidth = (config.priceFloatWidth || 100);
     const floatHeight = 4;
+    const xOffset = config.priceFloatXOffset || 0;
     const priceFloatColor = '#a78bfa';
+    
     ctx.shadowColor = priceFloatColor;
     ctx.shadowBlur = 10;
     ctx.fillStyle = priceFloatColor;
-    ctx.fillRect(meterCenterX - floatWidth / 2, y - floatHeight / 2, floatWidth, floatHeight);
+    ctx.fillRect(meterCenterX - floatWidth / 2 + xOffset, y - floatHeight / 2, floatWidth, floatHeight);
     ctx.restore();
   }
 
   function drawCurrentPrice(ctx) {
     if (state.currentPrice === undefined) return;
     ctx.save();
+    
     const y = priceToY(state.currentPrice);
     const meterCenterX = canvasElement.width / 2 + (state.meterHorizontalOffset || 0);
-    const priceText = state.currentPrice.toFixed(5);
-    const x = meterCenterX + 30;
-    ctx.font = '14px "Roboto Mono", monospace';
+    const x = meterCenterX + (config.priceHorizontalOffset || 30);
+    
+    const priceString = state.currentPrice.toFixed(5);
+    const [integerPart, decimalPart] = priceString.split('.');
+    const bigFigure = `${integerPart}.${decimalPart.substring(0, 2)}`;
+    const pips = decimalPart.substring(2, 4);
+    const pipette = decimalPart.substring(4, 5);
+
+    const baseFontSize = config.priceFontSize || 14;
+    const fontWeight = config.priceFontWeight || 'normal';
+
+    let totalWidth = 0;
+    const bigFigureFont = `${fontWeight} ${baseFontSize * (config.bigFigureFontSizeRatio || 1)}px "Roboto Mono", monospace`;
+    ctx.font = bigFigureFont;
+    totalWidth += ctx.measureText(bigFigure).width;
+
+    const pipsFont = `${fontWeight} ${baseFontSize * (config.pipFontSizeRatio || 1)}px "Roboto Mono", monospace`;
+    ctx.font = pipsFont;
+    totalWidth += ctx.measureText(pips).width;
+    
+    let pipetteWidth = 0;
+    if (config.showPipetteDigit) {
+        const pipetteFont = `${fontWeight} ${baseFontSize * (config.pipetteFontSizeRatio || 1)}px "Roboto Mono", monospace`;
+        ctx.font = pipetteFont;
+        pipetteWidth = ctx.measureText(pipette).width;
+        totalWidth += pipetteWidth;
+    }
+    const textHeight = baseFontSize * (config.bigFigureFontSizeRatio || 1);
+
+    if (config.showPriceBackground || config.showPriceBoundingBox) {
+        const padding = config.priceDisplayPadding || 4;
+        const rectX = x - padding;
+        const rectY = y - textHeight / 2 - padding;
+        const rectWidth = totalWidth + (padding * 2);
+        const rectHeight = textHeight + (padding * 2);
+
+        if (config.showPriceBackground) {
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.75)';
+            ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
+        }
+        if (config.showPriceBoundingBox) {
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
+        }
+    }
+
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const textMetrics = ctx.measureText(priceText);
-    const textWidth = textMetrics.width;
-    const textHeight = 14; 
-    ctx.fillStyle = 'rgba(10, 10, 10, 0.75)';
-    ctx.fillRect(x - 5, y - textHeight / 2 - 3, textWidth + 10, textHeight + 6);
     ctx.fillStyle = getPriceTextColor();
-    ctx.fillText(priceText, x, y);
+    
+    let currentX = x;
+    
+    ctx.font = bigFigureFont;
+    ctx.fillText(bigFigure, currentX, y);
+    currentX += ctx.measureText(bigFigure).width;
+
+    ctx.font = pipsFont;
+    ctx.fillText(pips, currentX, y);
+    currentX += ctx.measureText(pips).width;
+
+    if (config.showPipetteDigit) {
+        ctx.font = `${fontWeight} ${baseFontSize * (config.pipetteFontSizeRatio || 1)}px "Roboto Mono", monospace`;
+        ctx.fillText(pipette, currentX, y);
+    }
+
     ctx.restore();
   }
 
@@ -333,15 +425,5 @@
 </div>
 
 <style>
-  .visualization-container {
-    position: relative;
-    margin: 0 auto;
-    border: 1px solid #374151; 
-  }
-  canvas {
-    display: block;
-    position: absolute;
-    top: 0;
-    left: 0;
-  }
+  /* ... existing styles ... */
 </style>
