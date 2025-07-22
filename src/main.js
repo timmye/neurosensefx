@@ -25,12 +25,24 @@ dataProcessorWorker.onmessage = (event) => {
 };
 
 // Send the initial configuration and state to the worker
-console.log('Sending initial state to worker:', get(vizState)); // Use get() here
+const initialVizState = get(vizState);
+console.log('Sending initial state to worker:', initialVizState);
+
+// Create a simplified state to send to the worker, excluding the Map
+const simplifiedInitialState = {
+  currentPrice: initialVizState.currentPrice,
+  midPrice: initialVizState.midPrice,
+  lastTickTime: initialVizState.lastTickTime,
+  maxDeflection: initialVizState.maxDeflection,
+  volatility: initialVizState.volatility,
+  lastTickDirection: initialVizState.lastTickDirection,
+};
+
 dataProcessorWorker.postMessage({
   type: 'init',
   payload: {
-    config: get(vizConfig), // Use get() for vizConfig as well
-    initialState: get(vizState) // Use get() here
+    config: get(vizConfig),
+    initialState: simplifiedInitialState, // Send the simplified state
   }
 });
 
