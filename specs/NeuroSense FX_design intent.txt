@@ -51,12 +51,6 @@ Optional Price Bounding Box and Price Background.
 
 Includes a toggle for Pipette Digit visibility.
 
-Max Deflection Marker:
-
-A temporary, subtle reddish marker that appears at the point of maximum price deflection within a recent period.
-
-Fades out over a configurable decay period.
-
 Volatility Orb:
 
 A circular visual element, centered in the background of the display.
