@@ -30,10 +30,11 @@
 
   // --- Central Reference and Coordinate System ---
   function priceToY(price) {
-    // Trust that state.adrLow and state.adrHigh are always valid numbers here
+    // Use config.meterHeight as fallback to ensure we always have a valid height
+    const height = canvasElement?.height || config.meterHeight || 600;
     const scale = d3.scaleLinear()
       .domain([state.adrLow, state.adrHigh])
-      .range([canvasElement.height, 0]);
+      .range([height, 0]);
     return scale(price);
   }
 
@@ -45,14 +46,28 @@
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     const meterCenterX = canvasElement.width / 2 + (state.meterHorizontalOffset || 0);
     
+    // Debug: Draw background to ensure canvas is visible
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+    
+    // Debug: Log state values
+    console.log('Rendering state:', {
+      currentPrice: state.currentPrice,
+      adrLow: state.adrLow,
+      adrHigh: state.adrHigh,
+      midPrice: state.midPrice,
+      minObservedPrice: state.minObservedPrice,
+      maxObservedPrice: state.maxObservedPrice
+    });
+    
     drawDayRangeMeter(ctx, meterCenterX);
     drawMarketProfile(ctx, meterCenterX);
-    drawPriceFloat(ctx, meterCenterX); 
+    drawPriceFloat(ctx, meterCenterX);
   }
 
   // --- Component-Specific Drawing Functions ---
   function drawDayRangeMeter(ctx, meterCenterX) {
-    const meterWidth = config.meterWidth || 10;
+    const meterWidth = config.visualizationsContentWidth || 220;
     ctx.fillStyle = config.adrBoundaryColor || 'rgba(0, 150, 255, 0.7)';
     ctx.fillRect(meterCenterX - meterWidth / 2, priceToY(state.adrHigh), meterWidth, 2);
     ctx.fillRect(meterCenterX - meterWidth / 2, priceToY(state.adrLow), meterWidth, 2);
@@ -67,7 +82,7 @@
 
   function drawPriceFloat(ctx, meterCenterX) {
       const y = priceToY(state.currentPrice);
-      const floatWidth = (config.meterWidth || 10) + 8;
+      const floatWidth = (config.visualizationsContentWidth || 220) + 8;
       const floatHeight = 4;
       const priceFloatColor = '#a78bfa';
       ctx.shadowColor = priceFloatColor;
@@ -102,12 +117,12 @@
   
   <!-- The price display is now unconditionally rendered within VizDisplay, 
        as the parent ensures state.currentPrice exists before rendering VizDisplay. -->
-  <div 
+  <div
     class="price-display"
     style="
       position: absolute;
       top: {priceToY(state.currentPrice)}px;
-      left: {canvasElement ? (canvasElement.width / 2 + (state.meterHorizontalOffset || 0)) : 0}px;
+      left: {(config.visualizationsContentWidth || 220) / 2 + (state.meterHorizontalOffset || 0)}px;
       transform: translate(15px, -50%);
       color: {getPriceTextColor()};
     "

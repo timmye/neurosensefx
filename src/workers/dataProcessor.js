@@ -35,7 +35,7 @@ function generateTick() {
 
     state.currentPrice = newPrice;
     state.lastTickTime = now;
-    state.lastTickDirection = direction;
+    state.lastTickDirection = direction > 0 ? 'up' : 'down';
 
     const newTick = { magnitude, direction, price: newPrice, time: now };
     state.ticks.push(newTick);
@@ -89,17 +89,48 @@ function processTick(tick) {
         bucket.total += 1;
     });
 
+    // Calculate ADR boundaries based on config.adrRange
+    const adrRangeInPrice = config.adrRange / 10000; // Convert pips to price
+    let adrHigh = state.midPrice + (adrRangeInPrice / 2);
+    let adrLow = state.midPrice - (adrRangeInPrice / 2);
+    
+    // Ensure ADR range is wide enough for proper scaling
+    const minRange = 0.0020; // Minimum 20 pips range
+    if (adrHigh - adrLow < minRange) {
+        adrHigh = state.midPrice + minRange / 2;
+        adrLow = state.midPrice - minRange / 2;
+    }
+    
+    // Ensure observed prices are within ADR range
+    adrLow = Math.min(adrLow, state.minObservedPrice - 0.0005);
+    adrHigh = Math.max(adrHigh, state.maxObservedPrice + 0.0005);
+
+    // Convert Map to the expected format for VizDisplay
+    const marketProfileLevels = Array.from(profileData.entries())
+        .map(([bucket, data]) => ({
+            price: bucket * (config.priceBucketSize / 10000),
+            volume: data.total,
+            buy: data.buy,
+            sell: data.sell
+        }))
+        .sort((a, b) => a.price - b.price);
+
     self.postMessage({
         type: 'stateUpdate',
         payload: {
-            currentPrice: state.currentPrice,
-            lastTickDirection: state.lastTickDirection,
-            maxDeflection: { ...state.maxDeflection }, // Send a copy
-            volatility: state.volatility,
-            midPrice: state.midPrice,
-            minObservedPrice: state.minObservedPrice,
-            maxObservedPrice: state.maxObservedPrice,
-            marketProfile: profileData,
+            newState: {
+                currentPrice: state.currentPrice,
+                lastTickDirection: state.lastTickDirection,
+                maxDeflection: { ...state.maxDeflection }, // Send a copy
+                volatility: state.volatility,
+                midPrice: state.midPrice,
+                minObservedPrice: state.minObservedPrice,
+                maxObservedPrice: state.maxObservedPrice,
+                adrHigh: adrHigh,
+                adrLow: adrLow,
+                meterHorizontalOffset: 0
+            },
+            marketProfile: { levels: marketProfileLevels }
         }
     });
 }
@@ -142,16 +173,18 @@ self.onmessage = (event) => {
             console.log('Worker received init message. Payload:', payload, 'State after assignment:', state);
             
             // Ensure state has all required properties
+            const initialPrice = payload.midPrice || 1.25500;
             if (!state.lastTickTime) state.lastTickTime = performance.now();
-            if (!state.currentPrice) state.currentPrice = 1.0;
-            if (!state.midPrice) state.midPrice = 1.0;
-            if (!state.minObservedPrice) state.minObservedPrice = 0.9995;
-            if (!state.maxObservedPrice) state.maxObservedPrice = 1.0005;
+            if (!state.currentPrice) state.currentPrice = initialPrice;
+            if (!state.midPrice) state.midPrice = initialPrice;
+            if (!state.minObservedPrice) state.minObservedPrice = initialPrice - 0.0050;
+            if (!state.maxObservedPrice) state.maxObservedPrice = initialPrice + 0.0050;
             if (!state.ticks) state.ticks = [];
             if (!state.allTicks) state.allTicks = [];
             if (!state.maxDeflection) state.maxDeflection = { up: 0, down: 0, lastUpdateTime: 0 };
             if (!state.volatility) state.volatility = 0.5;
             if (!state.momentum) state.momentum = 0;
+            if (!state.lastTickDirection) state.lastTickDirection = 'up';
             break;
         case 'startSimulation':
             if (simulationInterval) clearInterval(simulationInterval);
