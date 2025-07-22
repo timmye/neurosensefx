@@ -1,59 +1,47 @@
+# To learn more about how to use Nix to configure your environment
+# see: https://developers.google.com/idx/guides/customize-idx-env
 { pkgs, ... }: {
-  # Define packages to install
+  # Which nixpkgs channel to use.
+  channel = "stable-24.05"; # or "unstable"
+  # Use https://search.nixos.org/packages to find packages
   packages = [
-    pkgs.nodejs_20 # Install Node.js version 20, includes npm
+    pkgs.nodejs_20 # Use Node.js version 20
   ];
-
-  # Configure development environment variables
-  env = {
-    # Example environment variable
-    # API_KEY = "your-secret-key";
-  };
-
-  # Configure Firebase Studio specific settings
+  # Sets environment variables in the workspace
+  env = {};
   idx = {
-    # Configure VS Code extensions to install
+    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
     extensions = [
-      "dbaeumer.vscode-eslint" # Install ESLint extension
+      "svelte.svelte-vscode" # Svelte language support
+      "dbaeumer.vscode-eslint" # ESLint for code linting
     ];
-
     # Enable previews
     previews = {
       enable = true;
       previews = {
         web = {
           # Command to start the web server for preview
-          # Ensure node_modules/.bin is in PATH before running the dev script
-          command = [
-            "bash"
-            "-c"
-            ''
-              export PATH=$PWD/node_modules/.bin:$PATH
-              npm run dev -- --port $PORT --host 0.0.0.0
-            ''
-          ];
-          manager = "web"; # Specify the preview manager as web
+          command = ["./node_modules/.bin/vite" "--port" "$PORT" "--host" "0.0.0.0"];
+          manager = "web";
         };
       };
     };
-
     # Workspace lifecycle hooks
     workspace = {
       # Runs when a workspace is first created
       onCreate = {
-        # Install npm dependencies
-        npm-install = "npm install";
-        # Open these files when the workspace is created
+        npm-install = ''
+          npm cache clean --force
+          npm install
+        '';
         default.openFiles = [
           ".idx/dev.nix"
           "package.json"
           "README.md"
         ];
       };
+      # Runs when the workspace is (re)started
       onStart = {
-        # start the development server
-        dev-server = ''bash -c "export PATH=$PWD/node_modules/.bin:$PATH && npm run dev"'';
-
       };
     };
   };
