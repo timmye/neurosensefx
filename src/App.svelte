@@ -9,17 +9,15 @@
     adrRange: 100,
     pulseThreshold: 0.5,
     pulseScale: 5,
-    maxMarkerDecay: 10,
     flashThreshold: 2,
     adrProximityThreshold: 10,
     frequencyMode: 'normal',
     priceBucketSize: 0.5,
-    showMaxMarker: true,
     showVolatilityOrb: true,
     showMarketProfile: true,
     showFlash: true, // Enable flash by default for demonstration
     flashIntensity: 0.4,
-    showOrbFlash: false,
+    showOrbFlash: true, // Enable orb flash by default
     orbFlashThreshold: 2,
     orbFlashIntensity: 0.8,
     distributionDepthMode: 'all',
@@ -67,8 +65,8 @@
         if (payload.significantTick) {
           flashEffect = {
             direction: payload.newState.lastTickDirection,
-            // Reset flashEffect after animation duration
-            id: Date.now() 
+            id: Date.now(),
+            magnitude: payload.tickMagnitude // Pass the magnitude
           };
         }
       }

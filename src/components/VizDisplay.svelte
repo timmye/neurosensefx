@@ -10,6 +10,7 @@
   let canvasElement;
   let ctx;
   let lastFlashId = null;
+  let isOrbFlashing = false; // Local state for orb flash
 
   $: if (ctx && state && state.currentPrice !== undefined) {
     drawVisualization();
@@ -19,6 +20,11 @@
     if (flashEffect && flashEffect.id !== lastFlashId) {
       drawFlash(flashEffect.direction);
       lastFlashId = flashEffect.id;
+
+      // Trigger orb flash if enabled and current tick is significant enough
+      if (config.showOrbFlash && flashEffect.magnitude >= config.orbFlashThreshold) {
+        flashVolatilityOrb(flashEffect.direction);
+      }
     }
   });
 
@@ -81,17 +87,94 @@
     requestAnimationFrame(animate);
   }
 
-  function drawVolatilityOrb(ctx) {
+  function drawVolatilityOrb(ctx, flashColor = null, flashOpacity = null) {
+    if (!config.showVolatilityOrb) return;
+
     ctx.save();
     const centerX = canvasElement.width / 2;
     const centerY = canvasElement.height / 2;
-    const radius = (config.volatilityOrbBaseWidth || 40) / 2;
-    const color = config.volatilityOrbColor || 'rgba(139, 92, 246, 0.1)';
+    
+    const volatilityIntensity = config.volatilityOrbInvertBrightness ? Math.min(state.volatility, 4) : Math.min(state.volatility, 2);
+
+    let currentOrbColorR, currentOrbColorG, currentOrbColorB;
+
+    // Determine base color based on color mode
+    if (flashColor) {
+      [currentOrbColorR, currentOrbColorG, currentOrbColorB] = flashColor.split(',').map(Number);
+    } else {
+      switch (config.volatilityColorMode) {
+          case 'directional':
+              currentOrbColorR = 150; currentOrbColorG = 150; currentOrbColorB = 150; // Greyish neutral
+              if (state.lastTickDirection === 'up') { currentOrbColorR = 96; currentOrbColorG = 165; currentOrbColorB = 250; } // Blue for up
+              else if (state.lastTickDirection === 'down') { currentOrbColorR = 239; currentOrbColorG = 68; currentOrbColorB = 68; } // Red for down
+              break;
+          case 'intensity':
+              currentOrbColorR = Math.round(75 + (147 - 75) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              currentOrbColorG = Math.round(85 + (197 - 85) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              currentOrbColorB = Math.round(99 + (253 - 99) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              break;
+          case 'singleHue': // Purple Spectrum
+              currentOrbColorR = Math.round(167 - (167 - 109) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              currentOrbColorG = Math.round(139 - (139 - 40) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              currentOrbColorB = Math.round(250 - (250 - 217) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              break;
+          default: // Fallback to intensity
+              currentOrbColorR = Math.round(75 + (147 - 75) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              currentOrbColorG = Math.round(85 + (197 - 85) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              currentOrbColorB = Math.round(99 + (253 - 99) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              break;
+      }
+    }
+
+    let currentOrbBaseOpacity = flashOpacity !== null 
+      ? flashOpacity 
+      : (config.volatilityOrbInvertBrightness ? Math.min(1.0, 0.2 + (volatilityIntensity * 0.2)) : (0.5 + volatilityIntensity * 0.25));
+
+    const baseRadius = (config.volatilityOrbBaseWidth || 40) / 2;
+    let displayRadius = baseRadius;
+
+    if (!config.volatilityOrbInvertBrightness) {
+        displayRadius = baseRadius * (1 + Math.min(state.volatility * 0.5, 2));
+    }
+
+    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, displayRadius);
+    const finalColorString = `${currentOrbColorR}, ${currentOrbColorG}, ${currentOrbColorB}`;
+
+    if (config.volatilityOrbInvertBrightness) {
+        const innerTransparentStop = Math.max(5, 80 - (volatilityIntensity * 18.75));
+        gradient.addColorStop(0, `rgba(${finalColorString}, 0)`);
+        gradient.addColorStop(innerTransparentStop / 100, `rgba(${finalColorString}, ${currentOrbBaseOpacity})`);
+        gradient.addColorStop(1, `rgba(${finalColorString}, ${currentOrbBaseOpacity})`);
+    } else {
+        gradient.addColorStop(0, `rgba(${finalColorString}, ${currentOrbBaseOpacity * 0.1})`);
+        gradient.addColorStop(0.4, `rgba(${finalColorString}, ${currentOrbBaseOpacity * 0.3})`);
+        gradient.addColorStop(0.6, `rgba(${finalColorString}, ${currentOrbBaseOpacity * 0.6})`);
+        gradient.addColorStop(0.8, `rgba(${finalColorString}, ${currentOrbBaseOpacity * 1.0})`);
+        gradient.addColorStop(1, `rgba(${finalColorString}, 0)`);
+    }
+
+    ctx.globalAlpha = 1.0; // Ensure globalAlpha is reset before drawing
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
-    ctx.fillStyle = color;
+    ctx.arc(centerX, centerY, displayRadius, 0, 2 * Math.PI, false);
     ctx.fill();
     ctx.restore();
+  }
+
+  function flashVolatilityOrb(direction) {
+    if (!config.showOrbFlash || !ctx || !canvasElement) return;
+
+    isOrbFlashing = true;
+
+    const flashColor = direction === 'up' ? '96,165,250' : '248,113,113'; // Blue for up, Red for down
+    const flashOpacity = config.orbFlashIntensity;
+
+    drawVolatilityOrb(ctx, flashColor, flashOpacity);
+
+    setTimeout(() => {
+      isOrbFlashing = false;
+      drawVisualization(); // Redraw everything to revert orb to normal
+    }, 150);
   }
 
   function drawMarketProfile(ctx, meterCenterX) {

@@ -4,6 +4,7 @@ let config = {};
 let state = {};
 let simulationInterval;
 
+// --- Simulation Settings ---
 const frequencySettings = {
     calm: { baseInterval: 2000, randomness: 1500, magnitudeMultiplier: 0.5, momentumStrength: 0.05, meanReversionPoint: 0.7 },
     normal: { baseInterval: 800, randomness: 1000, magnitudeMultiplier: 1, momentumStrength: 0.1, meanReversionPoint: 0.7 },
@@ -11,19 +12,58 @@ const frequencySettings = {
     volatile: { baseInterval: 100, randomness: 200, magnitudeMultiplier: 2, momentumStrength: 0.2, meanReversionPoint: 0.5 },
 };
 
+// --- Core Worker Logic ---
+self.onmessage = (event) => {
+    const { type, payload } = event.data;
+    switch (type) {
+        case 'init': initialize(payload); break;
+        case 'startSimulation': startSimulation(); break;
+        case 'stop': stopSimulation(); break;
+        case 'updateConfig': config = { ...config, ...payload }; break;
+    }
+};
+
+function initialize(payload) {
+    config = payload.config;
+    const initialPrice = payload.midPrice || 1.25500;
+    state = {
+        lastTickTime: performance.now(),
+        currentPrice: initialPrice,
+        midPrice: initialPrice,
+        minObservedPrice: initialPrice,
+        maxObservedPrice: initialPrice,
+        ticks: [],
+        allTicks: [],
+        volatility: 0.5,
+        momentum: 0,
+        lastTickDirection: 'up',
+    };
+    console.log('Worker initialized');
+}
+
+function startSimulation() {
+    if (simulationInterval) clearInterval(simulationInterval);
+    simulationInterval = setInterval(generateAndProcessTick, 50);
+}
+
+function stopSimulation() {
+    if (simulationInterval) clearInterval(simulationInterval);
+}
+
+function generateAndProcessTick() {
+    const newTick = generateTick();
+    if (newTick) {
+        processTick(newTick);
+    }
+}
+
 function generateTick() {
-    // console.log('generateTick called. Current state:', state); // Removed debug log
     const now = performance.now();
     const settings = frequencySettings[config.frequencyMode];
-
-    if (!settings || !state || now - state.lastTickTime < (settings.baseInterval + (Math.random() * settings.randomness))) return; // Added check for state
+    if (now - state.lastTickTime < (settings.baseInterval + (Math.random() * settings.randomness))) return null;
 
     state.momentum = (state.momentum || 0) * 0.85;
-    let bias = state.momentum * settings.momentumStrength;
-    if (Math.abs(state.momentum) > settings.meanReversionPoint) {
-        bias *= -0.5;
-    }
-    
+    const bias = state.momentum * settings.momentumStrength;
     const direction = Math.random() < (0.5 + bias) ? 1 : -1;
     state.momentum = Math.max(-1, Math.min(1, state.momentum + direction * 0.25));
 
@@ -33,87 +73,25 @@ function generateTick() {
 
     const newPrice = state.currentPrice + (direction * magnitude / 10000);
 
-    state.currentPrice = newPrice;
     state.lastTickTime = now;
     state.lastTickDirection = direction > 0 ? 'up' : 'down';
-
-    const newTick = { magnitude, direction, price: newPrice, time: now };
-    state.ticks.push(newTick);
-    state.allTicks.push(newTick);
-
-    state.minObservedPrice = Math.min(state.minObservedPrice, newPrice);
-    state.maxObservedPrice = Math.max(state.maxObservedPrice, newPrice);
-
-    processTick(newTick);
+    state.currentPrice = newPrice;
+    
+    const tick = { magnitude, direction, price: newPrice, time: now };
+    state.ticks.push(tick);
+    state.allTicks.push(tick);
+    return tick;
 }
 
 function processTick(tick) {
-    if (!state || !state.ticks || !state.allTicks) return;
-    
-    const now = performance.now();
-    state.ticks = state.ticks.filter(t => now - t.time < 5000);
+    state.minObservedPrice = Math.min(state.minObservedPrice, tick.price);
+    state.maxObservedPrice = Math.max(state.maxObservedPrice, tick.price);
 
-    const effectiveADRInPrice = Math.max(config.adrRange / 10000, state.maxObservedPrice - state.minObservedPrice);
-    const currentPriceOffsetFromMid = state.currentPrice - state.midPrice;
-    const halfEffectiveADR = effectiveADRInPrice / 2;
-
-    if (currentPriceOffsetFromMid > halfEffectiveADR) {
-        state.midPrice = state.currentPrice - halfEffectiveADR;
-    } else if (currentPriceOffsetFromMid < -halfEffectiveADR) {
-        state.midPrice = state.currentPrice + halfEffectiveADR;
-    }
-
-    updateMaxDeflection(tick);
+    updateADRBoundaries();
     updateVolatility();
-
-    let profileData = new Map();
-    let relevantTicks;
-    if (config.distributionDepthMode === 'all') {
-        relevantTicks = state.allTicks;
-    } else {
-        const numTicks = Math.floor(state.allTicks.length * (config.distributionPercentage / 100));
-        relevantTicks = state.allTicks.slice(Math.max(0, state.allTicks.length - numTicks));
-    }
-
-    relevantTicks.forEach(t => {
-        const priceBucket = Math.floor(t.price * (10000 / config.priceBucketSize));
-        if (!profileData.has(priceBucket)) {
-            profileData.set(priceBucket, { buy: 0, sell: 0, total: 0 });
-        }
-        const bucket = profileData.get(priceBucket);
-        if (t.direction > 0) {
-            bucket.buy += 1;
-        } else {
-            bucket.sell += 1;
-        }
-        bucket.total += 1;
-    });
-
-    // Calculate ADR boundaries based on config.adrRange
-    const adrRangeInPrice = config.adrRange / 10000; // Convert pips to price
-    let adrHigh = state.midPrice + (adrRangeInPrice / 2);
-    let adrLow = state.midPrice - (adrRangeInPrice / 2);
     
-    // Ensure ADR range is wide enough for proper scaling
-    const minRange = 0.0020; // Minimum 20 pips range
-    if (adrHigh - adrLow < minRange) {
-        adrHigh = state.midPrice + minRange / 2;
-        adrLow = state.midPrice - minRange / 2;
-    }
-    
-    // Ensure observed prices are within ADR range
-    adrLow = Math.min(adrLow, state.minObservedPrice - 0.0005);
-    adrHigh = Math.max(adrHigh, state.maxObservedPrice + 0.0005);
-
-    // Convert Map to the expected format for VizDisplay
-    const marketProfileLevels = Array.from(profileData.entries())
-        .map(([bucket, data]) => ({
-            price: bucket * (config.priceBucketSize / 10000),
-            volume: data.total,
-            buy: data.buy,
-            sell: data.sell
-        }))
-        .sort((a, b) => a.price - b.price);
+    const marketProfile = generateMarketProfile();
+    const significantTick = (config.showFlash && tick.magnitude > (config.flashThreshold || 2)) || (config.showOrbFlash && tick.magnitude > (config.orbFlashThreshold || 2));
 
     self.postMessage({
         type: 'stateUpdate',
@@ -121,41 +99,50 @@ function processTick(tick) {
             newState: {
                 currentPrice: state.currentPrice,
                 lastTickDirection: state.lastTickDirection,
-                maxDeflection: { ...state.maxDeflection }, // Send a copy
                 volatility: state.volatility,
-                midPrice: state.midPrice,
-                minObservedPrice: state.minObservedPrice,
-                maxObservedPrice: state.maxObservedPrice,
-                adrHigh: adrHigh,
-                adrLow: adrLow,
+                adrHigh: state.adrHigh,
+                adrLow: state.adrLow,
                 meterHorizontalOffset: 0
             },
-            marketProfile: { levels: marketProfileLevels }
+            marketProfile: marketProfile,
+            significantTick: significantTick, // Event flag for the UI
+            tickMagnitude: tick.magnitude, // Send the magnitude for conditional flashes in UI
         }
     });
 }
 
-function updateMaxDeflection(tick) {
-    if (!state || !state.maxDeflection) return;
-    const now = performance.now();
-    if (now - state.maxDeflection.lastUpdateTime > (config.maxMarkerDecay * 1000)) {
-        state.maxDeflection.up = 0;
-        state.maxDeflection.down = 0;
+// --- State Update & Data Generation Functions ---
+
+function updateADRBoundaries() {
+    const adrRangeInPrice = config.adrRange / 10000;
+    const minRange = 0.0020;
+    
+    let adrHigh = state.midPrice + (adrRangeInPrice / 2);
+    let adrLow = state.midPrice - (adrRangeInPrice / 2);
+
+    if (adrHigh - adrLow < minRange) {
+        adrHigh = state.midPrice + minRange / 2;
+        adrLow = state.midPrice - minRange / 2;
     }
-    let updated = false;
-    if (tick.direction > 0 && tick.magnitude > state.maxDeflection.up) { state.maxDeflection.up = tick.magnitude; updated = true; }
-    if (tick.direction < 0 && tick.magnitude > state.maxDeflection.down) { state.maxDeflection.down = tick.magnitude; updated = true; }
-    if (updated) state.maxDeflection.lastUpdateTime = now;
+    
+    if(state.currentPrice > adrHigh) state.midPrice += (state.currentPrice - adrHigh);
+    else if (state.currentPrice < adrLow) state.midPrice -= (adrLow - state.currentPrice);
+
+    state.adrHigh = state.midPrice + (adrRangeInPrice / 2);
+    state.adrLow = state.midPrice - (adrRangeInPrice / 2);
 }
 
 function updateVolatility() {
-    if (!state || !state.ticks) return;
     const lookback = 5000;
     const now = performance.now();
-    state.ticks = state.ticks.filter(t => now - t.time < lookback);
-    if (state.ticks.length < 5) { state.volatility *= 0.99; return; }
+    const recentTicks = state.ticks.filter(t => now - t.time < lookback);
+
+    if (recentTicks.length < 5) {
+        state.volatility *= 0.99;
+        return; 
+    }
     
-    const magnitudes = state.ticks.map(t => t.magnitude);
+    const magnitudes = recentTicks.map(t => t.magnitude);
     const avgMagnitude = magnitudes.reduce((a, b) => a + b, 0) / magnitudes.length;
     const frequency = state.ticks.length / (lookback / 1000);
     
@@ -163,38 +150,28 @@ function updateVolatility() {
     state.volatility = state.volatility * 0.95 + volScore * 0.05;
 }
 
-self.onmessage = (event) => {
-    const { type, payload } = event.data;
+function generateMarketProfile() {
+    const profileData = new Map();
+    const relevantTicks = config.distributionDepthMode === 'all' 
+        ? state.allTicks 
+        : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
 
-    switch (type) {
-        case 'init':
-            config = payload.config;
-            state = payload.initialState || {}; // Ensure state is always an object
-            console.log('Worker received init message. Payload:', payload, 'State after assignment:', state);
-            
-            // Ensure state has all required properties
-            const initialPrice = payload.midPrice || 1.25500;
-            if (!state.lastTickTime) state.lastTickTime = performance.now();
-            if (!state.currentPrice) state.currentPrice = initialPrice;
-            if (!state.midPrice) state.midPrice = initialPrice;
-            if (!state.minObservedPrice) state.minObservedPrice = initialPrice - 0.0050;
-            if (!state.maxObservedPrice) state.maxObservedPrice = initialPrice + 0.0050;
-            if (!state.ticks) state.ticks = [];
-            if (!state.allTicks) state.allTicks = [];
-            if (!state.maxDeflection) state.maxDeflection = { up: 0, down: 0, lastUpdateTime: 0 };
-            if (!state.volatility) state.volatility = 0.5;
-            if (!state.momentum) state.momentum = 0;
-            if (!state.lastTickDirection) state.lastTickDirection = 'up';
-            break;
-        case 'startSimulation':
-            if (simulationInterval) clearInterval(simulationInterval);
-            simulationInterval = setInterval(generateTick, 50); // Start simulation
-            break;
-        case 'updateConfig':
-            config = { ...config, ...payload };
-            break;
-        case 'stop':
-            if (simulationInterval) clearInterval(simulationInterval);
-            break;
-    }
-};
+    relevantTicks.forEach(t => {
+        const priceBucket = Math.floor(t.price * (10000 / config.priceBucketSize));
+        const bucket = profileData.get(priceBucket) || { buy: 0, sell: 0, total: 0 };
+        if (t.direction > 0) bucket.buy++; else bucket.sell++;
+        bucket.total++;
+        profileData.set(priceBucket, bucket);
+    });
+
+    return {
+        levels: Array.from(profileData.entries())
+            .map(([bucket, data]) => ({
+                price: bucket * (config.priceBucketSize / 10000),
+                volume: data.total,
+                buy: data.buy,
+                sell: data.sell
+            }))
+            .sort((a, b) => a.price - b.price)
+    };
+}
