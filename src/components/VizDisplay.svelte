@@ -10,7 +10,7 @@
   let canvasElement;
   let ctx;
   let lastFlashId = null;
-  let isOrbFlashing = false; // Local state for orb flash
+  let isOrbFlashing = false;
 
   $: if (ctx && state && state.currentPrice !== undefined) {
     drawVisualization();
@@ -18,10 +18,9 @@
   
   afterUpdate(() => {
     if (flashEffect && flashEffect.id !== lastFlashId) {
-      drawFlash(flashEffect.direction);
+      if (config.showFlash) drawFlash(flashEffect.direction);
       lastFlashId = flashEffect.id;
 
-      // Trigger orb flash if enabled and current tick is significant enough
       if (config.showOrbFlash && flashEffect.magnitude >= config.orbFlashThreshold) {
         flashVolatilityOrb(flashEffect.direction);
       }
@@ -54,12 +53,17 @@
     
     const meterCenterX = canvasElement.width / 2 + (state.meterHorizontalOffset || 0);
 
+    // --- Drawing Order Fix ---
+    // Draw background elements first
     drawVolatilityOrb(ctx);
-    drawMarketProfile(ctx, meterCenterX);
+    if (config.showMarketProfile) drawMarketProfile(ctx, meterCenterX);
+
+    // Draw foreground elements
     drawDayRangeMeter(ctx, meterCenterX);
     drawPriceFloat(ctx, meterCenterX);
     drawCurrentPrice(ctx);
     
+    // Draw border and debug info last
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
     ctx.strokeRect(0, 0, canvasElement.width, canvasElement.height);
@@ -87,7 +91,7 @@
     requestAnimationFrame(animate);
   }
 
-  function drawVolatilityOrb(ctx, flashColor = null, flashOpacity = null) {
+    function drawVolatilityOrb(ctx, flashColor = null, flashOpacity = null) {
     if (!config.showVolatilityOrb) return;
 
     ctx.save();
@@ -180,16 +184,71 @@
   function drawMarketProfile(ctx, meterCenterX) {
     if (!marketProfileData?.levels?.length) return;
     ctx.save();
+    
     const maxVolume = Math.max(...marketProfileData.levels.map(l => l.volume));
-    if (maxVolume > 0) {
-      const profileMaxWidth = (config.marketProfileWidth || 100) / 2;
-      ctx.fillStyle = config.marketProfileColor || 'rgba(59, 130, 246, 0.2)';
-      marketProfileData.levels.forEach(level => {
-        const barWidth = (level.volume / maxVolume) * profileMaxWidth;
-        const y = priceToY(level.price);
-        ctx.fillRect(meterCenterX - barWidth, y - 0.5, barWidth, 1);
-      });
+    if (maxVolume <= 0) {
+      ctx.restore();
+      return;
     }
+
+    const profileMaxWidth = (config.visualizationsContentWidth / 2) - 10;
+    const scaleFactor = profileMaxWidth / maxVolume;
+
+    const profilePoints = marketProfileData.levels.map(level => ({
+      price: level.price,
+      y: priceToY(level.price),
+      buyWidth: (level.buy || 0) * scaleFactor,
+      sellWidth: (level.sell || 0) * scaleFactor,
+      totalWidth: level.volume * scaleFactor
+    }));
+
+    if (config.marketProfileView === 'outline') {
+      const drawOutline = (side, color) => {
+        const areaGenerator = d3.area()
+          .y(d => d.y)
+          .x0(meterCenterX)
+          .x1(d => side === 'buy' ? meterCenterX + d.buyWidth : meterCenterX - d.sellWidth)
+          .curve(d3.curveBasis)
+          .context(ctx);
+
+        ctx.beginPath();
+        areaGenerator(profilePoints);
+        ctx.fillStyle = `rgba(${color}, 0.2)`;
+        ctx.fill();
+        ctx.strokeStyle = `rgb(${color})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      };
+      
+      if (config.showSingleSidedProfile) {
+        if(config.singleSidedProfileSide === 'right') drawOutline('buy', '59, 130, 246');
+        else drawOutline('sell', '239, 68, 68');
+      } else {
+        drawOutline('buy', '59, 130, 246');
+        drawOutline('sell', '239, 68, 68');
+      }
+      
+    } else {
+      const drawBars = (side, color) => {
+        ctx.fillStyle = `rgba(${color}, 0.5)`;
+        profilePoints.forEach(p => {
+          if (side === 'buy' && p.buyWidth > 0) {
+            ctx.fillRect(meterCenterX, p.y - 0.5, p.buyWidth, 1);
+          } else if (side === 'sell' && p.sellWidth > 0) {
+            ctx.fillRect(meterCenterX - p.sellWidth, p.y - 0.5, p.sellWidth, 1);
+          }
+        });
+      };
+
+      if (config.showSingleSidedProfile) {
+         if(config.singleSidedProfileSide === 'right') drawBars('buy', '59, 130, 246');
+         else drawBars('sell', '239, 68, 68');
+      } else {
+        drawBars('buy', '59, 130, 246');
+        drawBars('sell', '239, 68, 68');
+      }
+    }
+
     ctx.restore();
   }
 

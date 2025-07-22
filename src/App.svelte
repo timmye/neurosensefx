@@ -1,11 +1,12 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import VizDisplay from './components/VizDisplay.svelte';
+  import ConfigPanel from './components/ConfigPanel.svelte';
 
   const dataWorker = new Worker(new URL('./workers/dataProcessor.js', import.meta.url), { type: 'module' });
 
   // --- Configuration ---
-  const config = {
+  let config = {
     adrRange: 100,
     pulseThreshold: 0.5,
     pulseScale: 5,
@@ -14,10 +15,13 @@
     frequencyMode: 'normal',
     priceBucketSize: 0.5,
     showVolatilityOrb: true,
+    volatilityColorMode: 'intensity',
+    volatilityOrbInvertBrightness: false,
+    volatilityOrbBaseWidth: 70,
     showMarketProfile: true,
-    showFlash: true, // Enable flash by default for demonstration
+    showFlash: true,
     flashIntensity: 0.4,
-    showOrbFlash: true, // Enable orb flash by default
+    showOrbFlash: true,
     orbFlashThreshold: 2,
     orbFlashIntensity: 0.8,
     distributionDepthMode: 'all',
@@ -46,9 +50,15 @@
   // --- Reactive State ---
   let state = undefined;
   let marketProfileData = { levels: [] };
-  let flashEffect = null; // Used to trigger the flash animation
+  let flashEffect = null;
+
+  function handleConfigChange(event) {
+    config = { ...config, ...event.detail.config };
+    dataWorker.postMessage({ type: 'updateConfig', payload: config });
+  }
 
   onMount(() => {
+    window.addEventListener('configchange', handleConfigChange);
     const initialMidPrice = 1.25500;
     dataWorker.postMessage({ 
         type: 'init', 
@@ -61,12 +71,11 @@
         state = payload.newState;
         marketProfileData = payload.marketProfile || { levels: [] };
         
-        // If a significant tick event is received, trigger the flash
         if (payload.significantTick) {
           flashEffect = {
             direction: payload.newState.lastTickDirection,
             id: Date.now(),
-            magnitude: payload.tickMagnitude // Pass the magnitude
+            magnitude: payload.tickMagnitude
           };
         }
       }
@@ -76,31 +85,50 @@
   });
 
   onDestroy(() => {
+    window.removeEventListener('configchange', handleConfigChange);
     dataWorker.terminate();
   });
 </script>
 
 <main>
-  <h1>NeuroSense FX</h1>
-  {#if state && state.adrHigh !== undefined && state.adrLow !== undefined}
-    <VizDisplay 
-      {config} 
-      {state} 
-      {marketProfileData}
-      {flashEffect}
-    />
-  {/if}
+  <div class="main-container">
+    <div class="viz-container">
+      <h1>NeuroSense FX</h1>
+      {#if state && state.adrHigh !== undefined && state.adrLow !== undefined}
+        <VizDisplay 
+          {config} 
+          {state} 
+          {marketProfileData}
+          {flashEffect}
+        />
+      {/if}
+    </div>
+    <div class="config-panel-container">
+      <ConfigPanel {config} />
+    </div>
+  </div>
 </main>
 
 <style>
   main {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
     background-color: #111827;
     color: #d1d5db;
     min-height: 100vh;
+  }
+  .main-container {
+    display: flex;
+    flex-direction: row;
+    padding: 20px;
+  }
+  .viz-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .config-panel-container {
+    width: 300px;
+    margin-left: 20px;
   }
   h1 {
     color: #60a5fa;
