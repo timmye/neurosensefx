@@ -1,5 +1,9 @@
 import App from './App.svelte';
 import { vizConfig, vizState } from './stores.js';
+import { get } from 'svelte/store';
+
+// Initialize stores with default values if they don't have them
+// (Assuming default values are set in stores.js)
 
 const app = new App({
   target: document.getElementById('app'),
@@ -14,19 +18,20 @@ const dataProcessorWorker = new Worker(new URL('./workers/dataProcessor.js', imp
 
 // Listen for messages from the Web Worker and update the vizState store
 dataProcessorWorker.onmessage = (event) => {
-  const newState = event.data; // The worker sends the updated state
-  vizState.set(newState); // Update the Svelte store
+  const newState = event.data.payload; // The worker now sends state updates within a payload
+  if (event.data.type === 'stateUpdate') {
+    vizState.set(newState);
+  }
 };
 
-// Send the initial configuration to the Web Worker once the main app is initialized.
-// This ensures the worker has the necessary parameters for its calculations.
-vizConfig.subscribe(currentConfig => {
-  dataProcessorWorker.postMessage({
-    type: 'init',
-    config: currentConfig // Send the entire config object
-  });
-  // Also send a message to start the game loop in the worker after initialization
-  dataProcessorWorker.postMessage({ type: 'startLoop' });
-}, { once: true }); // Only send the initial config and start loop once
+// Send the initial configuration and state to the worker
+console.log('Sending initial state to worker:', get(vizState)); // Use get() here
+dataProcessorWorker.postMessage({
+  type: 'init',
+  payload: {
+    config: get(vizConfig), // Use get() for vizConfig as well
+    initialState: get(vizState) // Use get() here
+  }
+});
 
 export default app;

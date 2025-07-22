@@ -6,7 +6,7 @@
   export let id;
   export let config = null;
   export let state = null;
-  export let marketProfileData = [];
+  export let marketProfileData = []; // This prop will receive the processed market profile data
 
   let canvasElement; // Bind to the canvas
   let ctx; // Canvas 2D context
@@ -248,10 +248,10 @@
    * @param {number} meterHeight - The height of the central meter. (New parameter)
    */
   function drawMarketProfile(meterX, meterWidth, meterY, meterHeight) {
-    if (!config.showMarketProfile || !appState.marketProfileData) return;
+    if (!config.showMarketProfile || !marketProfileData) return; // Use the prop here
 
     let maxDeviation = 0;
-    appState.marketProfileData.forEach(data => {
+    marketProfileData.forEach(data => { // Use the prop here
         if (config.showSingleSidedProfile) {
             maxDeviation = Math.max(maxDeviation, data.total);
         } else {
@@ -273,7 +273,7 @@
 
     // Render bars
     if (config.marketProfileView === 'bars') {
-        appState.marketProfileData.forEach(dataPoint => {
+        marketProfileData.forEach(dataPoint => { // Use the prop here
             const price = dataPoint.price; // Use the price from the pre-processed data point
             const yCanvas = meterY + priceToY(price) - (dataPoint.barHeight / 2); 
             const barHeight = dataPoint.barHeight;
@@ -321,9 +321,8 @@
   // function updateVolatility() { ... }
   // function gameLoop() { ... }
 
-  // Reactive statement to trigger drawVisualization when appState changes
-  // This will be the new gameLoop for the UI, responding to worker messages.
-  $: if (ctx && $appState) {
+  // Reactive statement to trigger drawVisualization when state changes
+  $: if (ctx && state) { // Use the prop here
     drawVisualization();
   }
 </script>
