@@ -2,25 +2,12 @@
   import { onMount, onDestroy } from 'svelte';
   import VizDisplay from './components/VizDisplay.svelte';
 
-  // Initialize a Web Worker
-  // The `/*?worker*/` suffix is a Vite-specific syntax to import a file as a Web Worker
+  // The Web Worker for data processing
   const dataWorker = new Worker(new URL('./workers/dataProcessor.js', import.meta.url), { type: 'module' });
 
-  // Reactive variables to hold state received from the worker
-  let simulationState = {
-    currentPrice: 1.25500,
-    lastTickDirection: 0,
-    maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
-    volatility: 0,
-    midPrice: 1.25500,
-    minObservedPrice: Infinity,
-    maxObservedPrice: Infinity,
-  };
-  let marketProfileData = new Map();
-
-  // Initial configuration to send to the worker
-  const initialConfig = {
-    adrRange: 100,
+  // --- Initial Configuration ---
+  const config = {
+    adrRange: 100, // in pips
     pulseThreshold: 0.5,
     pulseScale: 5,
     maxMarkerDecay: 10,
@@ -52,53 +39,60 @@
     priceDisplayPadding: 4,
     visualizationsContentWidth: 220,
     centralAxisXPosition: 170,
-    meterHeight: 120,
+    meterHeight: 600, // Increased for better visibility
     centralMeterFixedThickness: 8,
     showPipetteDigit: false,
     showSingleSidedProfile: false,
     singleSidedProfileSide: 'right',
   };
 
-  onMount(() => {
-    // Send initial configuration to the worker
-    dataWorker.postMessage({ type: 'init', payload: { config: initialConfig } });
+  // --- Reactive State ---
+  // Initialize state as null or undefined to ensure conditional rendering works
+  let state = undefined;
+  let marketProfileData = { levels: [] };
 
-    // Listen for messages from the worker
+  onMount(() => {
+    // Pass the initial configuration to the worker
+    const initialMidPrice = 1.25500;
+    dataWorker.postMessage({ 
+        type: 'init', 
+        payload: { config: config, midPrice: initialMidPrice } 
+    });
+
+    // Listen for ongoing updates from the worker
     dataWorker.onmessage = (event) => {
       const { type, payload } = event.data;
       if (type === 'stateUpdate') {
-        // Update reactive variables with data from the worker
-        simulationState = {
-          currentPrice: payload.currentPrice,
-          lastTickDirection: payload.lastTickDirection,
-          maxDeflection: payload.maxDeflection,
-          volatility: payload.volatility,
-          midPrice: payload.midPrice,
-          minObservedPrice: payload.minObservedPrice,
-          maxObservedPrice: payload.maxObservedPrice
-        };
-        marketProfileData = payload.marketProfile || new Map();
+        // Update state with the latest data from the worker
+        state = payload.newState;
+        marketProfileData = payload.marketProfile || { levels: [] };
       }
     };
 
-    // Start the simulation in the worker *AFTER* attaching the message listener
+    // Start the simulation
     dataWorker.postMessage({ type: 'startSimulation' });
   });
 
-  // Terminate the worker when the component is destroyed to prevent memory leaks
   onDestroy(() => {
     dataWorker.terminate();
   });
 </script>
 
 <main>
-  <h1>Hello, NeuroSense FX!</h1>
-  <VizDisplay 
-    id="main-viz"
-    config={initialConfig} 
-    state={simulationState} 
-    marketProfileData={marketProfileData}
-  />
+  <h1>NeuroSense FX</h1>
+  <!-- 
+    This is the definitive fix for the race condition. 
+    The VizDisplay component is ONLY rendered when the essential state data (ADR high/low)
+    has been received from the worker.
+  -->
+  {#if state && state.adrHigh !== undefined && state.adrLow !== undefined}
+    <VizDisplay 
+      id="main-viz"
+      {config} 
+      {state} 
+      {marketProfileData}
+    />
+  {/if}
 </main>
 
 <style>
@@ -107,8 +101,8 @@
     flex-direction: column;
     align-items: center;
     padding: 20px;
-    background-color: #111827; /* Dark background */
-    color: #d1d5db; /* Light text */
+    background-color: #111827;
+    color: #d1d5db;
     min-height: 100vh;
   }
   h1 {
