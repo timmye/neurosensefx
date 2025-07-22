@@ -48,6 +48,8 @@ function generateTick() {
 }
 
 function processTick(tick) {
+    if (!state || !state.ticks || !state.allTicks) return;
+    
     const now = performance.now();
     state.ticks = state.ticks.filter(t => now - t.time < 5000);
 
@@ -103,6 +105,7 @@ function processTick(tick) {
 }
 
 function updateMaxDeflection(tick) {
+    if (!state || !state.maxDeflection) return;
     const now = performance.now();
     if (now - state.maxDeflection.lastUpdateTime > (config.maxMarkerDecay * 1000)) {
         state.maxDeflection.up = 0;
@@ -115,6 +118,7 @@ function updateMaxDeflection(tick) {
 }
 
 function updateVolatility() {
+    if (!state || !state.ticks) return;
     const lookback = 5000;
     const now = performance.now();
     state.ticks = state.ticks.filter(t => now - t.time < lookback);
@@ -134,20 +138,20 @@ self.onmessage = (event) => {
     switch (type) {
         case 'init':
             config = payload.config;
-            state = payload.initialState;
+            state = payload.initialState || {}; // Ensure state is always an object
             console.log('Worker received init message. Payload:', payload, 'State after assignment:', state);
             
             // Ensure state has all required properties
-            if (!state || !state.lastTickTime) state.lastTickTime = performance.now(); // Added check for state
-            if (!state || !state.currentPrice) state.currentPrice = 1.0; // Added check for state
-            if (!state || !state.midPrice) state.midPrice = 1.0; // Added check for state
-            if (!state || !state.minObservedPrice) state.minObservedPrice = 1.0; // Added check for state
-            if (!state || !state.maxObservedPrice) state.maxObservedPrice = 1.0; // Added check for state
-            if (!state || !state.ticks) state.ticks = []; // Added check for state
-            if (!state || !state.allTicks) state.allTicks = []; // Added check for state
-            if (!state || !state.maxDeflection) state.maxDeflection = { up: 0, down: 0, lastUpdateTime: 0 }; // Added check for state
-            if (!state || !state.volatility) state.volatility = 0.5; // Added check for state
-            if (!state || !state.momentum) state.momentum = 0; // Added check for state
+            if (!state.lastTickTime) state.lastTickTime = performance.now();
+            if (!state.currentPrice) state.currentPrice = 1.0;
+            if (!state.midPrice) state.midPrice = 1.0;
+            if (!state.minObservedPrice) state.minObservedPrice = 1.0;
+            if (!state.maxObservedPrice) state.maxObservedPrice = 1.0;
+            if (!state.ticks) state.ticks = [];
+            if (!state.allTicks) state.allTicks = [];
+            if (!state.maxDeflection) state.maxDeflection = { up: 0, down: 0, lastUpdateTime: 0 };
+            if (!state.volatility) state.volatility = 0.5;
+            if (!state.momentum) state.momentum = 0;
 
             if (simulationInterval) clearInterval(simulationInterval);
             simulationInterval = setInterval(generateTick, 50); // Start simulation
