@@ -46,4 +46,9 @@ dataProcessorWorker.postMessage({
   }
 });
 
+// Start the simulation after initialization
+dataProcessorWorker.postMessage({
+  type: 'startSimulation'
+});
+
 export default app;

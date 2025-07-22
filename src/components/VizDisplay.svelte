@@ -3,10 +3,9 @@
   // Props will be used instead of stores
   import * as d3 from 'd3'; // Import D3 for utility functions if needed
 
-  export let id;
   export let config = null;
   export let state = null;
-  export let marketProfileData = []; // This prop will receive the processed market profile data
+  export let marketProfileData = null;
 
   let canvasElement; // Bind to the canvas
   let ctx; // Canvas 2D context
@@ -394,23 +393,8 @@
     }
 
     /* Styles for price formatting - now controlled by JS with new config values */
-    #priceDisplay .big-figure {
-        font-size: var(--big-figure-font-size-ratio)em;
-        font-weight: 700; /* Default bold */
-    }
-    #priceDisplay .pip {
-        font-size: var(--pip-font-size-ratio)em;
-        font-weight: 600; /* Default semibold */
-    }
-    /* New style for the inner pipette digit */
-    #priceDisplay .pipette-inner {
-        font-size: var(--pipette-font-size-ratio)em;
-    }
+    /* These classes are no longer used as price display is rendered on canvas */
 
     /* Define ADR Boundary Line colors for pulsing if needed for canvas */
     /* This CSS might not be directly used if drawn on canvas, but good for reference */
-    .adr-boundary-line.pulse {
-        /* background-color: #60a5fa; */
-        /* box-shadow: 0 0 10px #60a5fa, 0 0 20px #60a5fa; */
-    }
 </style>

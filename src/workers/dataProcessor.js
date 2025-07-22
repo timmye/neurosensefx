@@ -152,7 +152,8 @@ self.onmessage = (event) => {
             if (!state.maxDeflection) state.maxDeflection = { up: 0, down: 0, lastUpdateTime: 0 };
             if (!state.volatility) state.volatility = 0.5;
             if (!state.momentum) state.momentum = 0;
-
+            break;
+        case 'startSimulation':
             if (simulationInterval) clearInterval(simulationInterval);
             simulationInterval = setInterval(generateTick, 50); // Start simulation
             break;

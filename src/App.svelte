@@ -66,13 +66,18 @@
     // Listen for messages from the worker
     dataWorker.onmessage = (event) => {
       const { type, payload } = event.data;
-      if (type === 'initialState') {
-          // Initialize simulationState with initialState from worker
-          simulationState = payload;
-      } else if (type === 'stateUpdate') {
+      if (type === 'stateUpdate') {
         // Update reactive variables with data from the worker
-        simulationState = payload.state;
-        marketProfileData = payload.profileData;
+        simulationState = {
+          currentPrice: payload.currentPrice,
+          lastTickDirection: payload.lastTickDirection,
+          maxDeflection: payload.maxDeflection,
+          volatility: payload.volatility,
+          midPrice: payload.midPrice,
+          minObservedPrice: payload.minObservedPrice,
+          maxObservedPrice: payload.maxObservedPrice
+        };
+        marketProfileData = payload.marketProfile;
       }
     };
 
