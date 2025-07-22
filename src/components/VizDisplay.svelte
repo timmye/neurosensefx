@@ -105,54 +105,8 @@
     // Draw Market Profile
     drawMarketProfile(meterX, meterWidth, meterY, meterHeight);
 
-    // Update price display DOM element
-    if (priceDisplayElement) {
-        priceDisplayElement.style.top = `${priceFloatDrawY}px`; // Uses the same Y as the price float
-        
-        // Calculate left position for priceDisplayElement
-        const priceFloatActualLeft = meterX + meterWidth / 2 - $config.priceFloatWidth / 2 + $config.priceFloatXOffset;
-        priceDisplayElement.style.left = `${priceFloatActualLeft - $config.priceHorizontalOffset - priceDisplayElement.offsetWidth}px`;
-
-        const priceString = $appState.currentPrice.toFixed(5);
-        const decimalIndex = priceString.indexOf('.');
-        let formattedPrice = '';
-        if (decimalIndex !== -1 && priceString.length >= decimalIndex + 5) {
-            const bigFigure = priceString.substring(0, decimalIndex + 3);
-            const pip = priceString.substring(decimalIndex + 3, decimalIndex + 5);
-            const pipette = priceString.substring(decimalIndex + 5);
-
-            formattedPrice = `
-                <span class="big-figure">${bigFigure}</span><span class="pip">${pip}${$config.showPipetteDigit ? `<span class="pipette-inner">${pipette}</span>` : ''}</span>
-            `;
-        } else {
-            formattedPrice = priceString;
-        }
-        priceDisplayElement.innerHTML = formattedPrice;
-
-        // Apply bounding box and background styles to the priceDisplayElement
-        priceDisplayElement.style.border = 'none';
-        priceDisplayElement.style.borderRadius = '0';
-        priceDisplayElement.style.backgroundColor = 'transparent';
-        priceDisplayElement.style.padding = '0';
-
-        if ($config.showPriceBoundingBox || $config.showPriceBackground) {
-            priceDisplayElement.style.padding = `${$config.priceDisplayPadding}px`;
-        }
-
-        if ($config.showPriceBoundingBox) {
-            priceDisplayElement.style.border = '1px solid #4b5563';
-            priceDisplayElement.style.borderRadius = '4px';
-        }
-
-        if ($config.showPriceBackground) {
-            priceDisplayElement.style.backgroundColor = 'rgba(17, 24, 39, 0.7)';
-        }
-
-        // Update CSS custom properties for digit font sizes
-        priceDisplayElement.style.setProperty('--big-figure-font-size-ratio', $config.bigFigureFontSizeRatio);
-        priceDisplayElement.style.setProperty('--pip-font-size-ratio', $config.pipFontSizeRatio);
-        priceDisplayElement.style.setProperty('--pipette-font-size-ratio', $config.pipetteFontSizeRatio);
-    }
+    // Draw Canvas-native price display
+    drawPriceDisplay(meterX, meterWidth, meterY, meterHeight, priceFloatDrawY);
   }
 
   /**
@@ -199,6 +153,89 @@
       ctx.fillRect(markerX, priceFloatY - (markerHeight / 2), markerWidth, markerHeight);
 
       ctx.restore(); // Restore the canvas state
+  }
+
+  /**
+   * Draws Canvas-native price display with formatting.
+   * @param {number} meterX - The X position of the central meter.
+   * @param {number} meterWidth - The width of the central meter.
+   * @param {number} meterY - The Y position of the central meter.
+   * @param {number} meterHeight - The height of the central meter.
+   * @param {number} priceY - The Y position for the price display.
+   */
+  function drawPriceDisplay(meterX, meterWidth, meterY, meterHeight, priceY) {
+    if (!$config.showPriceDisplay) return;
+
+    const priceString = $appState.currentPrice.toFixed(5);
+    const decimalIndex = priceString.indexOf('.');
+    
+    if (decimalIndex === -1 || priceString.length < decimalIndex + 5) return;
+
+    const bigFigure = priceString.substring(0, decimalIndex + 3);
+    const pip = priceString.substring(decimalIndex + 3, decimalIndex + 5);
+    const pipette = priceString.substring(decimalIndex + 5);
+
+    // Calculate positions
+    const priceFloatActualLeft = meterX + meterWidth / 2 - $config.priceFloatWidth / 2 + $config.priceFloatXOffset;
+    const textX = priceFloatActualLeft - $config.priceHorizontalOffset;
+    const textY = priceY;
+
+    // Background and bounding box
+    if ($config.showPriceBackground || $config.showPriceBoundingBox) {
+      ctx.save();
+      
+      // Measure text for background sizing
+      ctx.font = `${$config.bigFigureFontSizeRatio * 12}px monospace`;
+      const bigFigureWidth = ctx.measureText(bigFigure).width;
+      ctx.font = `${$config.pipFontSizeRatio * 12}px monospace`;
+      const pipWidth = ctx.measureText(pip).width;
+      const pipetteWidth = $config.showPipetteDigit ? ctx.measureText(pipette).width : 0;
+      
+      const totalWidth = bigFigureWidth + pipWidth + pipetteWidth + ($config.priceDisplayPadding * 2);
+      const totalHeight = 16 + ($config.priceDisplayPadding * 2);
+      
+      const bgX = textX - totalWidth;
+      const bgY = textY - totalHeight / 2;
+
+      if ($config.showPriceBackground) {
+        ctx.fillStyle = 'rgba(17, 24, 39, 0.7)';
+        ctx.fillRect(bgX, bgY, totalWidth, totalHeight);
+      }
+
+      if ($config.showPriceBoundingBox) {
+        ctx.strokeStyle = '#4b5563';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bgX, bgY, totalWidth, totalHeight);
+      }
+      
+      ctx.restore();
+    }
+
+    // Draw text
+    let currentX = textX - $config.priceDisplayPadding;
+
+    // Big figure
+    ctx.save();
+    ctx.font = `${$config.bigFigureFontSizeRatio * 12}px monospace`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(bigFigure, currentX, textY);
+    currentX -= ctx.measureText(bigFigure).width;
+
+    // Pip
+    ctx.font = `${$config.pipFontSizeRatio * 12}px monospace`;
+    ctx.fillStyle = '#a78bfa';
+    ctx.fillText(pip, currentX, textY);
+    currentX -= ctx.measureText(pip).width;
+
+    // Pipette
+    if ($config.showPipetteDigit) {
+      ctx.font = `${$config.pipetteFontSizeRatio * 12}px monospace`;
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(pipette, currentX, textY);
+    }
+    ctx.restore();
   }
 
   /**
