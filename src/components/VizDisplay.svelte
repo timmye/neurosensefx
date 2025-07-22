@@ -15,6 +15,7 @@
   // --- Reactive Trigger ---
   // Now simply react to state changes, trusting the parent to provide valid data
   $: if (ctx && state && state.currentPrice !== undefined) { // Add check for state and currentPrice
+    console.log('State updated:', state.currentPrice, 'ADR:', state.adrLow, state.adrHigh);
     drawVisualization();
   }
 
@@ -44,39 +45,90 @@
      if (!ctx || !canvasElement || !state || state.adrLow === undefined || state.adrHigh === undefined || state.currentPrice === undefined) return; // Final safety check
 
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    const meterCenterX = canvasElement.width / 2 + (state.meterHorizontalOffset || 0);
     
-    // Debug: Draw background to ensure canvas is visible
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    // Spec canvas: 220x120px - baseline verification
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     
-    // Debug: Log state values
-    console.log('Rendering state:', {
-      currentPrice: state.currentPrice,
+    // Draw border to show canvas boundaries
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, canvasElement.width, canvasElement.height);
+    
+    // Display dimensions
+    ctx.fillStyle = '#ccc';
+    ctx.font = '10px monospace';
+    ctx.fillText(`${canvasElement.width}x${canvasElement.height}`, 5, 15);
+    
+    const meterCenterX = canvasElement.width / 2 + (state.meterHorizontalOffset || 0);
+    
+    // Enable ADR day range meter as anchor/basis
+    drawDayRangeMeter(ctx, meterCenterX);
+    
+    // Enable price float level indicator
+    drawPriceFloat(ctx, meterCenterX);
+    
+    // Enable current price display
+    drawCurrentPrice(ctx);
+    
+    // Debug: Log ADR rendering details
+    console.log('ADR rendering debug:', {
+      width: canvasElement.width,
+      height: canvasElement.height,
       adrLow: state.adrLow,
       adrHigh: state.adrHigh,
-      midPrice: state.midPrice,
-      minObservedPrice: state.minObservedPrice,
-      maxObservedPrice: state.maxObservedPrice
+      lowY: priceToY(state.adrLow),
+      highY: priceToY(state.adrHigh),
+      currentPrice: state.currentPrice,
+      priceY: priceToY(state.currentPrice)
     });
-    
-    drawDayRangeMeter(ctx, meterCenterX);
-    drawMarketProfile(ctx, meterCenterX);
-    drawPriceFloat(ctx, meterCenterX);
   }
 
   // --- Component-Specific Drawing Functions ---
   function drawDayRangeMeter(ctx, meterCenterX) {
-    const meterWidth = config.visualizationsContentWidth || 220;
-    ctx.fillStyle = config.adrBoundaryColor || 'rgba(0, 150, 255, 0.7)';
-    ctx.fillRect(meterCenterX - meterWidth / 2, priceToY(state.adrHigh), meterWidth, 2);
-    ctx.fillRect(meterCenterX - meterWidth / 2, priceToY(state.adrLow), meterWidth, 2);
+    const meterWidth = 40; // Narrower meter for better visibility
+    const lowY = priceToY(state.adrLow);
+    const highY = priceToY(state.adrHigh);
+    
+    // Draw ADR axis - the fundamental basis
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(meterCenterX, 0);
+    ctx.lineTo(meterCenterX, canvasElement.height);
+    ctx.stroke();
+    
+    // Draw ADR range with thicker lines
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    
+    // ADR low line
+    ctx.beginPath();
+    ctx.moveTo(meterCenterX - meterWidth / 2, lowY);
+    ctx.lineTo(meterCenterX + meterWidth / 2, lowY);
+    ctx.stroke();
+    
+    // ADR high line
+    ctx.beginPath();
+    ctx.moveTo(meterCenterX - meterWidth / 2, highY);
+    ctx.lineTo(meterCenterX + meterWidth / 2, highY);
+    ctx.stroke();
+    
+    // 25%, 50%, 75% markers
     const adrRange = state.adrHigh - state.adrLow;
     const steps = [0.25, 0.50, 0.75];
-    ctx.fillStyle = config.adrStepColor || 'rgba(100, 100, 100, 0.5)';
+    
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1;
+    
     steps.forEach(step => {
-        const price = state.adrLow + adrRange * step;
-        ctx.fillRect(meterCenterX - meterWidth / 2, priceToY(price), meterWidth, 1);
+      const price = state.adrLow + adrRange * step;
+      const y = priceToY(price);
+      
+      ctx.beginPath();
+      ctx.moveTo(meterCenterX - meterWidth / 4, y);
+      ctx.lineTo(meterCenterX + meterWidth / 4, y);
+      ctx.stroke();
     });
   }
 
@@ -90,6 +142,17 @@
       ctx.fillStyle = priceFloatColor;
       ctx.fillRect(meterCenterX - floatWidth / 2, y - floatHeight / 2, floatWidth, floatHeight);
       ctx.shadowBlur = 0;
+  }
+
+  function drawCurrentPrice(ctx) {
+    // Skip drawing if no current price
+    if (!state.currentPrice) return;
+    
+    // Draw price text in top-left corner
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(state.currentPrice.toFixed(5), 10, 15);
   }
 
   function drawMarketProfile(ctx, meterCenterX) {
@@ -115,20 +178,7 @@
 <div class="visualization-container" style="width: {config.visualizationsContentWidth}px; height: {config.meterHeight}px;">
   <canvas bind:this={canvasElement}></canvas>
   
-  <!-- The price display is now unconditionally rendered within VizDisplay, 
-       as the parent ensures state.currentPrice exists before rendering VizDisplay. -->
-  <div
-    class="price-display"
-    style="
-      position: absolute;
-      top: {priceToY(state.currentPrice)}px;
-      left: {(config.visualizationsContentWidth || 220) / 2 + (state.meterHorizontalOffset || 0)}px;
-      transform: translate(15px, -50%);
-      color: {getPriceTextColor()};
-    "
-  >
-    {state.currentPrice.toFixed(2)}
-  </div>
+  <!-- All other elements disabled for baseline verification -->
 </div>
 
 <style>
@@ -143,12 +193,5 @@
     top: 0;
     left: 0;
   }
-  .price-display {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 1.2em;
-    font-weight: bold;
-    text-shadow: 0 0 5px rgba(0,0,0,0.7);
-    pointer-events: none;
-    position: absolute;
-  }
+  /* Price display is now rendered on canvas */
 </style>

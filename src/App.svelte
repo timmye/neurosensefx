@@ -39,7 +39,7 @@
     priceDisplayPadding: 4,
     visualizationsContentWidth: 220,
     centralAxisXPosition: 170,
-    meterHeight: 600, // Increased for better visibility
+    meterHeight: 120, // Spec: 220x120px canvas
     centralMeterFixedThickness: 8,
     showPipetteDigit: false,
     showSingleSidedProfile: false,
