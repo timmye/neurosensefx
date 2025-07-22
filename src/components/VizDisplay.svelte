@@ -1,35 +1,37 @@
 <script>
   import { onMount } from 'svelte';
-  import { config, appState } from '../stores.js'; // Import Svelte stores
+  // Props will be used instead of stores
   import * as d3 from 'd3'; // Import D3 for utility functions if needed
 
   export let id;
-  export let data = {}; // Placeholder for data prop
+  export let config = null;
+  export let state = null;
+  export let marketProfileData = [];
 
   let canvasElement; // Bind to the canvas
   let ctx; // Canvas 2D context
   let priceDisplayElement; // Bind to the price display DOM element
 
-  // Using Svelte's auto-subscriptions for store values
-  // All config values will now be accessed via $config.propertyName
-  // All state values will now be accessed via $appState.propertyName
+  // Using props directly instead of stores
+  // All config values will now be accessed via config.propertyName
+  // All state values will now be accessed via state.propertyName
 
   // Svelte reactivity for canvas dimensions and redrawing
-  // This now reacts to changes in the $config store
-  $: if (canvasElement && ctx && $config) {
-    canvasElement.width = $config.visualizationsContentWidth;
-    canvasElement.height = $config.meterHeight;
+  // This now reacts to changes in the config prop
+  $: if (canvasElement && ctx && config) {
+    canvasElement.width = config.visualizationsContentWidth;
+    canvasElement.height = config.meterHeight;
     drawVisualization();
   }
 
   onMount(() => {
     if (canvasElement) {
       ctx = canvasElement.getContext('2d');
-      // Initial draw, subsequent draws handled by reactivity to $appState and $config
+      // Initial draw, subsequent draws handled by reactivity to state and config
       drawVisualization();
 
       // The gameLoop (simulation) will now be handled by the Web Worker.
-      // This component will simply react to changes in $appState.
+      // This component will simply react to changes in state.
     } else {
         console.error("Canvas element not found in VizDisplay.svelte");
     }
@@ -38,11 +40,11 @@
   // --- Helper to convert price to Y-coordinate on canvas ---
   // This function now returns Y relative to the TOP of the meter.
   function priceToY(price) {
-    const effectiveADRInPrice = Math.max($config.adrRange / 10000, $appState.maxObservedPrice - $appState.minObservedPrice);
-    const lowPrice = $appState.midPrice - (effectiveADRInPrice / 2);
+    const effectiveADRInPrice = Math.max(config.adrRange / 10000, state.maxObservedPrice - state.minObservedPrice);
+    const lowPrice = state.midPrice - (effectiveADRInPrice / 2);
     let percentage = (price - lowPrice) / effectiveADRInPrice;
     percentage = Math.max(0, Math.min(1, percentage));
-    return (1 - percentage) * $config.meterHeight; // Invert Y-axis: 0% at bottom, 100% at top of meter.
+    return (1 - percentage) * config.meterHeight; // Invert Y-axis: 0% at bottom, 100% at top of meter.
   }
 
   // --- Main drawing function on Canvas ---
@@ -56,9 +58,9 @@
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
     // Calculate meter's position centered vertically on canvas
-    const meterWidth = $config.centralMeterFixedThickness;
-    const meterHeight = $config.meterHeight;
-    const meterX = $config.centralAxisXPosition;
+    const meterWidth = config.centralMeterFixedThickness;
+    const meterHeight = config.meterHeight;
+    const meterX = config.centralAxisXPosition;
     const meterY = (canvasElement.height / 2) - (meterHeight / 2); // Top-left Y of the meter
 
     // Draw central meter (dayRangeMeter)
@@ -92,12 +94,12 @@
     ctx.stroke();
 
     // Draw priceFloat
-    const priceFloatDrawY = meterY + priceToY($appState.currentPrice) - (2 / 2); // priceToY is relative to meter top, 2 is float height
-    const priceFloatX = meterX + (meterWidth / 2) - ($config.priceFloatWidth / 2) + $config.priceFloatXOffset;
-    const priceColor = $appState.lastTickDirection > 0 ? '#22c55e' : ($appState.lastTickDirection < 0 ? '#ef4444' : '#a78bfa');
+    const priceFloatDrawY = meterY + priceToY(state.currentPrice) - (2 / 2); // priceToY is relative to meter top, 2 is float height
+    const priceFloatX = meterX + (meterWidth / 2) - (config.priceFloatWidth / 2) + config.priceFloatXOffset;
+    const priceColor = state.lastTickDirection > 0 ? '#22c55e' : (state.lastTickDirection < 0 ? '#ef4444' : '#a78bfa');
 
     ctx.fillStyle = priceColor;
-    ctx.fillRect(priceFloatX, priceFloatDrawY, $config.priceFloatWidth, 2); // 2px height
+    ctx.fillRect(priceFloatX, priceFloatDrawY, config.priceFloatWidth, 2); // 2px height
 
     // Draw Max Deflection Marker
     drawMaxDeflection(priceFloatDrawY, meterX, meterWidth);
@@ -116,11 +118,11 @@
    * @param {number} meterWidth - The width of the central meter.
    */
   function drawMaxDeflection(priceFloatY, meterX, meterWidth) {
-      if (!$config.showMaxMarker) return;
+      if (!config.showMaxMarker) return;
 
       const now = performance.now();
-      const timeSinceUpdate = now - $appState.maxDeflection.lastUpdateTime;
-      const decayProgress = Math.min(timeSinceUpdate / ($config.maxMarkerDecay * 1000), 1); // Convert decay to milliseconds
+      const timeSinceUpdate = now - state.maxDeflection.lastUpdateTime;
+      const decayProgress = Math.min(timeSinceUpdate / (config.maxMarkerDecay * 1000), 1); // Convert decay to milliseconds
       
       if (decayProgress >= 1) {
           // Marker has fully decayed, no need to draw
@@ -134,12 +136,12 @@
       const markerWidth = 2;
       const markerHeight = 9;
 
-      const upPositionOffset = $appState.maxDeflection.up * $config.pulseScale;
-      const downPositionOffset = $appState.maxDeflection.down * $config.pulseScale;
+      const upPositionOffset = state.maxDeflection.up * config.pulseScale;
+      const downPositionOffset = state.maxDeflection.down * config.pulseScale;
 
       let markerX, markerColor;
 
-      if ($appState.maxDeflection.up > $appState.maxDeflection.down) {
+      if (state.maxDeflection.up > state.maxDeflection.down) {
           // Max deflection is upwards (right side of meter)
           markerX = meterX + meterWidth + upPositionOffset;
           markerColor = '#60a5fa'; // Blue
@@ -164,9 +166,9 @@
    * @param {number} priceY - The Y position for the price display.
    */
   function drawPriceDisplay(meterX, meterWidth, meterY, meterHeight, priceY) {
-    if (!$config.showPriceDisplay) return;
+    if (!config.showPriceDisplay) return;
 
-    const priceString = $appState.currentPrice.toFixed(5);
+    const priceString = state.currentPrice.toFixed(5);
     const decimalIndex = priceString.indexOf('.');
     
     if (decimalIndex === -1 || priceString.length < decimalIndex + 5) return;
@@ -176,33 +178,33 @@
     const pipette = priceString.substring(decimalIndex + 5);
 
     // Calculate positions
-    const priceFloatActualLeft = meterX + meterWidth / 2 - $config.priceFloatWidth / 2 + $config.priceFloatXOffset;
-    const textX = priceFloatActualLeft - $config.priceHorizontalOffset;
+    const priceFloatActualLeft = meterX + meterWidth / 2 - config.priceFloatWidth / 2 + config.priceFloatXOffset;
+    const textX = priceFloatActualLeft - config.priceHorizontalOffset;
     const textY = priceY;
 
     // Background and bounding box
-    if ($config.showPriceBackground || $config.showPriceBoundingBox) {
+    if (config.showPriceBackground || config.showPriceBoundingBox) {
       ctx.save();
       
       // Measure text for background sizing
-      ctx.font = `${$config.bigFigureFontSizeRatio * 12}px monospace`;
+      ctx.font = `${config.bigFigureFontSizeRatio * 12}px monospace`;
       const bigFigureWidth = ctx.measureText(bigFigure).width;
-      ctx.font = `${$config.pipFontSizeRatio * 12}px monospace`;
+      ctx.font = `${config.pipFontSizeRatio * 12}px monospace`;
       const pipWidth = ctx.measureText(pip).width;
-      const pipetteWidth = $config.showPipetteDigit ? ctx.measureText(pipette).width : 0;
+      const pipetteWidth = config.showPipetteDigit ? ctx.measureText(pipette).width : 0;
       
-      const totalWidth = bigFigureWidth + pipWidth + pipetteWidth + ($config.priceDisplayPadding * 2);
-      const totalHeight = 16 + ($config.priceDisplayPadding * 2);
+      const totalWidth = bigFigureWidth + pipWidth + pipetteWidth + (config.priceDisplayPadding * 2);
+      const totalHeight = 16 + (config.priceDisplayPadding * 2);
       
       const bgX = textX - totalWidth;
       const bgY = textY - totalHeight / 2;
 
-      if ($config.showPriceBackground) {
+      if (config.showPriceBackground) {
         ctx.fillStyle = 'rgba(17, 24, 39, 0.7)';
         ctx.fillRect(bgX, bgY, totalWidth, totalHeight);
       }
 
-      if ($config.showPriceBoundingBox) {
+      if (config.showPriceBoundingBox) {
         ctx.strokeStyle = '#4b5563';
         ctx.lineWidth = 1;
         ctx.strokeRect(bgX, bgY, totalWidth, totalHeight);
@@ -212,11 +214,11 @@
     }
 
     // Draw text
-    let currentX = textX - $config.priceDisplayPadding;
+    let currentX = textX - config.priceDisplayPadding;
 
     // Big figure
     ctx.save();
-    ctx.font = `${$config.bigFigureFontSizeRatio * 12}px monospace`;
+    ctx.font = `${config.bigFigureFontSizeRatio * 12}px monospace`;
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
@@ -224,14 +226,14 @@
     currentX -= ctx.measureText(bigFigure).width;
 
     // Pip
-    ctx.font = `${$config.pipFontSizeRatio * 12}px monospace`;
+    ctx.font = `${config.pipFontSizeRatio * 12}px monospace`;
     ctx.fillStyle = '#a78bfa';
     ctx.fillText(pip, currentX, textY);
     currentX -= ctx.measureText(pip).width;
 
     // Pipette
-    if ($config.showPipetteDigit) {
-      ctx.font = `${$config.pipetteFontSizeRatio * 12}px monospace`;
+    if (config.showPipetteDigit) {
+      ctx.font = `${config.pipetteFontSizeRatio * 12}px monospace`;
       ctx.fillStyle = '#6b7280';
       ctx.fillText(pipette, currentX, textY);
     }
@@ -246,11 +248,11 @@
    * @param {number} meterHeight - The height of the central meter. (New parameter)
    */
   function drawMarketProfile(meterX, meterWidth, meterY, meterHeight) {
-    if (!$config.showMarketProfile || !$appState.marketProfileData) return;
+    if (!config.showMarketProfile || !appState.marketProfileData) return;
 
     let maxDeviation = 0;
-    $appState.marketProfileData.forEach(data => {
-        if ($config.showSingleSidedProfile) {
+    appState.marketProfileData.forEach(data => {
+        if (config.showSingleSidedProfile) {
             maxDeviation = Math.max(maxDeviation, data.total);
         } else {
             maxDeviation = Math.max(maxDeviation, data.buy, data.sell);
@@ -264,25 +266,25 @@
     const availableWidthRight = canvasElement.width - centralMeterRightEdge;
 
     const scaleFactor = maxDeviation > 0 ? (
-        $config.showSingleSidedProfile ?
-            ($config.singleSidedProfileSide === 'left' ? availableWidthLeft : availableWidthRight) / maxDeviation :
+        config.showSingleSidedProfile ?
+            (config.singleSidedProfileSide === 'left' ? availableWidthLeft : availableWidthRight) / maxDeviation :
             Math.min(availableWidthLeft, availableWidthRight) / maxDeviation
     ) : 0;
 
     // Render bars
-    if ($config.marketProfileView === 'bars') {
-        $appState.marketProfileData.forEach(dataPoint => {
+    if (config.marketProfileView === 'bars') {
+        appState.marketProfileData.forEach(dataPoint => {
             const price = dataPoint.price; // Use the price from the pre-processed data point
             const yCanvas = meterY + priceToY(price) - (dataPoint.barHeight / 2); 
             const barHeight = dataPoint.barHeight;
 
             // Render single-sided bars
-            if ($config.showSingleSidedProfile) {
+            if (config.showSingleSidedProfile) {
                 const barWidth = dataPoint.total * scaleFactor;
                 let barX;
                 let barColor = 'rgba(191, 147, 255, 0.7)'; // Brighter purple
 
-                if ($config.singleSidedProfileSide === 'left') {
+                if (config.singleSidedProfileSide === 'left') {
                     barX = centralMeterLeftEdge - barWidth;
                 } else { // right
                     barX = centralMeterRightEdge;
@@ -305,7 +307,7 @@
                 }
             }
         });
-    } else if ($config.marketProfileView === 'outline') {
+    } else if (config.marketProfileView === 'outline') {
         // Outline view will be implemented in a later step using D3 paths
         // For now, it will just draw nothing if set to outline
     }
@@ -369,7 +371,7 @@
 
     canvas {
         display: block;
-        /* Canvas will take dynamic width/height from Svelte script via `canvasElement.width = $config.visualizationsContentWidth;` */
+        /* Canvas will take dynamic width/height from Svelte script via `canvasElement.width = config.visualizationsContentWidth;` */
     }
 
     /* Price Display Styles */
