@@ -1,5 +1,6 @@
 <script>
-  import { onMount, tick } from 'svelte';
+  import { onMount } from 'svelte';
+  import { config, appState } from '../stores.js'; // Import Svelte stores
   import * as d3 from 'd3'; // Import D3 for utility functions if needed
 
   export let id;
@@ -9,125 +10,39 @@
   let ctx; // Canvas 2D context
   let priceDisplayElement; // Bind to the price display DOM element
 
-  // --- CONFIGURATION & STATE (Adapted from trimmed.html) ---
-  // Using Svelte's reactive declarations for config and state
-  let config = {
-      adrRange: 100,
-      pulseThreshold: 0.5,
-      pulseScale: 5,
-      maxMarkerDecay: 10,
-      flashThreshold: 2,
-      adrProximityThreshold: 10,
-      frequencyMode: 'normal',
-      priceBucketSize: 0.5,
-      showMaxMarker: true, // Set to true to see the marker
-      showVolatilityOrb: false,
-      volatilityColorMode: 'intensity',
-      volatilityOrbBaseWidth: 70,
-      volatilityOrbInvertBrightness: false,
-      showMarketProfile: false,
-      showFlash: false,
-      flashIntensity: 0.3,
-      showOrbFlash: false,
-      orbFlashThreshold: 2,
-      orbFlashIntensity: 0.8,
-      distributionDepthMode: 'all',
-      distributionPercentage: 50,
-      marketProfileView: 'outline',
-      priceFontSize: 50,
-      priceFontWeight: '600',
-      priceHorizontalOffset: 14,
-      priceFloatWidth: 50,
-      priceFloatXOffset: 20,
-      bigFigureFontSizeRatio: 1.2,
-      pipFontSizeRatio: 1.1,
-      pipetteFontSizeRatio: 0.8,
-      showPriceBoundingBox: false,
-      showPriceBackground: false,
-      priceDisplayPadding: 4,
-      visualizationsContentWidth: 220,
-      centralAxisXPosition: 170,
-      meterHeight: 120,
-      centralMeterFixedThickness: 8,
-      showPipetteDigit: false,
-      showSingleSidedProfile: false,
-      singleSidedProfileSide: 'right',
-  };
-
-  let frequencySettings = {
-      calm: {
-          baseInterval: 2000,
-          randomness: 1500,
-          magnitudeMultiplier: 0.5,
-          momentumStrength: 0.05,
-          meanReversionPoint: 0.7
-      },
-      normal: {
-          baseInterval: 800,
-          randomness: 1000,
-          magnitudeMultiplier: 1,
-          momentumStrength: 0.1,
-          meanReversionPoint: 0.7
-      },
-      active: {
-          baseInterval: 300,
-          randomness: 400,
-          magnitudeMultiplier: 1.5,
-          momentumStrength: 0.15,
-          meanReversionPoint: 0.6
-      },
-      volatile: {
-          baseInterval: 100,
-          randomness: 200,
-          magnitudeMultiplier: 2,
-          momentumStrength: 0.2,
-          meanReversionPoint: 0.5
-      },
-  };
-
-  let state = {
-      currentPrice: 1.25500,
-      midPrice: 1.25500,
-      lastTickTime: 0,
-      ticks: [],
-      allTicks: [],
-      maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
-      minObservedPrice: Infinity,
-      maxObservedPrice: -Infinity,
-      pressure: { up: 0, down: 0 },
-      volatility: 0,
-      lastTickDirection: 0,
-      momentum: 0,
-      isOrbFlashing: false,
-  };
+  // Using Svelte's auto-subscriptions for store values
+  // All config values will now be accessed via $config.propertyName
+  // All state values will now be accessed via $appState.propertyName
 
   // Svelte reactivity for canvas dimensions and redrawing
-  $: if (canvasElement && ctx) {
-    canvasElement.width = config.visualizationsContentWidth;
-    canvasElement.height = config.meterHeight;
+  // This now reacts to changes in the $config store
+  $: if (canvasElement && ctx && $config) {
+    canvasElement.width = $config.visualizationsContentWidth;
+    canvasElement.height = $config.meterHeight;
     drawVisualization();
   }
 
   onMount(() => {
     if (canvasElement) {
       ctx = canvasElement.getContext('2d');
-      // Initial draw, subsequent draws handled by reactivity
+      // Initial draw, subsequent draws handled by reactivity to $appState and $config
       drawVisualization();
 
-      // Start the simulation loop
-      requestAnimationFrame(gameLoop);
+      // The gameLoop (simulation) will now be handled by the Web Worker.
+      // This component will simply react to changes in $appState.
     } else {
         console.error("Canvas element not found in VizDisplay.svelte");
     }
   });
 
   // --- Helper to convert price to Y-coordinate on canvas ---
+  // This function now returns Y relative to the TOP of the meter.
   function priceToY(price) {
-    const effectiveADRInPrice = Math.max(config.adrRange / 10000, state.maxObservedPrice - state.minObservedPrice);
-    const lowPrice = state.midPrice - (effectiveADRInPrice / 2);
+    const effectiveADRInPrice = Math.max($config.adrRange / 10000, $appState.maxObservedPrice - $appState.minObservedPrice);
+    const lowPrice = $appState.midPrice - (effectiveADRInPrice / 2);
     let percentage = (price - lowPrice) / effectiveADRInPrice;
     percentage = Math.max(0, Math.min(1, percentage));
-    return (1 - percentage) * config.meterHeight; // Invert Y-axis for display (0 is top of meter)
+    return (1 - percentage) * $config.meterHeight; // Invert Y-axis: 0% at bottom, 100% at top of meter.
   }
 
   // --- Main drawing function on Canvas ---
@@ -140,12 +55,13 @@
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
-    // Draw central meter (dayRangeMeter)
-    const meterWidth = config.centralMeterFixedThickness;
-    const meterHeight = config.meterHeight;
-    const meterX = config.centralAxisXPosition;
-    const meterY = (canvasElement.height / 2) - (meterHeight / 2); // Center vertically on canvas
+    // Calculate meter's position centered vertically on canvas
+    const meterWidth = $config.centralMeterFixedThickness;
+    const meterHeight = $config.meterHeight;
+    const meterX = $config.centralAxisXPosition;
+    const meterY = (canvasElement.height / 2) - (meterHeight / 2); // Top-left Y of the meter
 
+    // Draw central meter (dayRangeMeter)
     ctx.fillStyle = '#374151';
     ctx.fillRect(meterX, meterY, meterWidth, meterHeight);
 
@@ -154,52 +70,50 @@
       const markerWidth = 16;
       const markerHeight = 2;
       const markerX = meterX + (meterWidth / 2) - (markerWidth / 2);
-      const markerY = meterY + (1 - step) * meterHeight - (markerHeight / 2);
+      const markerYCanvas = meterY + (1 - step) * meterHeight - (markerHeight / 2); // Relative to canvas top
       ctx.fillStyle = '#a78bfa'; // Prev color from CSS
-      ctx.fillRect(markerX, markerY, markerWidth, markerHeight);
+      ctx.fillRect(markerX, markerYCanvas, markerWidth, markerHeight);
     });
 
     // Draw ADR boundary lines
-    const topADRY = meterY;
-    const bottomADRY = meterY + meterHeight;
+    const topADRYCanvas = meterY;
+    const bottomADRYCanvas = meterY + meterHeight;
 
     ctx.strokeStyle = '#6b7280'; // Gray-500 from CSS
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(0, topADRY);
-    ctx.lineTo(canvasElement.width, topADRY);
+    ctx.moveTo(0, topADRYCanvas);
+    ctx.lineTo(canvasElement.width, topADRYCanvas);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(0, bottomADRY);
-    ctx.lineTo(canvasElement.width, bottomADRY);
+    ctx.moveTo(0, bottomADRYCanvas);
+    ctx.lineTo(canvasElement.width, bottomADRYCanvas);
     ctx.stroke();
 
     // Draw priceFloat
-    const priceFloatY = meterY + priceToY(state.currentPrice) - (config.meterHeight / 2); // Adjust Y based on meter's top offset
-    const priceFloatX = meterX + (meterWidth / 2) - (config.priceFloatWidth / 2) + config.priceFloatXOffset;
-    const priceColor = state.lastTickDirection > 0 ? '#22c55e' : (state.lastTickDirection < 0 ? '#ef4444' : '#a78bfa');
+    const priceFloatDrawY = meterY + priceToY($appState.currentPrice) - (2 / 2); // priceToY is relative to meter top, 2 is float height
+    const priceFloatX = meterX + (meterWidth / 2) - ($config.priceFloatWidth / 2) + $config.priceFloatXOffset;
+    const priceColor = $appState.lastTickDirection > 0 ? '#22c55e' : ($appState.lastTickDirection < 0 ? '#ef4444' : '#a78bfa');
 
     ctx.fillStyle = priceColor;
-    ctx.fillRect(priceFloatX, priceFloatY, config.priceFloatWidth, 2); // 2px height
+    ctx.fillRect(priceFloatX, priceFloatDrawY, $config.priceFloatWidth, 2); // 2px height
 
     // Draw Max Deflection Marker
-    drawMaxDeflection(priceFloatY, meterX, meterWidth);
+    drawMaxDeflection(priceFloatDrawY, meterX, meterWidth);
+
+    // Draw Market Profile
+    drawMarketProfile(meterX, meterWidth, meterY, meterHeight);
 
     // Update price display DOM element
     if (priceDisplayElement) {
-        // Calculate top position relative to visualizationContainer
-        const containerRect = canvasElement.getBoundingClientRect();
-        const floatAbsoluteY = containerRect.top + priceFloatY; // Y position on canvas + canvas absolute top
-
-        priceDisplayElement.style.top = `${priceFloatY}px`;
+        priceDisplayElement.style.top = `${priceFloatDrawY}px`; // Uses the same Y as the price float
+        
         // Calculate left position for priceDisplayElement
-        const priceFloatActualLeft = meterX + meterWidth / 2 - config.priceFloatWidth / 2 + config.priceFloatXOffset;
-        // Ensure priceDisplayElement's width is known before setting left
-        // This might require a small delay or using `await tick()` if its content changes reactively.
-        priceDisplayElement.style.left = `${priceFloatActualLeft - config.priceHorizontalOffset - priceDisplayElement.offsetWidth}px`;
+        const priceFloatActualLeft = meterX + meterWidth / 2 - $config.priceFloatWidth / 2 + $config.priceFloatXOffset;
+        priceDisplayElement.style.left = `${priceFloatActualLeft - $config.priceHorizontalOffset - priceDisplayElement.offsetWidth}px`;
 
-        const priceString = state.currentPrice.toFixed(5);
+        const priceString = $appState.currentPrice.toFixed(5);
         const decimalIndex = priceString.indexOf('.');
         let formattedPrice = '';
         if (decimalIndex !== -1 && priceString.length >= decimalIndex + 5) {
@@ -208,7 +122,7 @@
             const pipette = priceString.substring(decimalIndex + 5);
 
             formattedPrice = `
-                <span class="big-figure">${bigFigure}</span><span class="pip">${pip}${config.showPipetteDigit ? `<span class="pipette-inner">${pipette}</span>` : ''}</span>
+                <span class="big-figure">${bigFigure}</span><span class="pip">${pip}${$config.showPipetteDigit ? `<span class="pipette-inner">${pipette}</span>` : ''}</span>
             `;
         } else {
             formattedPrice = priceString;
@@ -221,23 +135,23 @@
         priceDisplayElement.style.backgroundColor = 'transparent';
         priceDisplayElement.style.padding = '0';
 
-        if (config.showPriceBoundingBox || config.showPriceBackground) {
-            priceDisplayElement.style.padding = `${config.priceDisplayPadding}px`;
+        if ($config.showPriceBoundingBox || $config.showPriceBackground) {
+            priceDisplayElement.style.padding = `${$config.priceDisplayPadding}px`;
         }
 
-        if (config.showPriceBoundingBox) {
+        if ($config.showPriceBoundingBox) {
             priceDisplayElement.style.border = '1px solid #4b5563';
             priceDisplayElement.style.borderRadius = '4px';
         }
 
-        if (config.showPriceBackground) {
+        if ($config.showPriceBackground) {
             priceDisplayElement.style.backgroundColor = 'rgba(17, 24, 39, 0.7)';
         }
 
         // Update CSS custom properties for digit font sizes
-        priceDisplayElement.style.setProperty('--big-figure-font-size-ratio', config.bigFigureFontSizeRatio);
-        priceDisplayElement.style.setProperty('--pip-font-size-ratio', config.pipFontSizeRatio);
-        priceDisplayElement.style.setProperty('--pipette-font-size-ratio', config.pipetteFontSizeRatio);
+        priceDisplayElement.style.setProperty('--big-figure-font-size-ratio', $config.bigFigureFontSizeRatio);
+        priceDisplayElement.style.setProperty('--pip-font-size-ratio', $config.pipFontSizeRatio);
+        priceDisplayElement.style.setProperty('--pipette-font-size-ratio', $config.pipetteFontSizeRatio);
     }
   }
 
@@ -248,11 +162,11 @@
    * @param {number} meterWidth - The width of the central meter.
    */
   function drawMaxDeflection(priceFloatY, meterX, meterWidth) {
-      if (!config.showMaxMarker) return;
+      if (!$config.showMaxMarker) return;
 
       const now = performance.now();
-      const timeSinceUpdate = now - state.maxDeflection.lastUpdateTime;
-      const decayProgress = Math.min(timeSinceUpdate / (config.maxMarkerDecay * 1000), 1); // Convert decay to milliseconds
+      const timeSinceUpdate = now - $appState.maxDeflection.lastUpdateTime;
+      const decayProgress = Math.min(timeSinceUpdate / ($config.maxMarkerDecay * 1000), 1); // Convert decay to milliseconds
       
       if (decayProgress >= 1) {
           // Marker has fully decayed, no need to draw
@@ -266,12 +180,12 @@
       const markerWidth = 2;
       const markerHeight = 9;
 
-      const upPositionOffset = state.maxDeflection.up * config.pulseScale;
-      const downPositionOffset = state.maxDeflection.down * config.pulseScale;
+      const upPositionOffset = $appState.maxDeflection.up * $config.pulseScale;
+      const downPositionOffset = $appState.maxDeflection.down * $config.pulseScale;
 
       let markerX, markerColor;
 
-      if (state.maxDeflection.up > state.maxDeflection.down) {
+      if ($appState.maxDeflection.up > $appState.maxDeflection.down) {
           // Max deflection is upwards (right side of meter)
           markerX = meterX + meterWidth + upPositionOffset;
           markerColor = '#60a5fa'; // Blue
@@ -287,128 +201,92 @@
       ctx.restore(); // Restore the canvas state
   }
 
-  // --- TICK SIMULATOR (Adapted) ---
-  function generateTick() {
-    const now = performance.now();
-    const settings = frequencySettings[config.frequencyMode];
-
-    if (now - state.lastTickTime < (settings.baseInterval + (Math.random() * settings.randomness))) return;
-
-    state.momentum = (state.momentum || 0) * 0.85;
-    let bias = state.momentum * settings.momentumStrength;
-    if (Math.abs(state.momentum) > settings.meanReversionPoint) {
-        bias *= -0.5;
-    }
-    
-    const direction = Math.random() < (0.5 + bias) ? 1 : -1;
-    state.momentum = Math.max(-1, Math.min(1, state.momentum + direction * 0.25));
-
-    const rand = Math.random();
-    let magnitude = (rand < 0.8) ? Math.random() * 0.8 : (rand < 0.98) ? 0.8 + Math.random() * 2 : 3 + Math.random() * 5;
-    magnitude *= settings.magnitudeMultiplier;
-
-    const newPrice = state.currentPrice + (direction * magnitude / 10000);
-    
-    // Update state reactively. Svelte will re-render if `state` object reference changes,
-    // or if properties on it are directly assigned.
-    state = { ...state,
-      currentPrice: newPrice,
-      lastTickTime: now,
-      lastTickDirection: direction,
-      ticks: [...state.ticks, { magnitude, direction, price: newPrice, time: now }],
-      allTicks: [...state.allTicks, { magnitude, direction, price: newPrice, time: now }],
-      minObservedPrice: Math.min(state.minObservedPrice, newPrice),
-      maxObservedPrice: Math.max(state.maxObservedPrice, newPrice),
-    };
-
-    processTick({ magnitude, direction, price: newPrice }); // Pass the current tick to processTick
-  }
-
-  // --- TICK PROCESSING & UI UPDATES (Adapted) ---
-  function processTick(tick) {
-    // Filter old ticks
-    const now = performance.now();
-    state.ticks = state.ticks.filter(t => now - t.time < 5000);
-
-    // Update midPrice based on current price for dynamic ADR centering
-    const effectiveADRInPrice = Math.max(config.adrRange / 10000, state.maxObservedPrice - state.minObservedPrice);
-    const currentPriceOffsetFromMid = state.currentPrice - state.midPrice;
-    const halfEffectiveADR = effectiveADRInPrice / 2;
-
-    if (currentPriceOffsetFromMid > halfEffectiveADR) {
-        state.midPrice = state.currentPrice - halfEffectiveADR;
-    } else if (currentPriceOffsetFromMid < -halfEffectiveADR) {
-        state.midPrice = state.currentPrice + halfEffectiveADR;
-    }
-
-    // Call updateMaxDeflection here
-    updateMaxDeflection(tick);
-
-    // For elements drawn on canvas, just updating state is enough for reactive redraw
-    // For priceDisplayElement, update its content and styles after `state.currentPrice` is set.
-  }
-
   /**
-     * Updates the maximum deflection (highest/lowest price reached by a significant tick).
-     */
-    function updateMaxDeflection(tick) {
-        const now = performance.now();
+   * Draws the Market Profile (bar view) on the canvas.
+   * @param {number} meterX - The X position of the central meter.
+   * @param {number} meterWidth - The width of the central meter.
+   * @param {number} meterY - The Y position of the central meter. (New parameter)
+   * @param {number} meterHeight - The height of the central meter. (New parameter)
+   */
+  function drawMarketProfile(meterX, meterWidth, meterY, meterHeight) {
+    if (!$config.showMarketProfile || !$appState.marketProfileData) return;
 
-        // Reset if decay time exceeded for current max deflection
-        if (now - state.maxDeflection.lastUpdateTime > (config.maxMarkerDecay * 1000)) { // Convert to milliseconds
-            state.maxDeflection.up = 0;
-            state.maxDeflection.down = 0;
+    let maxDeviation = 0;
+    $appState.marketProfileData.forEach(data => {
+        if ($config.showSingleSidedProfile) {
+            maxDeviation = Math.max(maxDeviation, data.total);
+        } else {
+            maxDeviation = Math.max(maxDeviation, data.buy, data.sell);
         }
+    });
 
-        let updated = false;
-        if (tick.direction > 0 && tick.magnitude > state.maxDeflection.up) {
-          state.maxDeflection.up = tick.magnitude;
-          updated = true;
-        }
-        if (tick.direction < 0 && tick.magnitude > state.maxDeflection.down) {
-          state.maxDeflection.down = tick.magnitude;
-          updated = true;
-        }
+    const centralMeterLeftEdge = meterX;
+    const centralMeterRightEdge = meterX + meterWidth;
 
-        if (updated) {
-          // Create a new object to ensure reactivity
-          state = { ...state, maxDeflection: { ...state.maxDeflection, lastUpdateTime: now } };
-        }
+    const availableWidthLeft = centralMeterLeftEdge;
+    const availableWidthRight = canvasElement.width - centralMeterRightEdge;
+
+    const scaleFactor = maxDeviation > 0 ? (
+        $config.showSingleSidedProfile ?
+            ($config.singleSidedProfileSide === 'left' ? availableWidthLeft : availableWidthRight) / maxDeviation :
+            Math.min(availableWidthLeft, availableWidthRight) / maxDeviation
+    ) : 0;
+
+    // Render bars
+    if ($config.marketProfileView === 'bars') {
+        $appState.marketProfileData.forEach(dataPoint => {
+            const price = dataPoint.price; // Use the price from the pre-processed data point
+            const yCanvas = meterY + priceToY(price) - (dataPoint.barHeight / 2); 
+            const barHeight = dataPoint.barHeight;
+
+            // Render single-sided bars
+            if ($config.showSingleSidedProfile) {
+                const barWidth = dataPoint.total * scaleFactor;
+                let barX;
+                let barColor = 'rgba(191, 147, 255, 0.7)'; // Brighter purple
+
+                if ($config.singleSidedProfileSide === 'left') {
+                    barX = centralMeterLeftEdge - barWidth;
+                } else { // right
+                    barX = centralMeterRightEdge;
+                }
+                ctx.fillStyle = barColor;
+                ctx.fillRect(barX, yCanvas, barWidth, barHeight);
+            } else {
+                // Existing dual-sided bars
+                if (dataPoint.buy > 0) {
+                    const buyBarWidth = dataPoint.buy * scaleFactor;
+                    const buyBarX = centralMeterRightEdge;
+                    ctx.fillStyle = 'rgba(96, 165, 250, 0.5)'; // Blueish for buy
+                    ctx.fillRect(buyBarX, yCanvas, buyBarWidth, barHeight);
+                }
+                if (dataPoint.sell > 0) {
+                    const sellBarWidth = dataPoint.sell * scaleFactor;
+                    const sellBarX = centralMeterLeftEdge - sellBarWidth;
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.5)'; // Reddish for sell
+                    ctx.fillRect(sellBarX, yCanvas, sellBarWidth, barHeight);
+                }
+            }
+        });
+    } else if ($config.marketProfileView === 'outline') {
+        // Outline view will be implemented in a later step using D3 paths
+        // For now, it will just draw nothing if set to outline
     }
-
-  // --- MAIN ANIMATION LOOP (Adapted) ---
-  function gameLoop() {
-      generateTick();
-      updateVolatility(); // Calculates volatility and updates state.volatility
-      drawVisualization(); // Redraws everything on canvas based on latest state
-
-      // Request next frame
-      requestAnimationFrame(gameLoop);
   }
 
-    /**
-     * Updates the calculated volatility based on recent tick magnitudes and frequency.
-     */
-    function updateVolatility() {
-        const lookback = 5000;
-        const now = performance.now();
-        // Filter state.ticks in place or create new array to update reactively
-        const filteredTicks = state.ticks.filter(t => now - t.time < lookback);
-        // Ensure reactivity by creating new array reference if ticks changed
-        if (filteredTicks.length !== state.ticks.length) {
-            state = { ...state, ticks: filteredTicks };
-        }
+  // Remove all tick generation and processing from here
+  // These functions will be moved to the Web Worker
+  // function generateTick() { ... }
+  // function processTick(tick) { ... }
+  // function updateMaxDeflection(tick) { ... }
+  // function updateVolatility() { ... }
+  // function gameLoop() { ... }
 
-        if (state.ticks.length < 5) { state.volatility *= 0.99; return; }
-        
-        const magnitudes = state.ticks.map(t => t.magnitude);
-        const avgMagnitude = magnitudes.reduce((a, b) => a + b, 0) / magnitudes.length;
-        const frequency = state.ticks.length / (lookback / 1000);
-        
-        const volScore = (avgMagnitude * 0.5) + (frequency * 0.5);
-        state = { ...state, volatility: state.volatility * 0.95 + volScore * 0.05 }; // Update state.volatility reactively
-    }
-
+  // Reactive statement to trigger drawVisualization when appState changes
+  // This will be the new gameLoop for the UI, responding to worker messages.
+  $: if (ctx && $appState) {
+    drawVisualization();
+  }
 </script>
 
 <!-- HTML structure - minimal for Svelte to mount canvas and overlay price text -->
@@ -454,7 +332,7 @@
 
     canvas {
         display: block;
-        /* Canvas will take dynamic width/height from Svelte script via `canvasElement.width = config.visualizationsContentWidth;` */
+        /* Canvas will take dynamic width/height from Svelte script via `canvasElement.width = $config.visualizationsContentWidth;` */
     }
 
     /* Price Display Styles */
