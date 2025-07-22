@@ -145,8 +145,8 @@ self.onmessage = (event) => {
             if (!state.lastTickTime) state.lastTickTime = performance.now();
             if (!state.currentPrice) state.currentPrice = 1.0;
             if (!state.midPrice) state.midPrice = 1.0;
-            if (!state.minObservedPrice) state.minObservedPrice = 1.0;
-            if (!state.maxObservedPrice) state.maxObservedPrice = 1.0;
+            if (!state.minObservedPrice) state.minObservedPrice = 0.9995;
+            if (!state.maxObservedPrice) state.maxObservedPrice = 1.0005;
             if (!state.ticks) state.ticks = [];
             if (!state.allTicks) state.allTicks = [];
             if (!state.maxDeflection) state.maxDeflection = { up: 0, down: 0, lastUpdateTime: 0 };

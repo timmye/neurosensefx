@@ -16,7 +16,7 @@
     minObservedPrice: Infinity,
     maxObservedPrice: Infinity,
   };
-  let marketProfileData = [];
+  let marketProfileData = new Map();
 
   // Initial configuration to send to the worker
   const initialConfig = {
@@ -29,7 +29,7 @@
     frequencyMode: 'normal',
     priceBucketSize: 0.5,
     showMaxMarker: true,
-    showVolatilityOrb: false,
+    showVolatilityOrb: true,
     showMarketProfile: true,
     showFlash: false,
     flashIntensity: 0.3,
@@ -77,7 +77,7 @@
           minObservedPrice: payload.minObservedPrice,
           maxObservedPrice: payload.maxObservedPrice
         };
-        marketProfileData = payload.marketProfile;
+        marketProfileData = payload.marketProfile || new Map();
       }
     };
 

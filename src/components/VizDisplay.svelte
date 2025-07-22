@@ -39,7 +39,8 @@
   // --- Helper to convert price to Y-coordinate on canvas ---
   // This function now returns Y relative to the TOP of the meter.
   function priceToY(price) {
-    const effectiveADRInPrice = Math.max(config.adrRange / 10000, state.maxObservedPrice - state.minObservedPrice);
+    const priceRange = state.maxObservedPrice - state.minObservedPrice;
+    const effectiveADRInPrice = Math.max(config.adrRange / 10000, priceRange, 0.0001); // Ensure minimum range
     const lowPrice = state.midPrice - (effectiveADRInPrice / 2);
     let percentage = (price - lowPrice) / effectiveADRInPrice;
     percentage = Math.max(0, Math.min(1, percentage));
@@ -106,8 +107,55 @@
     // Draw Market Profile
     drawMarketProfile(meterX, meterWidth, meterY, meterHeight);
 
+    // Draw Volatility Orb
+    drawVolatilityOrb(meterX, meterWidth, meterY, meterHeight);
+
     // Draw Canvas-native price display
     drawPriceDisplay(meterX, meterWidth, meterY, meterHeight, priceFloatDrawY);
+  }
+
+  /**
+   * Draws the Volatility Orb on the canvas.
+   * @param {number} meterX - The X position of the central meter.
+   * @param {number} meterWidth - The width of the central meter.
+   * @param {number} meterY - The Y position of the central meter.
+   * @param {number} meterHeight - The height of the central meter.
+   */
+  function drawVolatilityOrb(meterX, meterWidth, meterY, meterHeight) {
+    if (!config.showVolatilityOrb || !state.volatility) return;
+
+    const orbSize = 20;
+    const orbX = meterX + meterWidth + 40;
+    const orbY = meterY + meterHeight / 2;
+
+    // Calculate color based on volatility level
+    const volatility = state.volatility;
+    let orbColor;
+    if (volatility < 0.3) {
+      orbColor = '#22c55e'; // Green for low volatility
+    } else if (volatility < 0.7) {
+      orbColor = '#f59e0b'; // Yellow for medium volatility
+    } else {
+      orbColor = '#ef4444'; // Red for high volatility
+    }
+
+    // Draw orb background
+    ctx.fillStyle = orbColor;
+    ctx.beginPath();
+    ctx.arc(orbX, orbY, orbSize / 2, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Draw orb border
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw volatility value
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((volatility * 100).toFixed(0) + '%', orbX, orbY);
   }
 
   /**
@@ -247,10 +295,29 @@
    * @param {number} meterHeight - The height of the central meter. (New parameter)
    */
   function drawMarketProfile(meterX, meterWidth, meterY, meterHeight) {
-    if (!config.showMarketProfile || !marketProfileData) return; // Use the prop here
+    if (!config.showMarketProfile || !marketProfileData) return;
+
+    // Handle both Map and Object formats from the worker
+    const profileEntries = marketProfileData instanceof Map
+      ? Array.from(marketProfileData.entries())
+      : Object.entries(marketProfileData);
+
+    if (profileEntries.length === 0) return;
+
+    // Convert Map/Object entries to the format expected by the drawing function
+    const marketProfileArray = profileEntries.map(([priceBucket, data]) => {
+      const price = parseFloat(priceBucket) / 10000; // Convert bucket to actual price
+      return {
+        price: price,
+        buy: data.buy || 0,
+        sell: data.sell || 0,
+        total: data.total || 0,
+        barHeight: 2 // Fixed height for now
+      };
+    });
 
     let maxDeviation = 0;
-    marketProfileData.forEach(data => { // Use the prop here
+    marketProfileArray.forEach(data => {
         if (config.showSingleSidedProfile) {
             maxDeviation = Math.max(maxDeviation, data.total);
         } else {
@@ -272,9 +339,9 @@
 
     // Render bars
     if (config.marketProfileView === 'bars') {
-        marketProfileData.forEach(dataPoint => { // Use the prop here
-            const price = dataPoint.price; // Use the price from the pre-processed data point
-            const yCanvas = meterY + priceToY(price) - (dataPoint.barHeight / 2); 
+        marketProfileArray.forEach(dataPoint => {
+            const price = dataPoint.price;
+            const yCanvas = meterY + priceToY(price) - (dataPoint.barHeight / 2);
             const barHeight = dataPoint.barHeight;
 
             // Render single-sided bars
