@@ -28,6 +28,7 @@ export const vizConfig = writable({
     priceFontWeight: '600',
     priceHorizontalOffset: 14,
     priceFloatWidth: 50,
+    priceFloatHeight: 1,
     priceFloatXOffset: 20,
     bigFigureFontSizeRatio: 1.2,
     pipFontSizeRatio: 1.1,
@@ -35,6 +36,9 @@ export const vizConfig = writable({
     showPriceBoundingBox: false,
     showPriceBackground: false,
     priceDisplayPadding: 4,
+    priceStaticColor: false,
+    priceUpColor: '#3b82f6',
+    priceDownColor: '#ef4444',
     visualizationsContentWidth: 220,
     centralAxisXPosition: 170,
     meterHeight: 120,
@@ -45,13 +49,16 @@ export const vizConfig = writable({
 });
 
 // State store - will be written to by the web worker and read by the viz components
+// Initialize adrHigh and adrLow here with sensible defaults based on initial currentPrice and adrRange
 export const vizState = writable({
     currentPrice: 1.25500,
     midPrice: 1.25500,
     lastTickTime: 0,
     maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
     volatility: 0,
-    lastTickDirection: 0,
-    // The market profile data will also be sent from the worker
+    lastTickDirection: 'up',
     marketProfile: new Map(),
+    // Initialize adrHigh and adrLow to prevent display issues on initial load
+    adrHigh: 1.25500 + (100 / 20000), // initialPrice + (defaultAdrRange / 20000)
+    adrLow: 1.25500 - (100 / 20000),  // initialPrice - (defaultAdrRange / 20000)
 });

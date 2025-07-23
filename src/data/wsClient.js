@@ -8,49 +8,51 @@ export const dataSourceMode = writable('simulated'); // 'live' or 'simulated'
 export const subscriptions = writable(new Set());
 
 // --- Private State ---
-let ws = null; // Initialize ws as null
+let ws = null;
 let simulationInterval;
 let simulationState = {};
 let currentConfig = {};
 
-// Subscribe to config changes to get the latest settings for the simulator
 vizConfig.subscribe(value => {
     currentConfig = value;
 });
 
 // --- WebSocket Connection ---
 const getWebSocketUrl = () => {
+    // CORRECT: Connect to the '/ws' path on the *same host* as the frontend.
+    // Vite's proxy will intercept this and forward it to the backend (localhost:5035).
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    const backendPort = 5035; 
-    
-    const parts = host.split(':');
-    const hostname = parts[0];
-    return `${protocol}//${hostname}:${backendPort}`;
+    return `${protocol}//${host}/ws`;
 };
 
 const WS_URL = getWebSocketUrl();
 
 function startLiveStream() {
-    if (ws && ws.readyState === WebSocket.OPEN) return; // Already open
-
-    // Ensure any previous connection is fully stopped before starting a new one
+    if (ws && ws.readyState === WebSocket.OPEN) return;
+    
     stopLiveStream(); 
-    stopSimulation(); // Also ensure simulation is stopped
+    stopSimulation(); 
 
     wsStatus.set('connecting');
+    console.log(`wsClient.js: Attempting to connect to ${WS_URL} via Vite proxy`);
     try {
         ws = new WebSocket(WS_URL);
 
         ws.onopen = () => {
-            console.log('wsClient.js: Live WebSocket connected');
+            console.log('wsClient.js: Live WebSocket connected via proxy');
             wsStatus.set('connected');
         };
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === 'tick') {
-                console.log('wsClient.js: Received live tick:', data); 
+                // --- CENTRALIZED TYPE COERCION HERE ---
+                data.bid = parseFloat(data.bid);
+                data.ask = parseFloat(data.ask);
+                data.spread = parseFloat(data.spread);
+                // ----------------------------------------
+                console.log('wsClient.js: Received live tick (parsed):', data); 
                 tickData.set({ [data.symbol]: data });
             } else if (data.type === 'subscribeResponse') {
                 console.log('wsClient.js: Subscribe response:', data.results); 
@@ -59,48 +61,37 @@ function startLiveStream() {
                         subscriptions.update(subs => subs.add(result.symbol));
                     }
                 });
-            } else if (data.type === 'unsubscribeResponse') {
-                console.log('wsClient.js: Unsubscribe response:', data.results); 
-                data.results.forEach(result => {
-                    if (result.status === 'unsubscribed') {
-                        subscriptions.update(subs => {
-                            subs.delete(result.symbol);
-                            return subs;
-                        });
-                    }
-                });
-            }
+            } // ... other message types
         };
 
         ws.onclose = () => {
             console.log('wsClient.js: Live WebSocket disconnected');
-            // Only attempt reconnect if still in live mode
             if (get(dataSourceMode) === 'live') {
                 setTimeout(startLiveStream, 3000);
             }
-            stopLiveStream(); // Centralize cleanup
+            stopLiveStream();
         };
 
         ws.onerror = (error) => {
-            console.error('wsClient.js: WebSocket error:', error);
+            console.error('wsClient.js: WebSocket proxy error:', error);
             wsStatus.set('error');
-            stopLiveStream(); // Centralize cleanup
+            stopLiveStream();
         };
     } catch (e) {
         console.error('wsClient.js: Error creating WebSocket:', e); 
         wsStatus.set('error');
-        ws = null; // Ensure ws is null if constructor fails
+        ws = null;
     }
 }
 
 function stopLiveStream() {
     if (ws) {
-        ws.onclose = null; // Prevent onclose from triggering reconnect logic or further calls
-        ws.onerror = null; // Prevent onerror from triggering further calls
+        ws.onclose = null;
+        ws.onerror = null;
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
             ws.close();
         }
-        ws = null; // Ensure ws is explicitly nulled
+        ws = null;
     }
     wsStatus.set('disconnected');
 }
@@ -114,15 +105,12 @@ const frequencySettings = {
 };
 
 function initializeSimulator() {
-    simulationState = {
-        lastTickTime: performance.now(),
-        currentPrice: 1.25500,
-        momentum: 0,
-    };
+    simulationState = { lastTickTime: performance.now(), currentPrice: 1.25500, momentum: 0 };
     subscriptions.update(subs => subs.add('SIM-EURUSD'));
 }
 
 function generateSimulatedTick() {
+    // ... (simulation logic remains the same)
     const now = performance.now();
     const settings = frequencySettings[currentConfig.frequencyMode] || frequencySettings.normal;
     if (now - simulationState.lastTickTime < (settings.baseInterval + (Math.random() * settings.randomness))) return;
@@ -137,7 +125,6 @@ function generateSimulatedTick() {
     simulationState.lastTickTime = now;
     simulationState.currentPrice = newPrice;
     const tick = { type: 'tick', symbol: 'SIM-EURUSD', bid: newPrice, ask: newPrice + (0.2 / 10000), spread: 0.2, timestamp: now };
-    console.log('wsClient.js: Generated simulated tick:', tick); 
     tickData.set({ [tick.symbol]: tick });
 }
 
@@ -147,7 +134,6 @@ function startSimulation() {
     if (simulationInterval) clearInterval(simulationInterval);
     simulationInterval = setInterval(generateSimulatedTick, 50);
     wsStatus.set('connected');
-    console.log("wsClient.js: Data simulation started"); 
 }
 
 function stopSimulation() {
@@ -155,43 +141,29 @@ function stopSimulation() {
         clearInterval(simulationInterval);
         simulationInterval = null;
     }
-    subscriptions.update(subs => {
-        subs.delete('SIM-EURUSD');
-        return subs;
-    });
+    subscriptions.update(subs => { subs.delete('SIM-EURUSD'); return subs; });
     wsStatus.set('disconnected');
-    console.log("wsClient.js: Data simulation stopped"); 
 }
 
 // --- Public API ---
-
 export function setDataSource(mode) {
-    console.log('wsClient.js: setDataSource called with mode:', mode); 
     dataSourceMode.set(mode);
     if (mode === 'live') {
         startLiveStream();
     } else if (mode === 'simulated') {
         startSimulation();
-    } else {
-        console.error(`Unknown data source mode: ${mode}`);
     }
 }
 
 export function subscribe(symbols) {
     if (get(dataSourceMode) === 'live' && ws && ws.readyState === WebSocket.OPEN) {
-        console.log('wsClient.js: Sending subscribe for:', symbols); 
         ws.send(JSON.stringify({ type: 'subscribe', symbols: Array.isArray(symbols) ? symbols : [symbols] }));
-    } else {
-        console.warn('wsClient.js: Cannot subscribe, not in live mode or WebSocket is not open.');
     }
 }
 
 export function unsubscribe(symbols) {
     if (get(dataSourceMode) === 'live' && ws && ws.readyState === WebSocket.OPEN) {
-        console.log('wsClient.js: Sending unsubscribe for:', symbols); 
         ws.send(JSON.stringify({ type: 'unsubscribe', symbols: Array.isArray(symbols) ? symbols : [symbols] }));
-    } else {
-         console.warn('wsClient.js: Cannot unsubscribe, not in live mode or WebSocket is not open.');
     }
 }
 

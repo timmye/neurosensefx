@@ -6,7 +6,15 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    proxy: {
+      // Proxy WebSocket requests to the backend server
+      '/ws': {
+        target: 'ws://localhost:5035', // The address of your backend WebSocket server
+        ws: true, // IMPORTANT: This enables WebSocket proxying
+        changeOrigin: true // Recommended for virtual hosted sites
+      }
+    }
   },
-  envDir: "../", // Look for .env files in the root of the project (where .idx is)
-  envPrefix: "VITE_" // Expose environment variables starting with VITE_ to the client-side code
+  envDir: "../", 
+  envPrefix: "VITE_"
 });

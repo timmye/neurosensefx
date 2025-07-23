@@ -40,8 +40,10 @@ function initialize(payload) {
 }
 
 function processTick(tick) {
-    if (!tick || typeof tick.bid !== 'number') {
-        console.warn('dataProcessor.js: Invalid tick received:', tick);
+    // Type conversion and validation now handled in wsClient.js
+    // Assume tick.bid is already a number here
+    if (!tick || typeof tick.bid !== 'number') { 
+        console.warn('dataProcessor.js: Invalid or non-numeric tick bid received after wsClient.js processing:', tick);
         return;
     }
     
