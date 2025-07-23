@@ -12,10 +12,10 @@
     pulseScale: 5,
     flashThreshold: 2,
     adrProximityThreshold: 10,
-    frequencyMode: 'normal',
+    frequencyMode: 'normal', // calm, normal, active, volatile
     priceBucketSize: 0.5,
     showVolatilityOrb: true,
-    volatilityColorMode: 'intensity',
+    volatilityColorMode: 'intensity', // directional, intensity, singleHue
     volatilityOrbInvertBrightness: false,
     volatilityOrbBaseWidth: 70,
     showMarketProfile: true,
@@ -31,7 +31,7 @@
     priceFontWeight: '600',
     priceHorizontalOffset: 14,
     priceFloatWidth: 50,
-    priceFloatHeight: 1, // Added: Default to 1 pip height
+    priceFloatHeight: 1, // Height in pips (default 1 pip)
     priceFloatXOffset: 20,
     bigFigureFontSizeRatio: 1.2,
     pipFontSizeRatio: 1.1,
@@ -39,8 +39,11 @@
     showPriceBoundingBox: false,
     showPriceBackground: false,
     priceDisplayPadding: 4,
+    priceStaticColor: false, // true = static gray, false = dynamic colors
+    priceUpColor: '#3b82f6', // Blue for up movements
+    priceDownColor: '#ef4444', // Red for down movements
     visualizationsContentWidth: 220,
-    centralAxisXPosition: 170,
+    centralAxisXPosition: 170, // X position of the central ADR axis
     meterHeight: 120,
     centralMeterFixedThickness: 8,
     showPipetteDigit: false,

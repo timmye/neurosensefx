@@ -37,6 +37,7 @@ function initialize(payload) {
         volatility: 0.5,
         momentum: 0,
         lastTickDirection: 'up',
+        tickMagnitudes: [], // For rolling volatility calculation
     };
     console.log('Worker initialized');
 }
@@ -80,6 +81,10 @@ function generateTick() {
     const tick = { magnitude, direction, price: newPrice, time: now };
     state.ticks.push(tick);
     state.allTicks.push(tick);
+    
+    // Store magnitude for volatility calculation
+    state.tickMagnitudes.push(magnitude);
+    
     return tick;
 }
 
@@ -105,8 +110,8 @@ function processTick(tick) {
                 meterHorizontalOffset: 0
             },
             marketProfile: marketProfile,
-            significantTick: significantTick, // Event flag for the UI
-            tickMagnitude: tick.magnitude, // Send the magnitude for conditional flashes in UI
+            significantTick: significantTick,
+            tickMagnitude: tick.magnitude,
         }
     });
 }
@@ -133,21 +138,37 @@ function updateADRBoundaries() {
 }
 
 function updateVolatility() {
-    const lookback = 5000;
+    const lookbackPeriod = 10000; // 10 second lookback
     const now = performance.now();
-    const recentTicks = state.ticks.filter(t => now - t.time < lookback);
-
-    if (recentTicks.length < 5) {
-        state.volatility *= 0.99;
-        return; 
+    
+    // Remove old ticks outside lookback period
+    state.ticks = state.ticks.filter(tick => now - tick.time <= lookbackPeriod);
+    state.tickMagnitudes = state.tickMagnitudes.slice(-50); // Keep last 50 magnitudes max
+    
+    if (state.tickMagnitudes.length < 3) {
+        state.volatility = Math.max(0.1, state.volatility * 0.99);
+        return;
     }
     
-    const magnitudes = recentTicks.map(t => t.magnitude);
-    const avgMagnitude = magnitudes.reduce((a, b) => a + b, 0) / magnitudes.length;
-    const frequency = state.ticks.length / (lookback / 1000);
+    // Calculate average magnitude over lookback period
+    const recentMagnitudes = state.tickMagnitudes.slice(-20); // Last 20 ticks
+    const avgMagnitude = recentMagnitudes.reduce((sum, mag) => sum + mag, 0) / recentMagnitudes.length;
     
-    const volScore = (avgMagnitude * 0.5) + (frequency * 0.5);
-    state.volatility = state.volatility * 0.95 + volScore * 0.05;
+    // Calculate tick frequency (ticks per second)
+    const tickFrequency = state.ticks.length / (lookbackPeriod / 1000);
+    
+    // Combine magnitude and frequency for volatility score
+    const magnitudeScore = Math.min(avgMagnitude / 2, 3); // Cap at 3
+    const frequencyScore = Math.min(tickFrequency / 2, 2); // Cap at 2
+    
+    const rawVolatility = (magnitudeScore * 0.7) + (frequencyScore * 0.3);
+    
+    // Smooth the volatility with exponential moving average
+    const smoothingFactor = 0.1;
+    state.volatility = (state.volatility * (1 - smoothingFactor)) + (rawVolatility * smoothingFactor);
+    
+    // Ensure minimum volatility floor
+    state.volatility = Math.max(0.1, state.volatility);
 }
 
 function generateMarketProfile() {

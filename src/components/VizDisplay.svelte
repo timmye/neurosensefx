@@ -51,7 +51,8 @@
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     
-    const meterCenterX = config.centralAxisXPosition;
+    // Use configurable central axis position
+    const meterCenterX = config.centralAxisXPosition || (canvasElement.width / 2);
 
     drawVolatilityOrb(ctx);
     if (config.showMarketProfile) drawMarketProfile(ctx, meterCenterX);
@@ -59,7 +60,7 @@
     drawDayRangeMeter(ctx, meterCenterX);
     drawADRProximityPulse(ctx, meterCenterX);
     drawPriceFloat(ctx, meterCenterX);
-    drawCurrentPrice(ctx);
+    drawCurrentPrice(ctx, meterCenterX);
     
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
@@ -95,7 +96,32 @@
     const centerX = canvasElement.width / 2;
     const centerY = canvasElement.height / 2;
     
-    const volatilityIntensity = config.volatilityOrbInvertBrightness ? Math.min(state.volatility, 4) : Math.min(state.volatility, 2);
+    // Fixed volatility calculation to match prototype - use normalized base volatility
+    let volatilityIntensity;
+    const baseVolatility = state.volatility || 0;
+    
+    // First normalize the base volatility to a standard scale (0-1)
+    const normalizedVolatility = Math.min(baseVolatility / 2.0, 1.0); // Assuming max volatility of 2.0
+    
+    switch (config.frequencyMode) {
+      case 'calm':
+        volatilityIntensity = normalizedVolatility * 0.5; // Reduced intensity
+        break;
+      case 'normal':
+        volatilityIntensity = normalizedVolatility * 1.0; // Base intensity
+        break;
+      case 'active':
+        volatilityIntensity = normalizedVolatility * 1.5; // Increased intensity
+        break;
+      case 'volatile':
+        volatilityIntensity = normalizedVolatility * 2.0; // Maximum intensity
+        break;
+      default:
+        volatilityIntensity = normalizedVolatility * 1.0;
+    }
+
+    // Cap the final intensity
+    volatilityIntensity = Math.min(volatilityIntensity, 2.0);
 
     let currentOrbColorR, currentOrbColorG, currentOrbColorB;
 
@@ -109,39 +135,49 @@
               else if (state.lastTickDirection === 'down') { currentOrbColorR = 239; currentOrbColorG = 68; currentOrbColorB = 68; }
               break;
           case 'intensity':
-              currentOrbColorR = Math.round(75 + (147 - 75) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
-              currentOrbColorG = Math.round(85 + (197 - 85) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
-              currentOrbColorB = Math.round(99 + (253 - 99) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              const maxIntensity = 2.0;
+              const intensityRatio = Math.min(volatilityIntensity / maxIntensity, 1.0);
+              currentOrbColorR = Math.round(75 + (147 - 75) * intensityRatio);
+              currentOrbColorG = Math.round(85 + (197 - 85) * intensityRatio);
+              currentOrbColorB = Math.round(99 + (253 - 99) * intensityRatio);
               break;
           case 'singleHue': 
-              currentOrbColorR = Math.round(167 - (167 - 109) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
-              currentOrbColorG = Math.round(139 - (139 - 40) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
-              currentOrbColorB = Math.round(250 - (250 - 217) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              const maxIntensityHue = 2.0;
+              const hueRatio = Math.min(volatilityIntensity / maxIntensityHue, 1.0);
+              currentOrbColorR = Math.round(167 - (167 - 109) * hueRatio);
+              currentOrbColorG = Math.round(139 - (139 - 40) * hueRatio);
+              currentOrbColorB = Math.round(250 - (250 - 217) * hueRatio);
               break;
           default: 
-              currentOrbColorR = Math.round(75 + (147 - 75) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
-              currentOrbColorG = Math.round(85 + (197 - 85) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
-              currentOrbColorB = Math.round(99 + (253 - 99) * (volatilityIntensity / (config.volatilityOrbInvertBrightness ? 4 : 2)));
+              const maxIntensityDefault = 2.0;
+              const defaultRatio = Math.min(volatilityIntensity / maxIntensityDefault, 1.0);
+              currentOrbColorR = Math.round(75 + (147 - 75) * defaultRatio);
+              currentOrbColorG = Math.round(85 + (197 - 85) * defaultRatio);
+              currentOrbColorB = Math.round(99 + (253 - 99) * defaultRatio);
               break;
       }
     }
 
     let currentOrbBaseOpacity = flashOpacity !== null 
       ? flashOpacity 
-      : (config.volatilityOrbInvertBrightness ? Math.min(1.0, 0.2 + (volatilityIntensity * 0.2)) : (0.5 + volatilityIntensity * 0.25));
+      : (config.volatilityOrbInvertBrightness 
+          ? Math.min(1.0, 0.2 + (volatilityIntensity * 0.2)) 
+          : (0.3 + volatilityIntensity * 0.35)); // Adjusted base opacity
 
     const baseRadius = (config.volatilityOrbBaseWidth || 40) / 2;
     let displayRadius = baseRadius;
 
+    // Fixed orb size scaling - more responsive to volatility changes
     if (!config.volatilityOrbInvertBrightness) {
-        displayRadius = baseRadius * (1 + Math.min(state.volatility * 0.5, 2));
+        const sizeMultiplier = 1 + (volatilityIntensity * 0.8); // More pronounced size changes
+        displayRadius = baseRadius * Math.min(sizeMultiplier, 3.0); // Cap at 3x base size
     }
 
     const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, displayRadius);
     const finalColorString = `${currentOrbColorR}, ${currentOrbColorG}, ${currentOrbColorB}`;
 
     if (config.volatilityOrbInvertBrightness) {
-        const innerTransparentStop = Math.max(5, 80 - (volatilityIntensity * 18.75));
+        const innerTransparentStop = Math.max(5, 80 - (volatilityIntensity * 20));
         gradient.addColorStop(0, `rgba(${finalColorString}, 0)`);
         gradient.addColorStop(innerTransparentStop / 100, `rgba(${finalColorString}, ${currentOrbBaseOpacity})`);
         gradient.addColorStop(1, `rgba(${finalColorString}, ${currentOrbBaseOpacity})`);
@@ -176,21 +212,25 @@
   function drawADRProximityPulse(ctx, meterCenterX) {
     if (!config.adrProximityThreshold) return;
     ctx.save();
-    const priceRange = state.adrHigh - state.adrLow;
-    if (priceRange <= 0 || config.adrRange <= 0) { ctx.restore(); return; } 
     
-    const pipsToPrice = priceRange / config.adrRange;
-    const proximityThresholdPrice = (config.adrProximityThreshold / 100) * priceRange; // Corrected: percentage of actual priceRange
+    const priceRange = state.adrHigh - state.adrLow;
+    if (priceRange <= 0) { ctx.restore(); return; } 
+    
+    // Fixed: Calculate proximity threshold as percentage of ADR range in pips
+    const adrRangePips = config.adrRange || 100; // Total ADR range in pips
+    const thresholdPips = (config.adrProximityThreshold / 100) * adrRangePips;
+    const pipValue = priceRange / adrRangePips; // Price value per pip
+    const proximityThresholdPrice = thresholdPips * pipValue;
 
-    const highProximity = Math.abs(state.adrHigh - state.currentPrice) < proximityThresholdPrice;
-    const lowProximity = Math.abs(state.adrLow - state.currentPrice) < proximityThresholdPrice;
+    const highProximity = Math.abs(state.adrHigh - state.currentPrice) <= proximityThresholdPrice;
+    const lowProximity = Math.abs(state.adrLow - state.currentPrice) <= proximityThresholdPrice;
     const meterWidth = 40;
 
     if (highProximity || lowProximity) {
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 15;
         ctx.shadowColor = '#60a5fa';
         ctx.strokeStyle = '#60a5fa';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
 
         if (highProximity) {
             const highY = priceToY(state.adrHigh);
@@ -285,7 +325,7 @@
     ctx.save();
     const meterWidth = 40;
     const lowY = priceToY(state.adrLow);
-    const highY = priceToToY(state.adrHigh);
+    const highY = priceToY(state.adrHigh);
     
     // Vertical Axis Line - now respects meterCenterX
     ctx.strokeStyle = '#ffffff';
@@ -329,17 +369,19 @@
     ctx.save();
     const y = priceToY(state.currentPrice);
     
-    // Calculate floatHeight based on pips per pixel for ADR range (correctly implemented)
-    const pipsInADR = config.adrRange || 100; // Default to 100 pips if not set
-    const pixelsPerPip = canvasElement.height / pipsInADR; 
-    const floatHeightPx = (config.priceFloatHeight || 1) * pixelsPerPip; // 1 pip = X pixels
+    // Fixed: Calculate float height based on pip value and configurable pip height
+    const priceRange = state.adrHigh - state.adrLow;
+    const adrRangePips = config.adrRange || 100;
+    const pixelsPerPip = canvasElement.height / adrRangePips;
+    const floatHeightPips = config.priceFloatHeight || 1; // Default to 1 pip
+    const floatHeightPx = Math.max(1, floatHeightPips * pixelsPerPip);
 
     const floatWidth = (config.priceFloatWidth || 100);
     const xOffset = config.priceFloatXOffset || 0;
     
-    // Dynamic color change based on last tick direction
-    const priceFloatColor = state.lastTickDirection === 'up' ? '#22c55e' : 
-                            (state.lastTickDirection === 'down' ? '#ef4444' : '#a78bfa'); // Green/Red/Purple
+    // Fixed: Use blue for up, red for down, gray for no movement
+    const priceFloatColor = state.lastTickDirection === 'up' ? '#3b82f6' : // Blue
+                            (state.lastTickDirection === 'down' ? '#ef4444' : '#9ca3af'); // Red/Gray
     
     ctx.shadowColor = priceFloatColor;
     ctx.shadowBlur = 10;
@@ -348,12 +390,11 @@
     ctx.restore();
   }
 
-  function drawCurrentPrice(ctx) {
+  function drawCurrentPrice(ctx, meterCenterX) {
     if (state.currentPrice === undefined) return;
     ctx.save();
     
     const y = priceToY(state.currentPrice);
-    const meterCenterX = config.centralAxisXPosition; // Use the configured central axis
     
     const priceString = state.currentPrice.toFixed(5);
     const [integerPart, decimalPart] = priceString.split('.');
@@ -364,7 +405,6 @@
     const baseFontSize = config.priceFontSize || 14;
     const fontWeight = config.priceFontWeight || 'normal';
 
-    let currentX = 0; // Temporary, will be set relative to final alignment
     let maxSegmentHeight = 0; 
 
     // Measure segments to calculate total text width for right alignment
@@ -385,10 +425,10 @@
 
     const totalTextWidth = bigFigureWidth + pipsWidth + pipetteWidth;
 
-    // Calculate starting X for right alignment: meterCenterX + priceHorizontalOffset - totalTextWidth
+    // Fixed: Right align to meterCenterX + offset
     const x = meterCenterX + (config.priceHorizontalOffset || 0) - totalTextWidth; 
     
-    // --- Draw Background / Bounding Box --- (Draw after text to get accurate totalTextWidth)
+    // Draw Background / Bounding Box
     if (config.showPriceBackground || config.showPriceBoundingBox) {
         const padding = config.priceDisplayPadding || 4;
         const rectX = x - padding;
@@ -407,12 +447,16 @@
         }
     }
 
-    // --- Draw Text ---
+    // Draw Text with proper color handling
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = getPriceTextColor(); // Dynamic color from getPriceTextColor
     
-    currentX = x; // Reset currentX to the calculated start for text drawing
+    let currentX = x;
+    
+    // Use dynamic or static color based on configuration
+    const useStaticColor = config.priceStaticColor !== undefined ? config.priceStaticColor : false;
+    const textColor = useStaticColor ? '#d1d5db' : getPriceTextColor();
+    ctx.fillStyle = textColor;
     
     ctx.font = `${fontWeight} ${baseFontSize * (config.bigFigureFontSizeRatio || 1)}px "Roboto Mono", monospace`;
     ctx.fillText(bigFigure, currentX, y);
@@ -431,9 +475,9 @@
   }
 
   function getPriceTextColor() {
-    if (state.lastTickDirection === 'up') return config.priceUpColor || '#22c55e';
-    if (state.lastTickDirection === 'down') return config.priceDownColor || '#ef4444';
-    return '#d1d5db';
+    if (state.lastTickDirection === 'up') return config.priceUpColor || '#3b82f6'; // Blue
+    if (state.lastTickDirection === 'down') return config.priceDownColor || '#ef4444'; // Red
+    return '#d1d5db'; // Gray for no movement
   }
 </script>
 
@@ -442,5 +486,13 @@
 </div>
 
 <style>
-  /* ... existing styles ... */
+  .visualization-container {
+    position: relative;
+    border: 1px solid #333;
+  }
+  
+  canvas {
+    display: block;
+    background-color: #0a0a0a;
+  }
 </style>
