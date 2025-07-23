@@ -51,7 +51,7 @@
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     
-    const meterCenterX = config.centralAxisXPosition || (canvasElement.width / 2);
+    const meterCenterX = config.centralAxisXPosition;
 
     drawVolatilityOrb(ctx);
     if (config.showMarketProfile) drawMarketProfile(ctx, meterCenterX);
@@ -176,12 +176,11 @@
   function drawADRProximityPulse(ctx, meterCenterX) {
     if (!config.adrProximityThreshold) return;
     ctx.save();
-    const proximityThresholdPips = config.adrProximityThreshold;
     const priceRange = state.adrHigh - state.adrLow;
-    if (priceRange <= 0) { ctx.restore(); return; }
+    if (priceRange <= 0 || config.adrRange <= 0) { ctx.restore(); return; } 
     
     const pipsToPrice = priceRange / config.adrRange;
-    const proximityThresholdPrice = proximityThresholdPips * pipsToPrice;
+    const proximityThresholdPrice = (config.adrProximityThreshold / 100) * priceRange; // Corrected: percentage of actual priceRange
 
     const highProximity = Math.abs(state.adrHigh - state.currentPrice) < proximityThresholdPrice;
     const lowProximity = Math.abs(state.adrLow - state.currentPrice) < proximityThresholdPrice;
@@ -213,7 +212,7 @@
   }
 
   function drawMarketProfile(ctx, meterCenterX) {
-    if (!marketProfileData?.levels?.length) return;
+    if (!config.showMarketProfile || !marketProfileData?.levels?.length) return; 
     ctx.save();
     
     const maxVolume = Math.max(...marketProfileData.levels.map(l => l.volume));
@@ -223,7 +222,7 @@
     }
 
     const profileMaxWidth = (config.visualizationsContentWidth / 2) - 10; 
-    const scaleFactor = profileMaxWidth / maxVolume;
+    const scaleFactor = maxVolume > 0 ? profileMaxWidth / maxVolume : 0;
 
     const profilePoints = marketProfileData.levels.map(level => ({
       price: level.price,
@@ -259,14 +258,14 @@
         drawOutline('sell', '239, 68, 68');
       }
       
-    } else {
+    } else { // bars view
       const drawBars = (side, color) => {
         ctx.fillStyle = `rgba(${color}, 0.5)`;
         profilePoints.forEach(p => {
-          if (side === 'buy' && p.buyWidth > 0) {
-            ctx.fillRect(meterCenterX, p.y - 0.5, p.buyWidth, 1);
-          } else if (side === 'sell' && p.sellWidth > 0) {
-            ctx.fillRect(meterCenterX - p.sellWidth, p.y - 0.5, p.sellWidth, 1);
+          const xPos = side === 'buy' ? meterCenterX : meterCenterX - p.sellWidth;
+          const barDisplayWidth = side === 'buy' ? p.buyWidth : p.sellWidth;
+          if (barDisplayWidth > 0) {
+            ctx.fillRect(xPos, p.y - 0.5, barDisplayWidth, 1);
           }
         });
       };
@@ -286,8 +285,9 @@
     ctx.save();
     const meterWidth = 40;
     const lowY = priceToY(state.adrLow);
-    const highY = priceToY(state.adrHigh);
+    const highY = priceToToY(state.adrHigh);
     
+    // Vertical Axis Line - now respects meterCenterX
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -295,6 +295,7 @@
     ctx.lineTo(meterCenterX, canvasElement.height);
     ctx.stroke();
     
+    // ADR Boundary Lines
     ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -306,6 +307,7 @@
     ctx.lineTo(meterCenterX + meterWidth / 2, highY);
     ctx.stroke();
     
+    // ADR Step Markers
     const adrRange = state.adrHigh - state.adrLow;
     if (adrRange > 0) {
       const steps = [0.25, 0.50, 0.75];
@@ -326,15 +328,23 @@
   function drawPriceFloat(ctx, meterCenterX) {
     ctx.save();
     const y = priceToY(state.currentPrice);
+    
+    // Calculate floatHeight based on pips per pixel for ADR range (correctly implemented)
+    const pipsInADR = config.adrRange || 100; // Default to 100 pips if not set
+    const pixelsPerPip = canvasElement.height / pipsInADR; 
+    const floatHeightPx = (config.priceFloatHeight || 1) * pixelsPerPip; // 1 pip = X pixels
+
     const floatWidth = (config.priceFloatWidth || 100);
-    const floatHeight = 4;
     const xOffset = config.priceFloatXOffset || 0;
-    const priceFloatColor = '#a78bfa';
+    
+    // Dynamic color change based on last tick direction
+    const priceFloatColor = state.lastTickDirection === 'up' ? '#22c55e' : 
+                            (state.lastTickDirection === 'down' ? '#ef4444' : '#a78bfa'); // Green/Red/Purple
     
     ctx.shadowColor = priceFloatColor;
     ctx.shadowBlur = 10;
     ctx.fillStyle = priceFloatColor;
-    ctx.fillRect(meterCenterX - floatWidth / 2 + xOffset, y - floatHeight / 2, floatWidth, floatHeight);
+    ctx.fillRect(meterCenterX - floatWidth / 2 + xOffset, y - floatHeightPx / 2, floatWidth, floatHeightPx);
     ctx.restore();
   }
 
@@ -343,8 +353,7 @@
     ctx.save();
     
     const y = priceToY(state.currentPrice);
-    const meterCenterX = canvasElement.width / 2 + (state.meterHorizontalOffset || 0);
-    const x = meterCenterX + (config.priceHorizontalOffset || 30);
+    const meterCenterX = config.centralAxisXPosition; // Use the configured central axis
     
     const priceString = state.currentPrice.toFixed(5);
     const [integerPart, decimalPart] = priceString.split('.');
@@ -355,30 +364,37 @@
     const baseFontSize = config.priceFontSize || 14;
     const fontWeight = config.priceFontWeight || 'normal';
 
-    let totalWidth = 0;
-    const bigFigureFont = `${fontWeight} ${baseFontSize * (config.bigFigureFontSizeRatio || 1)}px "Roboto Mono", monospace`;
-    ctx.font = bigFigureFont;
-    totalWidth += ctx.measureText(bigFigure).width;
+    let currentX = 0; // Temporary, will be set relative to final alignment
+    let maxSegmentHeight = 0; 
 
-    const pipsFont = `${fontWeight} ${baseFontSize * (config.pipFontSizeRatio || 1)}px "Roboto Mono", monospace`;
-    ctx.font = pipsFont;
-    totalWidth += ctx.measureText(pips).width;
+    // Measure segments to calculate total text width for right alignment
+    ctx.font = `${fontWeight} ${baseFontSize * (config.bigFigureFontSizeRatio || 1)}px "Roboto Mono", monospace`;
+    const bigFigureWidth = ctx.measureText(bigFigure).width;
+    maxSegmentHeight = Math.max(maxSegmentHeight, baseFontSize * (config.bigFigureFontSizeRatio || 1));
+
+    ctx.font = `${fontWeight} ${baseFontSize * (config.pipFontSizeRatio || 1)}px "Roboto Mono", monospace`;
+    const pipsWidth = ctx.measureText(pips).width;
+    maxSegmentHeight = Math.max(maxSegmentHeight, baseFontSize * (config.pipFontSizeRatio || 1));
     
     let pipetteWidth = 0;
     if (config.showPipetteDigit) {
-        const pipetteFont = `${fontWeight} ${baseFontSize * (config.pipetteFontSizeRatio || 1)}px "Roboto Mono", monospace`;
-        ctx.font = pipetteFont;
+        ctx.font = `${fontWeight} ${baseFontSize * (config.pipetteFontSizeRatio || 1)}px "Roboto Mono", monospace`;
         pipetteWidth = ctx.measureText(pipette).width;
-        totalWidth += pipetteWidth;
+        maxSegmentHeight = Math.max(maxSegmentHeight, baseFontSize * (config.pipetteFontSizeRatio || 1));
     }
-    const textHeight = baseFontSize * (config.bigFigureFontSizeRatio || 1);
 
+    const totalTextWidth = bigFigureWidth + pipsWidth + pipetteWidth;
+
+    // Calculate starting X for right alignment: meterCenterX + priceHorizontalOffset - totalTextWidth
+    const x = meterCenterX + (config.priceHorizontalOffset || 0) - totalTextWidth; 
+    
+    // --- Draw Background / Bounding Box --- (Draw after text to get accurate totalTextWidth)
     if (config.showPriceBackground || config.showPriceBoundingBox) {
         const padding = config.priceDisplayPadding || 4;
         const rectX = x - padding;
-        const rectY = y - textHeight / 2 - padding;
-        const rectWidth = totalWidth + (padding * 2);
-        const rectHeight = textHeight + (padding * 2);
+        const rectY = y - maxSegmentHeight / 2 - padding;
+        const rectWidth = totalTextWidth + (padding * 2);
+        const rectHeight = maxSegmentHeight + (padding * 2);
 
         if (config.showPriceBackground) {
             ctx.fillStyle = 'rgba(10, 10, 10, 0.75)';
@@ -391,19 +407,20 @@
         }
     }
 
+    // --- Draw Text ---
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = getPriceTextColor();
+    ctx.fillStyle = getPriceTextColor(); // Dynamic color from getPriceTextColor
     
-    let currentX = x;
+    currentX = x; // Reset currentX to the calculated start for text drawing
     
-    ctx.font = bigFigureFont;
+    ctx.font = `${fontWeight} ${baseFontSize * (config.bigFigureFontSizeRatio || 1)}px "Roboto Mono", monospace`;
     ctx.fillText(bigFigure, currentX, y);
-    currentX += ctx.measureText(bigFigure).width;
+    currentX += bigFigureWidth;
 
-    ctx.font = pipsFont;
+    ctx.font = `${fontWeight} ${baseFontSize * (config.pipFontSizeRatio || 1)}px "Roboto Mono", monospace`;
     ctx.fillText(pips, currentX, y);
-    currentX += ctx.measureText(pips).width;
+    currentX += pipsWidth;
 
     if (config.showPipetteDigit) {
         ctx.font = `${fontWeight} ${baseFontSize * (config.pipetteFontSizeRatio || 1)}px "Roboto Mono", monospace`;

@@ -31,6 +31,7 @@
     priceFontWeight: '600',
     priceHorizontalOffset: 14,
     priceFloatWidth: 50,
+    priceFloatHeight: 1, // Added: Default to 1 pip height
     priceFloatXOffset: 20,
     bigFigureFontSizeRatio: 1.2,
     pipFontSizeRatio: 1.1,
