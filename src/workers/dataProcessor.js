@@ -96,7 +96,10 @@ function processTick(tick) {
     updateVolatility();
     
     const marketProfile = generateMarketProfile();
-    const significantTick = (config.showFlash && tick.magnitude > (config.flashThreshold || 2)) || (config.showOrbFlash && tick.magnitude > (config.orbFlashThreshold || 2));
+    // Lower thresholds for more frequent significant ticks
+    const flashThreshold = Math.max(0.5, config.flashThreshold || 1.5);
+    const orbFlashThreshold = Math.max(0.3, config.orbFlashThreshold || 1.0);
+    const significantTick = (config.showFlash && tick.magnitude >= flashThreshold) || (config.showOrbFlash && tick.magnitude >= orbFlashThreshold);
 
     self.postMessage({
         type: 'stateUpdate',
@@ -122,19 +125,27 @@ function updateADRBoundaries() {
     const adrRangeInPrice = config.adrRange / 10000;
     const minRange = 0.0020;
     
-    let adrHigh = state.midPrice + (adrRangeInPrice / 2);
-    let adrLow = state.midPrice - (adrRangeInPrice / 2);
+    // Dynamic ADR that encompasses all observed prices
+    const priceRange = state.maxObservedPrice - state.minObservedPrice;
+    const dynamicRange = Math.max(adrRangeInPrice, priceRange * 1.2); // 20% buffer
+    
+    let adrHigh = state.midPrice + (dynamicRange / 2);
+    let adrLow = state.midPrice - (dynamicRange / 2);
 
     if (adrHigh - adrLow < minRange) {
         adrHigh = state.midPrice + minRange / 2;
         adrLow = state.midPrice - minRange / 2;
     }
     
-    if(state.currentPrice > adrHigh) state.midPrice += (state.currentPrice - adrHigh);
-    else if (state.currentPrice < adrLow) state.midPrice -= (adrLow - state.currentPrice);
+    // Ensure current price is always within ADR range
+    if (state.currentPrice > adrHigh) {
+        state.midPrice += (state.currentPrice - adrHigh) + (dynamicRange * 0.05);
+    } else if (state.currentPrice < adrLow) {
+        state.midPrice -= (adrLow - state.currentPrice) + (dynamicRange * 0.05);
+    }
 
-    state.adrHigh = state.midPrice + (adrRangeInPrice / 2);
-    state.adrLow = state.midPrice - (adrRangeInPrice / 2);
+    state.adrHigh = state.midPrice + (dynamicRange / 2);
+    state.adrLow = state.midPrice - (dynamicRange / 2);
 }
 
 function updateVolatility() {

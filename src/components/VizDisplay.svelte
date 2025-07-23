@@ -18,9 +18,12 @@
   
   afterUpdate(() => {
     if (flashEffect && flashEffect.id !== lastFlashId) {
-      if (config.showFlash) drawFlash(flashEffect.direction);
       lastFlashId = flashEffect.id;
-
+      
+      if (config.showFlash) {
+        drawFlash(flashEffect.direction);
+      }
+      
       if (config.showOrbFlash && flashEffect.magnitude >= config.orbFlashThreshold) {
         flashVolatilityOrb(flashEffect.direction);
       }
@@ -38,8 +41,11 @@
 
   function priceToY(price) {
     const height = canvasElement?.height || config.meterHeight || 120;
+    // Ensure ADR range always encompasses all observed prices
+    const minPrice = Math.min(state.adrLow, state.currentPrice, ...(marketProfileData.levels?.map(l => l.price) || []));
+    const maxPrice = Math.max(state.adrHigh, state.currentPrice, ...(marketProfileData.levels?.map(l => l.price) || []));
     const scale = d3.scaleLinear()
-      .domain([state.adrLow, state.adrHigh])
+      .domain([minPrice, maxPrice])
       .range([height, 0]);
     return scale(price);
   }
@@ -54,13 +60,12 @@
     // Use configurable central axis position
     const meterCenterX = config.centralAxisXPosition || (canvasElement.width / 2);
 
-    drawVolatilityOrb(ctx);
-    if (config.showMarketProfile) drawMarketProfile(ctx, meterCenterX);
-
     drawDayRangeMeter(ctx, meterCenterX);
     drawADRProximityPulse(ctx, meterCenterX);
     drawPriceFloat(ctx, meterCenterX);
     drawCurrentPrice(ctx, meterCenterX);
+    drawVolatilityOrb(ctx);
+    if (config.showMarketProfile) drawMarketProfile(ctx, meterCenterX);
     
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
@@ -73,18 +78,36 @@
 
   function drawFlash(direction) {
     if (!ctx || !canvasElement) return;
-    let opacity = config.flashIntensity || 0.3;
+    let opacity = Math.min(config.flashIntensity || 0.8, 1.0); // Increased default intensity
     const animate = () => {
-      drawVisualization();
-      const gradient = ctx.createRadialGradient(canvasElement.width / 2, canvasElement.height / 2, 0, canvasElement.width / 2, canvasElement.height / 2, canvasElement.width * 0.7);
-      const flashColor = direction === 'up' ? `rgba(96, 165, 250, ${opacity})` : `rgba(248, 113, 113, ${opacity})`;
+      // Don't clear the canvas - flash overlays current visualization
+      // drawVisualization(); // Skip this to overlay flash
+      
+      // Create a more intense flash effect
+      const centerX = canvasElement.width / 2;
+      const centerY = canvasElement.height / 2;
+      const maxRadius = Math.max(canvasElement.width, canvasElement.height) * 0.9;
+      
+      const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+      
+      // Use more vibrant colors with higher opacity
+      const flashColor = direction === 'up' ? `rgba(59, 130, 246, ${opacity})` : `rgba(239, 68, 68, ${opacity})`;
+      
+      // Create a stronger gradient with multiple stops
       gradient.addColorStop(0, flashColor);
+      gradient.addColorStop(0.2, flashColor);
+      gradient.addColorStop(0.5, `rgba(${direction === 'up' ? '59, 130, 246' : '239, 68, 68'}, ${opacity * 0.6})`);
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-      opacity -= 0.05;
-      if (opacity > 0) requestAnimationFrame(animate);
-      else drawVisualization();
+      
+      opacity -= 0.02; // Slower fade for better visibility
+      if (opacity > 0) {
+        requestAnimationFrame(animate);
+      } else {
+        drawVisualization(); // Redraw only after flash completes
+      }
     };
     requestAnimationFrame(animate);
   }
@@ -403,7 +426,7 @@
     const pipette = decimalPart.substring(4, 5);
 
     const baseFontSize = config.priceFontSize || 14;
-    const fontWeight = config.priceFontWeight || 'normal';
+    const fontWeight = config.priceFontWeight || 400;
 
     let maxSegmentHeight = 0; 
 

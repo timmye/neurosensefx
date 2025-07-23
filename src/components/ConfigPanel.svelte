@@ -32,6 +32,14 @@
     <label class="control-label">ADR Range (pips): {config.adrRange || 100}</label>
     <input type="range" min="10" max="200" bind:value={config.adrRange} on:input={(e) => updateConfig('adrRange', parseInt(e.target.value))} />
     
+    <label class="control-label">Frequency Mode</label>
+    <select bind:value={config.frequencyMode} on:change={(e) => updateConfig('frequencyMode', e.target.value)}>
+      <option value="calm">Calm</option>
+      <option value="normal">Normal</option>
+      <option value="active">Active</option>
+      <option value="volatile">Volatile</option>
+    </select>
+    
     <label class="control-label">Central Axis X Position: {config.centralAxisXPosition || 200}</label>
     <input type="range" min="50" max="750" bind:value={config.centralAxisXPosition} on:input={(e) => updateConfig('centralAxisXPosition', parseInt(e.target.value))} />
     
@@ -109,14 +117,6 @@
     <label class="control-label">Base Width: {config.volatilityOrbBaseWidth || 40}</label>
     <input type="range" min="10" max="200" bind:value={config.volatilityOrbBaseWidth} on:input={(e) => updateConfig('volatilityOrbBaseWidth', parseInt(e.target.value))} />
 
-    <label class="control-label">Frequency Mode</label>
-    <select bind:value={config.frequencyMode} on:change={(e) => updateConfig('frequencyMode', e.target.value)}>
-      <option value="calm">Calm</option>
-      <option value="normal">Normal</option>
-      <option value="active">Active</option>
-      <option value="volatile">Volatile</option>
-    </select>
-
     <label class="control-label">Color Mode</label>
     <select bind:value={config.volatilityColorMode} on:change={(e) => updateConfig('volatilityColorMode', e.target.value)}>
       <option value="directional">Directional</option>
@@ -172,7 +172,7 @@
     <h3 class="font-semibold text-gray-400">Flashing Effects</h3>
     <p class="text-xs text-gray-500 mb-2">Visual alerts for significant market events.</p>
     
-    <label class="control-label">Show Flash on Tick</label>
+    <label class="control-label">Flash on Significant Tick</label>
     <input type="checkbox" bind:checked={config.showFlash} on:change={(e) => updateConfig('showFlash', e.target.checked)} />
 
     <label class="control-label">Flash Intensity: {config.flashIntensity || 0.3}</label>
