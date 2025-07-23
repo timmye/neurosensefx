@@ -2,24 +2,21 @@ console.log('Worker started');
 
 let config = {};
 let state = {};
-let simulationInterval;
-
-// --- Simulation Settings ---
-const frequencySettings = {
-    calm: { baseInterval: 2000, randomness: 1500, magnitudeMultiplier: 0.5, momentumStrength: 0.05, meanReversionPoint: 0.7 },
-    normal: { baseInterval: 800, randomness: 1000, magnitudeMultiplier: 1, momentumStrength: 0.1, meanReversionPoint: 0.7 },
-    active: { baseInterval: 300, randomness: 400, magnitudeMultiplier: 1.5, momentumStrength: 0.15, meanReversionPoint: 0.6 },
-    volatile: { baseInterval: 100, randomness: 200, magnitudeMultiplier: 2, momentumStrength: 0.2, meanReversionPoint: 0.5 },
-};
 
 // --- Core Worker Logic ---
 self.onmessage = (event) => {
     const { type, payload } = event.data;
     switch (type) {
-        case 'init': initialize(payload); break;
-        case 'startSimulation': startSimulation(); break;
-        case 'stop': stopSimulation(); break;
-        case 'updateConfig': config = { ...config, ...payload }; break;
+        case 'init':
+            initialize(payload);
+            break;
+        case 'tick':
+            console.log('dataProcessor.js: Received tick:', payload); // Log received tick
+            processTick(payload);
+            break;
+        case 'updateConfig':
+            config = { ...config, ...payload };
+            break;
     }
 };
 
@@ -27,7 +24,6 @@ function initialize(payload) {
     config = payload.config;
     const initialPrice = payload.midPrice || 1.25500;
     state = {
-        lastTickTime: performance.now(),
         currentPrice: initialPrice,
         midPrice: initialPrice,
         minObservedPrice: initialPrice,
@@ -35,71 +31,47 @@ function initialize(payload) {
         ticks: [],
         allTicks: [],
         volatility: 0.5,
-        momentum: 0,
+        tickMagnitudes: [],
         lastTickDirection: 'up',
-        tickMagnitudes: [], // For rolling volatility calculation
+        adrHigh: initialPrice + (config.adrRange / 20000),
+        adrLow: initialPrice - (config.adrRange / 20000),
     };
-    console.log('Worker initialized');
-}
-
-function startSimulation() {
-    if (simulationInterval) clearInterval(simulationInterval);
-    simulationInterval = setInterval(generateAndProcessTick, 50);
-}
-
-function stopSimulation() {
-    if (simulationInterval) clearInterval(simulationInterval);
-}
-
-function generateAndProcessTick() {
-    const newTick = generateTick();
-    if (newTick) {
-        processTick(newTick);
-    }
-}
-
-function generateTick() {
-    const now = performance.now();
-    const settings = frequencySettings[config.frequencyMode];
-    if (now - state.lastTickTime < (settings.baseInterval + (Math.random() * settings.randomness))) return null;
-
-    state.momentum = (state.momentum || 0) * 0.85;
-    const bias = state.momentum * settings.momentumStrength;
-    const direction = Math.random() < (0.5 + bias) ? 1 : -1;
-    state.momentum = Math.max(-1, Math.min(1, state.momentum + direction * 0.25));
-
-    const rand = Math.random();
-    let magnitude = (rand < 0.8) ? Math.random() * 0.8 : (rand < 0.98) ? 0.8 + Math.random() * 2 : 3 + Math.random() * 5;
-    magnitude *= settings.magnitudeMultiplier;
-
-    const newPrice = state.currentPrice + (direction * magnitude / 10000);
-
-    state.lastTickTime = now;
-    state.lastTickDirection = direction > 0 ? 'up' : 'down';
-    state.currentPrice = newPrice;
-    
-    const tick = { magnitude, direction, price: newPrice, time: now };
-    state.ticks.push(tick);
-    state.allTicks.push(tick);
-    
-    // Store magnitude for volatility calculation
-    state.tickMagnitudes.push(magnitude);
-    
-    return tick;
+    console.log('dataProcessor.js: Worker initialized with state:', state); // Log initialization
 }
 
 function processTick(tick) {
-    state.minObservedPrice = Math.min(state.minObservedPrice, tick.price);
-    state.maxObservedPrice = Math.max(state.maxObservedPrice, tick.price);
+    if (!tick || typeof tick.bid !== 'number') {
+        console.warn('dataProcessor.js: Invalid tick received:', tick);
+        return;
+    }
+    
+    const lastPrice = state.currentPrice;
+    state.currentPrice = tick.bid;
+    state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
+    const magnitude = Math.abs(state.currentPrice - lastPrice) * 10000; // In pips
+
+    const now = performance.now();
+    const tickEvent = {
+        price: state.currentPrice,
+        direction: state.lastTickDirection === 'up' ? 1 : -1,
+        magnitude: magnitude,
+        time: now,
+    };
+    
+    state.ticks.push(tickEvent);
+    state.allTicks.push(tickEvent);
+    state.tickMagnitudes.push(magnitude);
+
+    state.minObservedPrice = Math.min(state.minObservedPrice, state.currentPrice);
+    state.maxObservedPrice = Math.max(state.maxObservedPrice, state.currentPrice);
 
     updateADRBoundaries();
     updateVolatility();
     
     const marketProfile = generateMarketProfile();
-    // Lower thresholds for more frequent significant ticks
     const flashThreshold = Math.max(0.5, config.flashThreshold || 1.5);
     const orbFlashThreshold = Math.max(0.3, config.orbFlashThreshold || 1.0);
-    const significantTick = (config.showFlash && tick.magnitude >= flashThreshold) || (config.showOrbFlash && tick.magnitude >= orbFlashThreshold);
+    const significantTick = (config.showFlash && magnitude >= flashThreshold) || (config.showOrbFlash && magnitude >= orbFlashThreshold);
 
     self.postMessage({
         type: 'stateUpdate',
@@ -114,34 +86,26 @@ function processTick(tick) {
             },
             marketProfile: marketProfile,
             significantTick: significantTick,
-            tickMagnitude: tick.magnitude,
+            tickMagnitude: magnitude,
         }
     });
+    console.log('dataProcessor.js: State updated, adrHigh:', state.adrHigh, 'adrLow:', state.adrLow); // Log ADR values
 }
 
 // --- State Update & Data Generation Functions ---
 
 function updateADRBoundaries() {
     const adrRangeInPrice = config.adrRange / 10000;
-    const minRange = 0.0020;
-    
-    // Dynamic ADR that encompasses all observed prices
     const priceRange = state.maxObservedPrice - state.minObservedPrice;
     const dynamicRange = Math.max(adrRangeInPrice, priceRange * 1.2); // 20% buffer
-    
+
     let adrHigh = state.midPrice + (dynamicRange / 2);
     let adrLow = state.midPrice - (dynamicRange / 2);
 
-    if (adrHigh - adrLow < minRange) {
-        adrHigh = state.midPrice + minRange / 2;
-        adrLow = state.midPrice - minRange / 2;
-    }
-    
-    // Ensure current price is always within ADR range
     if (state.currentPrice > adrHigh) {
-        state.midPrice += (state.currentPrice - adrHigh) + (dynamicRange * 0.05);
+        state.midPrice += (state.currentPrice - adrHigh);
     } else if (state.currentPrice < adrLow) {
-        state.midPrice -= (adrLow - state.currentPrice) + (dynamicRange * 0.05);
+        state.midPrice -= (adrLow - state.currentPrice);
     }
 
     state.adrHigh = state.midPrice + (dynamicRange / 2);
@@ -152,37 +116,32 @@ function updateVolatility() {
     const lookbackPeriod = 10000; // 10 second lookback
     const now = performance.now();
     
-    // Remove old ticks outside lookback period
     state.ticks = state.ticks.filter(tick => now - tick.time <= lookbackPeriod);
-    state.tickMagnitudes = state.tickMagnitudes.slice(-50); // Keep last 50 magnitudes max
+    if (state.tickMagnitudes.length > 50) {
+        state.tickMagnitudes.shift();
+    }
     
     if (state.tickMagnitudes.length < 3) {
-        state.volatility = Math.max(0.1, state.volatility * 0.99);
+        state.volatility = Math.max(0.1, (state.volatility || 0.1) * 0.99);
         return;
     }
     
-    // Calculate average magnitude over lookback period
-    const recentMagnitudes = state.tickMagnitudes.slice(-20); // Last 20 ticks
-    const avgMagnitude = recentMagnitudes.reduce((sum, mag) => sum + mag, 0) / recentMagnitudes.length;
+    const avgMagnitude = state.tickMagnitudes.reduce((sum, mag) => sum + mag, 0) / state.tickMagnitudes.length;
+    const tickFrequency = state.ticks.length / (lookbackPeriod / 1000); // Ticks per second
     
-    // Calculate tick frequency (ticks per second)
-    const tickFrequency = state.ticks.length / (lookbackPeriod / 1000);
-    
-    // Combine magnitude and frequency for volatility score
-    const magnitudeScore = Math.min(avgMagnitude / 2, 3); // Cap at 3
-    const frequencyScore = Math.min(tickFrequency / 2, 2); // Cap at 2
+    const magnitudeScore = Math.min(avgMagnitude / 2, 3);
+    const frequencyScore = Math.min(tickFrequency / 2, 2);
     
     const rawVolatility = (magnitudeScore * 0.7) + (frequencyScore * 0.3);
     
-    // Smooth the volatility with exponential moving average
     const smoothingFactor = 0.1;
-    state.volatility = (state.volatility * (1 - smoothingFactor)) + (rawVolatility * smoothingFactor);
-    
-    // Ensure minimum volatility floor
+    state.volatility = ((state.volatility || 0) * (1 - smoothingFactor)) + (rawVolatility * smoothingFactor);
     state.volatility = Math.max(0.1, state.volatility);
 }
 
 function generateMarketProfile() {
+    if (!config.priceBucketSize || config.priceBucketSize <= 0) return { levels: [] };
+    
     const profileData = new Map();
     const relevantTicks = config.distributionDepthMode === 'all' 
         ? state.allTicks 

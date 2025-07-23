@@ -2,79 +2,40 @@
   import { onMount, onDestroy } from 'svelte';
   import VizDisplay from './components/VizDisplay.svelte';
   import ConfigPanel from './components/ConfigPanel.svelte';
+  import { vizConfig, vizState } from './stores.js';
+  import { tickData, dataSourceMode, setDataSource, subscribe, unsubscribe } from './data/wsClient.js';
 
-  const dataWorker = new Worker(new URL('./workers/dataProcessor.js', import.meta.url), { type: 'module' });
-
-  // --- Configuration ---
-  let config = {
-    adrRange: 100,
-    pulseThreshold: 0.5,
-    pulseScale: 5,
-    flashThreshold: 2,
-    adrProximityThreshold: 10,
-    frequencyMode: 'normal', // calm, normal, active, volatile
-    priceBucketSize: 0.5,
-    showVolatilityOrb: true,
-    volatilityColorMode: 'intensity', // directional, intensity, singleHue
-    volatilityOrbInvertBrightness: false,
-    volatilityOrbBaseWidth: 70,
-    showMarketProfile: true,
-    showFlash: true,
-    flashIntensity: 0.4,
-    showOrbFlash: true,
-    orbFlashThreshold: 2,
-    orbFlashIntensity: 0.8,
-    distributionDepthMode: 'all',
-    distributionPercentage: 50,
-    marketProfileView: 'bars',
-    priceFontSize: 50,
-    priceFontWeight: '600',
-    priceHorizontalOffset: 14,
-    priceFloatWidth: 50,
-    priceFloatHeight: 1, // Height in pips (default 1 pip)
-    priceFloatXOffset: 20,
-    bigFigureFontSizeRatio: 1.2,
-    pipFontSizeRatio: 1.1,
-    pipetteFontSizeRatio: 0.8,
-    showPriceBoundingBox: false,
-    showPriceBackground: false,
-    priceDisplayPadding: 4,
-    priceStaticColor: false, // true = static gray, false = dynamic colors
-    priceUpColor: '#3b82f6', // Blue for up movements
-    priceDownColor: '#ef4444', // Red for down movements
-    visualizationsContentWidth: 220,
-    centralAxisXPosition: 170, // X position of the central ADR axis
-    meterHeight: 120,
-    centralMeterFixedThickness: 8,
-    showPipetteDigit: false,
-    showSingleSidedProfile: false,
-    singleSidedProfileSide: 'right',
-  };
-
-  // --- Reactive State ---
-  let state = undefined;
+  let dataWorker;
+  let currentVizConfig = $vizConfig;
+  let currentVizState = $vizState;
   let marketProfileData = { levels: [] };
   let flashEffect = null;
+  
+  // Add console log for initial vizState
+  console.log('App.svelte: Initial $vizState:', $vizState);
 
-  function handleConfigChange(event) {
-    config = { ...config, ...event.detail.config };
-    dataWorker.postMessage({ type: 'updateConfig', payload: config });
-  }
-
+  // --- Lifecycle ---
   onMount(() => {
-    window.addEventListener('configchange', handleConfigChange);
-    const initialMidPrice = 1.25500;
+    // Initialize the web worker
+    dataWorker = new Worker(new URL('./workers/dataProcessor.js', import.meta.url), { type: 'module' });
+    
+    // Send initial configuration to the worker
     dataWorker.postMessage({ 
         type: 'init', 
-        payload: { config: config, midPrice: initialMidPrice } 
+        payload: { config: currentVizConfig, midPrice: 1.25500 } 
     });
 
+    // Listen for state updates from the worker
     dataWorker.onmessage = (event) => {
       const { type, payload } = event.data;
       if (type === 'stateUpdate') {
-        state = payload.newState;
+        vizState.set(payload.newState);
+        currentVizState = payload.newState; // Update reactive variable
         marketProfileData = payload.marketProfile || { levels: [] };
         
+        // Add console log for state updates from worker
+        console.log('App.svelte: Received stateUpdate from worker:', payload.newState);
+
         if (payload.significantTick) {
           flashEffect = {
             direction: payload.newState.lastTickDirection,
@@ -85,30 +46,72 @@
       }
     };
 
-    dataWorker.postMessage({ type: 'startSimulation' });
+    // --- Subscriptions ---
+    
+    // 1. Subscribe to config changes and forward them to the worker
+    const unsubscribeConfig = vizConfig.subscribe(newConfig => {
+      currentVizConfig = newConfig;
+      if (dataWorker) {
+        dataWorker.postMessage({ type: 'updateConfig', payload: newConfig });
+      }
+    });
+
+    // 2. Subscribe to incoming tick data (from wsClient) and forward it to the worker
+    const unsubscribeTicks = tickData.subscribe(ticks => {
+      if (dataWorker && ticks) {
+        const firstSymbol = Object.keys(ticks)[0];
+        if(firstSymbol) {
+             // Add console log for ticks forwarded to worker
+             console.log('App.svelte: Forwarding tick to worker:', ticks[firstSymbol]);
+             dataWorker.postMessage({ type: 'tick', payload: ticks[firstSymbol] });
+        }
+      }
+    });
+
+    // Clean up on component destruction
+    return () => {
+      unsubscribeConfig();
+      unsubscribeTicks();
+      dataWorker.terminate();
+    };
   });
 
-  onDestroy(() => {
-    window.removeEventListener('configchange', handleConfigChange);
-    dataWorker.terminate();
-  });
+  // --- Event Handlers ---
+  
+  function handleSubscriptionChange(event) {
+      const { symbols, subscribe: shouldSubscribe } = event.detail;
+      if (shouldSubscribe) {
+          subscribe(symbols);
+      } else {
+          unsubscribe(symbols);
+      }
+  }
+
+  function handleDataSourceChange(event) {
+      setDataSource(event.detail.mode);
+  }
+
 </script>
 
 <main>
   <div class="main-container">
     <div class="viz-container">
       <h1>NeuroSense FX</h1>
-      {#if state && state.adrHigh !== undefined && state.adrLow !== undefined}
+      {#if currentVizState && currentVizState.adrHigh !== undefined}
         <VizDisplay 
-          {config} 
-          {state} 
+          config={currentVizConfig} 
+          state={currentVizState} 
           {marketProfileData}
           {flashEffect}
         />
       {/if}
     </div>
     <div class="config-panel-container">
-      <ConfigPanel {config} />
+      <ConfigPanel 
+        bind:config={currentVizConfig}
+        on:subscriptionChange={handleSubscriptionChange}
+        on:dataSourceChange={handleDataSourceChange}
+      />
     </div>
   </div>
 </main>
@@ -131,7 +134,7 @@
     align-items: center;
   }
   .config-panel-container {
-    width: 300px;
+    width: 350px;
     margin-left: 20px;
   }
   h1 {

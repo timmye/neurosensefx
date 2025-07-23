@@ -9,13 +9,13 @@
   ];
   # Sets environment variables in the workspace
   env = {
-    WEBSOCKET_PORT = "3003";
+    WEBSOCKET_PORT = "8080";
     # cTrader API Credentials - Loaded from user provided .env
     CTRADER_ACCOUNT_TYPE = "LIVE";
     CTRADER_CLIENT_ID = "12478_zC8lmMuDBZg1fPqKeZGWtieeqD3cfYaOWzEOKWSXYbaS5AkBw1";
     CTRADER_CLIENT_SECRET = "XwKO7QruJda6a6vswkY4CJuVJLnICPvEL6KAdbwxLcJITouvYQ";
     CTRADER_ACCESS_TOKEN = "av8FB2UqJR3YgUGMGMWL47nsExSEYEo_QUtL1UB6srg";
-    CTRADER_REFRESH_TOKEN = "2ck79MQzfvobUMBZFVWOQDLOFaO9F_SIwO4MxEWbxAM";
+    CTRADER_REFRESH_TOKEN = "2ck79MQzfvobUMBZFVWOQDLOFaO9F_SIO4MxEWbxAM";
     CTRADER_ACCOUNT_ID = "38998989";
     CTRADER_HOST_TYPE = "LIVE";
     CTRADER_SYMBOL_IDS = "1,2,3"; # Assuming this should be a string
@@ -40,7 +40,7 @@
         backend = {
           # Command to start the web server for backend preview
           # Directly call node on server.js
-          command = ["node" "ctrader_tick_backend/web/server.js" "--port" "$PORT"];
+          command = ["npm" "run" "ws-stream" "--" "--port" "$PORT"];
           manager = "web";
         };
       };

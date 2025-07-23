@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "ws-stream": "node ctrader_tick_backend/websocket-tick-streamer.js"
   },
   "dependencies": {
     "d3": "^7.9.0",
