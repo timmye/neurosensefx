@@ -4,3 +4,7 @@
 {"level":"info","message":"→ Sent PROTO_OA_VERSION_REQ","service":"ctrader-tick-streamer","timestamp":"2025-07-23 13:50:05"}
 {"level":"info","message":"Attempting to open CTrader connection...","service":"ctrader-tick-streamer","timestamp":"2025-07-23 23:42:19"}
 {"level":"info","message":"🔗 CTrader TLS socket connected.","service":"ctrader-tick-streamer","timestamp":"2025-07-23 23:42:20"}
+{"level":"info","message":"📱 Client connected: client_1753321582247_zlfmh06sv","service":"ctrader-tick-streamer","timestamp":"2025-07-24 01:46:22"}
+{"level":"info","message":"📱 Client disconnected: client_1753321582247_zlfmh06sv","service":"ctrader-tick-streamer","timestamp":"2025-07-24 01:47:17"}
+{"level":"info","message":"🔗 CTrader TLS socket connected.","service":"ctrader-tick-streamer","timestamp":"2025-07-24 07:03:52"}
+{"level":"info","message":"→ Sent PROTO_OA_VERSION_REQ","service":"ctrader-tick-streamer","timestamp":"2025-07-24 07:03:52"}
