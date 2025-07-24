@@ -1,0 +1,6 @@
+{"level":"info","message":"🔗 CTrader TLS socket connected.","service":"ctrader-tick-streamer","timestamp":"2025-07-23 13:21:42"}
+{"level":"info","message":"→ Sent PROTO_OA_VERSION_REQ","service":"ctrader-tick-streamer","timestamp":"2025-07-23 13:21:42"}
+{"level":"info","message":"🔗 CTrader TLS socket connected.","service":"ctrader-tick-streamer","timestamp":"2025-07-23 13:50:05"}
+{"level":"info","message":"→ Sent PROTO_OA_VERSION_REQ","service":"ctrader-tick-streamer","timestamp":"2025-07-23 13:50:05"}
+{"level":"info","message":"Attempting to open CTrader connection...","service":"ctrader-tick-streamer","timestamp":"2025-07-23 23:42:19"}
+{"level":"info","message":"🔗 CTrader TLS socket connected.","service":"ctrader-tick-streamer","timestamp":"2025-07-23 23:42:20"}
