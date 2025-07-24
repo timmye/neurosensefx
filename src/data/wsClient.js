@@ -4,23 +4,19 @@ import { vizConfig } from '/src/stores.js';
 // --- Stores ---
 export const tickData = writable({});
 export const wsStatus = writable('disconnected');
-export const dataSourceMode = writable('simulated'); // 'live' or 'simulated'
+export const availableSymbols = writable([]); 
 export const subscriptions = writable(new Set());
 
 // --- Private State ---
 let ws = null;
 let simulationInterval;
 let simulationState = {};
-let currentConfig = {};
+let currentConfig = get(vizConfig); // Get initial config for simulator
 
-vizConfig.subscribe(value => {
-    currentConfig = value;
-});
+vizConfig.subscribe(value => currentConfig = value);
 
 // --- WebSocket Connection ---
 const getWebSocketUrl = () => {
-    // CORRECT: Connect to the '/ws' path on the *same host* as the frontend.
-    // Vite's proxy will intercept this and forward it to the backend (localhost:5035).
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     return `${protocol}//${host}/ws`;
@@ -42,26 +38,55 @@ function startLiveStream() {
         ws.onopen = () => {
             console.log('wsClient.js: Live WebSocket connected via proxy');
             wsStatus.set('connected');
+            // Request available symbols upon successful connection
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                 ws.send(JSON.stringify({ type: 'getSubscriptions' })); // Request initial subscriptions
+            }
         };
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'tick') {
-                // --- CENTRALIZED TYPE COERCION HERE ---
-                data.bid = parseFloat(data.bid);
-                data.ask = parseFloat(data.ask);
-                data.spread = parseFloat(data.spread);
-                // ----------------------------------------
-                console.log('wsClient.js: Received live tick (parsed):', data); 
-                tickData.set({ [data.symbol]: data });
-            } else if (data.type === 'subscribeResponse') {
-                console.log('wsClient.js: Subscribe response:', data.results); 
-                data.results.forEach(result => {
-                    if (result.status === 'subscribed') {
-                        subscriptions.update(subs => subs.add(result.symbol));
-                    }
-                });
-            } // ... other message types
+            
+            switch (data.type) {
+                case 'connection':
+                    console.log('wsClient.js: Connection established. Available symbols:', data.availableSymbols);
+                    availableSymbols.set(data.availableSymbols);
+                    break;
+                case 'tick':
+                    // --- CORRECTED: Use update() to merge new ticks ---
+                    tickData.update(currentTicks => {
+                        return { ...currentTicks, [data.symbol]: data };
+                    });
+                    // ---------------------------------------------------
+                    console.log('wsClient.js: Received live tick (parsed):', data); 
+                    break;
+                case 'subscribeResponse':
+                    console.log('wsClient.js: Subscribe response:', data.results); 
+                    data.results.forEach(result => {
+                        if (result.status === 'subscribed') {
+                            subscriptions.update(subs => subs.add(result.symbol));
+                        }
+                    });
+                    break;
+                case 'unsubscribeResponse':
+                    console.log('wsClient.js: Unsubscribe response:', data.results);
+                    data.results.forEach(result => {
+                        if (result.status === 'unsubscribed') {
+                            subscriptions.update(subs => {
+                                subs.delete(result.symbol);
+                                return subs;
+                            });
+                        }
+                    });
+                    break;
+                case 'subscriptions': // Handle the response to getSubscriptions
+                    console.log('wsClient.js: Received current subscriptions:', data.symbols);
+                     data.symbols.forEach(symbol => subscriptions.update(subs => subs.add(symbol)));
+                    break;
+                case 'error':
+                    console.error('wsClient.js: Received error from backend:', data.message);
+                    break;
+            }
         };
 
         ws.onclose = () => {
@@ -94,46 +119,25 @@ function stopLiveStream() {
         ws = null;
     }
     wsStatus.set('disconnected');
+    availableSymbols.set([]); 
 }
 
 // --- Data Simulation ---
-const frequencySettings = {
-    calm: { baseInterval: 2000, randomness: 1500, magnitudeMultiplier: 0.5 },
-    normal: { baseInterval: 800, randomness: 1000, magnitudeMultiplier: 1 },
-    active: { baseInterval: 300, randomness: 400, magnitudeMultiplier: 1.5 },
-    volatile: { baseInterval: 100, randomness: 200, magnitudeMultiplier: 2 },
-};
-
-function initializeSimulator() {
-    simulationState = { lastTickTime: performance.now(), currentPrice: 1.25500, momentum: 0 };
-    subscriptions.update(subs => subs.add('SIM-EURUSD'));
-}
-
-function generateSimulatedTick() {
-    // ... (simulation logic remains the same)
-    const now = performance.now();
-    const settings = frequencySettings[currentConfig.frequencyMode] || frequencySettings.normal;
-    if (now - simulationState.lastTickTime < (settings.baseInterval + (Math.random() * settings.randomness))) return;
-    simulationState.momentum = (simulationState.momentum || 0) * 0.85;
-    const bias = simulationState.momentum * 0.1;
-    const direction = Math.random() < (0.5 + bias) ? 1 : -1;
-    simulationState.momentum = Math.max(-1, Math.min(1, simulationState.momentum + direction * 0.25));
-    const rand = Math.random();
-    let magnitude = (rand < 0.8) ? Math.random() * 0.8 : (rand < 0.98) ? 0.8 + Math.random() * 2 : 3 + Math.random() * 5;
-    magnitude *= settings.magnitudeMultiplier;
-    const newPrice = simulationState.currentPrice + (direction * magnitude / 10000);
-    simulationState.lastTickTime = now;
-    simulationState.currentPrice = newPrice;
-    const tick = { type: 'tick', symbol: 'SIM-EURUSD', bid: newPrice, ask: newPrice + (0.2 / 10000), spread: 0.2, timestamp: now };
-    tickData.set({ [tick.symbol]: tick });
-}
-
+// Modified simulation to update tickData store using update()
 function startSimulation() {
     stopLiveStream();
-    initializeSimulator();
     if (simulationInterval) clearInterval(simulationInterval);
-    simulationInterval = setInterval(generateSimulatedTick, 50);
+    simulationInterval = setInterval(() => {
+        const newPrice = 1.25500 + (Math.random() - 0.5) * 0.001;
+        const tick = { type: 'tick', symbol: 'SIM-EURUSD', bid: newPrice, ask: newPrice + 0.00012, spread: 0.00012, timestamp: Date.now() };
+        // --- Use update() for simulation ticks as well ---
+         tickData.update(currentTicks => {
+            return { ...currentTicks, [tick.symbol]: tick };
+        });
+        // -----------------------------------------------------
+    }, 800);
     wsStatus.set('connected');
+    subscriptions.update(subs => subs.add('SIM-EURUSD'));
 }
 
 function stopSimulation() {
@@ -146,6 +150,8 @@ function stopSimulation() {
 }
 
 // --- Public API ---
+export const dataSourceMode = writable('simulated');
+
 export function setDataSource(mode) {
     dataSourceMode.set(mode);
     if (mode === 'live') {

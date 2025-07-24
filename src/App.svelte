@@ -1,96 +1,53 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import VizDisplay from './components/VizDisplay.svelte';
   import ConfigPanel from './components/ConfigPanel.svelte';
-  import { vizConfig, vizState } from './stores.js';
-  import { tickData, dataSourceMode, setDataSource, subscribe, unsubscribe } from './data/wsClient.js';
+  import { vizConfig } from './stores.js';
+  import { setDataSource, subscribe, unsubscribe, wsStatus } from './data/wsClient.js';
+  import { symbolStates } from './data/symbolManager.js';
 
   let currentVizConfig = $vizConfig;
-  let marketProfileData = { levels: [] };
-  let flashEffect = null;
-  
-  console.log('App.svelte: Initial $vizState:', $vizState);
 
-  // --- Lifecycle ---
-  onMount(() => {
-    const dataWorker = new Worker(new URL('./workers/dataProcessor.js', import.meta.url), { type: 'module' });
-    
-    dataWorker.postMessage({ 
-        type: 'init', 
-        payload: { config: currentVizConfig, midPrice: 1.25500 } 
-    });
-
-    dataWorker.onmessage = (event) => {
-      const { type, payload } = event.data;
-      if (type === 'stateUpdate') {
-        vizState.set(payload.newState); // This updates the store, and thus $vizState
-        marketProfileData = payload.marketProfile || { levels: [] };
-        
-        console.log('App.svelte: Received stateUpdate from worker, new $vizState:', $vizState);
-
-        if (payload.significantTick) {
-          flashEffect = {
-            direction: payload.newState.lastTickDirection,
-            id: Date.now(),
-            magnitude: payload.tickMagnitude
-          };
-        }
-      }
-    };
-
-    const unsubscribeConfig = vizConfig.subscribe(newConfig => {
-      currentVizConfig = newConfig;
-      if (dataWorker) {
-        dataWorker.postMessage({ type: 'updateConfig', payload: newConfig });
-      }
-    });
-
-    const unsubscribeTicks = tickData.subscribe(ticks => {
-      if (dataWorker && ticks) {
-        const firstSymbol = Object.keys(ticks)[0];
-        if(firstSymbol) {
-             console.log('App.svelte: Forwarding tick to worker:', ticks[firstSymbol]);
-             dataWorker.postMessage({ type: 'tick', payload: ticks[firstSymbol] });
-        }
-      }
-    });
-
-    return () => {
-      unsubscribeConfig();
-      unsubscribeTicks();
-      dataWorker.terminate();
-    };
-  });
-
-  // --- Event Handlers ---
+  // Event Handlers
   function handleSubscriptionChange(event) {
-      const { symbols, subscribe: shouldSubscribe } = event.detail;
-      if (shouldSubscribe) {
-          subscribe(symbols);
-      } else {
-          unsubscribe(symbols);
-      }
+    const { symbols, subscribe: shouldSubscribe } = event.detail;
+    if (shouldSubscribe) {
+      subscribe(symbols);
+    } else {
+      unsubscribe(symbols);
+    }
   }
 
   function handleDataSourceChange(event) {
-      setDataSource(event.detail.mode);
+    setDataSource(event.detail.mode);
   }
-
 </script>
 
 <main>
   <div class="main-container">
-    <div class="viz-container">
-      <h1>NeuroSense FX</h1>
-      {#if $vizState && $vizState.adrHigh !== undefined && $vizState.adrLow !== undefined}
-        <VizDisplay 
-          config={currentVizConfig} 
-          state={$vizState} 
-          {marketProfileData}
-          {flashEffect}
-        />
-      {/if}
+    <!-- Visualization Grid -->
+    <div class="viz-grid-container">
+      <div class="header-bar">
+        <h1>NeuroSense FX</h1>
+        <div class="status-indicator status-{$wsStatus}">
+          {$wsStatus}
+        </div>
+      </div>
+      
+      <div class="grid-content">
+        {#each Object.entries($symbolStates) as [symbol, state] (symbol)}
+          <div class="viz-wrapper">
+            <div class="viz-header">{symbol}</div>
+            <VizDisplay 
+              config={currentVizConfig} 
+              {state}
+            />
+          </div>
+        {/each}
+      </div>
     </div>
+
+    <!-- Configuration Panel -->
     <div class="config-panel-container">
       <ConfigPanel 
         bind:config={currentVizConfig}
@@ -106,24 +63,63 @@
     background-color: #111827;
     color: #d1d5db;
     min-height: 100vh;
+    padding: 1rem;
   }
   .main-container {
     display: flex;
     flex-direction: row;
-    padding: 20px;
+    gap: 1rem;
   }
-  .viz-container {
+  .viz-grid-container {
     flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  h1 {
+    margin: 0;
+    color: #60a5fa;
+  }
+  .status-indicator {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+  .status-connecting { background-color: #f59e0b; color: #fff; }
+  .status-connected { background-color: #10b981; color: #fff; }
+  .status-disconnected { background-color: #4b5563; color: #e5e7eb; }
+  .status-error { background-color: #ef4444; color: #fff; }
+
+  .grid-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    align-content: start;
+  }
+  .viz-wrapper {
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 0.5rem;
+    background-color: #1f2937;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
+  .viz-header {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.875rem;
+    color: #9ca3af;
+    margin-bottom: 0.5rem;
+  }
   .config-panel-container {
     width: 350px;
-    margin-left: 20px;
-  }
-  h1 {
-    color: #60a5fa;
-    margin-bottom: 20px;
+    flex-shrink: 0;
   }
 </style>
