@@ -10,6 +10,25 @@ NeuroSense FX is a real-time financial data visualization application. It consis
 
 The development environment is defined declaratively using a `.idx/dev.nix` file.
 
+Step 0: clone https://github.com/timmye/neurosensefx
+then 
+https://github.com/timmye/ctrader_tick_backend 
+to
+/home/user/neurosensefx/ctrader_tick_backend
+then 
+https://github.com/timmye/cTrader-Layer
+into 
+/home/user/neurosensefx/ctrader_tick_backend/cTrader-Layer
+Then 
+cd ctrader_tick_backend/cTrader-Layer && npm run lint -- --fix
+then
+cd ctrader_tick_backend/cTrader-Layer && npm run safe-build
+then
+Navigate to the backend directory: cd ctrader_tick_backend
+Manually start the backend: npm start
+
+Serve should start, then refresh front end and test
+
 ## 2. Initializing the Environment
 
 Firebase Studio automatically handles the environment setup based on the `.idx/dev.nix` file. To initialize a fresh environment:
