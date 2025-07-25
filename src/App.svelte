@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { get } from 'svelte/store';
   import VizDisplay from './components/VizDisplay.svelte';
   import ConfigPanel from './components/ConfigPanel.svelte';
   import { symbolStore } from './data/symbolStore.js';
@@ -20,14 +21,14 @@
     });
 
     // Start with simulated data by default
-    startSimulation();
+    if (get(dataSourceMode) === 'simulated') {
+        startSimulation();
+    }
 
     // Cleanup when the component is destroyed
     return () => {
         unsubscribe();
-        disconnect(); // Ensure WebSocket is closed if live
-        stopSimulation(); // Ensure simulation is stopped if simulated
-        symbolStore.clear(); // Clear the store and terminate workers
+        // More targeted cleanup is handled by dataSourceMode subscriptions
     };
   });
 
@@ -35,14 +36,13 @@
   function handleDataSourceChange(event) {
       const mode = event.detail.mode;
       dataSourceMode.set(mode);
-      symbolStore.clear(); // Always clear existing symbols when changing data source
       selectedSymbolForConfig = null; // Clear selected symbol
 
       if (mode === 'live') {
-          // startSimulation is stopped by the dataSourceMode subscription in wsClient
+          // stopSimulation() is called by the dataSourceMode subscription in wsClient
           connect(); // Initiate WebSocket connection
       } else {
-          // disconnect is called by startSimulation
+          disconnect(); // Disconnect from live feed
           startSimulation();
       }
   }
@@ -82,7 +82,11 @@
         <div class="viz-grid">
           {#each Object.entries(symbols) as [symbol, data] (symbol)}
             <VizDisplay 
-              {...data}
+              symbol={symbol}
+              config={data.config}
+              state={data.state}
+              marketProfile={data.marketProfile}
+              flashEffect={data.state.flashEffect}
               on:click={() => selectedSymbolForConfig = symbol}
             />
           {/each}

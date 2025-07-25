@@ -1,22 +1,33 @@
 <script>
   import { onMount, afterUpdate } from 'svelte';
   import * as d3 from 'd3';
+  import { marketDataStore } from '../data/wsClient.js'; 
 
+  export let symbol;
   export let config = {};
   export let state = {};
-  export let marketProfileData = {};
+  export let marketProfile = {};
   export let flashEffect = null;
 
   let canvasElement;
   let ctx;
   let lastFlashId = null;
 
-  // Re-draw when the state or config changes
-  $: if (ctx && state && state.currentPrice !== undefined && config) {
+  // Reactively get market data for the specific symbol
+  $: symbolMarketData = $marketDataStore[symbol];
+
+  // Reactive scale
+  let y = d3.scaleLinear();
+
+  $: if (ctx && state && typeof state.currentPrice === 'number' && config && symbolMarketData) {
+    // Update the scale's domain whenever data changes
+    const minPrice = Math.min(symbolMarketData.prevDayLow, state.currentPrice);
+    const maxPrice = Math.max(symbolMarketData.prevDayHigh, state.currentPrice);
+    y.domain([minPrice, maxPrice]).range([canvasElement.height, 0]);
+    
     drawVisualization();
   }
   
-  // Trigger flash effects when the flashEffect prop changes
   afterUpdate(() => {
     if (flashEffect && flashEffect.id !== lastFlashId) {
       lastFlashId = flashEffect.id;
@@ -36,24 +47,12 @@
       ctx = canvasElement.getContext('2d');
       canvasElement.width = config?.visualizationsContentWidth || 220;
       canvasElement.height = config?.meterHeight || 120;
-      drawVisualization(); 
+      // Initial draw might be empty if data isn't ready, which is fine.
     }
   });
 
-  function priceToY(price) {
-    const height = canvasElement?.height || config?.meterHeight || 120;
-    const levels = marketProfileData?.levels || [];
-    const minPrice = Math.min(state.adrLow, state.currentPrice, ...levels.map(l => l.price));
-    const maxPrice = Math.max(state.adrHigh, state.currentPrice, ...levels.map(l => l.price));
-    
-    if (minPrice === maxPrice) return height / 2;
-
-    const scale = d3.scaleLinear().domain([minPrice, maxPrice]).range([height, 0]);
-    return scale(price);
-  }
-
   function drawVisualization() {
-    if (!ctx || !canvasElement || !state || !config || !state.adrLow || !state.adrHigh || !state.currentPrice) return;
+    if (!ctx || !canvasElement || !state || !config || !symbolMarketData) return;
 
     if(canvasElement.width !== config.visualizationsContentWidth) canvasElement.width = config.visualizationsContentWidth;
     if(canvasElement.height !== config.meterHeight) canvasElement.height = config.meterHeight;
@@ -82,7 +81,7 @@
   function drawFlash(direction) {
     let opacity = Math.min(config.flashIntensity, 1.0);
     const animate = () => {
-      drawVisualization(); // Redraw base layer
+      drawVisualization();
       
       const gradient = ctx.createRadialGradient(canvasElement.width / 2, canvasElement.height / 2, 0, canvasElement.width / 2, canvasElement.height / 2, canvasElement.width);
       const color = direction === 'up' ? '59, 130, 246' : '239, 68, 68';
@@ -93,7 +92,7 @@
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
       
-      opacity -= 0.04; // Faster fade
+      opacity -= 0.04;
       if (opacity > 0) {
         requestAnimationFrame(animate);
       }
@@ -173,16 +172,16 @@
   }
   
   function drawADRProximityPulse(ctx) {
-    const priceRange = state.adrHigh - state.adrLow;
+    const priceRange = symbolMarketData.prevDayHigh - symbolMarketData.prevDayLow;
     if (priceRange <= 0 || !config.adrProximityThreshold) return;
     
     const proximityPrice = (config.adrProximityThreshold / 100) * priceRange;
-    const highProximity = Math.abs(state.adrHigh - state.currentPrice) < proximityPrice;
-    const lowProximity = Math.abs(state.adrLow - state.currentPrice) < proximityPrice;
+    const highProximity = Math.abs(symbolMarketData.prevDayHigh - state.currentPrice) < proximityPrice;
+    const lowProximity = Math.abs(symbolMarketData.prevDayLow - state.currentPrice) < proximityPrice;
 
     if (highProximity || lowProximity) {
-        const y = highProximity ? priceToY(state.adrHigh) : priceToY(state.adrLow);
-        const gradient = ctx.createLinearGradient(0, y, canvasElement.width, y);
+        const yPos = highProximity ? y(symbolMarketData.prevDayHigh) : y(symbolMarketData.prevDayLow);
+        const gradient = ctx.createLinearGradient(0, yPos, canvasElement.width, yPos);
         gradient.addColorStop(0, 'rgba(96, 165, 250, 0)');
         gradient.addColorStop(0.5, 'rgba(96, 165, 250, 0.7)');
         gradient.addColorStop(1, 'rgba(96, 165, 250, 0)');
@@ -193,8 +192,8 @@
         ctx.shadowBlur = 10;
         
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvasElement.width, y);
+        ctx.moveTo(0, yPos);
+        ctx.lineTo(canvasElement.width, yPos);
         ctx.stroke();
         
         ctx.shadowBlur = 0;
@@ -202,17 +201,17 @@
   }
 
   function drawMarketProfile(ctx, meterCenterX) {
-    if (!marketProfileData?.levels?.length) return; 
+    if (!marketProfile?.levels?.length) return; 
     
-    const maxVolume = Math.max(...marketProfileData.levels.map(l => l.volume));
+    const maxVolume = Math.max(...marketProfile.levels.map(l => l.volume));
     if (maxVolume <= 0) return;
 
     const profileMaxWidth = (canvasElement.width / 2) - 10;
     const scaleFactor = profileMaxWidth / maxVolume;
 
-    const profilePoints = marketProfileData.levels
+    const profilePoints = marketProfile.levels
       .map(level => ({
-        y: priceToY(level.price),
+        y: y(level.price),
         buyWidth: (level.buy || 0) * scaleFactor,
         sellWidth: (level.sell || 0) * scaleFactor,
       }));
@@ -257,8 +256,8 @@
   }
 
   function drawDayRangeMeter(ctx, meterCenterX) {
-    const lowY = priceToY(state.adrLow);
-    const highY = priceToY(state.adrHigh);
+    const lowY = y(symbolMarketData.prevDayLow);
+    const highY = y(symbolMarketData.prevDayHigh);
     
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 2;
@@ -279,7 +278,7 @@
   }
 
   function drawPriceFloat(ctx, meterCenterX) {
-    const y = priceToY(state.currentPrice);
+    const yPos = y(state.currentPrice);
     const floatHeightPx = config.priceFloatHeight;
     const floatWidth = config.priceFloatWidth;
     const xOffset = config.priceFloatXOffset;
@@ -289,15 +288,21 @@
     ctx.shadowColor = color;
     ctx.shadowBlur = 10;
     ctx.fillStyle = color;
-    ctx.fillRect(meterCenterX - floatWidth / 2 + xOffset, y - floatHeightPx / 2, floatWidth, floatHeightPx);
+    ctx.fillRect(meterCenterX - floatWidth / 2 + xOffset, yPos - floatHeightPx / 2, floatWidth, floatHeightPx);
     ctx.shadowBlur = 0;
   }
 
   function drawCurrentPrice(ctx, meterCenterX) {
-    const y = priceToY(state.currentPrice);
+    if (typeof state.currentPrice !== 'number' || isNaN(state.currentPrice) || state.currentPrice === 0) {
+        return;
+    }
+    const yPos = y(state.currentPrice);
     
     const priceString = state.currentPrice.toFixed(5);
     const [integerPart, decimalPart] = priceString.split('.');
+    
+    if (!decimalPart) return;
+
     const bigFigure = `${integerPart}.${decimalPart.substring(0, 2)}`;
     const pips = decimalPart.substring(2, 4);
     const pipette = decimalPart.substring(4, 5);
@@ -328,7 +333,7 @@
     if (config.showPriceBackground || config.showPriceBoundingBox) {
         const padding = config.priceDisplayPadding;
         const rectX = x - padding;
-        const rectY = y - maxSegmentHeight / 2 - padding;
+        const rectY = yPos - maxSegmentHeight / 2 - padding;
         const rectWidth = totalTextWidth + (padding * 2);
         const rectHeight = maxSegmentHeight + (padding * 2);
 
@@ -351,16 +356,16 @@
     let currentX = x;
     
     ctx.font = `${fontWeight} ${baseFontSize * config.bigFigureFontSizeRatio}px "Roboto Mono", monospace`;
-    ctx.fillText(bigFigure, currentX, y);
+    ctx.fillText(bigFigure, currentX, yPos);
     currentX += bigFigureWidth;
 
     ctx.font = `${fontWeight} ${baseFontSize * config.pipFontSizeRatio}px "Roboto Mono", monospace`;
-    ctx.fillText(pips, currentX, y);
+    ctx.fillText(pips, currentX, yPos);
     currentX += pipsWidth;
 
     if (config.showPipetteDigit) {
         ctx.font = `${fontWeight} ${baseFontSize * config.pipetteFontSizeRatio}px "Roboto Mono", monospace`;
-        ctx.fillText(pipette, currentX, y);
+        ctx.fillText(pipette, currentX, yPos);
     }
   }
 

@@ -1,10 +1,62 @@
-- vol/flash display with calcs
+ automating the backend start,
+----
 - Fetch data / cache: 
-	- ADR data for the trading day (asian open) 1st priority - fetch daily bar?
-	- days tick data for market profile? or suitable data
-	- future: browse prev days?
+ADR needs:
+- DR = ((DR1 + DR2 + … + DRn) / n), where DR = |high-low|.
+This means collecting n days. n=5 is our calc (user configurable).
+
+- todays tick data for market profile? or suitable data resolution to populate on sub.
+
+All of these are in the charachteristic of "data to fetch when symbol subcribed from front end".  Which data, wil be determined by the front end and waht dispalys are needed I assume. 
+
+So before actions, assess what data needs to be gathered fro front end displays, list in tabel , buuild requrements and plan. Split into front and back end. Though I am happy for you to cover both if your context will allow.
+
+This data fetching will be a core aspect and likely allow capability growth in future. 
+-----------------
+- vol/flash display with calcs
 	- 
 - ADR: high/low proximity should be entire width of top and bottom of canvas and suitable for peripheral sensing enough
 Flash effects not working...after many fixes. Must be a calc/state error - not lookingpromsing for scaling.
+-----------------------------------------
 
+Building out the data fetching capabilities correctly is critical for the project's success.
 
+Here is a detailed breakdown and plan, as you requested.
+
+First, let's catalog the data required for each key visual component on the frontend.
+
+Visual Component	Data Requirement	Source	Fetch Trigger	Caching Strategy
+Day Range Meter	1. Previous Day's High/Low: To anchor the top and bottom of the meter. <br> 2. ADR (Average Daily Range): To set the scale (adrRange).	cTrader Historical Data (Daily Bars)	On symbol subscription	Backend: Cache for the duration of the trading day. Fetched once per symbol.
+Market Profile	1. Intraday History: To build the profile up to the present moment. <br> 2. Live Ticks: To update the profile in real-time.	cTrader Historical Data (Minute Bars) & Live Ticks	On symbol subscription	Backend: Intraday history is fetched once. Live ticks are streamed.
+Price Float & Numeric Display	Live Ticks: To show the current bid/ask price in real-time.	cTrader Live Spot Events	On symbol subscription	Backend: Not cached; streamed directly.
+Volatility Orb & Flashes	Live Ticks: To calculate the rate and size of price changes.	cTrader Live Spot Events	On symbol subscription	Backend: Not cached; streamed directly.
+My plan is to create a robust data fetching pipeline. The backend will be responsible for all interactions with the cTrader API. When the frontend subscribes to a symbol, the backend will fetch all the necessary historical data and send it as a single "initialization package." From that point on, it will stream live ticks.
+
+Objective: On a new symbol subscription, fetch, process, and send all required historical data to the frontend.
+
+Action Plan:
+
+Install moment: I'll first add the moment library to handle date calculations for historical data requests.
+Enhance CTraderSession.js:
+I will create a new method, getSymbolDataPackage(symbolName), that acts as an orchestrator. When called, it will:
+Fetch the last 5 days of daily OHLC (Open, High, Low, Close) data.
+Calculate the 5-day ADR ((high-low) sum / 5).
+Identify the most recent full day's High and Low.
+Fetch 1-minute trendbars for the current trading day (from market open until now) to build the initial market profile.
+Bundle all of this—ADR, Prev. High/Low, and the initial profile data—into a single object.
+I will modify the existing subscribeTicks method. It will now call getSymbolDataPackage and emit a new symbolDataPackage event with the results.
+Update WebSocketServer.js:
+The server will listen for the symbolDataPackage event.
+It will then transmit this data package to the frontend client over the WebSocket.
+Objective: Receive the data package from the backend and use it to populate the visualization state.
+
+Action Plan:
+
+Update data/wsClient.js:
+The WebSocket onmessage handler will be updated to recognize the new symbolDataPackage message type.
+I will create a new Svelte store, let's call it marketDataStore, to hold the ADR, high/low, and profile data for each subscribed symbol.
+Refactor VizDisplay.svelte and ConfigPanel.svelte:
+The adrRange will no longer be a user-configurable slider. This control will be removed from ConfigPanel.svelte.
+VizDisplay.svelte will subscribe to the new marketDataStore. It will use the real ADR and High/Low values from the store to dynamically set the vertical scale of the Day Range Meter.
+The Market Profile visualization will use the initial profile data from the store to render its baseline state, and then update with live ticks as they arrive.
+This plan ensures that all data fetching is centralized on the backend and that the frontend has all the necessary information upon subscribing to a symbol. This is a robust and scalable approach.

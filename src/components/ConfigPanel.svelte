@@ -21,9 +21,6 @@
       }
   }
 
-  // No need to handle data source change directly here, App.svelte does that
-  // function handleDataSourceChange(event) {...}
-
 </script>
 
 <div class="panel-wrapper">
@@ -92,10 +89,6 @@
                     <input type="range" id="centralAxisXPosition" min="0" max={config.visualizationsContentWidth} bind:value={config.centralAxisXPosition} on:input={handleConfigChange}>
                 </div>
                 <div class="control-group">
-                    <label for="adrRange">ADR (Pips): <span>{config.adrRange}</span></label>
-                    <input type="range" id="adrRange" min="10" max="300" bind:value={config.adrRange} on:input={handleConfigChange}>
-                </div>
-                <div class="control-group">
                     <label for="adrProximityThreshold">ADR Proximity Pulse Threshold: <span>{config.adrProximityThreshold}%</span></label>
                     <input type="range" id="adrProximityThreshold" min="0" max="50" bind:value={config.adrProximityThreshold} on:input={handleConfigChange}>
                 </div>
@@ -124,15 +117,15 @@
                     <input type="range" id="priceDisplayPadding" min="0" max="20" bind:value={config.priceDisplayPadding} on:input={handleConfigChange}>
                 </div>
                 <div class="control-group">
-                    <label for="bigFigureFontSizeRatio">Big Fig Ratio: <span>{config.bigFigureFontSizeRatio.toFixed(1)}x</span></label>
+                    <label for="bigFigureFontSizeRatio">Big Fig Ratio: <span>{config.bigFigureFontSizeRatio?.toFixed(1)}x</span></label>
                     <input type="range" id="bigFigureFontSizeRatio" min="0.5" max="2" step="0.1" bind:value={config.bigFigureFontSizeRatio} on:input={handleConfigChange}>
                 </div>
                 <div class="control-group">
-                    <label for="pipFontSizeRatio">Pip Ratio: <span>{config.pipFontSizeRatio.toFixed(1)}x</span></label>
+                    <label for="pipFontSizeRatio">Pip Ratio: <span>{config.pipFontSizeRatio?.toFixed(1)}x</span></label>
                     <input type="range" id="pipFontSizeRatio" min="0.5" max="2" step="0.1" bind:value={config.pipFontSizeRatio} on:input={handleConfigChange}>
                 </div>
                  <div class="control-group">
-                    <label for="pipetteFontSizeRatio">Pipette Ratio: <span>{config.pipetteFontSizeRatio.toFixed(1)}x</span></label>
+                    <label for="pipetteFontSizeRatio">Pipette Ratio: <span>{config.pipetteFontSizeRatio?.toFixed(1)}x</span></label>
                     <input type="range" id="pipetteFontSizeRatio" min="0.5" max="2" step="0.1" bind:value={config.pipetteFontSizeRatio} on:input={handleConfigChange}>
                 </div>
                 <div class="control-group colors">
@@ -187,7 +180,7 @@
                       <input type="range" id="priceFloatWidth" min="1" max="200" bind:value={config.priceFloatWidth} on:input={handleConfigChange}>
                   </div>
                   <div class="control-group">
-                      <label for="priceFloatHeight">Height: <span>{config.priceFloatHeight.toFixed(1)}</span></label>
+                      <label for="priceFloatHeight">Height: <span>{config.priceFloatHeight?.toFixed(1)}</span></label>
                       <input type="range" id="priceFloatHeight" min="0.1" max="10" step="0.1" bind:value={config.priceFloatHeight} on:input={handleConfigChange}>
                   </div>
                   <div class="control-group">
@@ -220,7 +213,7 @@
                             </select>
                             <label for="volatilityOrbBaseWidth">Base Width: <span>{config.volatilityOrbBaseWidth}</span></label>
                             <input type="range" id="volatilityOrbBaseWidth" min="10" max="200" bind:value={config.volatilityOrbBaseWidth} on:input={handleConfigChange}>
-                            <label for="volatilitySizeMultiplier">Size Multiplier: <span>{config.volatilitySizeMultiplier.toFixed(1)}x</span></label>
+                            <label for="volatilitySizeMultiplier">Size Multiplier: <span>{config.volatilitySizeMultiplier?.toFixed(1)}x</span></label>
                             <input type="range" min="0.1" max="3" step="0.1" bind:value={config.volatilitySizeMultiplier} on:input={handleConfigChange}>
                             <div class="toggle-switch">
                                 <span>Invert Brightness</span>
@@ -238,9 +231,9 @@
                             <label for="showFlash">Toggle Price Flash</label>
                         </div>
                         {#if config.showFlash}
-                            <label>Threshold: <span>{config.flashThreshold.toFixed(1)}</span></label>
+                            <label>Threshold: <span>{config.flashThreshold?.toFixed(1)}</span></label>
                             <input type="range" min="0" max="5" step="0.1" bind:value={config.flashThreshold} on:input={handleConfigChange}>
-                            <label>Intensity: <span>{config.flashIntensity.toFixed(1)}</span></label>
+                            <label>Intensity: <span>{config.flashIntensity?.toFixed(1)}</span></label>
                             <input type="range" min="0.1" max="1" step="0.1" bind:value={config.flashIntensity} on:input={handleConfigChange}>
                         {/if}
                         <div class="toggle-switch standalone">
@@ -249,9 +242,9 @@
                             <label for="showOrbFlash">Toggle Orb Flash</label>
                         </div>
                         {#if config.showOrbFlash}
-                            <label>Threshold: <span>{config.orbFlashThreshold.toFixed(1)}</span></label>
+                            <label>Threshold: <span>{config.orbFlashThreshold?.toFixed(1)}</span></label>
                             <input type="range" min="0" max="5" step="0.1" bind:value={config.orbFlashThreshold} on:input={handleConfigChange}>
-                            <label>Intensity: <span>{config.orbFlashIntensity.toFixed(1)}</span></label>
+                            <label>Intensity: <span>{config.orbFlashIntensity?.toFixed(1)}</span></label>
                             <input type="range" min="0.1" max="1" step="0.1" bind:value={config.orbFlashIntensity} on:input={handleConfigChange}>
                         {/if}
                     </div>

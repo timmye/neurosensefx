@@ -14,6 +14,9 @@ self.onmessage = (event) => {
         case 'tick':
             processTick(payload);
             break;
+        case 'initialProfile':
+            processInitialProfile(payload);
+            break;
         case 'updateConfig':
             config = { ...config, ...payload };
             break;
@@ -33,9 +36,33 @@ function initialize(payload) {
         volatility: 0.5,
         tickMagnitudes: [],
         lastTickDirection: 'up',
-        adrHigh: initialPrice + (config.adrRange / 20000),
-        adrLow: initialPrice - (config.adrRange / 20000),
+        // The ADR boundaries will be set by the main thread, 
+        // but we can initialize them to a sensible default.
+        adrHigh: initialPrice * 1.005,
+        adrLow: initialPrice * 0.995,
     };
+}
+
+function processInitialProfile(profileData) {
+    // Convert the initial profile data into the format the worker uses
+    const now = performance.now();
+    state.allTicks = profileData.map(d => ({
+        price: d.price,
+        direction: 1, // We don't have direction for initial data, so default to buy
+        magnitude: 0,
+        time: now,
+    }));
+
+    // Post an update to the main thread with the initial profile
+    const marketProfile = generateMarketProfile();
+    self.postMessage({
+        type: 'stateUpdate',
+        payload: {
+            newState: state,
+            marketProfile: marketProfile,
+            flashEffect: null
+        }
+    });
 }
 
 function processTick(tick) {
@@ -69,7 +96,6 @@ function processTick(tick) {
     state.minObservedPrice = Math.min(state.minObservedPrice, state.currentPrice);
     state.maxObservedPrice = Math.max(state.maxObservedPrice, state.currentPrice);
 
-    updateADRBoundaries();
     updateVolatility();
     
     const marketProfile = generateMarketProfile();
@@ -89,8 +115,6 @@ function processTick(tick) {
                 currentPrice: state.currentPrice,
                 lastTickDirection: state.lastTickDirection,
                 volatility: state.volatility,
-                adrHigh: state.adrHigh,
-                adrLow: state.adrLow,
             },
             marketProfile: marketProfile,
             flashEffect: flashEffect
@@ -99,24 +123,6 @@ function processTick(tick) {
 }
 
 // --- State Update & Data Generation Functions ---
-
-function updateADRBoundaries() {
-    const adrRangeInPrice = config.adrRange / 10000;
-    const priceRange = state.maxObservedPrice - state.minObservedPrice;
-    const dynamicRange = Math.max(adrRangeInPrice, priceRange * 1.2); // 20% buffer
-
-    let adrHigh = state.midPrice + (dynamicRange / 2);
-    let adrLow = state.midPrice - (dynamicRange / 2);
-
-    if (state.currentPrice > adrHigh) {
-        state.midPrice += (state.currentPrice - adrHigh);
-    } else if (state.currentPrice < adrLow) {
-        state.midPrice -= (adrLow - state.currentPrice);
-    }
-
-    state.adrHigh = state.midPrice + (dynamicRange / 2);
-    state.adrLow = state.midPrice - (dynamicRange / 2);
-}
 
 function updateVolatility() {
     const lookbackPeriod = 10000; // 10 second lookback
