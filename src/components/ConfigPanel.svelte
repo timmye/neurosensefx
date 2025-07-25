@@ -1,21 +1,19 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { vizConfig } from '../stores.js';
   import { dataSourceMode, subscriptions } from '../data/wsClient.js';
 
+  export let selectedSymbol;
+  export let symbols; // array of symbol names
   export let config;
 
   const dispatch = createEventDispatcher();
 
   let symbolInput = 'EURUSD';
-  
-  // Add console log for dataSourceMode in ConfigPanel
-  $: console.log('ConfigPanel.svelte: $dataSourceMode:', $dataSourceMode);
-
-  // --- Event Handlers ---
 
   function handleConfigChange() {
-    vizConfig.set(config);
+    if (selectedSymbol && config) {
+      dispatch('configChange', { symbol: selectedSymbol, newConfig: config });
+    }
   }
 
   function handleDataSourceChange(event) {
@@ -39,6 +37,16 @@
 </script>
 
 <div class="panel">
+  <!-- Symbol Selector -->
+  <div class="control-group">
+      <label for="symbolSelector">Configure Symbol</label>
+      <select id="symbolSelector" bind:value={selectedSymbol}>
+          {#each symbols as symbol}
+              <option value={symbol}>{symbol}</option>
+          {/each}
+      </select>
+  </div>
+
   <!-- Data Source Selector -->
   <div class="control-group">
     <label for="dataSource">Data Source</label>
@@ -53,8 +61,8 @@
     <div class="control-group">
         <label for="symbolInput">Subscribe to Symbol</label>
         <div class="subscription-input">
-            <input list="symbols" id="symbolInput" name="symbolInput" bind:value={symbolInput} placeholder="e.g., EURUSD" />
-            <datalist id="symbols">
+            <input list="availableSymbols" id="symbolInput" name="symbolInput" bind:value={symbolInput} placeholder="e.g., EURUSD" />
+            <datalist id="availableSymbols">
                 {#each availableSymbols as symbol}
                     <option value={symbol}>{symbol}</option>
                 {/each}
@@ -79,7 +87,7 @@
   {/if}
 
   <!-- Simulation Controls (only shown in simulated mode) -->
-  {#if $dataSourceMode === 'simulated'}
+  {#if $dataSourceMode === 'simulated' && config}
     <div class="control-group">
       <label for="frequencyMode">Simulation Frequency</label>
       <select id="frequencyMode" bind:value={config.frequencyMode} on:change={handleConfigChange}>
@@ -92,6 +100,7 @@
   {/if}
 
   <!-- Display and ADR -->
+  {#if config}
   <div class="control-group">
     <label for="adrRange">ADR Range (Pips)</label>
     <input type="range" id="adrRange" min="10" max="300" bind:value={config.adrRange} on:input={handleConfigChange}>
@@ -103,8 +112,7 @@
       <input type="range" id="priceFontSize" min="20" max="100" bind:value={config.priceFontSize} on:input={handleConfigChange}>
       <span>{config.priceFontSize}</span>
   </div>
-  
-  <!-- Other controls can be added here -->
+  {/if}
 
 </div>
 

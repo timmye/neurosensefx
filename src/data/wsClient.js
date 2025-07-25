@@ -1,8 +1,7 @@
 import { writable, get } from 'svelte/store';
-import { vizConfig } from '/src/stores.js';
+import { symbolStore } from './symbolStore';
 
 // --- Stores ---
-export const tickData = writable({});
 export const wsStatus = writable('disconnected');
 export const dataSourceMode = writable('simulated'); // 'live' or 'simulated'
 export const subscriptions = writable(new Set());
@@ -11,16 +10,9 @@ export const subscriptions = writable(new Set());
 let ws = null;
 let simulationInterval;
 let simulationState = {};
-let currentConfig = {};
-
-vizConfig.subscribe(value => {
-    currentConfig = value;
-});
 
 // --- WebSocket Connection ---
 const getWebSocketUrl = () => {
-    // CORRECT: Connect to the '/ws' path on the *same host* as the frontend.
-    // Vite's proxy will intercept this and forward it to the backend (localhost:5035).
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     return `${protocol}//${host}/ws`;
@@ -35,50 +27,46 @@ function startLiveStream() {
     stopSimulation(); 
 
     wsStatus.set('connecting');
-    console.log(`wsClient.js: Attempting to connect to ${WS_URL} via Vite proxy`);
     try {
         ws = new WebSocket(WS_URL);
 
         ws.onopen = () => {
-            console.log('wsClient.js: Live WebSocket connected via proxy');
             wsStatus.set('connected');
+            // Resubscribe to any existing symbols on reconnect
+            const currentSubs = get(subscriptions);
+            if (currentSubs.size > 0) {
+                subscribe([...currentSubs]);
+            }
         };
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === 'tick') {
-                // --- CENTRALIZED TYPE COERCION HERE ---
                 data.bid = parseFloat(data.bid);
                 data.ask = parseFloat(data.ask);
-                data.spread = parseFloat(data.spread);
-                // ----------------------------------------
-                console.log('wsClient.js: Received live tick (parsed):', data); 
-                tickData.set({ [data.symbol]: data });
+                symbolStore.dispatchTick(data.symbol, data);
             } else if (data.type === 'subscribeResponse') {
-                console.log('wsClient.js: Subscribe response:', data.results); 
                 data.results.forEach(result => {
                     if (result.status === 'subscribed') {
                         subscriptions.update(subs => subs.add(result.symbol));
+                        symbolStore.createNewSymbol(result.symbol);
                     }
                 });
-            } // ... other message types
+            }
         };
 
         ws.onclose = () => {
-            console.log('wsClient.js: Live WebSocket disconnected');
             if (get(dataSourceMode) === 'live') {
                 setTimeout(startLiveStream, 3000);
             }
             stopLiveStream();
         };
 
-        ws.onerror = (error) => {
-            console.error('wsClient.js: WebSocket proxy error:', error);
+        ws.onerror = () => {
             wsStatus.set('error');
             stopLiveStream();
         };
     } catch (e) {
-        console.error('wsClient.js: Error creating WebSocket:', e); 
         wsStatus.set('error');
         ws = null;
     }
@@ -105,15 +93,16 @@ const frequencySettings = {
 };
 
 function initializeSimulator() {
+    const symbol = 'SIM-EURUSD';
     simulationState = { lastTickTime: performance.now(), currentPrice: 1.25500, momentum: 0 };
-    subscriptions.update(subs => subs.add('SIM-EURUSD'));
+    subscriptions.update(subs => subs.add(symbol));
+    symbolStore.createNewSymbol(symbol);
 }
 
 function generateSimulatedTick() {
-    // ... (simulation logic remains the same)
-    const now = performance.now();
-    const settings = frequencySettings[currentConfig.frequencyMode] || frequencySettings.normal;
-    if (now - simulationState.lastTickTime < (settings.baseInterval + (Math.random() * settings.randomness))) return;
+    const symbol = 'SIM-EURUSD';
+    const settings = frequencySettings['normal'];
+    
     simulationState.momentum = (simulationState.momentum || 0) * 0.85;
     const bias = simulationState.momentum * 0.1;
     const direction = Math.random() < (0.5 + bias) ? 1 : -1;
@@ -122,10 +111,11 @@ function generateSimulatedTick() {
     let magnitude = (rand < 0.8) ? Math.random() * 0.8 : (rand < 0.98) ? 0.8 + Math.random() * 2 : 3 + Math.random() * 5;
     magnitude *= settings.magnitudeMultiplier;
     const newPrice = simulationState.currentPrice + (direction * magnitude / 10000);
-    simulationState.lastTickTime = now;
+    simulationState.lastTickTime = performance.now();
     simulationState.currentPrice = newPrice;
-    const tick = { type: 'tick', symbol: 'SIM-EURUSD', bid: newPrice, ask: newPrice + (0.2 / 10000), spread: 0.2, timestamp: now };
-    tickData.set({ [tick.symbol]: tick });
+    const tick = { type: 'tick', symbol: symbol, bid: newPrice, ask: newPrice + (0.2 / 10000), spread: 0.2, timestamp: performance.now() };
+    
+    symbolStore.dispatchTick(symbol, tick);
 }
 
 function startSimulation() {

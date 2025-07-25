@@ -12,7 +12,7 @@
   let lastFlashId = null;
   let isOrbFlashing = false;
 
-  $: if (ctx && state && state.currentPrice !== undefined) {
+  $: if (ctx && state && state.currentPrice !== undefined && config) {
     drawVisualization();
   }
   
@@ -33,17 +33,23 @@
   onMount(() => {
     if (canvasElement) {
       ctx = canvasElement.getContext('2d');
-      canvasElement.width = config.visualizationsContentWidth;
-      canvasElement.height = config.meterHeight;
+      // Set initial canvas dimensions. They will be updated if config changes.
+      canvasElement.width = config?.visualizationsContentWidth || 220;
+      canvasElement.height = config?.meterHeight || 120;
       drawVisualization(); 
     }
   });
 
   function priceToY(price) {
-    const height = canvasElement?.height || config.meterHeight || 120;
-    // Ensure ADR range always encompasses all observed prices
-    const minPrice = Math.min(state.adrLow, state.currentPrice, ...(marketProfileData.levels?.map(l => l.price) || []));
-    const maxPrice = Math.max(state.adrHigh, state.currentPrice, ...(marketProfileData.levels?.map(l => l.price) || []));
+    const height = canvasElement?.height || config?.meterHeight || 120;
+    const levels = marketProfileData?.levels || [];
+    const minPrice = Math.min(state.adrLow, state.currentPrice, ...levels.map(l => l.price));
+    const maxPrice = Math.max(state.adrHigh, state.currentPrice, ...levels.map(l => l.price));
+    
+    if (minPrice === maxPrice) { // Avoid division by zero if all prices are the same
+        return height / 2;
+    }
+
     const scale = d3.scaleLinear()
       .domain([minPrice, maxPrice])
       .range([height, 0]);
@@ -51,13 +57,17 @@
   }
 
   function drawVisualization() {
-    if (!ctx || !canvasElement || !state || state.adrLow === undefined || state.adrHigh === undefined || state.currentPrice === undefined) return;
+    if (!ctx || !canvasElement || !state || !config || state.adrLow === undefined || state.adrHigh === undefined || state.currentPrice === undefined) return;
+
+    // Update canvas dimensions if they've changed in the config
+    if(canvasElement.width !== config.visualizationsContentWidth) canvasElement.width = config.visualizationsContentWidth;
+    if(canvasElement.height !== config.meterHeight) canvasElement.height = config.meterHeight;
+
 
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     
-    // Use configurable central axis position
     const meterCenterX = config.centralAxisXPosition || (canvasElement.width / 2);
 
     drawVolatilityOrb(ctx);
@@ -79,22 +89,15 @@
 
   function drawFlash(direction) {
     if (!ctx || !canvasElement) return;
-    let opacity = Math.min(config.flashIntensity || 0.8, 1.0); // Increased default intensity
+    let opacity = Math.min(config.flashIntensity || 0.8, 1.0);
     const animate = () => {
-      // Don't clear the canvas - flash overlays current visualization
-      // drawVisualization(); // Skip this to overlay flash
-      
-      // Create a more intense flash effect
       const centerX = canvasElement.width / 2;
       const centerY = canvasElement.height / 2;
       const maxRadius = Math.max(canvasElement.width, canvasElement.height) * 0.9;
       
       const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
-      
-      // Use more vibrant colors with higher opacity
       const flashColor = direction === 'up' ? `rgba(59, 130, 246, ${opacity})` : `rgba(239, 68, 68, ${opacity})`;
       
-      // Create a stronger gradient with multiple stops
       gradient.addColorStop(0, flashColor);
       gradient.addColorStop(0.2, flashColor);
       gradient.addColorStop(0.5, `rgba(${direction === 'up' ? '59, 130, 246' : '239, 68, 68'}, ${opacity * 0.6})`);
@@ -103,11 +106,11 @@
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
       
-      opacity -= 0.02; // Slower fade for better visibility
+      opacity -= 0.02;
       if (opacity > 0) {
         requestAnimationFrame(animate);
       } else {
-        drawVisualization(); // Redraw only after flash completes
+        drawVisualization();
       }
     };
     requestAnimationFrame(animate);
@@ -204,8 +207,7 @@
     const priceRange = state.adrHigh - state.adrLow;
     if (priceRange <= 0 || config.adrRange <= 0) { ctx.restore(); return; } 
     
-    const pipsToPrice = priceRange / config.adrRange;
-    const proximityThresholdPrice = (config.adrProximityThreshold / 100) * priceRange; // Corrected: percentage of actual priceRange
+    const proximityThresholdPrice = (config.adrProximityThreshold / 100) * priceRange;
 
     const highProximity = Math.abs(state.adrHigh - state.currentPrice) < proximityThresholdPrice;
     const lowProximity = Math.abs(state.adrLow - state.currentPrice) < proximityThresholdPrice;
@@ -255,7 +257,6 @@
       return;
     }
 
-    // Filter profile levels to only include those within ADR bounds
     const profilePoints = marketProfileData.levels
       .filter(level => level.price >= state.adrLow && level.price <= state.adrHigh)
       .map(level => ({
@@ -267,7 +268,6 @@
       }))
       .sort((a, b) => a.price - b.price);
 
-    // If no profile data within ADR range, don't draw anything
     if (profilePoints.length === 0) {
       ctx.restore();
       return;
@@ -328,7 +328,6 @@
     const lowY = priceToY(state.adrLow);
     const highY = priceToY(state.adrHigh);
     
-    // Vertical Axis Line - now respects meterCenterX
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -336,7 +335,6 @@
     ctx.lineTo(meterCenterX, canvasElement.height);
     ctx.stroke();
     
-    // ADR Boundary Lines
     ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -348,7 +346,6 @@
     ctx.lineTo(meterCenterX + meterWidth / 2, highY);
     ctx.stroke();
     
-    // ADR Step Markers
     const adrRange = state.adrHigh - state.adrLow;
     if (adrRange > 0) {
       const steps = [0.25, 0.50, 0.75];
@@ -370,17 +367,15 @@
     ctx.save();
     const y = priceToY(state.currentPrice);
     
-    // Calculate floatHeight based on pips per pixel for ADR range (correctly implemented)
-    const pipsInADR = config.adrRange || 100; // Default to 100 pips if not set
+    const pipsInADR = config.adrRange || 100;
     const pixelsPerPip = canvasElement.height / pipsInADR; 
-    const floatHeightPx = (config.priceFloatHeight || 1) * pixelsPerPip; // 1 pip = X pixels
+    const floatHeightPx = (config.priceFloatHeight || 1) * pixelsPerPip;
 
     const floatWidth = (config.priceFloatWidth || 100);
     const xOffset = config.priceFloatXOffset || 0;
     
-    // Dynamic color change based on last tick direction
     const priceFloatColor = state.lastTickDirection === 'up' ? '#22c55e' : 
-                            (state.lastTickDirection === 'down' ? '#ef4444' : '#a78bfa'); // Green/Red/Purple
+                            (state.lastTickDirection === 'down' ? '#ef4444' : '#a78bfa');
     
     ctx.shadowColor = priceFloatColor;
     ctx.shadowBlur = 10;
@@ -390,11 +385,11 @@
   }
 
   function drawCurrentPrice(ctx) {
-    if (state.currentPrice === undefined) return;
+    if (state.currentPrice === undefined || state.currentPrice === 0) return;
     ctx.save();
     
     const y = priceToY(state.currentPrice);
-    const meterCenterX = config.centralAxisXPosition; // Use the configured central axis
+    const meterCenterX = config.centralAxisXPosition;
     
     const priceString = state.currentPrice.toFixed(5);
     const [integerPart, decimalPart] = priceString.split('.');
@@ -405,10 +400,9 @@
     const baseFontSize = config.priceFontSize || 14;
     const fontWeight = config.priceFontWeight || 400;
 
-    let currentX = 0; // Temporary, will be set relative to final alignment
+    let currentX = 0;
     let maxSegmentHeight = 0; 
 
-    // Measure segments to calculate total text width for right alignment
     ctx.font = `${fontWeight} ${baseFontSize * (config.bigFigureFontSizeRatio || 1)}px "Roboto Mono", monospace`;
     const bigFigureWidth = ctx.measureText(bigFigure).width;
     maxSegmentHeight = Math.max(maxSegmentHeight, baseFontSize * (config.bigFigureFontSizeRatio || 1));
@@ -425,11 +419,8 @@
     }
 
     const totalTextWidth = bigFigureWidth + pipsWidth + pipetteWidth;
-
-    // Calculate starting X for right alignment: meterCenterX + priceHorizontalOffset - totalTextWidth
     const x = meterCenterX + (config.priceHorizontalOffset || 0) - totalTextWidth; 
     
-    // --- Draw Background / Bounding Box --- (Draw after text to get accurate totalTextWidth)
     if (config.showPriceBackground || config.showPriceBoundingBox) {
         const padding = config.priceDisplayPadding || 4;
         const rectX = x - padding;
@@ -448,12 +439,11 @@
         }
     }
 
-    // --- Draw Text ---
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = getPriceTextColor(); // Dynamic color from getPriceTextColor
+    ctx.fillStyle = getPriceTextColor();
     
-    currentX = x; // Reset currentX to the calculated start for text drawing
+    currentX = x;
     
     ctx.font = `${fontWeight} ${baseFontSize * (config.bigFigureFontSizeRatio || 1)}px "Roboto Mono", monospace`;
     ctx.fillText(bigFigure, currentX, y);
@@ -483,5 +473,9 @@
 </div>
 
 <style>
-  /* ... existing styles ... */
+  .visualization-container {
+    border: 1px solid #374151;
+    border-radius: 8px;
+    overflow: hidden;
+  }
 </style>

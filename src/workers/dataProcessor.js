@@ -1,3 +1,4 @@
+//data processor.js
 console.log('Worker started');
 
 let config = {};
@@ -11,7 +12,6 @@ self.onmessage = (event) => {
             initialize(payload);
             break;
         case 'tick':
-            console.log('dataProcessor.js: Received tick:', payload); // Log received tick
             processTick(payload);
             break;
         case 'updateConfig':
@@ -22,7 +22,7 @@ self.onmessage = (event) => {
 
 function initialize(payload) {
     config = payload.config;
-    const initialPrice = payload.midPrice || 1.25500;
+    const initialPrice = payload.midPrice || 0;
     state = {
         currentPrice: initialPrice,
         midPrice: initialPrice,
@@ -36,15 +36,17 @@ function initialize(payload) {
         adrHigh: initialPrice + (config.adrRange / 20000),
         adrLow: initialPrice - (config.adrRange / 20000),
     };
-    console.log('dataProcessor.js: Worker initialized with state:', state); // Log initialization
 }
 
 function processTick(tick) {
-    // Type conversion and validation now handled in wsClient.js
-    // Assume tick.bid is already a number here
     if (!tick || typeof tick.bid !== 'number') { 
-        console.warn('dataProcessor.js: Invalid or non-numeric tick bid received after wsClient.js processing:', tick);
         return;
+    }
+
+    if (state.midPrice === 0) {
+        state.midPrice = tick.bid;
+        state.minObservedPrice = tick.bid;
+        state.maxObservedPrice = tick.bid;
     }
     
     const lastPrice = state.currentPrice;
@@ -91,7 +93,6 @@ function processTick(tick) {
             tickMagnitude: magnitude,
         }
     });
-    console.log('dataProcessor.js: State updated, adrHigh:', state.adrHigh, 'adrLow:', state.adrLow); // Log ADR values
 }
 
 // --- State Update & Data Generation Functions ---

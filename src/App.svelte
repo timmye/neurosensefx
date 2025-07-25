@@ -1,68 +1,22 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import VizDisplay from './components/VizDisplay.svelte';
   import ConfigPanel from './components/ConfigPanel.svelte';
-  import { vizConfig, vizState } from './stores.js';
-  import { tickData, dataSourceMode, setDataSource, subscribe, unsubscribe } from './data/wsClient.js';
+  import { symbolStore } from './data/symbolStore.js';
+  import { dataSourceMode, setDataSource, subscribe, unsubscribe } from './data/wsClient.js';
 
-  let currentVizConfig = $vizConfig;
-  let marketProfileData = { levels: [] };
-  let flashEffect = null;
-  
-  console.log('App.svelte: Initial $vizState:', $vizState);
+  let symbols = {};
+  let selectedSymbolForConfig = 'SIM-EURUSD';
 
-  // --- Lifecycle ---
-  onMount(() => {
-    const dataWorker = new Worker(new URL('./workers/dataProcessor.js', import.meta.url), { type: 'module' });
-    
-    dataWorker.postMessage({ 
-        type: 'init', 
-        payload: { config: currentVizConfig, midPrice: 1.25500 } 
-    });
-
-    dataWorker.onmessage = (event) => {
-      const { type, payload } = event.data;
-      if (type === 'stateUpdate') {
-        vizState.set(payload.newState); // This updates the store, and thus $vizState
-        marketProfileData = payload.marketProfile || { levels: [] };
-        
-        console.log('App.svelte: Received stateUpdate from worker, new $vizState:', $vizState);
-
-        if (payload.significantTick) {
-          flashEffect = {
-            direction: payload.newState.lastTickDirection,
-            id: Date.now(),
-            magnitude: payload.tickMagnitude
-          };
-        }
-      }
-    };
-
-    const unsubscribeConfig = vizConfig.subscribe(newConfig => {
-      currentVizConfig = newConfig;
-      if (dataWorker) {
-        dataWorker.postMessage({ type: 'updateConfig', payload: newConfig });
-      }
-    });
-
-    const unsubscribeTicks = tickData.subscribe(ticks => {
-      if (dataWorker && ticks) {
-        const firstSymbol = Object.keys(ticks)[0];
-        if(firstSymbol) {
-             console.log('App.svelte: Forwarding tick to worker:', ticks[firstSymbol]);
-             dataWorker.postMessage({ type: 'tick', payload: ticks[firstSymbol] });
-        }
-      }
-    });
-
-    return () => {
-      unsubscribeConfig();
-      unsubscribeTicks();
-      dataWorker.terminate();
-    };
+  symbolStore.subscribe(value => {
+    symbols = value;
   });
 
-  // --- Event Handlers ---
+  onMount(() => {
+    // Set the initial data source
+    setDataSource('simulated');
+  });
+
   function handleSubscriptionChange(event) {
       const { symbols, subscribe: shouldSubscribe } = event.detail;
       if (shouldSubscribe) {
@@ -76,26 +30,35 @@
       setDataSource(event.detail.mode);
   }
 
+  function handleConfigChange(event) {
+      const { symbol, newConfig } = event.detail;
+      symbolStore.updateConfig(symbol, newConfig);
+  }
 </script>
 
 <main>
   <div class="main-container">
     <div class="viz-container">
       <h1>NeuroSense FX</h1>
-      {#if $vizState && $vizState.adrHigh !== undefined && $vizState.adrLow !== undefined}
-        <VizDisplay 
-          config={currentVizConfig} 
-          state={$vizState} 
-          {marketProfileData}
-          {flashEffect}
-        />
-      {/if}
+      <div class="viz-grid">
+        {#each Object.entries(symbols) as [symbol, data] (symbol)}
+          <VizDisplay 
+            config={data.config} 
+            state={data.state} 
+            marketProfileData={data.marketProfile}
+            flashEffect={null}
+          />
+        {/each}
+      </div>
     </div>
     <div class="config-panel-container">
       <ConfigPanel 
-        bind:config={currentVizConfig}
+        selectedSymbol={selectedSymbolForConfig}
+        symbols={Object.keys(symbols)}
+        config={symbols[selectedSymbolForConfig]?.config}
         on:subscriptionChange={handleSubscriptionChange}
         on:dataSourceChange={handleDataSourceChange}
+        on:configChange={handleConfigChange}
       />
     </div>
   </div>
@@ -114,9 +77,11 @@
   }
   .viz-container {
     flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  }
+  .viz-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
   }
   .config-panel-container {
     width: 350px;

@@ -1,0 +1,6 @@
+- vol/flash display with calcs
+- Fetch data / cache: 
+	- ADR data for the trading day (asian open) 1st priority - fetch daily bar?
+	- days tick data for market profile? or suitable data
+	- future: browse prev days?
+	- 
