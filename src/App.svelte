@@ -3,7 +3,7 @@
   import VizDisplay from './components/VizDisplay.svelte';
   import ConfigPanel from './components/ConfigPanel.svelte';
   import { symbolStore } from './data/symbolStore.js';
-  import { dataSourceMode, startSimulation, stopSimulation, disconnect, connect } from './data/wsClient.js';
+  import { dataSourceMode, startSimulation, stopSimulation, disconnect, connect, wsStatus } from './data/wsClient.js';
 
   let symbols = {};
   let selectedSymbolForConfig = null;
@@ -25,9 +25,9 @@
     // Cleanup when the component is destroyed
     return () => {
         unsubscribe();
-        disconnect(); // Ensure WebSocket is closed
-        stopSimulation(); // Ensure simulation is stopped
-        symbolStore.clear(); // Clear the store and terminate workers on unmount
+        disconnect(); // Ensure WebSocket is closed if live
+        stopSimulation(); // Ensure simulation is stopped if simulated
+        symbolStore.clear(); // Clear the store and terminate workers
     };
   });
 
@@ -36,11 +36,13 @@
       const mode = event.detail.mode;
       dataSourceMode.set(mode);
       symbolStore.clear(); // Always clear existing symbols when changing data source
+      selectedSymbolForConfig = null; // Clear selected symbol
+
       if (mode === 'live') {
-          stopSimulation();
-          connect(); // Automatically connect when switching to live
+          // startSimulation is stopped by the dataSourceMode subscription in wsClient
+          connect(); // Initiate WebSocket connection
       } else {
-          disconnect();
+          // disconnect is called by startSimulation
           startSimulation();
       }
   }
@@ -63,9 +65,17 @@
         <div class="placeholder">
           <h2>Welcome to NeuroSense FX</h2>
           {#if $dataSourceMode === 'live'}
-            <p>Connecting to live data... Please wait or check connection status in the panel.</p>
+            {#if $wsStatus === 'disconnected'}
+              <p>Select Live Data and click Connect in the panel.</p>
+            {:else if $wsStatus === 'ws-connecting' || $wsStatus === 'ws-open' || $wsStatus === 'ctrader-connecting'}
+              <p>Connecting to live data... Status: {$wsStatus}</p>
+            {:else if $wsStatus === 'connected'}
+              <p>Connected to live data. Subscribe to a symbol in the panel.</p>
+            {:else if $wsStatus === 'error'}
+              <p class="error">Connection Error. Check console for details. Status: {$wsStatus}</p>
+            {/if}
           {:else}
-            <p>Simulation is running. Check the config panel.</p>
+            <p>Simulation is running. Select SIM-EURUSD in the panel to view and configure.</p>
           {/if}
         </div>
       {:else}
@@ -133,5 +143,12 @@
   .placeholder h2 {
     font-size: 1.5rem;
     color: #9ca3af;
+  }
+  .placeholder p {
+      margin-top: 10px;
+      font-size: 1rem;
+  }
+  .placeholder .error {
+      color: #ef4444;
   }
 </style>

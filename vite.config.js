@@ -9,7 +9,7 @@ export default defineConfig({
     proxy: {
       // Proxy WebSocket requests to the backend server
       '/ws': {
-        target: 'ws://localhost:5035', // The address of your backend WebSocket server
+        target: 'ws://localhost:8080', // Corrected to your backend WebSocket server port
         ws: true, // IMPORTANT: This enables WebSocket proxying
         changeOrigin: true // Recommended for virtual hosted sites
       }

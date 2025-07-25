@@ -10,17 +10,9 @@
   # Sets environment variables in the workspace
   env = {
     WEBSOCKET_PORT = "8080";
-    # cTrader API Credentials - Loaded from user provided .env
-    CTRADER_ACCOUNT_TYPE = "LIVE";
-    CTRADER_CLIENT_ID = "12478_zC8lmMuDBZg1fPqKeZGWtieeqD3cfYaOWzEOKWSXYbaS5AkBw1";
-    CTRADER_CLIENT_SECRET = "XwKO7QruJda6a6vswkY4CJuVJLnICPvEL6KAdbwxLcJITouvYQ";
-    CTRADER_ACCESS_TOKEN = "av8FB2UqJR3YgUGMGMWL47nsExSEYEo_QUtL1UB6srg";
-    CTRADER_REFRESH_TOKEN = "2ck79MQzfvobUMBZFVWOQDLOFaO9F_SIO4MxEWbxAM";
-    CTRADER_ACCOUNT_ID = "38998989";
-    CTRADER_HOST_TYPE = "LIVE";
-    CTRADER_SYMBOL_IDS = "1,2,3"; # Assuming this should be a string
-    HOST = "live.ctraderapi.com";
-    PORT = "5035";
+    # cTrader API Credentials are loaded from ctrader_tick_backend/.env
+    # The .env file is used for local development and is not committed to git.
+    # In a real production environment, these would be managed securely.
   };
   idx = {
     # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
@@ -32,17 +24,12 @@
     previews = {
       enable = true;
       previews = {
+        # The 'web' preview is for the Svelte frontend, served by Vite.
         web = {
-          # Command to start the web server for frontend preview (Vite)
-          command = ["./node_modules/.bin/vite" "--port" "$PORT" "--host" "0.0.0.0"];
+          command = ["npm" "run" "dev" "--" "--port" "$PORT" "--host" "0.0.0.0"];
           manager = "web";
         };
-        backend = {
-          # Command to start the web server for backend preview
-          # Directly call node on server.js
-          command = ["npm" "run" "ws-stream" "--" "--port" "$PORT"];
-          manager = "web";
-        };
+        # The backend preview has been removed to prevent port conflicts.
       };
     };
     # Workspace lifecycle hooks
@@ -56,21 +43,18 @@
           npm install
           echo "Installing backend dependencies..."
           cd ctrader_tick_backend && npm install
+          echo "Installing and building cTrader-Layer..."
+          cd ctrader_tick_backend/cTrader-Layer && npm install && npm run build
         '';
         default.openFiles = [
           ".idx/dev.nix"
-          "package.json"
           "README.md"
         ];
       };
       # Runs every time the workspace is (re)started
       onStart = {
-        # Build the cTrader layer and start the backend server
-        backend-start = ''
-          set -e
-          echo "Building cTrader-Layer and starting backend..."
-          cd ctrader_tick_backend/cTrader-Layer && npm install && npm run build && cd .. && npm install && npm start
-        '';
+        # Temporarily commented out to prevent port conflict when running manually.
+        # backend-start = "cd ctrader_tick_backend && npm start"
       };
     };
   };

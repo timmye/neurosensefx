@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   import { 
-      wsStatus, 
+      wsStatus, // Use the unified status store
       dataSourceMode,
       availableSymbols, 
       subscriptions,
@@ -9,9 +9,8 @@
       disconnect,
       subscribe,
       unsubscribe,
-      startSimulation,
-      stopSimulation
   } from '../data/wsClient.js';
+  import { symbolStore } from '../data/symbolStore.js';
 
   export let selectedSymbol; // Can be null initially
   export let config; // Can be undefined initially
@@ -20,17 +19,15 @@
 
   let symbolInput = 'EURUSD';
 
-  // Add checks before accessing config properties
   function handleConfigChange() {
       if (selectedSymbol && config) {
-          dispatch('configChange', { symbol: selectedSymbol, newConfig: config });
+          symbolStore.updateConfig(selectedSymbol, config);
       }
   }
 
-  // Add check before resetting config
   function handleReset() {
       if (selectedSymbol) {
-          dispatch('resetConfig', { symbol: selectedSymbol });
+          symbolStore.resetConfig(selectedSymbol);
       }
   }
 
@@ -48,7 +45,7 @@
           subscribe([symbolInput.toUpperCase()]);
           symbolInput = '';
       } else if ($wsStatus !== 'connected') {
-          console.warn('Cannot subscribe, WebSocket is not connected.');
+          console.warn('Cannot subscribe, live data source not connected. Current status:', $wsStatus);
       }
   }
 
@@ -57,7 +54,7 @@
        if ($wsStatus === 'connected') {
         unsubscribe([symbol]);
        } else {
-           console.warn('Cannot unsubscribe, WebSocket is not connected.');
+           console.warn('Cannot unsubscribe, live data source not connected. Current status:', $wsStatus);
        }
   }
 
@@ -78,9 +75,6 @@
           <div class="control-group-container">
               <div class="title-bar">
                   <h2 class="group-title">System</h2>
-                  {#if config}
-                    <button class="reset-button" on:click={handleReset}>Reset to Defaults</button>
-                  {/if}
               </div>
               <div class="control-group">
                   <label for="dataSource">Data Source</label>
@@ -92,7 +86,7 @@
           </div>
 
           <!-- Simulation Controls -->
-          {#if $dataSourceMode === 'simulated'}
+          {#if $dataSourceMode === 'simulated' && config}
               <div class="control-group-container">
                 <h2 class="group-title">Simulation Settings</h2>
                   <div class="control-group">
@@ -118,11 +112,11 @@
                   </div>
                   <div class="control-group">
                       {#if $wsStatus === 'disconnected' || $wsStatus === 'error'}
-                          <button class="action-button connect" on:click={connect}>Connect</button>
-                      {:else if $wsStatus === 'connecting'}
+                          <button class="action-button connect" on:click={handleConnect}>Connect</button>
+                      {:else if $wsStatus === 'ws-connecting' || $wsStatus === 'ws-open' || $wsStatus === 'ctrader-connecting'}
                           <button class="action-button" disabled>Connecting...</button>
                       {:else if $wsStatus === 'connected'}
-                          <button class="action-button disconnect" on:click={disconnect}>Disconnect</button>
+                          <button class="action-button disconnect" on:click={handleDisconnect}>Disconnect</button>
                       {/if}
                   </div>
 
@@ -160,14 +154,12 @@
             <hr/>
             <div class="title-bar">
                 <h2 class="group-title">Visual Settings</h2>
-                {#if config}
-                    <button class="reset-button" on:click={handleReset}>Reset to Defaults</button>
-                {/if}
+                <button class="reset-button" on:click={handleReset}>Reset to Defaults</button>
             </div>
 
             <!-- Layout & Meter -->
             <div class="control-group-container">
-                <h3 class="group-title">Layout & Meter</h3> {#!-- Changed to h3 --#}
+                <h3 class="group-title">Layout & Meter</h3>
                 <div class="control-group">
                     <label for="visualizationsContentWidth">Visualization Width: <span>{config.visualizationsContentWidth}px</span></label>
                     <input type="range" id="visualizationsContentWidth" min="100" max="500" bind:value={config.visualizationsContentWidth} on:input={handleConfigChange}>
@@ -194,7 +186,7 @@
 
             <!-- Price Representation -->
             <div class="control-group-container">
-              <h3 class="group-title">Price Representation</h3> {#!-- Changed to h3 --#}
+              <h3 class="group-title">Price Representation</h3>
               <div class="control-grid">
                 <div class="control-group">
                     <label for="priceFontSize">Base Font Size: <span>{config.priceFontSize}px</span></label>
@@ -269,7 +261,7 @@
 
               <!-- Price Float Element -->
               <div class="control-group-container">
-                <h3 class="group-title">Price Float Element</h3> {#!-- Changed to h3 --#}
+                <h3 class="group-title">Price Float Element</h3>
                 <div class="control-grid">
                   <div class="control-group">
                       <label for="priceFloatWidth">Width: <span>{config.priceFloatWidth}</span></label>
@@ -290,11 +282,11 @@
 
               <!-- Dynamic Feedback -->
               <div class="control-group-container">
-                  <h3 class="group-title">Dynamic Feedback</h3> {#!-- Changed to h3 --#}
+                  <h3 class="group-title">Dynamic Feedback</h3>
                   <div class="control-grid">
                     <!-- Volatility Orb -->
                     <div class="control-group nested">
-                        <h4 class="nested-title">Volatility Orb</h4> {#!-- Changed to h4 --#}
+                        <h4 class="nested-title">Volatility Orb</h4>
                         <div class="toggle-switch standalone">
                             <span>Show Orb</span>
                             <input type="checkbox" id="showVolatilityOrb" bind:checked={config.showVolatilityOrb} on:change={handleConfigChange}>
@@ -320,7 +312,7 @@
                     </div>
                     <!-- Flash Effects -->
                     <div class="control-group nested">
-                        <h4 class="nested-title">Flash Effects</h4> {#!-- Changed to h4 --#}
+                        <h4 class="nested-title">Flash Effects</h4>
                         <div class="toggle-switch standalone">
                             <span>Price Flash</span>
                             <input type="checkbox" id="showFlash" bind:checked={config.showFlash} on:change={handleConfigChange}>
@@ -351,9 +343,9 @@
 
               <!-- Contextual Layers -->
               <div class="control-group-container">
-                  <h3 class="group-title">Contextual Layers</h3> {#!-- Changed to h3 --#}
+                  <h3 class="group-title">Contextual Layers</h3>
                   <div class="control-group nested">
-                      <h4 class="nested-title">Market Profile</h4> {#!-- Changed to h4 --#}
+                      <h4 class="nested-title">Market Profile</h4>
                       <div class="toggle-switch standalone">
                           <span>Show Profile</span>
                           <input type="checkbox" id="showMarketProfile" bind:checked={config.showMarketProfile} on:change={handleConfigChange}>
@@ -389,7 +381,7 @@
                       {/if}
                   </div>
               </div>
-          {/if} {#!-- End of config check --#}
+          {/if}
       </div>
   </div>
 </div>
@@ -484,7 +476,9 @@
     text-transform: capitalize;
   }
   .status-disconnected { background-color: #4b5563; color: #d1d5db; }
-  .status-connecting { background-color: #f59e0b; color: #1f2937; }
+  .status-ws-connecting { background-color: #f59e0b; color: #1f2937; }
+  .status-ws-open { background-color: #f59e0b; color: #1f2937; }
+   .status-ctrader-connecting { background-color: #f59e0b; color: #1f2937; }
   .status-connected { background-color: #10b981; color: #d1d5db; }
   .status-error { background-color: #ef4444; color: #fee2e2; }
 

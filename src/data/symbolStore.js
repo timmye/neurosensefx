@@ -103,13 +103,7 @@ function createNewSymbol(symbol) {
             }
         };
 
-        worker.postMessage({
-            type: 'init',
-            payload: {
-                config: defaultConfig,
-                midPrice: initialState.midPrice // Pass initial midPrice
-            }
-        });
+        worker.postMessage({ type: 'init', payload: { config: defaultConfig, midPrice: initialState.midPrice } });
         
         workers.set(symbol, worker);
 
@@ -158,8 +152,25 @@ function resetConfig(symbol) {
     });
 }
 
-// Add a clear function to remove all symbols and terminate workers
+// Add a remove function to remove a single symbol and terminate its worker
+function removeSymbol(symbol) {
+    console.log(`Removing symbol: ${symbol}`);
+    update(symbols => {
+        if (symbols[symbol]) {
+            const worker = workers.get(symbol);
+            if (worker) {
+                worker.terminate();
+                workers.delete(symbol);
+            }
+            delete symbols[symbol];
+        }
+        return symbols;
+    });
+}
+
+// Add a clear function to remove all symbols and terminate all workers
 function clear() {
+    console.log('Clearing all symbols.');
     set({});
     workers.forEach(worker => worker.terminate());
     workers.clear();
@@ -171,5 +182,6 @@ export const symbolStore = {
     dispatchTick,
     updateConfig,
     resetConfig,
-    clear // Export the new clear function
+    removeSymbol, // Export the new removeSymbol function
+    clear // Export the clear function
 };
