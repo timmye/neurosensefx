@@ -49,14 +49,13 @@
     workspace = {
       # Runs when a workspace is first created
       onCreate = {
-        npm-install = ''
-          npm cache clean --force
+        # Install all npm dependencies
+        npm-installs = ''
+          set -e
+          echo "Installing root dependencies..."
           npm install
-        '';
-        # Install dependencies for the cloned backend repository
-        backend-npm-install = ''
+          echo "Installing backend dependencies..."
           cd ctrader_tick_backend && npm install
-          cd ctrader_tick_backend/web && npm install
         '';
         default.openFiles = [
           ".idx/dev.nix"
@@ -64,7 +63,14 @@
           "README.md"
         ];
       };
+      # Runs every time the workspace is (re)started
       onStart = {
+        # Build the cTrader layer and start the backend server
+        backend-start = ''
+          set -e
+          echo "Building cTrader-Layer and starting backend..."
+          cd ctrader_tick_backend/cTrader-Layer && npm install && npm run build && cd .. && npm install && npm start
+        '';
       };
     };
   };

@@ -2,86 +2,95 @@ import { writable, get } from 'svelte/store';
 import { symbolStore } from './symbolStore';
 
 // --- Stores ---
-export const wsStatus = writable('disconnected');
+export const wsStatus = writable('disconnected'); // For the LIVE connection
 export const dataSourceMode = writable('simulated'); // 'live' or 'simulated'
+export const availableSymbols = writable([]);
 export const subscriptions = writable(new Set());
 
 // --- Private State ---
 let ws = null;
-let simulationInterval;
+let simulationTimeout;
 let simulationState = {};
 
 // --- WebSocket Connection ---
 const getWebSocketUrl = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    return `${protocol}//${host}/ws`;
+    const host = window.location.hostname;
+    // This MUST match the port the backend is running on.
+    const port = '8080'; 
+    return `${protocol}//${host}:${port}`;
 };
 
 const WS_URL = getWebSocketUrl();
 
-function startLiveStream() {
-    if (ws && ws.readyState === WebSocket.OPEN) return;
-    
-    stopLiveStream(); 
-    stopSimulation(); 
-
+export function connect() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+    stopSimulation(); // Ensure simulation is stopped
     wsStatus.set('connecting');
     try {
         ws = new WebSocket(WS_URL);
 
         ws.onopen = () => {
-            wsStatus.set('connected');
-            // Resubscribe to any existing symbols on reconnect
-            const currentSubs = get(subscriptions);
-            if (currentSubs.size > 0) {
-                subscribe([...currentSubs]);
-            }
+            console.log('WebSocket opened, sending connect message.');
+            ws.send(JSON.stringify({ type: 'connect' }));
         };
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'tick') {
-                data.bid = parseFloat(data.bid);
-                data.ask = parseFloat(data.ask);
-                symbolStore.dispatchTick(data.symbol, data);
-            } else if (data.type === 'subscribeResponse') {
-                data.results.forEach(result => {
-                    if (result.status === 'subscribed') {
-                        subscriptions.update(subs => subs.add(result.symbol));
-                        symbolStore.createNewSymbol(result.symbol);
+            switch (data.type) {
+                case 'status':
+                    wsStatus.set(data.status);
+                    if (data.status === 'connected' && data.availableSymbols) {
+                        availableSymbols.set(data.availableSymbols);
+                        const currentSubs = get(subscriptions);
+                        if (currentSubs.size > 0) {
+                            // Re-subscribe to symbols on reconnect
+                            subscribe([...currentSubs]);
+                        }
                     }
-                });
+                    break;
+                case 'tick':
+                    symbolStore.dispatchTick(data.symbol, { ...data, bid: parseFloat(data.bid), ask: parseFloat(data.ask) });
+                    break;
+                case 'subscribeResponse':
+                case 'unsubscribeResponse':
+                    handleSubscriptionResponse(data);
+                    break;
+                case 'error':
+                    console.error('Backend Error:', data.message);
+                    break;
             }
         };
 
         ws.onclose = () => {
-            if (get(dataSourceMode) === 'live') {
-                setTimeout(startLiveStream, 3000);
-            }
-            stopLiveStream();
+            ws = null;
+            wsStatus.set('disconnected');
+            availableSymbols.set([]);
         };
 
-        ws.onerror = () => {
+        ws.onerror = (err) => {
+            console.error('WebSocket Error:', err);
             wsStatus.set('error');
-            stopLiveStream();
+            if (ws) ws.close();
         };
     } catch (e) {
+        console.error('Failed to create WebSocket:', e);
         wsStatus.set('error');
         ws = null;
     }
 }
 
-function stopLiveStream() {
+export function disconnect() {
     if (ws) {
-        ws.onclose = null;
-        ws.onerror = null;
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-            ws.close();
-        }
+        ws.onclose = null; // Prevent onclose from firing during manual disconnect
+        ws.send(JSON.stringify({ type: 'disconnect' }));
+        ws.close();
         ws = null;
     }
     wsStatus.set('disconnected');
+    availableSymbols.set([]);
 }
 
 // --- Data Simulation ---
@@ -89,73 +98,94 @@ const frequencySettings = {
     calm: { baseInterval: 2000, randomness: 1500, magnitudeMultiplier: 0.5 },
     normal: { baseInterval: 800, randomness: 1000, magnitudeMultiplier: 1 },
     active: { baseInterval: 300, randomness: 400, magnitudeMultiplier: 1.5 },
-    volatile: { baseInterval: 100, randomness: 200, magnitudeMultiplier: 2 },
+    volatile: { baseInterval: 100, randomness: 200, magnitudeMultiplier: 2.5 },
 };
 
-function initializeSimulator() {
+export function startSimulation() {
+    disconnect(); // Ensure live connection is off
+    if (simulationTimeout) clearTimeout(simulationTimeout);
+    
     const symbol = 'SIM-EURUSD';
-    simulationState = { lastTickTime: performance.now(), currentPrice: 1.25500, momentum: 0 };
-    subscriptions.update(subs => subs.add(symbol));
     symbolStore.createNewSymbol(symbol);
-}
+    subscriptions.update(subs => {
+        subs.add(symbol);
+        return subs;
+    });
 
-function generateSimulatedTick() {
-    const symbol = 'SIM-EURUSD';
-    const settings = frequencySettings['normal'];
+    simulationState = { currentPrice: 1.25500, momentum: 0 };
     
-    simulationState.momentum = (simulationState.momentum || 0) * 0.85;
-    const bias = simulationState.momentum * 0.1;
-    const direction = Math.random() < (0.5 + bias) ? 1 : -1;
-    simulationState.momentum = Math.max(-1, Math.min(1, simulationState.momentum + direction * 0.25));
-    const rand = Math.random();
-    let magnitude = (rand < 0.8) ? Math.random() * 0.8 : (rand < 0.98) ? 0.8 + Math.random() * 2 : 3 + Math.random() * 5;
-    magnitude *= settings.magnitudeMultiplier;
-    const newPrice = simulationState.currentPrice + (direction * magnitude / 10000);
-    simulationState.lastTickTime = performance.now();
-    simulationState.currentPrice = newPrice;
-    const tick = { type: 'tick', symbol: symbol, bid: newPrice, ask: newPrice + (0.2 / 10000), spread: 0.2, timestamp: performance.now() };
+    // Initial tick
+    symbolStore.dispatchTick(symbol, {
+        type: 'tick', symbol, bid: simulationState.currentPrice, ask: simulationState.currentPrice + 0.00002, timestamp: performance.now()
+    });
+
+    function runSimulationLoop() {
+        const config = get(symbolStore)[symbol]?.config;
+        if (!config) {
+            simulationTimeout = setTimeout(runSimulationLoop, 100);
+            return;
+        }
+
+        const settings = frequencySettings[config.frequencyMode] || frequencySettings.normal;
+
+        simulationState.momentum = (simulationState.momentum || 0) * 0.85;
+        const bias = simulationState.momentum * 0.1;
+        const direction = Math.random() < (0.5 + bias) ? 1 : -1;
+        simulationState.momentum = Math.max(-1, Math.min(1, simulationState.momentum + direction * 0.25));
+        
+        let magnitude = (Math.random() < 0.8) ? Math.random() * 0.8 : (Math.random() < 0.98) ? 0.8 + Math.random() * 2 : 3 + Math.random() * 5;
+        magnitude *= settings.magnitudeMultiplier;
+        
+        simulationState.currentPrice += (direction * magnitude / 10000);
+        
+        const tick = { type: 'tick', symbol, bid: simulationState.currentPrice, ask: simulationState.currentPrice + (0.2 / 10000), timestamp: performance.now() };
+        symbolStore.dispatchTick(symbol, tick);
+
+        const nextTickDelay = settings.baseInterval + (Math.random() * settings.randomness);
+        simulationTimeout = setTimeout(runSimulationLoop, nextTickDelay);
+    }
     
-    symbolStore.dispatchTick(symbol, tick);
+    runSimulationLoop();
 }
 
-function startSimulation() {
-    stopLiveStream();
-    initializeSimulator();
-    if (simulationInterval) clearInterval(simulationInterval);
-    simulationInterval = setInterval(generateSimulatedTick, 50);
-    wsStatus.set('connected');
-}
-
-function stopSimulation() {
-    if (simulationInterval) {
-        clearInterval(simulationInterval);
-        simulationInterval = null;
-    }
-    subscriptions.update(subs => { subs.delete('SIM-EURUSD'); return subs; });
-    wsStatus.set('disconnected');
-}
-
-// --- Public API ---
-export function setDataSource(mode) {
-    dataSourceMode.set(mode);
-    if (mode === 'live') {
-        startLiveStream();
-    } else if (mode === 'simulated') {
-        startSimulation();
+export function stopSimulation() {
+    if (simulationTimeout) {
+        clearTimeout(simulationTimeout);
+        simulationTimeout = null;
     }
 }
 
+// --- Public API for Subscriptions ---
 export function subscribe(symbols) {
-    if (get(dataSourceMode) === 'live' && ws && ws.readyState === WebSocket.OPEN) {
+    if (get(dataSourceMode) !== 'live') return;
+    if (get(wsStatus) === 'connected' && ws) {
         ws.send(JSON.stringify({ type: 'subscribe', symbols: Array.isArray(symbols) ? symbols : [symbols] }));
+    } else {
+        console.warn('Cannot subscribe, WebSocket is not connected.');
     }
 }
 
 export function unsubscribe(symbols) {
-    if (get(dataSourceMode) === 'live' && ws && ws.readyState === WebSocket.OPEN) {
+    if (get(dataSourceMode) !== 'live') return;
+    if (get(wsStatus) === 'connected' && ws) {
         ws.send(JSON.stringify({ type: 'unsubscribe', symbols: Array.isArray(symbols) ? symbols : [symbols] }));
     }
 }
 
-// Initialize with the default mode
-setDataSource(get(dataSourceMode));
+function handleSubscriptionResponse(data) {
+    if (!data.results) return;
+    
+    subscriptions.update(subs => {
+        data.results.forEach(result => {
+            if (result.status === 'subscribed') {
+                subs.add(result.symbol);
+                symbolStore.createNewSymbol(result.symbol); 
+            } else if (result.status === 'unsubscribed') {
+                subs.delete(result.symbol);
+            } else if (result.status === 'error') {
+                console.error(`Subscription error for ${result.symbol}: ${result.message}`);
+            }
+        });
+        return new Set(subs);
+    });
+}

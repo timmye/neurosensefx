@@ -4,3 +4,6 @@
 	- days tick data for market profile? or suitable data
 	- future: browse prev days?
 	- 
+- ADR: high/low proximity should be entire width of top and bottom of canvas and suitable for peripheral sensing enough
+Flash effects not working...after many fixes. Must be a calc/state error - not lookingpromsing for scaling.
+

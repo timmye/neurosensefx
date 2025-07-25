@@ -73,9 +73,14 @@ function processTick(tick) {
     updateVolatility();
     
     const marketProfile = generateMarketProfile();
-    const flashThreshold = Math.max(0.5, config.flashThreshold || 1.5);
-    const orbFlashThreshold = Math.max(0.3, config.orbFlashThreshold || 1.0);
-    const significantTick = (config.showFlash && magnitude >= flashThreshold) || (config.showOrbFlash && magnitude >= orbFlashThreshold);
+
+    let flashEffect = null;
+    if ((config.showFlash && magnitude >= config.flashThreshold) || (config.showOrbFlash && magnitude >= config.orbFlashThreshold)) {
+        flashEffect = {
+            magnitude,
+            direction: state.lastTickDirection
+        };
+    }
 
     self.postMessage({
         type: 'stateUpdate',
@@ -86,11 +91,9 @@ function processTick(tick) {
                 volatility: state.volatility,
                 adrHigh: state.adrHigh,
                 adrLow: state.adrLow,
-                meterHorizontalOffset: 0
             },
             marketProfile: marketProfile,
-            significantTick: significantTick,
-            tickMagnitude: magnitude,
+            flashEffect: flashEffect
         }
     });
 }
