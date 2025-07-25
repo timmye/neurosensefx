@@ -7,6 +7,5 @@
 - ADR: high/low proximity should be entire width of top and bottom of canvas and suitable for peripheral sensing enough
 Flash effects not working...after many fixes. Must be a calc/state error - not lookingpromsing for scaling.
 
-- document front and back end api changes
-- create a readme for initialising a fresh ide env. We need to hand off to other devs.
-- assess breaking our connection logic fron configpanel - it's getting large. 
+
+- assess breaking out connection logic fron configpanel - it's getting large. 
