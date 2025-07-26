@@ -47,39 +47,37 @@ export const defaultConfig = {
     showMaxMarker: true,
 };
 
-function createNewSymbol(symbol, initialPrice = 0) {
+function createNewSymbol(symbol, initialPrice) {
+    const validatedPrice = (typeof initialPrice === 'number' && !isNaN(initialPrice)) ? initialPrice : 0;
+    if (validatedPrice !== initialPrice) {
+        console.warn(`Invalid initialPrice '${initialPrice}' for ${symbol}. Defaulting to 0.`);
+    }
+
     update(symbols => {
-        if (symbols[symbol] && !workers.has(symbol)) {
-            console.log(`Re-initializing lost worker for: ${symbol}`);
-            const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
-            worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
-            worker.postMessage({ type: 'init', payload: { config: symbols[symbol].config, midPrice: initialPrice } });
-            workers.set(symbol, worker);
+        if (symbols[symbol]) {
             return symbols;
         }
 
-        if (!symbols[symbol]) {
-            console.log(`Creating new symbol: ${symbol} with initial price: ${initialPrice}`);
-            const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
-            
-            const initialState = {
-                currentPrice: initialPrice, midPrice: initialPrice, lastTickTime: 0,
-                maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
-                volatility: 0, lastTickDirection: 'up', marketProfile: { levels: [] },
-                adrHigh: 0, adrLow: 0, flashEffect: null,
-            };
+        console.log(`Creating new symbol: ${symbol} with initial price: ${validatedPrice}`);
+        const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
+        
+        const initialState = {
+            currentPrice: validatedPrice, midPrice: validatedPrice, lastTickTime: 0,
+            maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
+            volatility: 0, lastTickDirection: 'up', marketProfile: { levels: [] },
+            adrHigh: 0, adrLow: 0, flashEffect: null,
+        };
 
-            worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
-            worker.postMessage({ type: 'init', payload: { config: defaultConfig, midPrice: initialPrice } });
-            
-            workers.set(symbol, worker);
+        worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
+        worker.postMessage({ type: 'init', payload: { config: defaultConfig, midPrice: validatedPrice } });
+        
+        workers.set(symbol, worker);
 
-            symbols[symbol] = {
-                config: { ...defaultConfig },
-                state: initialState,
-                marketProfile: { levels: [] }
-            };
-        }
+        symbols[symbol] = {
+            config: { ...defaultConfig },
+            state: initialState,
+            marketProfile: { levels: [] }
+        };
         return symbols;
     });
 }
@@ -88,12 +86,24 @@ function handleWorkerMessage(symbol, data) {
     const { type, payload } = data;
     if (type === 'stateUpdate') {
         update(symbols => {
-            if (symbols[symbol]) {
-                symbols[symbol].state = { ...symbols[symbol].state, ...payload.newState };
-                symbols[symbol].marketProfile = payload.marketProfile;
-                symbols[symbol].state.flashEffect = payload.flashEffect 
-                    ? { ...payload.flashEffect, id: performance.now() } 
-                    : null;
+            const existingSymbol = symbols[symbol];
+            if (existingSymbol) {
+                const newSymbolData = {
+                    ...existingSymbol,
+                    state: {
+                        ...existingSymbol.state,
+                        ...payload.newState
+                    },
+                    marketProfile: payload.marketProfile,
+                    flashEffect: payload.flashEffect 
+                        ? { ...payload.flashEffect, id: performance.now() } 
+                        : null
+                };
+                
+                return {
+                    ...symbols,
+                    [symbol]: newSymbolData
+                };
             }
             return symbols;
         });
@@ -105,8 +115,7 @@ function dispatchTick(symbol, tick) {
     if (worker) {
         worker.postMessage({ type: 'tick', payload: tick });
     } else {
-        console.warn(`No worker found for symbol: ${symbol}. Attempting to recover...`);
-        createNewSymbol(symbol, tick.bid); 
+        console.warn(`Ignoring tick for uninitialized symbol: ${symbol}`);
     }
 }
 

@@ -6,6 +6,7 @@
   # Use https://search.nixos.org/packages to find packages
   packages = [
     pkgs.nodejs_20 # Use Node.js version 20
+    pkgs.killall # Add the killall package to use pkill
   ];
   # Sets environment variables in the workspace
   env = {
@@ -53,6 +54,8 @@
       };
       # Runs every time the workspace is (re)started
       onStart = {
+        # Ensure no other node processes are running on the port
+        kill-process = "pkill -f 'node ctrader_tick_backend/server.js' || true";
         # Temporarily commented out to prevent port conflict when running manually.
         # backend-start = "cd ctrader_tick_backend && npm start"
       };

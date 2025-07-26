@@ -13,18 +13,23 @@
   let ctx;
   let lastFlashId = null;
 
-  // Reactively get market data for the specific symbol
   $: symbolMarketData = $marketDataStore[symbol];
 
-  // Reactive scale
-  let y = d3.scaleLinear();
-
-  $: if (ctx && state && typeof state.currentPrice === 'number' && config && symbolMarketData) {
-    // Update the scale's domain whenever data changes
-    const minPrice = Math.min(symbolMarketData.prevDayLow, state.currentPrice);
-    const maxPrice = Math.max(symbolMarketData.prevDayHigh, state.currentPrice);
-    y.domain([minPrice, maxPrice]).range([canvasElement.height, 0]);
-    
+  $: y = (() => {
+    if (symbolMarketData && typeof state.currentPrice === 'number' && state.currentPrice > 0) {
+      const priceRange = Math.abs(symbolMarketData.projectedHigh - symbolMarketData.projectedLow);
+      const buffer = priceRange * 0.1;
+      const minPrice = Math.min(symbolMarketData.projectedLow, state.currentPrice) - buffer;
+      const maxPrice = Math.max(symbolMarketData.projectedHigh, state.currentPrice) + buffer;
+      
+      return d3.scaleLinear()
+        .domain([minPrice, maxPrice])
+        .range([canvasElement?.height || config.meterHeight, 0]);
+    }
+    return d3.scaleLinear().domain([0, 1]).range([config.meterHeight, 0]);
+  })();
+  
+  $: if (ctx && state && y && symbolMarketData) {
     drawVisualization();
   }
   
@@ -47,7 +52,6 @@
       ctx = canvasElement.getContext('2d');
       canvasElement.width = config?.visualizationsContentWidth || 220;
       canvasElement.height = config?.meterHeight || 120;
-      // Initial draw might be empty if data isn't ready, which is fine.
     }
   });
 
@@ -61,6 +65,15 @@
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     
+    if (!state.currentPrice || state.currentPrice === 0) {
+        ctx.fillStyle = '#6b7280';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '14px "Roboto Mono", monospace';
+        ctx.fillText('Waiting for live price...', canvasElement.width / 2, canvasElement.height / 2);
+        return; 
+    }
+
     const meterCenterX = config.centralAxisXPosition;
 
     if (config.showVolatilityOrb) drawVolatilityOrb(ctx);
@@ -161,7 +174,7 @@
     const flashColor = direction === 'up' ? '96,165,250' : '248,113,113';
     
     const animate = () => {
-      drawVisualization(); // Redraw base
+      drawVisualization(); 
       drawVolatilityOrb(ctx, { color: flashColor, opacity: opacity });
       opacity -= 0.05;
       if (opacity > 0) {
@@ -172,15 +185,16 @@
   }
   
   function drawADRProximityPulse(ctx) {
-    const priceRange = symbolMarketData.prevDayHigh - symbolMarketData.prevDayLow;
+    if (!symbolMarketData) return;
+    const priceRange = symbolMarketData.projectedHigh - symbolMarketData.projectedLow;
     if (priceRange <= 0 || !config.adrProximityThreshold) return;
     
     const proximityPrice = (config.adrProximityThreshold / 100) * priceRange;
-    const highProximity = Math.abs(symbolMarketData.prevDayHigh - state.currentPrice) < proximityPrice;
-    const lowProximity = Math.abs(symbolMarketData.prevDayLow - state.currentPrice) < proximityPrice;
+    const highProximity = Math.abs(symbolMarketData.projectedHigh - state.currentPrice) < proximityPrice;
+    const lowProximity = Math.abs(symbolMarketData.projectedLow - state.currentPrice) < proximityPrice;
 
     if (highProximity || lowProximity) {
-        const yPos = highProximity ? y(symbolMarketData.prevDayHigh) : y(symbolMarketData.prevDayLow);
+        const yPos = highProximity ? y(symbolMarketData.projectedHigh) : y(symbolMarketData.projectedLow);
         const gradient = ctx.createLinearGradient(0, yPos, canvasElement.width, yPos);
         gradient.addColorStop(0, 'rgba(96, 165, 250, 0)');
         gradient.addColorStop(0.5, 'rgba(96, 165, 250, 0.7)');
@@ -234,7 +248,7 @@
             ctx.strokeStyle = `rgb(${color})`;
             ctx.lineWidth = 1.5;
             ctx.stroke();
-        } else { // bars
+        } else {
             ctx.fillStyle = `rgba(${color}, 0.5)`;
             profilePoints.forEach(p => {
                 const width = side === 'buy' ? p.buyWidth : p.sellWidth;
@@ -256,8 +270,9 @@
   }
 
   function drawDayRangeMeter(ctx, meterCenterX) {
-    const lowY = y(symbolMarketData.prevDayLow);
-    const highY = y(symbolMarketData.prevDayHigh);
+    if (!symbolMarketData) return;
+    const lowY = y(symbolMarketData.projectedLow);
+    const highY = y(symbolMarketData.projectedHigh);
     
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 2;
@@ -310,7 +325,6 @@
     const baseFontSize = config.priceFontSize;
     const fontWeight = config.priceFontWeight;
 
-    // --- Calculate text widths ---
     ctx.font = `${fontWeight} ${baseFontSize * config.bigFigureFontSizeRatio}px "Roboto Mono", monospace`;
     const bigFigureWidth = ctx.measureText(bigFigure).width;
     let maxSegmentHeight = baseFontSize * config.bigFigureFontSizeRatio;
@@ -329,7 +343,6 @@
     const totalTextWidth = bigFigureWidth + pipsWidth + pipetteWidth;
     const x = meterCenterX + config.priceHorizontalOffset - totalTextWidth; 
 
-    // --- CRITICAL FIX: Restore the drawing logic for B-Box and BG ---
     if (config.showPriceBackground || config.showPriceBoundingBox) {
         const padding = config.priceDisplayPadding;
         const rectX = x - padding;
@@ -348,7 +361,6 @@
         }
     }
 
-    // --- Draw the text ---
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = getPriceTextColor();
@@ -371,9 +383,11 @@
 
   function getPriceTextColor() {
     if (config.priceUseStaticColor) return config.priceStaticColor;
+    if (state.currentPrice > symbolMarketData.projectedHigh) return '#fbbf24'; 
+    if (state.currentPrice < symbolMarketData.projectedLow) return '#fbbf24';
     if (state.lastTickDirection === 'up') return config.priceUpColor;
     if (state.lastTickDirection === 'down') return config.priceDownColor;
-    return '#d1d5db'; // Default neutral
+    return '#d1d5db'; 
   }
 </script>
 
