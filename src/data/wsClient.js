@@ -60,6 +60,7 @@ function handleSocketMessage(data) {
             handleStatusMessage(data);
             break;
         case 'symbolDataPackage':
+            console.log('[wsClient] Received symbolDataPackage:', data);
             handleDataPackage(data);
             break;
         case 'tick':
@@ -85,6 +86,10 @@ function handleStatusMessage(data) {
 }
 
 function handleDataPackage(data) {
+    if (data.todaysOpen === null) {
+        console.error(`Invalid initialPrice '${data.todaysOpen}' for ${data.symbol}. Defaulting to 0.`);
+        data.todaysOpen = 0;
+    }
     symbolStore.createNewSymbol(data.symbol, data.todaysOpen);
     
     marketDataStore.update(store => {
@@ -93,12 +98,9 @@ function handleDataPackage(data) {
             projectedHigh: data.projectedHigh,
             projectedLow: data.projectedLow,
         };
+        console.log('[wsClient] Updated marketDataStore:', store);
         return store;
     });
-
-    if (data.initialMarketProfile) {
-        symbolStore.dispatchMarketProfile(data.symbol, data.initialMarketProfile);
-    }
 
     if (get(dataSourceMode) === 'live' && ws) {
         console.log(`Front-end initialized for ${data.symbol}. Requesting tick stream.`);

@@ -15,6 +15,14 @@
 
   $: symbolMarketData = $marketDataStore[symbol];
 
+  // DEBUG: Log props and reactive variables
+  $: {
+    console.log('[VizDisplay] Props updated:');
+    console.log('  - symbol:', symbol);
+    console.log('  - state:', state);
+    console.log('  - symbolMarketData:', symbolMarketData);
+  }
+
   $: y = (() => {
     if (symbolMarketData && typeof state.currentPrice === 'number' && state.currentPrice > 0) {
       const priceRange = Math.abs(symbolMarketData.projectedHigh - symbolMarketData.projectedLow);
@@ -22,9 +30,12 @@
       const minPrice = Math.min(symbolMarketData.projectedLow, state.currentPrice) - buffer;
       const maxPrice = Math.max(symbolMarketData.projectedHigh, state.currentPrice) + buffer;
       
-      return d3.scaleLinear()
+      const scale = d3.scaleLinear()
         .domain([minPrice, maxPrice])
         .range([canvasElement?.height || config.meterHeight, 0]);
+      
+      console.log('[VizDisplay] Y-scale created:', { domain: scale.domain(), range: scale.range() });
+      return scale;
     }
     return d3.scaleLinear().domain([0, 1]).range([config.meterHeight, 0]);
   })();
