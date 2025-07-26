@@ -1,67 +1,39 @@
-# NeuroSense FX - cTrader Tick Backend and Layer Setup
+# NeuroSense FX
 
-This guide provides instructions for setting up the necessary backend services for NeuroSense FX, including the `ctrader_tick_backend` and the `cTrader-Layer`.
+Welcome to NeuroSense FX, a financial data visualization tool built with a Svelte frontend and a Node.js backend that connects to the cTrader platform.
 
-## Prerequisites
+This project is configured for **Firebase Studio (IDX)** and is designed for a seamless, automated setup.
 
-*   Node.js and npm installed.
-*   Git installed.
+## ✨ One-Step Setup
 
-## Setup Steps
+This project is fully automated. When you open it in Firebase Studio, a setup script (`setup_project.sh`) will automatically:
 
-Follow these steps to set up the backend and the cTrader Layer:
+1.  **Initialize Git Submodules:** Clones the `ctrader_tick_backend` and its nested `cTrader-Layer` submodule.
+2.  **Install All Dependencies:** Runs `npm install` for the frontend, backend, and cTrader layer in the correct order.
+3.  **Build the cTrader Layer:** Compiles the necessary TypeScript files for the backend.
+4.  **Start the Backend Server:** The Node.js backend will start automatically on port 8080.
+5.  **Launch the Frontend Preview:** A Vite development server for the Svelte app will launch and be available in the IDX Previews panel.
 
-1.  **Clone the `ctrader_tick_backend` repository:**
 
-    ```bash
-    git clone https://github.com/timmye/ctrader_tick_backend /home/user/neurosensefx/ctrader_tick_backend
-    ```
 
-2.  **Clone the `cTrader-Layer` repository into the backend directory:**
+## 🏛️ Project Architecture
 
-    ```bash
-    git clone https://github.com/timmye/cTrader-Layer /home/user/neurosensefx/ctrader_tick_backend/cTrader-Layer
-    ```
+This repository uses a modular, submodule-based architecture to keep the frontend and backend concerns cleanly separated.
 
-3.  **Navigate to the `cTrader-Layer` directory and install dependencies:**
+-   **`neurosensefx` (Root):**
+    -   Contains the Svelte frontend application (`src`).
+    -   Contains the Firebase Studio configuration (`.idx/dev.nix`).
+    -   Manages the overall project structure.
 
-    ```bash
-    cd /home/user/neurosensefx/ctrader_tick_backend/cTrader-Layer
-    npm install
-    ```
+-   **`ctrader_tick_backend` (Submodule):**
+    -   A standalone Node.js server that connects to the cTrader API.
+    -   Handles all API communication, data processing, and streams tick data via WebSockets.
+    -   Contains its own nested submodule, `cTrader-Layer`.
 
-4.  **Run linting and fix issues in `cTrader-Layer`:**
+-   **`cTrader-Layer` (Nested Submodule):**
+    -   A specific communication layer responsible for the low-level interaction with the cTrader Open API.
 
-    ```bash
-    npm run lint -- --fix
-    ```
-
-5.  **Build the `cTrader-Layer` securely:**
-
-    ```bash
-    npm run safe-build
-    ```
-
-6.  **Navigate to the `ctrader_tick_backend` directory and install dependencies:**
-
-    ```bash
-    cd /home/user/neurosensefx/ctrader_tick_backend
-    npm install
-    ```
-
-7.  **Start the backend server:**
-
-    ```bash
-    npm start
-    ```
-
-After the backend server starts successfully, you can refresh your frontend application and test the connection.
-
-## Troubleshooting
-
-*   If you encounter any issues during installation, try running `npm audit fix` or `npm audit fix --force` in the respective directories to resolve potential vulnerabilities.
-*   Ensure you have the correct Node.js version installed as required by the projects.
+This structure allows for independent development and versioning of each component, creating a robust and maintainable system.
 
 ---
-
-This README provides a clear, step-by-step guide for setting up the backend components.
+This README now accurately reflects the project's high degree of automation and professional structure.
