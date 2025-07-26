@@ -5,7 +5,6 @@ export const wsStatus = writable('disconnected');
 export const dataSourceMode = writable('simulated');
 export const availableSymbols = writable([]);
 export const subscriptions = writable(new Set());
-export const marketDataStore = writable({});
 
 let ws = null;
 let simulationTimeout;
@@ -91,15 +90,10 @@ function handleDataPackage(data) {
         data.todaysOpen = 0;
     }
     symbolStore.createNewSymbol(data.symbol, data.todaysOpen);
-    
-    marketDataStore.update(store => {
-        store[data.symbol] = {
-            adr: data.adr,
-            projectedHigh: data.projectedHigh,
-            projectedLow: data.projectedLow,
-        };
-        console.log('[wsClient] Updated marketDataStore:', store);
-        return store;
+    symbolStore.updateMarketData(data.symbol, {
+        adr: data.adr,
+        projectedHigh: data.projectedHigh,
+        projectedLow: data.projectedLow,
     });
 
     if (get(dataSourceMode) === 'live' && ws) {
@@ -134,12 +128,10 @@ export function startSimulation() {
     const symbol = 'SIM-EURUSD';
     const midPoint = 1.25500;
     symbolStore.createNewSymbol(symbol, midPoint);
-    marketDataStore.set({
-        [symbol]: {
-            adr: 0.00850, 
-            projectedHigh: midPoint + 0.00425,
-            projectedLow: midPoint - 0.00425,
-        }
+    symbolStore.updateMarketData(symbol, {
+        adr: 0.00850, 
+        projectedHigh: midPoint + 0.00425,
+        projectedLow: midPoint - 0.00425,
     });
     subscriptions.set(new Set([symbol]));
     simulationState = { currentPrice: midPoint, momentum: 0 };
@@ -197,17 +189,12 @@ export function unsubscribe(symbols) {
             subs.delete(symbol);
             return subs;
         });
-        marketDataStore.update(store => {
-            delete store[symbol];
-            return store;
-        });
     });
 }
 
 dataSourceMode.subscribe(mode => {
     symbolStore.clear();
     subscriptions.set(new Set());
-    marketDataStore.set({});
     if (mode === 'simulated') {
         disconnect(); 
         startSimulation();

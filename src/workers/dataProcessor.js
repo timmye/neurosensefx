@@ -20,6 +20,10 @@ self.onmessage = (event) => {
         case 'updateConfig':
             config = { ...config, ...payload };
             break;
+        case 'marketData': // New case for market data
+            state.projectedHigh = payload.projectedHigh;
+            state.projectedLow = payload.projectedLow;
+            break;
     }
 };
 
@@ -36,10 +40,9 @@ function initialize(payload) {
         volatility: 0.5,
         tickMagnitudes: [],
         lastTickDirection: 'up',
-        // The ADR boundaries will be set by the main thread, 
-        // but we can initialize them to a sensible default.
-        adrHigh: initialPrice * 1.005,
-        adrLow: initialPrice * 0.995,
+        projectedHigh: initialPrice * 1.005,
+        projectedLow: initialPrice * 0.995,
+        flashEffect: null,
     };
 }
 
@@ -111,11 +114,7 @@ function processTick(tick) {
     self.postMessage({
         type: 'stateUpdate',
         payload: {
-            newState: {
-                currentPrice: state.currentPrice,
-                lastTickDirection: state.lastTickDirection,
-                volatility: state.volatility,
-            },
+            newState: state,
             marketProfile: marketProfile,
             flashEffect: flashEffect
         }

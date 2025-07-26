@@ -65,7 +65,9 @@ function createNewSymbol(symbol, initialPrice) {
             currentPrice: validatedPrice, midPrice: validatedPrice, lastTickTime: 0,
             maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
             volatility: 0, lastTickDirection: 'up', marketProfile: { levels: [] },
-            adrHigh: 0, adrLow: 0, flashEffect: null,
+            projectedHigh: validatedPrice * 1.005, // Sensible default
+            projectedLow: validatedPrice * 0.995, // Sensible default
+            flashEffect: null,
         };
 
         worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
@@ -76,9 +78,9 @@ function createNewSymbol(symbol, initialPrice) {
         symbols[symbol] = {
             config: { ...defaultConfig },
             state: initialState,
-            marketProfile: { levels: [] }
+            marketProfile: { levels: [] } // Kept separate for now to avoid large state copies
         };
-        return symbols;
+        return { ...symbols };
     });
 }
 
@@ -88,13 +90,14 @@ function handleWorkerMessage(symbol, data) {
         update(symbols => {
             const existingSymbol = symbols[symbol];
             if (existingSymbol) {
+                // NEVER mutate. Always create new objects.
                 const newSymbolData = {
                     ...existingSymbol,
                     state: {
                         ...existingSymbol.state,
-                        ...payload.newState
+                        ...payload.newState, // The worker now sends the whole state
                     },
-                    marketProfile: payload.marketProfile,
+                    marketProfile: payload.marketProfile, // Get profile from worker
                     flashEffect: payload.flashEffect 
                         ? { ...payload.flashEffect, id: performance.now() } 
                         : null
@@ -110,12 +113,35 @@ function handleWorkerMessage(symbol, data) {
     }
 }
 
+function updateMarketData(symbol, marketData) {
+    update(symbols => {
+        const existingSymbol = symbols[symbol];
+        if (existingSymbol) {
+            // Update the main store's state
+            existingSymbol.state.projectedHigh = marketData.projectedHigh;
+            existingSymbol.state.projectedLow = marketData.projectedLow;
+            
+            // Forward this data to the worker
+            const worker = workers.get(symbol);
+            if (worker) {
+                worker.postMessage({ type: 'marketData', payload: marketData });
+            }
+        }
+        return { ...symbols }; // Return a new object to trigger reactivity
+    });
+}
+
 function dispatchTick(symbol, tick) {
     const worker = workers.get(symbol);
     if (worker) {
         worker.postMessage({ type: 'tick', payload: tick });
     } else {
-        console.warn(`Ignoring tick for uninitialized symbol: ${symbol}`);
+        createNewSymbol(symbol, tick.bid);
+        // Retry dispatching the tick after a short delay to allow for initialization
+        setTimeout(() => {
+            const newWorker = workers.get(symbol);
+            if(newWorker) newWorker.postMessage({ type: 'tick', payload: tick });
+        }, 50);
     }
 }
 
@@ -128,12 +154,20 @@ function dispatchMarketProfile(symbol, profileData) {
 
 function updateConfig(symbol, newConfig) {
     update(symbols => {
-        if (symbols[symbol]) {
-            symbols[symbol].config = { ...symbols[symbol].config, ...newConfig };
+        const existingSymbol = symbols[symbol];
+        if (existingSymbol) {
+            const updatedConfig = { ...existingSymbol.config, ...newConfig };
             const worker = workers.get(symbol);
             if (worker) {
                 worker.postMessage({ type: 'updateConfig', payload: newConfig });
             }
+            return {
+                ...symbols,
+                [symbol]: {
+                    ...existingSymbol,
+                    config: updatedConfig
+                }
+            };
         }
         return symbols;
     });
@@ -141,12 +175,19 @@ function updateConfig(symbol, newConfig) {
 
 function resetConfig(symbol) {
     update(symbols => {
-        if (symbols[symbol]) {
-            symbols[symbol].config = { ...defaultConfig };
+        const existingSymbol = symbols[symbol];
+        if (existingSymbol) {
             const worker = workers.get(symbol);
             if (worker) {
                 worker.postMessage({ type: 'updateConfig', payload: { ...defaultConfig } });
             }
+            return {
+                ...symbols,
+                [symbol]: {
+                    ...existingSymbol,
+                    config: { ...defaultConfig }
+                }
+            };
         }
         return symbols;
     });
@@ -154,15 +195,16 @@ function resetConfig(symbol) {
 
 function removeSymbol(symbol) {
     update(symbols => {
-        if (symbols[symbol]) {
+        const newSymbols = { ...symbols };
+        if (newSymbols[symbol]) {
             const worker = workers.get(symbol);
             if (worker) {
                 worker.terminate();
                 workers.delete(symbol);
             }
-            delete symbols[symbol];
+            delete newSymbols[symbol];
         }
-        return symbols;
+        return newSymbols;
     });
 }
 
@@ -177,6 +219,7 @@ export const symbolStore = {
     createNewSymbol,
     dispatchTick,
     dispatchMarketProfile,
+    updateMarketData, // Expose the new function
     updateConfig,
     resetConfig,
     removeSymbol,

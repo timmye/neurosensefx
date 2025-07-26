@@ -1,7 +1,6 @@
 <script>
   import { onMount, afterUpdate } from 'svelte';
   import * as d3 from 'd3';
-  import { marketDataStore } from '../data/wsClient.js'; 
 
   export let symbol;
   export let config = {};
@@ -13,34 +12,18 @@
   let ctx;
   let lastFlashId = null;
 
-  $: symbolMarketData = $marketDataStore[symbol];
-
   // DEBUG: Log props and reactive variables
   $: {
     console.log('[VizDisplay] Props updated:');
     console.log('  - symbol:', symbol);
     console.log('  - state:', state);
-    console.log('  - symbolMarketData:', symbolMarketData);
+    // console.log('  - symbolMarketData:', symbolMarketData); // Removed
   }
 
-  $: y = (() => {
-    if (symbolMarketData && typeof state.currentPrice === 'number' && state.currentPrice > 0) {
-      const priceRange = Math.abs(symbolMarketData.projectedHigh - symbolMarketData.projectedLow);
-      const buffer = priceRange * 0.1;
-      const minPrice = Math.min(symbolMarketData.projectedLow, state.currentPrice) - buffer;
-      const maxPrice = Math.max(symbolMarketData.projectedHigh, state.currentPrice) + buffer;
-      
-      const scale = d3.scaleLinear()
-        .domain([minPrice, maxPrice])
-        .range([canvasElement?.height || config.meterHeight, 0]);
-      
-      console.log('[VizDisplay] Y-scale created:', { domain: scale.domain(), range: scale.range() });
-      return scale;
-    }
-    return d3.scaleLinear().domain([0, 1]).range([config.meterHeight, 0]);
-  })();
+  // y scale will now be calculated inside drawVisualization
   
-  $: if (ctx && state && y && symbolMarketData) {
+  $: if (ctx && state) {
+    // Ensure drawVisualization is called when state or config changes
     drawVisualization();
   }
   
@@ -63,11 +46,12 @@
       ctx = canvasElement.getContext('2d');
       canvasElement.width = config?.visualizationsContentWidth || 220;
       canvasElement.height = config?.meterHeight || 120;
+      drawVisualization(); // Initial draw on mount
     }
   });
 
   function drawVisualization() {
-    if (!ctx || !canvasElement || !state || !config || !symbolMarketData) return;
+    if (!ctx || !canvasElement || !state || !config) return;
 
     if(canvasElement.width !== config.visualizationsContentWidth) canvasElement.width = config.visualizationsContentWidth;
     if(canvasElement.height !== config.meterHeight) canvasElement.height = config.meterHeight;
@@ -85,15 +69,25 @@
         return; 
     }
 
+    // Calculate y scale dynamically inside drawVisualization
+    const priceRange = Math.abs(state.projectedHigh - state.projectedLow);
+    const buffer = priceRange * 0.1; // 10% buffer
+    const minPrice = Math.min(state.projectedLow, state.currentPrice) - buffer;
+    const maxPrice = Math.max(state.projectedHigh, state.currentPrice) + buffer;
+    
+    const y = d3.scaleLinear()
+      .domain([minPrice, maxPrice])
+      .range([canvasElement.height, 0]);
+
     const meterCenterX = config.centralAxisXPosition;
 
     if (config.showVolatilityOrb) drawVolatilityOrb(ctx);
-    if (config.showMarketProfile) drawMarketProfile(ctx, meterCenterX);
+    if (config.showMarketProfile) drawMarketProfile(ctx, meterCenterX, y);
 
-    drawDayRangeMeter(ctx, meterCenterX);
-    drawADRProximityPulse(ctx);
-    drawPriceFloat(ctx, meterCenterX);
-    drawCurrentPrice(ctx, meterCenterX);
+    drawDayRangeMeter(ctx, meterCenterX, y);
+    drawADRProximityPulse(ctx, y);
+    drawPriceFloat(ctx, meterCenterX, y);
+    drawCurrentPrice(ctx, meterCenterX, y);
     
     if (config.showMaxMarker) {
         ctx.strokeStyle = '#333';
@@ -105,7 +99,7 @@
   function drawFlash(direction) {
     let opacity = Math.min(config.flashIntensity, 1.0);
     const animate = () => {
-      drawVisualization();
+      drawVisualization(); // Redraw base visualization
       
       const gradient = ctx.createRadialGradient(canvasElement.width / 2, canvasElement.height / 2, 0, canvasElement.width / 2, canvasElement.height / 2, canvasElement.width);
       const color = direction === 'up' ? '59, 130, 246' : '239, 68, 68';
@@ -195,17 +189,18 @@
     requestAnimationFrame(animate);
   }
   
-  function drawADRProximityPulse(ctx) {
-    if (!symbolMarketData) return;
-    const priceRange = symbolMarketData.projectedHigh - symbolMarketData.projectedLow;
+  function drawADRProximityPulse(ctx, y) {
+    // Use state.projectedHigh and state.projectedLow directly
+    if (!state.projectedHigh || !state.projectedLow) return;
+    const priceRange = state.projectedHigh - state.projectedLow;
     if (priceRange <= 0 || !config.adrProximityThreshold) return;
     
     const proximityPrice = (config.adrProximityThreshold / 100) * priceRange;
-    const highProximity = Math.abs(symbolMarketData.projectedHigh - state.currentPrice) < proximityPrice;
-    const lowProximity = Math.abs(symbolMarketData.projectedLow - state.currentPrice) < proximityPrice;
+    const highProximity = Math.abs(state.projectedHigh - state.currentPrice) < proximityPrice;
+    const lowProximity = Math.abs(state.projectedLow - state.currentPrice) < proximityPrice;
 
     if (highProximity || lowProximity) {
-        const yPos = highProximity ? y(symbolMarketData.projectedHigh) : y(symbolMarketData.projectedLow);
+        const yPos = highProximity ? y(state.projectedHigh) : y(state.projectedLow);
         const gradient = ctx.createLinearGradient(0, yPos, canvasElement.width, yPos);
         gradient.addColorStop(0, 'rgba(96, 165, 250, 0)');
         gradient.addColorStop(0.5, 'rgba(96, 165, 250, 0.7)');
@@ -225,7 +220,7 @@
     }
   }
 
-  function drawMarketProfile(ctx, meterCenterX) {
+  function drawMarketProfile(ctx, meterCenterX, y) {
     if (!marketProfile?.levels?.length) return; 
     
     const maxVolume = Math.max(...marketProfile.levels.map(l => l.volume));
@@ -280,10 +275,11 @@
     }
   }
 
-  function drawDayRangeMeter(ctx, meterCenterX) {
-    if (!symbolMarketData) return;
-    const lowY = y(symbolMarketData.projectedLow);
-    const highY = y(symbolMarketData.projectedHigh);
+  function drawDayRangeMeter(ctx, meterCenterX, y) {
+    // Use state.projectedHigh and state.projectedLow directly
+    if (!state.projectedHigh || !state.projectedLow) return;
+    const lowY = y(state.projectedLow);
+    const highY = y(state.projectedHigh);
     
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 2;
@@ -303,7 +299,7 @@
     ctx.stroke();
   }
 
-  function drawPriceFloat(ctx, meterCenterX) {
+  function drawPriceFloat(ctx, meterCenterX, y) {
     const yPos = y(state.currentPrice);
     const floatHeightPx = config.priceFloatHeight;
     const floatWidth = config.priceFloatWidth;
@@ -318,7 +314,7 @@
     ctx.shadowBlur = 0;
   }
 
-  function drawCurrentPrice(ctx, meterCenterX) {
+  function drawCurrentPrice(ctx, meterCenterX, y) {
     if (typeof state.currentPrice !== 'number' || isNaN(state.currentPrice) || state.currentPrice === 0) {
         return;
     }
@@ -394,8 +390,9 @@
 
   function getPriceTextColor() {
     if (config.priceUseStaticColor) return config.priceStaticColor;
-    if (state.currentPrice > symbolMarketData.projectedHigh) return '#fbbf24'; 
-    if (state.currentPrice < symbolMarketData.projectedLow) return '#fbbf24';
+    // Use state.projectedHigh and state.projectedLow directly
+    if (state.currentPrice > state.projectedHigh) return '#fbbf24'; 
+    if (state.currentPrice < state.projectedLow) return '#fbbf24';
     if (state.lastTickDirection === 'up') return config.priceUpColor;
     if (state.lastTickDirection === 'down') return config.priceDownColor;
     return '#d1d5db'; 
