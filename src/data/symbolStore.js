@@ -1,9 +1,15 @@
 import { writable } from 'svelte/store';
+import {
+    VisualizationConfigSchema,
+    VisualizationStateSchema,
+    TickSchema,
+    SymbolDataPackageSchema,
+} from './schema.js';
 
 const { subscribe, set, update } = writable({});
 const workers = new Map();
 
-export const defaultConfig = {
+export const defaultConfig = VisualizationConfigSchema.parse({
     visualizationsContentWidth: 220,
     meterHeight: 120,
     centralAxisXPosition: 170,
@@ -16,7 +22,7 @@ export const defaultConfig = {
     bigFigureFontSizeRatio: 1.2,
     pipFontSizeRatio: 1.1,
     pipetteFontSizeRatio: 0.8,
-    priceUseStaticColor: false, 
+    priceUseStaticColor: false,
     priceStaticColor: '#d1d5db',
     priceUpColor: '#3b82f6',
     priceDownColor: '#ef4444',
@@ -45,40 +51,40 @@ export const defaultConfig = {
     showSingleSidedProfile: false,
     singleSidedProfileSide: 'right',
     showMaxMarker: true,
-};
+});
 
-function createNewSymbol(symbol, initialPrice) {
-    const validatedPrice = (typeof initialPrice === 'number' && !isNaN(initialPrice)) ? initialPrice : 0;
-    if (validatedPrice !== initialPrice) {
-        console.warn(`Invalid initialPrice '${initialPrice}' for ${symbol}. Defaulting to 0.`);
+function createNewSymbol(symbol, dataPackage) {
+    const packageResult = SymbolDataPackageSchema.safeParse(dataPackage);
+    if (!packageResult.success) {
+        console.error('Invalid data package for new symbol:', packageResult.error);
+        return;
     }
+    const validatedPackage = packageResult.data;
 
     update(symbols => {
         if (symbols[symbol]) {
             return symbols;
         }
 
-        console.log(`Creating new symbol: ${symbol} with initial price: ${validatedPrice}`);
         const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
         
-        const initialState = {
-            currentPrice: validatedPrice, midPrice: validatedPrice, lastTickTime: 0,
-            maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
-            volatility: 0, lastTickDirection: 'up', marketProfile: { levels: [] },
-            projectedHigh: validatedPrice * 1.005, // Sensible default
-            projectedLow: validatedPrice * 0.995, // Sensible default
-            flashEffect: null,
-        };
-
         worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
-        worker.postMessage({ type: 'init', payload: { config: defaultConfig, midPrice: validatedPrice } });
+        worker.postMessage({ type: 'init', payload: {
+            config: defaultConfig,
+            initialPrice: validatedPackage.initialPrice,
+            projectedHigh: validatedPackage.projectedHigh,
+            projectedLow: validatedPackage.projectedLow,
+            todaysHigh: validatedPackage.todaysHigh,
+            todaysLow: validatedPackage.todaysLow,
+            initialMarketProfile: validatedPackage.initialMarketProfile,
+        }});
         
         workers.set(symbol, worker);
 
         symbols[symbol] = {
             config: { ...defaultConfig },
-            state: initialState,
-            marketProfile: { levels: [] } // Kept separate for now to avoid large state copies
+            state: null, // Initial state will come from the worker
+            marketProfile: { levels: [] }
         };
         return { ...symbols };
     });
@@ -87,90 +93,69 @@ function createNewSymbol(symbol, initialPrice) {
 function handleWorkerMessage(symbol, data) {
     const { type, payload } = data;
     if (type === 'stateUpdate') {
-        update(symbols => {
-            const existingSymbol = symbols[symbol];
-            if (existingSymbol) {
-                // NEVER mutate. Always create new objects.
-                const newSymbolData = {
-                    ...existingSymbol,
-                    state: {
-                        ...existingSymbol.state,
-                        ...payload.newState, // The worker now sends the whole state
-                    },
-                    marketProfile: payload.marketProfile, // Get profile from worker
-                    flashEffect: payload.flashEffect 
-                        ? { ...payload.flashEffect, id: performance.now() } 
-                        : null
-                };
-                
-                return {
-                    ...symbols,
-                    [symbol]: newSymbolData
-                };
-            }
-            return symbols;
-        });
-    }
-}
-
-function updateMarketData(symbol, marketData) {
-    update(symbols => {
-        const existingSymbol = symbols[symbol];
-        if (existingSymbol) {
-            // Update the main store's state
-            existingSymbol.state.projectedHigh = marketData.projectedHigh;
-            existingSymbol.state.projectedLow = marketData.projectedLow;
-            
-            // Forward this data to the worker
-            const worker = workers.get(symbol);
-            if (worker) {
-                worker.postMessage({ type: 'marketData', payload: marketData });
-            }
+        const stateResult = VisualizationStateSchema.safeParse(payload.newState);
+        if (stateResult.success) {
+            update(symbols => {
+                const existingSymbol = symbols[symbol];
+                if (existingSymbol) {
+                    const newSymbolData = {
+                        ...existingSymbol,
+                        state: stateResult.data,
+                        marketProfile: payload.marketProfile,
+                        flashEffect: payload.flashEffect 
+                            ? { ...payload.flashEffect, id: performance.now() } 
+                            : null
+                    };
+                    
+                    return {
+                        ...symbols,
+                        [symbol]: newSymbolData
+                    };
+                }
+                return symbols;
+            });
+        } else {
+            console.error('Invalid state data from worker:', JSON.stringify(stateResult.error, null, 2));
         }
-        return { ...symbols }; // Return a new object to trigger reactivity
-    });
+    }
 }
 
 function dispatchTick(symbol, tick) {
-    const worker = workers.get(symbol);
-    if (worker) {
-        worker.postMessage({ type: 'tick', payload: tick });
+    const tickResult = TickSchema.safeParse(tick);
+    if (tickResult.success) {
+        const worker = workers.get(symbol);
+        if (worker) {
+            worker.postMessage({ type: 'tick', payload: tickResult.data });
+        }
     } else {
-        createNewSymbol(symbol, tick.bid);
-        // Retry dispatching the tick after a short delay to allow for initialization
-        setTimeout(() => {
-            const newWorker = workers.get(symbol);
-            if(newWorker) newWorker.postMessage({ type: 'tick', payload: tick });
-        }, 50);
-    }
-}
-
-function dispatchMarketProfile(symbol, profileData) {
-    const worker = workers.get(symbol);
-    if (worker) {
-        worker.postMessage({ type: 'initialProfile', payload: profileData });
+        console.error('Invalid tick data:', JSON.stringify(tickResult.error, null, 2));
     }
 }
 
 function updateConfig(symbol, newConfig) {
-    update(symbols => {
-        const existingSymbol = symbols[symbol];
-        if (existingSymbol) {
-            const updatedConfig = { ...existingSymbol.config, ...newConfig };
-            const worker = workers.get(symbol);
-            if (worker) {
-                worker.postMessage({ type: 'updateConfig', payload: newConfig });
-            }
-            return {
-                ...symbols,
-                [symbol]: {
-                    ...existingSymbol,
-                    config: updatedConfig
+    const configResult = VisualizationConfigSchema.partial().safeParse(newConfig);
+    if (configResult.success) {
+        update(symbols => {
+            const existingSymbol = symbols[symbol];
+            if (existingSymbol) {
+                const updatedConfig = { ...existingSymbol.config, ...configResult.data };
+                const worker = workers.get(symbol);
+                if (worker) {
+                    worker.postMessage({ type: 'updateConfig', payload: configResult.data });
                 }
-            };
-        }
-        return symbols;
-    });
+                return {
+                    ...symbols,
+                    [symbol]: {
+                        ...existingSymbol,
+                        config: updatedConfig
+                    }
+                };
+            }
+            return symbols;
+        });
+    } else {
+        console.error('Invalid config data:', JSON.stringify(configResult.error, null, 2));
+    }
 }
 
 function resetConfig(symbol) {
@@ -218,8 +203,6 @@ export const symbolStore = {
     subscribe,
     createNewSymbol,
     dispatchTick,
-    dispatchMarketProfile,
-    updateMarketData, // Expose the new function
     updateConfig,
     resetConfig,
     removeSymbol,

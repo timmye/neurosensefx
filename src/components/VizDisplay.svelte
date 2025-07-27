@@ -1,42 +1,72 @@
 <script>
   import { onMount, afterUpdate } from 'svelte';
   import * as d3 from 'd3';
+  import {
+    VisualizationConfigSchema,
+    VisualizationStateSchema,
+    MarketProfileSchema,
+    FlashEffectSchema,
+  } from '../data/schema.js';
 
   export let symbol;
-  export let config = {};
-  export let state = {};
-  export let marketProfile = {};
-  export let flashEffect = null;
+  export let config;
+  export let state;
+  export let marketProfile;
+  export let flashEffect;
 
   let canvasElement;
   let ctx;
   let lastFlashId = null;
 
-  // DEBUG: Log props and reactive variables
+  let validatedConfig = VisualizationConfigSchema.parse(config);
+  let validatedState = VisualizationStateSchema.parse(state);
+  let validatedMarketProfile = MarketProfileSchema.parse(marketProfile);
+  let validatedFlashEffect = flashEffect ? FlashEffectSchema.parse(flashEffect) : null;
+
   $: {
-    console.log('[VizDisplay] Props updated:');
-    console.log('  - symbol:', symbol);
-    console.log('  - state:', state);
-    // console.log('  - symbolMarketData:', symbolMarketData); // Removed
+    const configResult = VisualizationConfigSchema.safeParse(config);
+    if (configResult.success) {
+      validatedConfig = configResult.data;
+    } else {
+      console.error('Invalid config:', configResult.error);
+    }
+
+    const stateResult = VisualizationStateSchema.safeParse(state);
+    if (stateResult.success) {
+      validatedState = stateResult.data;
+    } else {
+      console.error('Invalid state:', stateResult.error);
+    }
+
+    const marketProfileResult = MarketProfileSchema.safeParse(marketProfile);
+    if (marketProfileResult.success) {
+      validatedMarketProfile = marketProfileResult.data;
+    } else {
+      console.error('Invalid market profile:', marketProfileResult.error);
+    }
+
+    const flashEffectResult = flashEffect ? FlashEffectSchema.safeParse(flashEffect) : { success: true, data: null };
+    if (flashEffectResult.success) {
+      validatedFlashEffect = flashEffectResult.data;
+    } else {
+      console.error('Invalid flash effect:', flashEffectResult.error);
+    }
   }
 
-  // y scale will now be calculated inside drawVisualization
-  
-  $: if (ctx && state) {
-    // Ensure drawVisualization is called when state or config changes
+  $: if (ctx && validatedState) {
     drawVisualization();
   }
   
   afterUpdate(() => {
-    if (flashEffect && flashEffect.id !== lastFlashId) {
-      lastFlashId = flashEffect.id;
+    if (validatedFlashEffect && validatedFlashEffect.id !== lastFlashId) {
+      lastFlashId = validatedFlashEffect.id;
       
-      if (config.showFlash && flashEffect.magnitude >= config.flashThreshold) {
-        drawFlash(flashEffect.direction);
+      if (validatedConfig.showFlash && validatedFlashEffect.magnitude >= validatedConfig.flashThreshold) {
+        drawFlash(validatedFlashEffect.direction);
       }
       
-      if (config.showOrbFlash && flashEffect.magnitude >= config.orbFlashThreshold) {
-        flashVolatilityOrb(flashEffect.direction);
+      if (validatedConfig.showOrbFlash && validatedFlashEffect.magnitude >= validatedConfig.orbFlashThreshold) {
+        flashVolatilityOrb(validatedFlashEffect.direction);
       }
     }
   });
@@ -44,23 +74,23 @@
   onMount(() => {
     if (canvasElement) {
       ctx = canvasElement.getContext('2d');
-      canvasElement.width = config?.visualizationsContentWidth || 220;
-      canvasElement.height = config?.meterHeight || 120;
-      drawVisualization(); // Initial draw on mount
+      canvasElement.width = validatedConfig?.visualizationsContentWidth || 220;
+      canvasElement.height = validatedConfig?.meterHeight || 120;
+      drawVisualization();
     }
   });
 
   function drawVisualization() {
-    if (!ctx || !canvasElement || !state || !config) return;
+    if (!ctx || !canvasElement || !validatedState || !validatedConfig) return;
 
-    if(canvasElement.width !== config.visualizationsContentWidth) canvasElement.width = config.visualizationsContentWidth;
-    if(canvasElement.height !== config.meterHeight) canvasElement.height = config.meterHeight;
+    if(canvasElement.width !== validatedConfig.visualizationsContentWidth) canvasElement.width = validatedConfig.visualizationsContentWidth;
+    if(canvasElement.height !== validatedConfig.meterHeight) canvasElement.height = validatedConfig.meterHeight;
 
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     
-    if (!state.currentPrice || state.currentPrice === 0) {
+    if (!validatedState.currentPrice || validatedState.currentPrice === 0) {
         ctx.fillStyle = '#6b7280';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -69,27 +99,26 @@
         return; 
     }
 
-    // Calculate y scale dynamically inside drawVisualization
-    const priceRange = Math.abs(state.projectedHigh - state.projectedLow);
-    const buffer = priceRange * 0.1; // 10% buffer
-    const minPrice = Math.min(state.projectedLow, state.currentPrice) - buffer;
-    const maxPrice = Math.max(state.projectedHigh, state.currentPrice) + buffer;
+    const priceRange = Math.abs(validatedState.projectedHigh - validatedState.projectedLow);
+    const buffer = priceRange * 0.1;
+    const minPrice = Math.min(validatedState.projectedLow, validatedState.currentPrice) - buffer;
+    const maxPrice = Math.max(validatedState.projectedHigh, validatedState.currentPrice) + buffer;
     
     const y = d3.scaleLinear()
       .domain([minPrice, maxPrice])
       .range([canvasElement.height, 0]);
 
-    const meterCenterX = config.centralAxisXPosition;
+    const meterCenterX = validatedConfig.centralAxisXPosition;
 
-    if (config.showVolatilityOrb) drawVolatilityOrb(ctx);
-    if (config.showMarketProfile) drawMarketProfile(ctx, meterCenterX, y);
+    if (validatedConfig.showVolatilityOrb) drawVolatilityOrb(ctx);
+    if (validatedConfig.showMarketProfile) drawMarketProfile(ctx, meterCenterX, y);
 
     drawDayRangeMeter(ctx, meterCenterX, y);
     drawADRProximityPulse(ctx, y);
     drawPriceFloat(ctx, meterCenterX, y);
     drawCurrentPrice(ctx, meterCenterX, y);
     
-    if (config.showMaxMarker) {
+    if (validatedConfig.showMaxMarker) {
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 1;
         ctx.strokeRect(0, 0, canvasElement.width, canvasElement.height);
@@ -97,9 +126,9 @@
   }
 
   function drawFlash(direction) {
-    let opacity = Math.min(config.flashIntensity, 1.0);
+    let opacity = Math.min(validatedConfig.flashIntensity, 1.0);
     const animate = () => {
-      drawVisualization(); // Redraw base visualization
+      drawVisualization();
       
       const gradient = ctx.createRadialGradient(canvasElement.width / 2, canvasElement.height / 2, 0, canvasElement.width / 2, canvasElement.height / 2, canvasElement.width);
       const color = direction === 'up' ? '59, 130, 246' : '239, 68, 68';
@@ -122,8 +151,8 @@
     const centerX = canvasElement.width / 2;
     const centerY = canvasElement.height / 2;
     
-    const volatility = state.volatility || 0;
-    const volatilityIntensity = config.volatilityOrbInvertBrightness ? Math.min(volatility, 4) : Math.min(volatility, 2);
+    const volatility = validatedState.volatility || 0;
+    const volatilityIntensity = validatedConfig.volatilityOrbInvertBrightness ? Math.min(volatility, 4) : Math.min(volatility, 2);
 
     let r, g, b, opacity;
 
@@ -131,33 +160,33 @@
       [r, g, b] = flashInfo.color.split(',').map(Number);
       opacity = flashInfo.opacity;
     } else {
-      switch (config.volatilityColorMode) {
+      switch (validatedConfig.volatilityColorMode) {
           case 'directional':
-              [r,g,b] = state.lastTickDirection === 'up' ? [96, 165, 250] : [239, 68, 68];
+              [r,g,b] = validatedState.lastTickDirection === 'up' ? [96, 165, 250] : [239, 68, 68];
               break;
           case 'singleHue': 
               [r,g,b] = [167, 139, 250];
               break;
-          default: // intensity
+          default:
               r = 75 + (147 - 75) * (volatilityIntensity / 2);
               g = 85 + (197 - 85) * (volatilityIntensity / 2);
               b = 99 + (253 - 99) * (volatilityIntensity / 2);
               break;
       }
-      opacity = config.volatilityOrbInvertBrightness ? Math.min(1.0, 0.2 + (volatilityIntensity * 0.2)) : (0.5 + volatilityIntensity * 0.25);
+      opacity = validatedConfig.volatilityOrbInvertBrightness ? Math.min(1.0, 0.2 + (volatilityIntensity * 0.2)) : (0.5 + volatilityIntensity * 0.25);
     }
 
-    const baseRadius = config.volatilityOrbBaseWidth / 2;
-    const sizeMultiplier = config.volatilitySizeMultiplier || 0.5;
+    const baseRadius = validatedConfig.volatilityOrbBaseWidth / 2;
+    const sizeMultiplier = validatedConfig.volatilitySizeMultiplier || 0.5;
     let displayRadius = baseRadius * (1 + Math.min(volatility * sizeMultiplier, 2));
-    if (config.volatilityOrbInvertBrightness) {
+    if (validatedConfig.volatilityOrbInvertBrightness) {
         displayRadius = baseRadius;
     }
 
     const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, displayRadius);
     const colorStr = `${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}`;
 
-    if (config.volatilityOrbInvertBrightness) {
+    if (validatedConfig.volatilityOrbInvertBrightness) {
         const stop = Math.max(0.05, 0.8 - (volatilityIntensity * 0.1875));
         gradient.addColorStop(0, `rgba(${colorStr}, 0)`);
         gradient.addColorStop(stop, `rgba(${colorStr}, 0)`);
@@ -175,7 +204,7 @@
   }
 
   function flashVolatilityOrb(direction) {
-    let opacity = config.orbFlashIntensity;
+    let opacity = validatedConfig.orbFlashIntensity;
     const flashColor = direction === 'up' ? '96,165,250' : '248,113,113';
     
     const animate = () => {
@@ -190,17 +219,16 @@
   }
   
   function drawADRProximityPulse(ctx, y) {
-    // Use state.projectedHigh and state.projectedLow directly
-    if (!state.projectedHigh || !state.projectedLow) return;
-    const priceRange = state.projectedHigh - state.projectedLow;
-    if (priceRange <= 0 || !config.adrProximityThreshold) return;
+    if (!validatedState.projectedHigh || !validatedState.projectedLow) return;
+    const priceRange = validatedState.projectedHigh - validatedState.projectedLow;
+    if (priceRange <= 0 || !validatedConfig.adrProximityThreshold) return;
     
-    const proximityPrice = (config.adrProximityThreshold / 100) * priceRange;
-    const highProximity = Math.abs(state.projectedHigh - state.currentPrice) < proximityPrice;
-    const lowProximity = Math.abs(state.projectedLow - state.currentPrice) < proximityPrice;
+    const proximityPrice = (validatedConfig.adrProximityThreshold / 100) * priceRange;
+    const highProximity = Math.abs(validatedState.projectedHigh - validatedState.currentPrice) < proximityPrice;
+    const lowProximity = Math.abs(validatedState.projectedLow - validatedState.currentPrice) < proximityPrice;
 
     if (highProximity || lowProximity) {
-        const yPos = highProximity ? y(state.projectedHigh) : y(state.projectedLow);
+        const yPos = highProximity ? y(validatedState.projectedHigh) : y(validatedState.projectedLow);
         const gradient = ctx.createLinearGradient(0, yPos, canvasElement.width, yPos);
         gradient.addColorStop(0, 'rgba(96, 165, 250, 0)');
         gradient.addColorStop(0.5, 'rgba(96, 165, 250, 0.7)');
@@ -221,15 +249,15 @@
   }
 
   function drawMarketProfile(ctx, meterCenterX, y) {
-    if (!marketProfile?.levels?.length) return; 
+    if (!validatedMarketProfile?.levels?.length) return; 
     
-    const maxVolume = Math.max(...marketProfile.levels.map(l => l.volume));
+    const maxVolume = Math.max(...validatedMarketProfile.levels.map(l => l.volume));
     if (maxVolume <= 0) return;
 
     const profileMaxWidth = (canvasElement.width / 2) - 10;
     const scaleFactor = profileMaxWidth / maxVolume;
 
-    const profilePoints = marketProfile.levels
+    const profilePoints = validatedMarketProfile.levels
       .map(level => ({
         y: y(level.price),
         buyWidth: (level.buy || 0) * scaleFactor,
@@ -248,7 +276,7 @@
         areaGenerator(profilePoints);
         
         const color = side === 'buy' ? '59, 130, 246' : '239, 68, 68';
-        if (config.marketProfileView === 'outline') {
+        if (validatedConfig.marketProfileView === 'outline') {
             ctx.fillStyle = `rgba(${color}, 0.2)`;
             ctx.fill();
             ctx.strokeStyle = `rgb(${color})`;
@@ -266,8 +294,8 @@
         }
     };
       
-    if (config.showSingleSidedProfile) {
-        if(config.singleSidedProfileSide === 'right') drawSide('buy');
+    if (validatedConfig.showSingleSidedProfile) {
+        if(validatedConfig.singleSidedProfileSide === 'right') drawSide('buy');
         else drawSide('sell');
     } else {
         drawSide('buy');
@@ -276,10 +304,9 @@
   }
 
   function drawDayRangeMeter(ctx, meterCenterX, y) {
-    // Use state.projectedHigh and state.projectedLow directly
-    if (!state.projectedHigh || !state.projectedLow) return;
-    const lowY = y(state.projectedLow);
-    const highY = y(state.projectedHigh);
+    if (!validatedState.projectedHigh || !validatedState.projectedLow) return;
+    const lowY = y(validatedState.projectedLow);
+    const highY = y(validatedState.projectedHigh);
     
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 2;
@@ -300,10 +327,10 @@
   }
 
   function drawPriceFloat(ctx, meterCenterX, y) {
-    const yPos = y(state.currentPrice);
-    const floatHeightPx = config.priceFloatHeight;
-    const floatWidth = config.priceFloatWidth;
-    const xOffset = config.priceFloatXOffset;
+    const yPos = y(validatedState.currentPrice);
+    const floatHeightPx = validatedConfig.priceFloatHeight;
+    const floatWidth = validatedConfig.priceFloatWidth;
+    const xOffset = validatedConfig.priceFloatXOffset;
     
     const color = getPriceTextColor();
     
@@ -315,12 +342,12 @@
   }
 
   function drawCurrentPrice(ctx, meterCenterX, y) {
-    if (typeof state.currentPrice !== 'number' || isNaN(state.currentPrice) || state.currentPrice === 0) {
+    if (typeof validatedState.currentPrice !== 'number' || isNaN(validatedState.currentPrice) || validatedState.currentPrice === 0) {
         return;
     }
-    const yPos = y(state.currentPrice);
+    const yPos = y(validatedState.currentPrice);
     
-    const priceString = state.currentPrice.toFixed(5);
+    const priceString = validatedState.currentPrice.toFixed(5);
     const [integerPart, decimalPart] = priceString.split('.');
     
     if (!decimalPart) return;
@@ -329,39 +356,39 @@
     const pips = decimalPart.substring(2, 4);
     const pipette = decimalPart.substring(4, 5);
 
-    const baseFontSize = config.priceFontSize;
-    const fontWeight = config.priceFontWeight;
+    const baseFontSize = validatedConfig.priceFontSize;
+    const fontWeight = validatedConfig.priceFontWeight;
 
-    ctx.font = `${fontWeight} ${baseFontSize * config.bigFigureFontSizeRatio}px "Roboto Mono", monospace`;
+    ctx.font = `${fontWeight} ${baseFontSize * validatedConfig.bigFigureFontSizeRatio}px "Roboto Mono", monospace`;
     const bigFigureWidth = ctx.measureText(bigFigure).width;
-    let maxSegmentHeight = baseFontSize * config.bigFigureFontSizeRatio;
+    let maxSegmentHeight = baseFontSize * validatedConfig.bigFigureFontSizeRatio;
 
-    ctx.font = `${fontWeight} ${baseFontSize * config.pipFontSizeRatio}px "Roboto Mono", monospace`;
+    ctx.font = `${fontWeight} ${baseFontSize * validatedConfig.pipFontSizeRatio}px "Roboto Mono", monospace`;
     const pipsWidth = ctx.measureText(pips).width;
-    maxSegmentHeight = Math.max(maxSegmentHeight, baseFontSize * config.pipFontSizeRatio);
+    maxSegmentHeight = Math.max(maxSegmentHeight, baseFontSize * validatedConfig.pipFontSizeRatio);
     
     let pipetteWidth = 0;
-    if (config.showPipetteDigit) {
-        ctx.font = `${fontWeight} ${baseFontSize * config.pipetteFontSizeRatio}px "Roboto Mono", monospace`;
+    if (validatedConfig.showPipetteDigit) {
+        ctx.font = `${fontWeight} ${baseFontSize * validatedConfig.pipetteFontSizeRatio}px "Roboto Mono", monospace`;
         pipetteWidth = ctx.measureText(pipette).width;
-        maxSegmentHeight = Math.max(maxSegmentHeight, baseFontSize * config.pipetteFontSizeRatio);
+        maxSegmentHeight = Math.max(maxSegmentHeight, baseFontSize * validatedConfig.pipetteFontSizeRatio);
     }
     
     const totalTextWidth = bigFigureWidth + pipsWidth + pipetteWidth;
-    const x = meterCenterX + config.priceHorizontalOffset - totalTextWidth; 
+    const x = meterCenterX + validatedConfig.priceHorizontalOffset - totalTextWidth; 
 
-    if (config.showPriceBackground || config.showPriceBoundingBox) {
-        const padding = config.priceDisplayPadding;
+    if (validatedConfig.showPriceBackground || validatedConfig.showPriceBoundingBox) {
+        const padding = validatedConfig.priceDisplayPadding;
         const rectX = x - padding;
         const rectY = yPos - maxSegmentHeight / 2 - padding;
         const rectWidth = totalTextWidth + (padding * 2);
         const rectHeight = maxSegmentHeight + (padding * 2);
 
-        if (config.showPriceBackground) {
+        if (validatedConfig.showPriceBackground) {
             ctx.fillStyle = 'rgba(10, 10, 10, 0.75)';
             ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
         }
-        if (config.showPriceBoundingBox) {
+        if (validatedConfig.showPriceBoundingBox) {
             ctx.strokeStyle = '#64748b';
             ctx.lineWidth = 1;
             ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
@@ -374,32 +401,31 @@
     
     let currentX = x;
     
-    ctx.font = `${fontWeight} ${baseFontSize * config.bigFigureFontSizeRatio}px "Roboto Mono", monospace`;
+    ctx.font = `${fontWeight} ${baseFontSize * validatedConfig.bigFigureFontSizeRatio}px "Roboto Mono", monospace`;
     ctx.fillText(bigFigure, currentX, yPos);
     currentX += bigFigureWidth;
 
-    ctx.font = `${fontWeight} ${baseFontSize * config.pipFontSizeRatio}px "Roboto Mono", monospace`;
+    ctx.font = `${fontWeight} ${baseFontSize * validatedConfig.pipFontSizeRatio}px "Roboto Mono", monospace`;
     ctx.fillText(pips, currentX, yPos);
     currentX += pipsWidth;
 
-    if (config.showPipetteDigit) {
-        ctx.font = `${fontWeight} ${baseFontSize * config.pipetteFontSizeRatio}px "Roboto Mono", monospace`;
+    if (validatedConfig.showPipetteDigit) {
+        ctx.font = `${fontWeight} ${baseFontSize * validatedConfig.pipetteFontSizeRatio}px "Roboto Mono", monospace`;
         ctx.fillText(pipette, currentX, yPos);
     }
   }
 
   function getPriceTextColor() {
-    if (config.priceUseStaticColor) return config.priceStaticColor;
-    // Use state.projectedHigh and state.projectedLow directly
-    if (state.currentPrice > state.projectedHigh) return '#fbbf24'; 
-    if (state.currentPrice < state.projectedLow) return '#fbbf24';
-    if (state.lastTickDirection === 'up') return config.priceUpColor;
-    if (state.lastTickDirection === 'down') return config.priceDownColor;
+    if (validatedConfig.priceUseStaticColor) return validatedConfig.priceStaticColor;
+    if (validatedState.currentPrice > validatedState.projectedHigh) return '#fbbf24'; 
+    if (validatedState.currentPrice < validatedState.projectedLow) return '#fbbf24';
+    if (validatedState.lastTickDirection === 'up') return validatedConfig.priceUpColor;
+    if (validatedState.lastTickDirection === 'down') return validatedConfig.priceDownColor;
     return '#d1d5db'; 
   }
 </script>
 
-<div class="visualization-container" style="width: {config.visualizationsContentWidth}px; height: {config.meterHeight}px;">
+<div class="visualization-container" style="width: {validatedConfig.visualizationsContentWidth}px; height: {validatedConfig.meterHeight}px;">
   <canvas bind:this={canvasElement}></canvas>
 </div>
 

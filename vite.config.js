@@ -16,5 +16,8 @@ export default defineConfig({
     }
   },
   envDir: "../", 
-  envPrefix: "VITE_"
+  envPrefix: "VITE_",
+  worker: {
+    format: 'es'
+  }
 });

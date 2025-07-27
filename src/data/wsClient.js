@@ -1,30 +1,23 @@
 import { writable, get } from 'svelte/store';
 import { symbolStore } from './symbolStore';
+import { TickSchema, SymbolDataPackageSchema } from './schema.js';
 
-export const wsStatus = writable('disconnected'); 
+export const wsStatus = writable('disconnected');
 export const dataSourceMode = writable('simulated');
 export const availableSymbols = writable([]);
 export const subscriptions = writable(new Set());
 
 let ws = null;
 let simulationTimeout;
-let simulationState = {};
-
-const frequencySettings = {
-    calm: { baseInterval: 2000, randomness: 1500, magnitudeMultiplier: 0.5 },
-    normal: { baseInterval: 800, randomness: 1000, magnitudeMultiplier: 1 },
-    active: { baseInterval: 300, randomness: 400, magnitudeMultiplier: 1.5 },
-    volatile: { baseInterval: 100, randomness: 200, magnitudeMultiplier: 2.5 },
-};
 
 const getWebSocketUrl = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
-    const path = '/ws'; 
+    const path = '/ws';
     return `${protocol}//${host}${path}`;
 };
 
-let WS_URL = getWebSocketUrl();
+const WS_URL = getWebSocketUrl();
 
 export function connect() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
@@ -56,14 +49,31 @@ export function connect() {
 function handleSocketMessage(data) {
     switch (data.type) {
         case 'status':
-            handleStatusMessage(data);
+            wsStatus.set(data.status);
+            break;
+        case 'ready':
+            wsStatus.set('ready');
+            availableSymbols.set(data.availableSymbols || []);
+            const currentSubs = Array.from(get(subscriptions));
+            if (currentSubs.length > 0) {
+                currentSubs.forEach(symbol => subscribe(symbol));
+            }
             break;
         case 'symbolDataPackage':
-            console.log('[wsClient] Received symbolDataPackage:', data);
-            handleDataPackage(data);
+            const packageResult = SymbolDataPackageSchema.safeParse(data);
+            if (packageResult.success) {
+                handleDataPackage(packageResult.data);
+            } else {
+                console.error('Invalid symbol data package:', packageResult.error);
+            }
             break;
         case 'tick':
-            symbolStore.dispatchTick(data.symbol, { ...data, bid: parseFloat(data.bid), ask: parseFloat(data.ask) });
+            const tickResult = TickSchema.safeParse(data);
+            if (tickResult.success) {
+                symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
+            } else {
+                console.error('Invalid tick data:', tickResult.error);
+            }
             break;
         case 'error':
             handleError(data.message);
@@ -73,35 +83,12 @@ function handleSocketMessage(data) {
     }
 }
 
-function handleStatusMessage(data) {
-    wsStatus.set(data.status);
-    availableSymbols.set(data.availableSymbols || []);
-    if (data.status === 'connected') {
-        const currentSubs = Array.from(get(subscriptions));
-        if (currentSubs.length > 0) {
-            subscribe(currentSubs);
-        }
-    }
-}
-
 function handleDataPackage(data) {
-    if (data.todaysOpen === null) {
-        console.error(`Invalid initialPrice '${data.todaysOpen}' for ${data.symbol}. Defaulting to 0.`);
-        data.todaysOpen = 0;
-    }
-    symbolStore.createNewSymbol(data.symbol, data.todaysOpen);
-    symbolStore.updateMarketData(data.symbol, {
-        adr: data.adr,
-        projectedHigh: data.projectedHigh,
-        projectedLow: data.projectedLow,
-    });
-
+    symbolStore.createNewSymbol(data.symbol, data);
+    subscriptions.update(subs => subs.add(data.symbol));
     if (get(dataSourceMode) === 'live' && ws) {
-        console.log(`Front-end initialized for ${data.symbol}. Requesting tick stream.`);
         ws.send(JSON.stringify({ type: 'start_tick_stream', symbol: data.symbol }));
     }
-    
-    subscriptions.update(subs => subs.add(data.symbol));
 }
 
 function handleError(message) {
@@ -127,38 +114,23 @@ export function startSimulation() {
     
     const symbol = 'SIM-EURUSD';
     const midPoint = 1.25500;
-    symbolStore.createNewSymbol(symbol, midPoint);
-    symbolStore.updateMarketData(symbol, {
-        adr: 0.00850, 
-        projectedHigh: midPoint + 0.00425,
-        projectedLow: midPoint - 0.00425,
-    });
-    subscriptions.set(new Set([symbol]));
-    simulationState = { currentPrice: midPoint, momentum: 0 };
-    
-    const runSimulationLoop = () => {
-        if (get(dataSourceMode) !== 'simulated') return;
-        const config = get(symbolStore)[symbol]?.config;
-        if (!config) {
-            simulationTimeout = setTimeout(runSimulationLoop, 100);
-            return;
-        }
+    const adr = 0.00850;
+    const adrLookbackDays = 5;
 
-        const settings = frequencySettings[config.frequencyMode] || frequencySettings.normal;
-        simulationState.momentum = (simulationState.momentum || 0) * 0.85;
-        let direction = (Math.random() - 0.5 + (simulationState.momentum * 0.2)) > 0 ? 1 : -1;
-        simulationState.momentum = Math.max(-1, Math.min(1, simulationState.momentum + direction * (Math.random() * 0.3 + 0.1)));
-        let magnitude = (Math.random() < 0.8) ? Math.random() * 0.8 : (Math.random() < 0.98) ? 0.8 + Math.random() * 2 : 3 + Math.random() * 5;
-        simulationState.currentPrice += (direction * magnitude * settings.magnitudeMultiplier / 100000);
-        
-        symbolStore.dispatchTick(symbol, { 
-            bid: simulationState.currentPrice, 
-            ask: simulationState.currentPrice + (Math.random() * 0.2 / 10000),
-        });
-        simulationTimeout = setTimeout(runSimulationLoop, settings.baseInterval + (Math.random() * settings.randomness));
+    const mockDataPackage = {
+        symbol,
+        adr,
+        todaysOpen: midPoint,
+        todaysHigh: midPoint + 0.00150,
+        todaysLow: midPoint - 0.00250,
+        projectedHigh: midPoint + adr / 2,
+        projectedLow: midPoint - adr / 2,
+        initialPrice: midPoint,
+        initialMarketProfile: [],
     };
     
-    runSimulationLoop();
+    symbolStore.createNewSymbol(symbol, mockDataPackage);
+    subscriptions.set(new Set([symbol]));
 }
 
 export function stopSimulation() {
@@ -166,29 +138,25 @@ export function stopSimulation() {
     simulationTimeout = null;
 }
 
-export function subscribe(symbols) {
-    const symbolsToSubscribe = Array.isArray(symbols) ? symbols : [symbols];
-    if (get(dataSourceMode) === 'live' && get(wsStatus) === 'connected' && ws) {
-        symbolsToSubscribe.forEach(symbol => {
-            console.log(`Requesting initial data for ${symbol}...`);
-            ws.send(JSON.stringify({ type: 'get_symbol_data', symbol: symbol }));
-        });
+export function subscribe(symbol) {
+    if (get(dataSourceMode) === 'live' && get(wsStatus) === 'ready' && ws) {
+        // Get the current adrLookbackDays from the symbolStore config
+        const symbolData = get(symbolStore)[symbol];
+        const adrLookbackDays = symbolData?.config?.adrLookbackDays || 5; // Default to 5 if not set
+        ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays }));
     } else {
-        console.warn('Cannot subscribe, live data source not connected.');
+        console.warn('Cannot subscribe, live data source not ready.');
     }
 }
 
-export function unsubscribe(symbols) {
-    const symbolsToUnsubscribe = Array.isArray(symbols) ? symbols : [symbols];
+export function unsubscribe(symbol) {
     if (get(dataSourceMode) === 'live' && ws) {
-        ws.send(JSON.stringify({ type: 'unsubscribe', symbols: symbolsToUnsubscribe }));
+        ws.send(JSON.stringify({ type: 'unsubscribe', symbols: [symbol] }));
     }
-    symbolsToUnsubscribe.forEach(symbol => {
-        symbolStore.removeSymbol(symbol);
-        subscriptions.update(subs => {
-            subs.delete(symbol);
-            return subs;
-        });
+    symbolStore.removeSymbol(symbol);
+    subscriptions.update(subs => {
+        subs.delete(symbol);
+        return subs;
     });
 }
 
@@ -196,7 +164,7 @@ dataSourceMode.subscribe(mode => {
     symbolStore.clear();
     subscriptions.set(new Set());
     if (mode === 'simulated') {
-        disconnect(); 
+        disconnect();
         startSimulation();
     } else {
         stopSimulation();

@@ -1,7 +1,0 @@
-Alternative commands for different scenarios:
-
-Stop gracefully: Ctrl+C in the terminal
-Force stop: taskkill /F /IM node.exe
-Restart: After stopping, run npm run dev again
-Run on different port: npm run dev -- --port 3000
-The server will start on http://localhost:5173 (as configured in vite.config.js) and you should see "NeuroSense FX" with the heading "Hello, NeuroSense FX!" when it's running successfully.
