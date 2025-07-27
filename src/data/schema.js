@@ -59,10 +59,11 @@ export const VisualizationStateSchema = z.object({
     lastUpdateTime: z.number(),
   }),
   volatility: z.number(),
+  volatilityIntensity: z.number(), // Add this line
   lastTickDirection: z.enum(['up', 'down']),
   marketProfile: MarketProfileSchema,
-  projectedHigh: z.number(),
-  projectedLow: z.number(),
+  adrHigh: z.number(),
+  adrLow: z.number(),
   todaysHigh: z.number(),
   todaysLow: z.number(),
   flashEffect: FlashEffectSchema.nullable(),
@@ -111,5 +112,5 @@ export const VisualizationConfigSchema = z.object({
   showSingleSidedProfile: z.boolean(),
   singleSidedProfileSide: z.string(),
   showMaxMarker: z.boolean(),
-  adrLookbackDays: z.number(), // Add this line
+  adrLookbackDays: z.number(),
 });

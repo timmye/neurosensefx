@@ -9,6 +9,8 @@ import {
 const { subscribe, set, update } = writable({});
 const workers = new Map();
 
+// --- Default Configuration ---
+// Updated volatilitySizeMultiplier for more visual impact.
 export const defaultConfig = VisualizationConfigSchema.parse({
     visualizationsContentWidth: 220,
     meterHeight: 120,
@@ -36,7 +38,7 @@ export const defaultConfig = VisualizationConfigSchema.parse({
     volatilityColorMode: 'intensity',
     volatilityOrbBaseWidth: 70,
     volatilityOrbInvertBrightness: false,
-    volatilitySizeMultiplier: 0.5,
+    volatilitySizeMultiplier: 1.5, // Increased from 0.5
     showFlash: false,
     flashThreshold: 2.0,
     flashIntensity: 0.3,
@@ -52,6 +54,7 @@ export const defaultConfig = VisualizationConfigSchema.parse({
     singleSidedProfileSide: 'right',
     showMaxMarker: true,
     adrLookbackDays: 14,
+    frequencyMode: 'normal'
 });
 
 function createNewSymbol(symbol, dataPackage) {
@@ -63,29 +66,46 @@ function createNewSymbol(symbol, dataPackage) {
     const validatedPackage = packageResult.data;
 
     update(symbols => {
-        if (symbols[symbol]) {
-            return symbols;
-        }
+        if (symbols[symbol]) return symbols;
 
         const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
-        
         worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
-        worker.postMessage({ type: 'init', payload: {
-            config: defaultConfig,
-            initialPrice: validatedPackage.initialPrice,
-            projectedHigh: validatedPackage.projectedHigh,
-            projectedLow: validatedPackage.projectedLow,
-            todaysHigh: validatedPackage.todaysHigh,
-            todaysLow: validatedPackage.todaysLow,
-            initialMarketProfile: validatedPackage.initialMarketProfile,
-        }});
+        worker.postMessage({
+            type: 'init', payload: {
+                config: defaultConfig,
+                initialPrice: validatedPackage.initialPrice,
+                projectedHigh: validatedPackage.projectedHigh,
+                projectedLow: validatedPackage.projectedLow,
+                todaysHigh: validatedPackage.todaysHigh,
+                todaysLow: validatedPackage.todaysLow,
+                initialMarketProfile: validatedPackage.initialMarketProfile,
+            }
+        });
         
         workers.set(symbol, worker);
 
+        // Pre-populate the state to avoid rendering with null/undefined data
+        const initialState = {
+            currentPrice: validatedPackage.initialPrice,
+            adrHigh: validatedPackage.projectedHigh,
+            adrLow: validatedPackage.projectedLow,
+            todaysHigh: validatedPackage.todaysHigh,
+            todaysLow: validatedPackage.todaysLow,
+            volatility: 0.5,
+            volatilityIntensity: 0.25, // Set initial value to prevent invisibility
+            lastTickDirection: 'up',
+            midPrice: validatedPackage.initialPrice,
+            lastTickTime: 0,
+            maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
+            marketProfile: { levels: [] },
+            flashEffect: null
+        };
+        
         symbols[symbol] = {
             config: { ...defaultConfig },
-            state: null, // Initial state will come from the worker
-            marketProfile: { levels: [] }
+            state: initialState,
+            marketProfile: { levels: [] },
+            ready: false
         };
         return { ...symbols };
     });
@@ -99,18 +119,14 @@ function handleWorkerMessage(symbol, data) {
             update(symbols => {
                 const existingSymbol = symbols[symbol];
                 if (existingSymbol) {
-                    const newSymbolData = {
-                        ...existingSymbol,
-                        state: stateResult.data,
-                        marketProfile: payload.marketProfile,
-                        flashEffect: payload.flashEffect 
-                            ? { ...payload.flashEffect, id: performance.now() } 
-                            : null
-                    };
-                    
                     return {
                         ...symbols,
-                        [symbol]: newSymbolData
+                        [symbol]: {
+                            ...existingSymbol,
+                            state: stateResult.data,
+                            marketProfile: payload.marketProfile,
+                            ready: true
+                        }
                     };
                 }
                 return symbols;
@@ -120,6 +136,8 @@ function handleWorkerMessage(symbol, data) {
         }
     }
 }
+
+// ... other functions (dispatchTick, updateConfig, etc.) remain the same ...
 
 function dispatchTick(symbol, tick) {
     const tickResult = TickSchema.safeParse(tick);

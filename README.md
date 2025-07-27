@@ -18,25 +18,29 @@ This project is fully automated. When you open it in Firebase Studio, a setup sc
 
 This repository uses a modular, submodule-based architecture to keep the frontend and backend concerns cleanly separated.
 
--   **`neurosensefx` (Root):**
-    -   Contains the Svelte frontend application (`src`).
-    -   Contains the Firebase Studio configuration (`.idx/dev.nix`).
-    -   Manages the overall project structure.
+-   **`neurosensefx` (Root):** The Svelte frontend application. It uses a performant, canvas-based rendering pipeline and includes a realistic simulation engine for robust testing and development.
+-   **`ctrader_tick_backend` (Submodule):** A standalone Node.js server that connects to the cTrader API, processes data, and streams ticks via WebSockets.
+-   **`cTrader-Layer` (Nested Submodule):** A specific communication layer for low-level interaction with the cTrader Open API.
 
--   **`ctrader_tick_backend` (Submodule):**
-    -   A standalone Node.js server that connects to the cTrader API.
-    -   Handles all API communication, data processing, and streams tick data via WebSockets.
-    -   Contains its own nested submodule, `cTrader-Layer`.
-
--   **`cTrader-Layer` (Nested Submodule):**
-    -   A specific communication layer responsible for the low-level interaction with the cTrader Open API.
-
-This structure allows for independent development and versioning of each component, creating a robust and maintainable system.
+This structure allows for independent development and versioning of each component.
 
 ## 📚 Documentation
 
-This project includes detailed documentation to provide a deeper understanding of its design, architecture, and goals.
+This project includes detailed documentation for a deeper understanding of its design and architecture.
 
--   **[Front-End Documentation](./docs/Front_End_Documentation.md):** A comprehensive guide to the front-end architecture, state management, component structure, and data flow.
--   **[Design Intent](./specs/NeuroSense%20FX_design%20intent.txt):** The core human-centric design philosophy and foundational principles behind the NeuroSense FX visualization.
--   **[Build Plan](./specs/Ground-Up%20Build%20Plan%20(Performant%20&%20Simple).txt):** The technical specifications and ground-up build plan for the application.
+-   **[Front-End Documentation](./docs/Front_End_Documentation.md):** The primary technical guide to the frontend, covering architecture, state management, the rendering pipeline, and component structure.
+-   **[Design Intent](./specs/NeuroSense%20FX_design%20intent.txt):** The core human-centric design philosophy and foundational principles.
+-   **[Build Plan](./specs/Ground-Up%20Build%20Plan%20(Performant%20&%20Simple).txt):** The original technical specifications for the application.
+
+## 🚀 Front-End Quick Start
+
+The front-end is a Svelte application built with Vite, featuring a modular architecture focused on performance.
+
+-   **Rendering:** It uses the **Canvas 2D API** for all visualizations, rendered within a `requestAnimationFrame` loop for maximum performance and smooth updates.
+-   **Component Structure:** Visual elements are not Svelte components themselves, but modular JavaScript drawing functions located in `src/lib/viz/`. These are orchestrated by the central `src/components/viz/Container.svelte` component.
+-   **State Management:** State is managed centrally using Svelte stores and a web worker (`src/workers/dataProcessor.js`) to offload heavy computation from the UI thread.
+-   **Simulation:** A realistic simulation engine in `src/data/wsClient.js` generates a continuous stream of tick data with trending behavior for development and testing.
+
+To get started with front-end development:
+1. `npm install`
+2. `npm run dev`

@@ -5,12 +5,9 @@ import {
   VisualizationConfigSchema
 } from '../data/schema.js';
 
-console.log('Worker started');
-
 let config = {};
 let state = {};
 
-// --- Core Worker Logic ---
 self.onmessage = (event) => {
     const { type, payload } = event.data;
     switch (type) {
@@ -22,7 +19,7 @@ self.onmessage = (event) => {
             if (tickResult.success) {
                 processTick(tickResult.data);
             } else {
-                console.error('Invalid tick data:', tickResult.error);
+                console.error('Worker: Invalid tick data', tickResult.error);
             }
             break;
         case 'updateConfig':
@@ -30,25 +27,21 @@ self.onmessage = (event) => {
             if (configResult.success) {
                 config = { ...config, ...configResult.data };
             } else {
-                console.error('Invalid config data:', configResult.error);
+                console.error('Worker: Invalid config data', configResult.error);
             }
             break;
     }
 };
 
 function initialize(payload) {
-    const configResult = VisualizationConfigSchema.safeParse(payload.config);
-    if (configResult.success) {
-        config = configResult.data;
-    } else {
-        console.error('Invalid initial config data:', configResult.error);
-    }
-
+    config = payload.config;
     state = {
         currentPrice: payload.initialPrice,
         midPrice: payload.initialPrice,
-        minObservedPrice: payload.initialPrice,
-        maxObservedPrice: payload.initialPrice,
+        adrHigh: payload.projectedHigh,
+        adrLow: payload.projectedLow,
+        todaysHigh: payload.todaysHigh,
+        todaysLow: payload.todaysLow,
         ticks: [],
         allTicks: payload.initialMarketProfile.map(bar => ({
             price: bar.close,
@@ -57,103 +50,47 @@ function initialize(payload) {
             time: bar.timestamp,
         })),
         volatility: 0.5,
+        volatilityIntensity: 0.25,
         tickMagnitudes: [],
         lastTickDirection: 'up',
-        projectedHigh: payload.projectedHigh,
-        projectedLow: payload.projectedLow,
-        todaysHigh: payload.todaysHigh,
-        todaysLow: payload.todaysLow,
-        flashEffect: null,
         marketProfile: { levels: [] },
+        flashEffect: null,
         lastTickTime: 0,
         maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
     };
-
-    const marketProfile = generateMarketProfile();
-    state.marketProfile = marketProfile;
-    const stateResult = VisualizationStateSchema.safeParse(state);
-    if (stateResult.success) {
-        self.postMessage({
-            type: 'stateUpdate',
-            payload: {
-                newState: stateResult.data,
-                marketProfile: marketProfile,
-                flashEffect: null
-            }
-        });
-    } else {
-        console.error('Invalid initial state data:', stateResult.error);
-    }
+    
+    // Initial calculation and post
+    state.marketProfile = generateMarketProfile();
+    postStateUpdate();
 }
 
 function processTick(tick) {
-    if (state.midPrice === 0) {
-        state.midPrice = tick.bid;
-        state.minObservedPrice = tick.bid;
-        state.maxObservedPrice = tick.bid;
-    }
-    
     const lastPrice = state.currentPrice;
     state.currentPrice = tick.bid;
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
     const magnitude = Math.abs(state.currentPrice - lastPrice) * 10000;
-
     const now = performance.now();
-    const tickEvent = {
-        price: state.currentPrice,
-        direction: state.lastTickDirection === 'up' ? 1 : -1,
-        magnitude: magnitude,
-        time: now,
-    };
     
-    state.ticks.push(tickEvent);
-    state.allTicks.push(tickEvent);
+    state.ticks.push({ price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now });
+    state.allTicks.push({ price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now });
     state.tickMagnitudes.push(magnitude);
 
     state.todaysHigh = Math.max(state.todaysHigh, tick.bid);
     state.todaysLow = Math.min(state.todaysLow, tick.bid);
 
-    updateVolatility();
+    updateVolatility(now);
+    state.marketProfile = generateMarketProfile();
     
-    const marketProfile = generateMarketProfile();
-    state.marketProfile = marketProfile;
-
-    let flashEffect = null;
-    if ((config.showFlash && magnitude >= config.flashThreshold) || (config.showOrbFlash && magnitude >= config.orbFlashThreshold)) {
-        flashEffect = {
-            magnitude,
-            direction: state.lastTickDirection,
-            id: now,
-        };
-    }
-    state.flashEffect = flashEffect;
-
-    const stateResult = VisualizationStateSchema.safeParse(state);
-    if (stateResult.success) {
-        self.postMessage({
-            type: 'stateUpdate',
-            payload: {
-                newState: stateResult.data,
-                marketProfile: marketProfile,
-                flashEffect: flashEffect
-            }
-        });
-    } else {
-        console.error('Invalid state data:', stateResult.error);
-    }
+    postStateUpdate();
 }
 
-function updateVolatility() {
-    const lookbackPeriod = 10000;
-    const now = performance.now();
-    
+function updateVolatility(now) {
+    const lookbackPeriod = 10000; // 10 seconds
     state.ticks = state.ticks.filter(tick => now - tick.time <= lookbackPeriod);
-    if (state.tickMagnitudes.length > 50) {
-        state.tickMagnitudes.shift();
-    }
+    if (state.tickMagnitudes.length > 50) state.tickMagnitudes.shift();
     
-    if (state.tickMagnitudes.length < 3) {
-        state.volatility = Math.max(0.1, (state.volatility || 0.1) * 0.99);
+    if (state.ticks.length < 2) {
+        state.volatility *= 0.95; // Dampen volatility if no recent ticks
         return;
     }
     
@@ -161,13 +98,15 @@ function updateVolatility() {
     const tickFrequency = state.ticks.length / (lookbackPeriod / 1000);
     
     const magnitudeScore = Math.min(avgMagnitude / 2, 3);
-    const frequencyScore = Math.min(tickFrequency / 2, 2);
+    const frequencyScore = Math.min(tickFrequency / 5, 3); // Adjusted for more impact
     
-    const rawVolatility = (magnitudeScore * 0.7) + (frequencyScore * 0.3);
+    const rawVolatility = (magnitudeScore * 0.6) + (frequencyScore * 0.4);
     
-    const smoothingFactor = 0.1;
+    // Use a more responsive smoothing factor
+    const smoothingFactor = 0.2; 
     state.volatility = ((state.volatility || 0) * (1 - smoothingFactor)) + (rawVolatility * smoothingFactor);
-    state.volatility = Math.max(0.1, state.volatility);
+    state.volatility = Math.max(0.05, state.volatility); // Lower minimum
+    state.volatilityIntensity = Math.min(1, state.volatility / 3.5); // Adjusted scale
 }
 
 function generateMarketProfile() {
@@ -186,7 +125,7 @@ function generateMarketProfile() {
         profileData.set(priceBucket, bucket);
     });
 
-    const marketProfile = {
+    return {
         levels: Array.from(profileData.entries())
             .map(([bucket, data]) => ({
                 price: bucket * (config.priceBucketSize / 10000),
@@ -196,12 +135,19 @@ function generateMarketProfile() {
             }))
             .sort((a, b) => a.price - b.price)
     };
+}
 
-    const profileResult = MarketProfileSchema.safeParse(marketProfile);
-    if (profileResult.success) {
-        return profileResult.data;
+function postStateUpdate() {
+    const stateResult = VisualizationStateSchema.safeParse(state);
+    if (stateResult.success) {
+        self.postMessage({
+            type: 'stateUpdate',
+            payload: {
+                newState: stateResult.data,
+                marketProfile: state.marketProfile,
+            }
+        });
     } else {
-        console.error('Invalid market profile data:', profileResult.error);
-        return { levels: [] };
+        console.error('Worker: Invalid state data', JSON.stringify(stateResult.error, null, 2));
     }
 }

@@ -128,22 +128,85 @@
               </div>
             {/if}
 
-            <!-- Layout & Meter -->
+            <!-- Layout & Meter Controls -->
             <div class="control-group-container">
                 <h3 class="group-title">Layout & Meter</h3>
                 <div class="control-group">
-                    <label for="visualizationsContentWidth">Visualization Width: <span>{config.visualizationsContentWidth}px</span></label>
-                    <input type="range" id="visualizationsContentWidth" min="100" max="500" bind:value={config.visualizationsContentWidth} on:input={handleConfigChange}>
+                    <label for="visualizationsContentWidth">Viz Width: <span>{config.visualizationsContentWidth}px</span></label>
+                    <input type="range" id="visualizationsContentWidth" min="100" max="500" step="1" bind:value={config.visualizationsContentWidth} on:input={handleConfigChange}>
                 </div>
                  <div class="control-group">
-                    <label for="meterHeight">Visualization Height: <span>{config.meterHeight}px</span></label>
-                    <input type="range" id="meterHeight" min="50" max="300" bind:value={config.meterHeight} on:input={handleConfigChange}>
+                    <label for="meterHeight">Viz Height: <span>{config.meterHeight}px</span></label>
+                    <input type="range" id="meterHeight" min="50" max="300" step="1" bind:value={config.meterHeight} on:input={handleConfigChange}>
                 </div>
                 <div class="control-group">
-                    <label for="centralAxisXPosition">ADR Axis Position: <span>{config.centralAxisXPosition}px</span></label>
-                    <input type="range" id="centralAxisXPosition" min="0" max={config.visualizationsContentWidth} bind:value={config.centralAxisXPosition} on:input={handleConfigChange}>
+                    <label for="centralAxisXPosition">ADR Axis X-Position: <span>{config.centralAxisXPosition}px</span></label>
+                    <input type="range" id="centralAxisXPosition" min="0" max={config.visualizationsContentWidth} step="1" bind:value={config.centralAxisXPosition} on:input={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="adrProximityThreshold">ADR Proximity Pulse (%): <span>{config.adrProximityThreshold}</span></label>
+                    <input type="range" id="adrProximityThreshold" min="0" max="100" step="1" bind:value={config.adrProximityThreshold} on:input={handleConfigChange}>
                 </div>
             </div>
+
+            <!-- Price Float & Display Controls -->
+            <div class="control-group-container">
+                <h3 class="group-title">Price Elements</h3>
+                <div class="control-group">
+                    <label for="priceFloatWidth">Price Float Width: <span>{config.priceFloatWidth}px</span></label>
+                    <input type="range" id="priceFloatWidth" min="10" max="200" step="1" bind:value={config.priceFloatWidth} on:input={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="priceFontSize">Price Font Size: <span>{config.priceFontSize}px</span></label>
+                    <input type="range" id="priceFontSize" min="10" max="100" step="1" bind:value={config.priceFontSize} on:input={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="showPipetteDigit">Show Pipette Digit</label>
+                    <input type="checkbox" id="showPipetteDigit" bind:checked={config.showPipetteDigit} on:change={handleConfigChange}>
+                </div>
+            </div>
+
+            <!-- Volatility Orb Controls -->
+            <div class="control-group-container">
+                <h3 class="group-title">Volatility Orb</h3>
+                <div class="control-group">
+                    <label for="showVolatilityOrb">Show Volatility Orb</label>
+                    <input type="checkbox" id="showVolatilityOrb" bind:checked={config.showVolatilityOrb} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="volatilityOrbBaseWidth">Orb Base Width: <span>{config.volatilityOrbBaseWidth}</span></label>
+                    <input type="range" id="volatilityOrbBaseWidth" min="10" max="200" step="1" bind:value={config.volatilityOrbBaseWidth} on:input={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="volatilityColorMode">Orb Color Mode</label>
+                    <select id="volatilityColorMode" bind:value={config.volatilityColorMode} on:change={handleConfigChange}>
+                        <option value="single">Single Hue</option>
+                        <option value="intensity">Intensity Spectrum</option>
+                        <option value="directional">Directional</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Market Profile Controls -->
+            <div class="control-group-container">
+                <h3 class="group-title">Market Profile</h3>
+                <div class="control-group">
+                    <label for="showMarketProfile">Show Market Profile</label>
+                    <input type="checkbox" id="showMarketProfile" bind:checked={config.showMarketProfile} on:change={handleConfigChange}>
+                </div>
+                 <div class="control-group">
+                    <label for="showSingleSidedProfile">Single-Sided Profile</label>
+                    <input type="checkbox" id="showSingleSidedProfile" bind:checked={config.showSingleSidedProfile} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="singleSidedProfileSide">Side to Display</label>
+                    <select id="singleSidedProfileSide" bind:value={config.singleSidedProfileSide} on:change={handleConfigChange} disabled={!config.showSingleSidedProfile}>
+                        <option value="left">Left (Sell)</option>
+                        <option value="right">Right (Buy)</option>
+                    </select>
+                </div>
+            </div>
+
           {/if}
       </div>
   </div>
@@ -204,6 +267,10 @@
       border: 1px solid #4b5563;
       background-color: #1f2937;
       color: #e5e7eb;
+  }
+  input[type="checkbox"] {
+    width: auto;
+    align-self: flex-start;
   }
   button {
       cursor: pointer;

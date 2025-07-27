@@ -50,22 +50,20 @@
       {:else}
         <div class="viz-grid">
           {#each Object.entries(symbols) as [symbol, data] (symbol)}
-            {#if data.state}
-              <div class="viz-wrapper" class:selected={symbol === $selectedSymbol} on:click={() => selectedSymbol.set(symbol)}>
-                <div class="symbol-header">{symbol}</div>
+            <div class="viz-wrapper" class:selected={symbol === $selectedSymbol} on:click={() => selectedSymbol.set(symbol)}>
+              <div class="symbol-header">{symbol}</div>
+              {#if data.ready}
                 <Container
-                  symbol={symbol}
                   config={data.config}
                   state={data.state}
                   marketProfile={data.marketProfile}
-                  flashEffect={data.state.flashEffect}
                 />
-              </div>
-            {:else}
-              <div class="placeholder">
-                <p>Loading {symbol}...</p>
-              </div>
-            {/if}
+              {:else}
+                <div class="placeholder">
+                  <p>Initializing {symbol}...</p>
+                </div>
+              {/if}
+            </div>
           {/each}
         </div>
       {/if}
@@ -120,6 +118,10 @@
   .placeholder {
     color: #6b7280;
     text-align: center;
+    height: 120px; /* Match canvas height */
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
   .error {
     color: #ef4444;
