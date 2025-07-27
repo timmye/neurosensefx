@@ -1,3 +1,4 @@
 [submodule "ctrader_tick_backend"]
 	path = ctrader_tick_backend
-	url = https://github.com/timmye/ctrader_tick_backend/
+	url = https://github.com/timmye/ctrader_tick_backend
+	branch = master
