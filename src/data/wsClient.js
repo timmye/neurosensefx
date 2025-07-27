@@ -47,14 +47,16 @@ export function connect() {
 }
 
 function handleSocketMessage(data) {
-    console.log('Received message from backend:', data);
+    // console.log('Received message from backend:', data);
 
     if (data.type === 'tick') {
+        console.log(`[wsClient] Received tick for ${data.symbol}:`, data);
         const tickResult = TickSchema.safeParse(data);
         if (tickResult.success) {
+            console.log(`[wsClient] Dispatching tick for ${tickResult.data.symbol} to symbolStore.`);
             symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
         } else {
-            console.error('Invalid tick data:', tickResult.error);
+            console.error('[wsClient] Invalid tick data received:', tickResult.error);
         }
     } else if (data.type === 'symbolDataPackage') {
         const packageResult = SymbolDataPackageSchema.safeParse(data);

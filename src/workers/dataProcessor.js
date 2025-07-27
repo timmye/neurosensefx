@@ -65,6 +65,7 @@ function initialize(payload) {
 }
 
 function processTick(tick) {
+    console.log(`[Worker] Processing tick for ${tick.symbol}:`, tick);
     const lastPrice = state.currentPrice;
     state.currentPrice = tick.bid;
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';

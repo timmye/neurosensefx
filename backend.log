@@ -6,3 +6,12 @@ Executing backend server.js
 Attempted to listen for unknown event type: close. Listener might not be triggered.
 Attempted to listen for unknown event type: error. Listener might not be triggered.
 Loaded 2024 light symbols.
+Client connected
+Received message: connect
+Client disconnected
+Client connected
+Received message: connect
+Client disconnected
+Client connected
+Received message: connect
+Client disconnected
