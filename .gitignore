@@ -1,4 +1,7 @@
-combined.log
-error.log
-backend.log
+# Dependencies
+/node_modules
+/ctrader_tick_backend/node_modules
 
+# Build output
+/dist
+backend.log
