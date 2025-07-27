@@ -1,5 +1,5 @@
 import { writable, get } from 'svelte/store';
-import { symbolStore, defaultConfig } from './symbolStore'; // Import defaultConfig
+import { symbolStore, defaultConfig } from './symbolStore';
 import { TickSchema, SymbolDataPackageSchema } from './schema.js';
 
 export const wsStatus = writable('disconnected');
@@ -10,14 +10,12 @@ export const subscriptions = writable(new Set());
 let ws = null;
 let simulationInterval = null;
 
-const getWebSocketUrl = () => {
+const WS_URL = (() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
     const path = '/ws';
     return `${protocol}//${host}${path}`;
-};
-
-const WS_URL = getWebSocketUrl();
+})();
 
 export function connect() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
@@ -26,8 +24,7 @@ export function connect() {
     wsStatus.set('ws-connecting');
     try {
         ws = new WebSocket(WS_URL);
-
-        ws.onopen = () => ws.send(JSON.stringify({ type: 'connect' }));
+        ws.onopen = () => {};
         ws.onmessage = (event) => handleSocketMessage(JSON.parse(event.data));
         ws.onclose = () => {
             ws = null;
@@ -36,48 +33,36 @@ export function connect() {
         };
         ws.onerror = (err) => {
             console.error('WebSocket Error:', err);
-            handleError('WebSocket connection failed.');
             if (ws) ws.close();
         };
     } catch (e) {
         console.error('Failed to create WebSocket:', e);
-        handleError('Failed to create WebSocket.');
         ws = null;
     }
 }
 
 function handleSocketMessage(data) {
-    // console.log('Received message from backend:', data);
-
-    if (data.type === 'tick') {
-        console.log(`[wsClient] Received tick for ${data.symbol}:`, data);
-        const tickResult = TickSchema.safeParse(data);
-        if (tickResult.success) {
-            console.log(`[wsClient] Dispatching tick for ${tickResult.data.symbol} to symbolStore.`);
-            symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
-        } else {
-            console.error('[wsClient] Invalid tick data received:', tickResult.error);
-        }
-    } else if (data.type === 'symbolDataPackage') {
+    if (data.type === 'symbolDataPackage') {
+        console.log(`[E2E_DEBUG | wsClient] 9. Received 'symbolDataPackage' from server:`, data);
         const packageResult = SymbolDataPackageSchema.safeParse(data);
         if (packageResult.success) {
             handleDataPackage(packageResult.data);
         } else {
             console.error('Invalid symbol data package:', packageResult.error);
         }
-    } else if (data.type === 'status') {
-         wsStatus.set(data.status);
-         if(data.status === 'ready'){
+    } else if (data.type === 'status' || data.type === 'ready') {
+         const status = data.type === 'ready' ? 'connected' : data.status;
+         wsStatus.set(status);
+         if(status === 'connected'){
              availableSymbols.set(data.availableSymbols || []);
-             const currentSubs = Array.from(get(subscriptions));
-             if (currentSubs.length > 0) {
-                 currentSubs.forEach(symbol => subscribe(symbol));
-             }
          }
-    } else if (data.type === 'error') {
-         handleError(data.message);
-    } else {
-        console.warn('Received unknown message type:', data.type);
+    } else if (data.type === 'tick') {
+        const tickResult = TickSchema.safeParse(data);
+        if (tickResult.success) {
+            symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
+        } else {
+            console.error('[wsClient] Invalid tick data received:', tickResult.error);
+        }
     }
 }
 
@@ -87,11 +72,6 @@ function handleDataPackage(data) {
     if (get(dataSourceMode) === 'live' && ws) {
         ws.send(JSON.stringify({ type: 'start_tick_stream', symbol: data.symbol }));
     }
-}
-
-function handleError(message) {
-    console.error('Backend Error:', message);
-    wsStatus.set('error');
 }
 
 export function disconnect() {
@@ -189,6 +169,7 @@ function startSimulation() {
     simulationLoop();
 }
 
+
 function stopSimulation() {
     if (simulationInterval) {
         cancelAnimationFrame(simulationInterval);
@@ -197,9 +178,8 @@ function stopSimulation() {
 }
 
 export function subscribe(symbol) {
-    if (get(dataSourceMode) === 'live' && get(wsStatus) === 'ready' && ws) {
-        const symbolData = get(symbolStore)[symbol];
-        const adrLookbackDays = symbolData?.config?.adrLookbackDays || 5;
+    if (get(dataSourceMode) === 'live' && get(wsStatus) === 'connected' && ws) {
+        const adrLookbackDays = 5; // Example
         ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays }));
     }
 }

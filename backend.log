@@ -7,11 +7,38 @@ Attempted to listen for unknown event type: close. Listener might not be trigger
 Attempted to listen for unknown event type: error. Listener might not be triggered.
 Loaded 2024 light symbols.
 Client connected
-Received message: connect
+Received message: get_symbol_data_package
+Received message: start_tick_stream
+First subscriber. Starting tick stream for BTCUSD.
+Successfully subscribed to ticks for BTCUSD
+Received message: unsubscribe
+Last subscriber. Stopping tick stream for BTCUSD.
+Sent unsubscribe request for BTCUSD
+Received message: get_symbol_data_package
+Received message: start_tick_stream
+First subscriber. Starting tick stream for BTCUSD.
+Successfully subscribed to ticks for BTCUSD
+Received message: unsubscribe
+Last subscriber. Stopping tick stream for BTCUSD.
+Sent unsubscribe request for BTCUSD
 Client disconnected
 Client connected
-Received message: connect
+Received message: get_symbol_data_package
+Received message: start_tick_stream
+First subscriber. Starting tick stream for EURUSD.
+Successfully subscribed to ticks for EURUSD
+Received message: get_symbol_data_package
+Received message: start_tick_stream
+First subscriber. Starting tick stream for XAUUSD.
+Successfully subscribed to ticks for XAUUSD
+Received message: get_symbol_data_package
+Received message: start_tick_stream
+First subscriber. Starting tick stream for ETHUSD.
+Successfully subscribed to ticks for ETHUSD
 Client disconnected
-Client connected
-Received message: connect
-Client disconnected
+Last subscriber. Stopping tick stream for EURUSD.
+Last subscriber. Stopping tick stream for XAUUSD.
+Last subscriber. Stopping tick stream for ETHUSD.
+Sent unsubscribe request for EURUSD
+Sent unsubscribe request for XAUUSD
+Sent unsubscribe request for ETHUSD

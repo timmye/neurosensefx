@@ -76,7 +76,7 @@
                         <span class="status-indicator status-{$wsStatus}"></span>
                         <span class="status-text">{$wsStatus}</span>
                     </div>
-                    {#if $wsStatus === 'ready'}
+                    {#if $wsStatus === 'connected'}
                         <div class="subscription-controls">
                             <select bind:value={selectedSymbolForSubscription}>
                                 <option value={null}>Select a symbol...</option>
@@ -304,6 +304,7 @@
   }
   .status-disconnected { background-color: #ef4444; }
   .status-ws-connecting, .status-ws-open { background-color: #f59e0b; }
+  .status-connected { background-color: #22c55e; }
   .status-ready { background-color: #22c55e; }
   .status-error { background-color: #ef4444; }
 

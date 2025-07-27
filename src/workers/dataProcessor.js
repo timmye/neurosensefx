@@ -12,23 +12,14 @@ self.onmessage = (event) => {
     const { type, payload } = event.data;
     switch (type) {
         case 'init':
+            console.log(`[E2E_DEBUG | dataProcessor] 13. Received 'init' payload:`, payload);
             initialize(payload);
             break;
         case 'tick':
-            const tickResult = TickSchema.safeParse(payload);
-            if (tickResult.success) {
-                processTick(tickResult.data);
-            } else {
-                console.error('Worker: Invalid tick data', tickResult.error);
-            }
+            processTick(payload);
             break;
         case 'updateConfig':
-            const configResult = VisualizationConfigSchema.partial().safeParse(payload);
-            if (configResult.success) {
-                config = { ...config, ...configResult.data };
-            } else {
-                console.error('Worker: Invalid config data', configResult.error);
-            }
+            config = { ...config, ...payload };
             break;
     }
 };
@@ -36,19 +27,14 @@ self.onmessage = (event) => {
 function initialize(payload) {
     config = payload.config;
     state = {
-        currentPrice: payload.initialPrice,
-        midPrice: payload.initialPrice,
+        currentPrice: payload.todaysOpen, 
+        midPrice: payload.todaysOpen,
         adrHigh: payload.projectedHigh,
         adrLow: payload.projectedLow,
         todaysHigh: payload.todaysHigh,
         todaysLow: payload.todaysLow,
         ticks: [],
-        allTicks: payload.initialMarketProfile.map(bar => ({
-            price: bar.close,
-            direction: bar.close > bar.open ? 1 : -1,
-            magnitude: Math.abs(bar.close - bar.open) * 10000,
-            time: bar.timestamp,
-        })),
+        allTicks: [],
         volatility: 0.5,
         volatilityIntensity: 0.25,
         tickMagnitudes: [],
@@ -58,14 +44,13 @@ function initialize(payload) {
         lastTickTime: 0,
         maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
     };
+    console.log(`[E2E_DEBUG | dataProcessor] 14. Constructed initial worker state:`, state);
     
-    // Initial calculation and post
     state.marketProfile = generateMarketProfile();
     postStateUpdate();
 }
 
 function processTick(tick) {
-    console.log(`[Worker] Processing tick for ${tick.symbol}:`, tick);
     const lastPrice = state.currentPrice;
     state.currentPrice = tick.bid;
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';

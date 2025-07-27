@@ -9,8 +9,6 @@ import {
 const { subscribe, set, update } = writable({});
 const workers = new Map();
 
-// --- Default Configuration ---
-// Updated volatilitySizeMultiplier for more visual impact.
 export const defaultConfig = VisualizationConfigSchema.parse({
     visualizationsContentWidth: 220,
     meterHeight: 120,
@@ -38,7 +36,7 @@ export const defaultConfig = VisualizationConfigSchema.parse({
     volatilityColorMode: 'intensity',
     volatilityOrbBaseWidth: 70,
     volatilityOrbInvertBrightness: false,
-    volatilitySizeMultiplier: 1.5, // Increased from 0.5
+    volatilitySizeMultiplier: 1.5,
     showFlash: false,
     flashThreshold: 2.0,
     flashIntensity: 0.3,
@@ -58,6 +56,7 @@ export const defaultConfig = VisualizationConfigSchema.parse({
 });
 
 function createNewSymbol(symbol, dataPackage) {
+    console.log(`[E2E_DEBUG | symbolStore] 10. Received data package for ${symbol}:`, dataPackage);
     const packageResult = SymbolDataPackageSchema.safeParse(dataPackage);
     if (!packageResult.success) {
         console.error('Invalid data package for new symbol:', packageResult.error);
@@ -70,36 +69,34 @@ function createNewSymbol(symbol, dataPackage) {
 
         const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
         worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
-        worker.postMessage({
+        
+        const initPayload = {
             type: 'init', payload: {
                 config: defaultConfig,
-                initialPrice: validatedPackage.initialPrice,
-                projectedHigh: validatedPackage.projectedHigh,
-                projectedLow: validatedPackage.projectedLow,
-                todaysHigh: validatedPackage.todaysHigh,
-                todaysLow: validatedPackage.todaysLow,
-                initialMarketProfile: validatedPackage.initialMarketProfile,
+                ...validatedPackage 
             }
-        });
+        };
+        console.log(`[E2E_DEBUG | symbolStore] 12. Sending 'init' payload to worker:`, initPayload);
+        worker.postMessage(initPayload);
         
         workers.set(symbol, worker);
 
-        // Pre-populate the state to avoid rendering with null/undefined data
         const initialState = {
-            currentPrice: validatedPackage.initialPrice,
+            currentPrice: validatedPackage.todaysOpen,
+            midPrice: validatedPackage.todaysOpen,
             adrHigh: validatedPackage.projectedHigh,
             adrLow: validatedPackage.projectedLow,
             todaysHigh: validatedPackage.todaysHigh,
             todaysLow: validatedPackage.todaysLow,
             volatility: 0.5,
-            volatilityIntensity: 0.25, // Set initial value to prevent invisibility
+            volatilityIntensity: 0.25,
             lastTickDirection: 'up',
-            midPrice: validatedPackage.initialPrice,
             lastTickTime: 0,
             maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
             marketProfile: { levels: [] },
             flashEffect: null
         };
+        console.log(`[E2E_DEBUG | symbolStore] 11. Created pre-populated initialState:`, initialState);
         
         symbols[symbol] = {
             config: { ...defaultConfig },
@@ -132,12 +129,10 @@ function handleWorkerMessage(symbol, data) {
                 return symbols;
             });
         } else {
-            console.error('Invalid state data from worker:', JSON.stringify(stateResult.error, null, 2));
+            console.error('Worker: Invalid state data from worker:', JSON.stringify(stateResult.error, null, 2));
         }
     }
 }
-
-// ... other functions (dispatchTick, updateConfig, etc.) remain the same ...
 
 function dispatchTick(symbol, tick) {
     const tickResult = TickSchema.safeParse(tick);
