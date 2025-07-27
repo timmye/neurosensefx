@@ -51,6 +51,7 @@ export const defaultConfig = VisualizationConfigSchema.parse({
     showSingleSidedProfile: false,
     singleSidedProfileSide: 'right',
     showMaxMarker: true,
+    adrLookbackDays: 14,
 });
 
 function createNewSymbol(symbol, dataPackage) {

@@ -12,7 +12,19 @@
 
   # Sets environment variables in the workspace
   env = {
-    WEBSOCKET_PORT = "8080";
+    # Server Settings
+    WS_PORT = "8080";
+
+    # cTrader API Credentials & Settings
+    CTRADER_ACCOUNT_TYPE = "LIVE";
+    CTRADER_CLIENT_ID = "12478_zC8lmMuDBZg1fPqKeZGWtieeqD3cfYaOWzEOKWSXYbaS5AkBw1";
+    CTRADER_CLIENT_SECRET = "XwKO7QruJda6a6vswkY4CJuVJLnICPvEL6KAdbwxLcJITouvYQ";
+    CTRADER_ACCESS_TOKEN = "av8FB2UqJR3YgUGMGMWL47nsExSEYEo_QUtL1UB6srg";
+    CTRADER_REFRESH_TOKEN = "2ck79MQzfvobUMBZFVWOQDLOFaO9F_SIwO4MxEWbxAM";
+    CTRADER_ACCOUNT_ID = "38998989";
+    CTRADER_HOST_TYPE = "LIVE";
+    HOST = "live.ctraderapi.com";
+    PORT = "5035";
   };
 
   idx = {
