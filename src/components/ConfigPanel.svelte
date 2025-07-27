@@ -2,8 +2,8 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { dataSourceMode, wsStatus, availableSymbols, subscribe, unsubscribe } from '../data/wsClient.js';
   import { symbolStore } from '../data/symbolStore.js';
+  import { selectedSymbol } from '../stores/uiState.js';
 
-  export let selectedSymbol;
   export let config;
 
   const dispatch = createEventDispatcher();
@@ -20,14 +20,14 @@
   });
 
   function handleConfigChange() {
-      if (selectedSymbol && config) {
-          symbolStore.updateConfig(selectedSymbol, config);
+      if ($selectedSymbol && config) {
+          symbolStore.updateConfig($selectedSymbol, config);
       }
   }
 
   function handleReset() {
-      if (selectedSymbol) {
-          symbolStore.resetConfig(selectedSymbol);
+      if ($selectedSymbol) {
+          symbolStore.resetConfig($selectedSymbol);
       }
   }
 
@@ -36,7 +36,7 @@
           subscribe(selectedSymbolForSubscription);
       }
   }
-  
+
   function handleUnsubscribe(symbol) {
       unsubscribe(symbol);
   }
@@ -46,10 +46,10 @@
 <div class="panel-wrapper">
   <div class="panel">
       <div class="panel-header">
-          <h1 class="panel-title">Adaptive Flow Meter</h1>
-          <p class="panel-description">Tune the simulation and visual feedback.</p>
+          <h1 class="panel-title">NeuroSense FX</h1>
+          <p class="panel-description">A Human-Centric Visual Trading Interface</p>
       </div>
-      
+
       <div class="panel-content">
           <!-- System and Data Source -->
           <div class="control-group-container">
@@ -64,22 +64,6 @@
                   </select>
               </div>
           </div>
-
-          <!-- Simulation Controls -->
-          {#if $dataSourceMode === 'simulated' && config}
-              <div class="control-group-container">
-                <h2 class="group-title">Simulation Settings</h2>
-                  <div class="control-group">
-                    <label for="frequencyMode">Market Activity</label>
-                    <select id="frequencyMode" bind:value={config.frequencyMode} on:change={handleConfigChange}>
-                      <option value="calm">Calm</option>
-                      <option value="normal">Normal</option>
-                      <option value="active">Active</option>
-                      <option value="volatile">Volatile</option>
-                    </select>
-                  </div>
-              </div>
-          {/if}
 
           <!-- Live Data Controls -->
           {#if $dataSourceMode === 'live'}
@@ -120,13 +104,29 @@
                 </div>
               </div>
           {/if}
-          
+
           {#if config}
             <hr/>
             <div class="title-bar">
-                <h2 class="group-title">Visual Settings for {selectedSymbol}</h2>
+                <h2 class="group-title">Visual Settings for {$selectedSymbol}</h2>
                 <button class="reset-button" on:click={handleReset}>Reset to Defaults</button>
             </div>
+
+            <!-- Simulation Controls -->
+            {#if $dataSourceMode === 'simulated'}
+              <div class="control-group-container">
+                <h3 class="group-title">Simulation Settings</h3>
+                  <div class="control-group">
+                    <label for="frequencyMode">Market Activity</label>
+                    <select id="frequencyMode" bind:value={config.frequencyMode} on:change={handleConfigChange}>
+                      <option value="calm">Calm</option>
+                      <option value="normal">Normal</option>
+                      <option value="active">Active</option>
+                      <option value="volatile">Volatile</option>
+                    </select>
+                  </div>
+              </div>
+            {/if}
 
             <!-- Layout & Meter -->
             <div class="control-group-container">
@@ -135,7 +135,14 @@
                     <label for="visualizationsContentWidth">Visualization Width: <span>{config.visualizationsContentWidth}px</span></label>
                     <input type="range" id="visualizationsContentWidth" min="100" max="500" bind:value={config.visualizationsContentWidth} on:input={handleConfigChange}>
                 </div>
-                <!-- ... other controls ... -->
+                 <div class="control-group">
+                    <label for="meterHeight">Visualization Height: <span>{config.meterHeight}px</span></label>
+                    <input type="range" id="meterHeight" min="50" max="300" bind:value={config.meterHeight} on:input={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="centralAxisXPosition">ADR Axis Position: <span>{config.centralAxisXPosition}px</span></label>
+                    <input type="range" id="centralAxisXPosition" min="0" max={config.visualizationsContentWidth} bind:value={config.centralAxisXPosition} on:input={handleConfigChange}>
+                </div>
             </div>
           {/if}
       </div>
@@ -143,7 +150,77 @@
 </div>
 
 <style>
-  /* ... existing styles ... */
+  .panel-wrapper {
+    background-color: #1f2937;
+    color: #e5e7eb;
+    height: 100%;
+    overflow-y: auto;
+  }
+  .panel {
+      padding: 20px;
+  }
+  .panel-header {
+      text-align: center;
+      margin-bottom: 20px;
+  }
+  .panel-title {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #d1d5db;
+  }
+  .panel-description {
+      color: #9ca3af;
+  }
+  .control-group-container {
+      background-color: #374151;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+  }
+  .title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+  }
+  .group-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #d1d5db;
+  }
+  .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+  }
+  label {
+      font-weight: 500;
+      color: #9ca3af;
+  }
+  select, input[type="range"], button {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #4b5563;
+      background-color: #1f2937;
+      color: #e5e7eb;
+  }
+  button {
+      cursor: pointer;
+      background-color: #4f46e5;
+      border: none;
+  }
+  .reset-button {
+      background: none;
+      border: 1px solid #4b5563;
+      font-size: 0.8em;
+      padding: 4px 8px;
+  }
+  hr {
+      border: none;
+      border-top: 1px solid #374151;
+      margin: 20px 0;
+  }
   .status-box {
     display: flex;
     align-items: center;
@@ -151,6 +228,7 @@
     padding: 8px;
     background-color: #1f2937;
     border-radius: 6px;
+    margin-bottom: 10px;
   }
   .status-indicator {
     width: 12px;
@@ -158,7 +236,7 @@
     border-radius: 50%;
   }
   .status-disconnected { background-color: #ef4444; }
-  .status-ws-connecting { background-color: #f59e0b; }
+  .status-ws-connecting, .status-ws-open { background-color: #f59e0b; }
   .status-ready { background-color: #22c55e; }
   .status-error { background-color: #ef4444; }
 
@@ -169,7 +247,6 @@
   .subscription-controls {
       display: flex;
       gap: 10px;
-      margin-top: 10px;
   }
   .subscribed-list {
       margin-top: 15px;
@@ -187,8 +264,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 5px;
-        background-color: #2c3a4b;
+        padding: 5px 8px;
+        background-color: #111827;
         border-radius: 4px;
         margin-bottom: 5px;
     }

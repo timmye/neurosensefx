@@ -14,8 +14,6 @@ This project is fully automated. When you open it in Firebase Studio, a setup sc
 4.  **Start the Backend Server:** The Node.js backend will start automatically on port 8080.
 5.  **Launch the Frontend Preview:** A Vite development server for the Svelte app will launch and be available in the IDX Previews panel.
 
-
-
 ## 🏛️ Project Architecture
 
 This repository uses a modular, submodule-based architecture to keep the frontend and backend concerns cleanly separated.
@@ -35,5 +33,10 @@ This repository uses a modular, submodule-based architecture to keep the fronten
 
 This structure allows for independent development and versioning of each component, creating a robust and maintainable system.
 
----
-This README now accurately reflects the project's high degree of automation and professional structure.
+## 📚 Documentation
+
+This project includes detailed documentation to provide a deeper understanding of its design, architecture, and goals.
+
+-   **[Front-End Documentation](./docs/Front_End_Documentation.md):** A comprehensive guide to the front-end architecture, state management, component structure, and data flow.
+-   **[Design Intent](./specs/NeuroSense%20FX_design%20intent.txt):** The core human-centric design philosophy and foundational principles behind the NeuroSense FX visualization.
+-   **[Build Plan](./specs/Ground-Up%20Build%20Plan%20(Performant%20&%20Simple).txt):** The technical specifications and ground-up build plan for the application.

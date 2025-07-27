@@ -24,13 +24,3 @@ Successfully subscribed to ticks for ETHUSD
 Client disconnected
 Last subscriber. Stopping tick stream for ETHUSD.
 Sent unsubscribe request for ETHUSD
-Client connected
-Received message: connect
-Received message: get_symbol_data_package
-Fetching initial data for ETHUSD with ADR lookback 5...
-Received message: start_tick_stream
-First subscriber. Starting tick stream for ETHUSD.
-Successfully subscribed to ticks for ETHUSD
-Client disconnected
-Last subscriber. Stopping tick stream for ETHUSD.
-Sent unsubscribe request for ETHUSD

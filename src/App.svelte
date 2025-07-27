@@ -1,32 +1,29 @@
 <script>
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
-  import VizDisplay from './components/VizDisplay.svelte';
+  import Container from './components/viz/Container.svelte';
   import ConfigPanel from './components/ConfigPanel.svelte';
   import { symbolStore } from './data/symbolStore.js';
-  import { dataSourceMode, wsStatus, connect } from './data/wsClient.js';
+  import { dataSourceMode, wsStatus } from './data/wsClient.js';
+  import { selectedSymbol } from './stores/uiState.js';
 
   let symbols = {};
-  let selectedSymbolForConfig = null;
 
-  const unsub = symbolStore.subscribe(value => {
+  const unsubSymbolStore = symbolStore.subscribe(value => {
     symbols = value;
     const symbolKeys = Object.keys(value);
-    if (!selectedSymbolForConfig || !value[selectedSymbolForConfig]) {
-        selectedSymbolForConfig = symbolKeys[0] || null;
+    if (!$selectedSymbol || !value[$selectedSymbol]) {
+        selectedSymbol.set(symbolKeys[0] || null);
     }
   });
 
   onMount(() => {
-    if (get(dataSourceMode) === 'simulated') {
-      // The simulation now starts automatically via the dataSourceMode subscription
-    }
-    return () => unsub();
+    return () => unsubSymbolStore();
   });
 
   function handleDataSourceChange(event) {
     dataSourceMode.set(event.detail.mode);
-    selectedSymbolForConfig = null;
+    selectedSymbol.set(null);
   }
 </script>
 
@@ -54,9 +51,9 @@
         <div class="viz-grid">
           {#each Object.entries(symbols) as [symbol, data] (symbol)}
             {#if data.state}
-              <div class="viz-wrapper" class:selected={symbol === selectedSymbolForConfig} on:click={() => selectedSymbolForConfig = symbol}>
+              <div class="viz-wrapper" class:selected={symbol === $selectedSymbol} on:click={() => selectedSymbol.set(symbol)}>
                 <div class="symbol-header">{symbol}</div>
-                <VizDisplay 
+                <Container
                   symbol={symbol}
                   config={data.config}
                   state={data.state}
@@ -74,9 +71,8 @@
       {/if}
     </div>
     <div class="config-panel-container">
-      <ConfigPanel 
-        selectedSymbol={selectedSymbolForConfig}
-        config={symbols[selectedSymbolForConfig]?.config}
+      <ConfigPanel
+        config={symbols[$selectedSymbol]?.config}
         on:dataSourceChange={handleDataSourceChange}
       />
     </div>
@@ -99,5 +95,33 @@
     color: #9ca3af;
     margin-bottom: 5px;
   }
-  /* ... existing styles ... */
+  .main-container {
+    display: flex;
+    height: 100vh;
+  }
+  .viz-area {
+    flex-grow: 1;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .viz-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+  }
+  .config-panel-container {
+    width: 350px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    border-left: 1px solid #374151;
+  }
+  .placeholder {
+    color: #6b7280;
+    text-align: center;
+  }
+  .error {
+    color: #ef4444;
+  }
 </style>

@@ -21,7 +21,7 @@ const WS_URL = getWebSocketUrl();
 
 export function connect() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-    
+
     stopSimulation();
     wsStatus.set('ws-connecting');
     try {
@@ -111,7 +111,7 @@ export function disconnect() {
 
 export function startSimulation() {
     disconnect();
-    
+
     const symbol = 'SIM-EURUSD';
     const midPoint = 1.25500;
     const adr = 0.00850;
@@ -128,7 +128,7 @@ export function startSimulation() {
         initialPrice: midPoint,
         initialMarketProfile: [],
     };
-    
+
     symbolStore.createNewSymbol(symbol, mockDataPackage);
     subscriptions.set(new Set([symbol]));
 }
