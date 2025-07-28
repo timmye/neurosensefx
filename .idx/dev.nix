@@ -58,6 +58,9 @@
         # Ensure any lingering backend process from a previous session is stopped
         "10-kill-backend" = "pkill -f 'node ctrader_tick_backend/server.js' || true";
         
+        # Automatically update the backend submodule to the latest version on start
+        "15-submodule-update" = "git submodule update --remote --merge";
+
         # Start the backend server and log its output for debugging.
         "20-backend-start" = "cd ctrader_tick_backend && npm start > ../backend.log 2>&1 &";
       };
