@@ -81,8 +81,9 @@ function createNewSymbol(symbol, dataPackage) {
         
         workers.set(symbol, worker);
 
+        // Use initialPrice for the currentPrice to prevent UI flicker
         const initialState = {
-            currentPrice: validatedPackage.todaysOpen,
+            currentPrice: validatedPackage.initialPrice,
             midPrice: validatedPackage.todaysOpen,
             adrHigh: validatedPackage.projectedHigh,
             adrLow: validatedPackage.projectedLow,

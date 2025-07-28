@@ -7,27 +7,29 @@ import {
 
 let config = {};
 let state = {};
+let digits = 5;
 
 self.onmessage = (event) => {
     const { type, payload } = event.data;
     switch (type) {
         case 'init':
-            console.log(`[E2E_DEBUG | dataProcessor] 13. Received 'init' payload:`, payload);
             initialize(payload);
             break;
         case 'tick':
             processTick(payload);
             break;
         case 'updateConfig':
-            config = { ...config, ...payload };
+            updateConfig(payload);
             break;
     }
 };
 
 function initialize(payload) {
     config = payload.config;
+    digits = payload.digits || 5; 
+
     state = {
-        currentPrice: payload.todaysOpen, 
+        currentPrice: payload.initialPrice, 
         midPrice: payload.todaysOpen,
         adrHigh: payload.projectedHigh,
         adrLow: payload.projectedLow,
@@ -44,7 +46,6 @@ function initialize(payload) {
         lastTickTime: 0,
         maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
     };
-    console.log(`[E2E_DEBUG | dataProcessor] 14. Constructed initial worker state:`, state);
     
     state.marketProfile = generateMarketProfile();
     postStateUpdate();
@@ -54,7 +55,10 @@ function processTick(tick) {
     const lastPrice = state.currentPrice;
     state.currentPrice = tick.bid;
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
-    const magnitude = Math.abs(state.currentPrice - lastPrice) * 10000;
+    
+    // This calculation remains correct for determining volatility magnitude
+    const magnitude = Math.abs(state.currentPrice - lastPrice) * Math.pow(10, digits);
+    
     const now = performance.now();
     
     state.ticks.push({ price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now });
@@ -70,13 +74,23 @@ function processTick(tick) {
     postStateUpdate();
 }
 
+function updateConfig(newConfig) {
+    const oldBucketSize = config.priceBucketSize;
+    config = { ...config, ...newConfig };
+    
+    if (newConfig.priceBucketSize && newConfig.priceBucketSize !== oldBucketSize) {
+        state.marketProfile = generateMarketProfile();
+        postStateUpdate();
+    }
+}
+
 function updateVolatility(now) {
     const lookbackPeriod = 10000; // 10 seconds
     state.ticks = state.ticks.filter(tick => now - tick.time <= lookbackPeriod);
     if (state.tickMagnitudes.length > 50) state.tickMagnitudes.shift();
     
     if (state.ticks.length < 2) {
-        state.volatility *= 0.95; // Dampen volatility if no recent ticks
+        state.volatility *= 0.95;
         return;
     }
     
@@ -84,15 +98,14 @@ function updateVolatility(now) {
     const tickFrequency = state.ticks.length / (lookbackPeriod / 1000);
     
     const magnitudeScore = Math.min(avgMagnitude / 2, 3);
-    const frequencyScore = Math.min(tickFrequency / 5, 3); // Adjusted for more impact
+    const frequencyScore = Math.min(tickFrequency / 5, 3);
     
     const rawVolatility = (magnitudeScore * 0.6) + (frequencyScore * 0.4);
     
-    // Use a more responsive smoothing factor
     const smoothingFactor = 0.2; 
     state.volatility = ((state.volatility || 0) * (1 - smoothingFactor)) + (rawVolatility * smoothingFactor);
-    state.volatility = Math.max(0.05, state.volatility); // Lower minimum
-    state.volatilityIntensity = Math.min(1, state.volatility / 3.5); // Adjusted scale
+    state.volatility = Math.max(0.05, state.volatility);
+    state.volatilityIntensity = Math.min(1, state.volatility / 3.5);
 }
 
 function generateMarketProfile() {
@@ -103,8 +116,10 @@ function generateMarketProfile() {
         ? state.allTicks 
         : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
 
+    const priceToBucketFactor = Math.pow(10, digits) / config.priceBucketSize;
+
     relevantTicks.forEach(t => {
-        const priceBucket = Math.floor(t.price * (10000 / config.priceBucketSize));
+        const priceBucket = Math.floor(t.price * priceToBucketFactor);
         const bucket = profileData.get(priceBucket) || { buy: 0, sell: 0, total: 0 };
         if (t.direction > 0) bucket.buy++; else bucket.sell++;
         bucket.total++;
@@ -114,7 +129,7 @@ function generateMarketProfile() {
     return {
         levels: Array.from(profileData.entries())
             .map(([bucket, data]) => ({
-                price: bucket * (config.priceBucketSize / 10000),
+                price: bucket / priceToBucketFactor,
                 volume: data.total,
                 buy: data.buy,
                 sell: data.sell
@@ -124,16 +139,15 @@ function generateMarketProfile() {
 }
 
 function postStateUpdate() {
-    const stateResult = VisualizationStateSchema.safeParse(state);
-    if (stateResult.success) {
-        self.postMessage({
-            type: 'stateUpdate',
-            payload: {
-                newState: stateResult.data,
-                marketProfile: state.marketProfile,
-            }
-        });
-    } else {
-        console.error('Worker: Invalid state data', JSON.stringify(stateResult.error, null, 2));
+    if (isNaN(state.currentPrice)) {
+        console.error('Worker: Invalid state detected - currentPrice is NaN. Aborting update.');
+        return;
     }
+    self.postMessage({
+        type: 'stateUpdate',
+        payload: {
+            newState: state,
+            marketProfile: state.marketProfile,
+        }
+    });
 }

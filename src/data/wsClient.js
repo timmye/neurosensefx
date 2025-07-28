@@ -15,8 +15,7 @@ const WS_URL = (() => {
     const host = window.location.hostname;
     const path = '/ws';
     return `${protocol}//${host}${path}`;
-})();
-
+})()
 export function connect() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     
@@ -69,9 +68,10 @@ function handleSocketMessage(data) {
 function handleDataPackage(data) {
     symbolStore.createNewSymbol(data.symbol, data);
     subscriptions.update(subs => subs.add(data.symbol));
-    if (get(dataSourceMode) === 'live' && ws) {
-        ws.send(JSON.stringify({ type: 'start_tick_stream', symbol: data.symbol }));
-    }
+    // The backend now atomically subscribes, so this is no longer needed.
+    // if (get(dataSourceMode) === 'live' && ws) {
+    //     ws.send(JSON.stringify({ type: 'start_tick_stream', symbol: data.symbol }));
+    // }
 }
 
 export function disconnect() {
@@ -95,6 +95,7 @@ function startSimulation() {
 
     const mockDataPackage = {
         symbol,
+        digits: 5, // Add the missing digits property
         adr,
         todaysOpen: midPoint,
         todaysHigh: midPoint + 0.00150,
@@ -136,10 +137,8 @@ function startSimulation() {
         const symbols = get(symbolStore);
         const simSymbol = symbols[symbol];
         
-        // Defensive check: use defaultConfig.frequencyMode if not yet available
         const currentFrequencyMode = simSymbol?.config?.frequencyMode || defaultConfig.frequencyMode;
 
-        // If symbol or its config is not ready, defer the loop
         if (!simSymbol || !simSymbol.config || !frequencySettings[currentFrequencyMode] || !magnitudeSettings[currentFrequencyMode]) {
             simulationInterval = requestAnimationFrame(simulationLoop);
             return;
@@ -179,7 +178,7 @@ function stopSimulation() {
 
 export function subscribe(symbol) {
     if (get(dataSourceMode) === 'live' && get(wsStatus) === 'connected' && ws) {
-        const adrLookbackDays = 5; // Example
+        const adrLookbackDays = 5;
         ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays }));
     }
 }

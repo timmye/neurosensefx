@@ -27,9 +27,11 @@ export const MarketDataSchema = z.object({
 
 export const SymbolDataPackageSchema = MarketDataSchema.extend({
   symbol: z.string(),
+  digits: z.number().int(),
   initialPrice: z.number(),
-  initialMarketProfile: z.array(HistoricalBarSchema),
+  initialMarketProfile: z.array(z.any()),
 });
+
 
 // State schemas
 export const FlashEffectSchema = z.object({
@@ -59,7 +61,7 @@ export const VisualizationStateSchema = z.object({
     lastUpdateTime: z.number(),
   }),
   volatility: z.number(),
-  volatilityIntensity: z.number(), // Add this line
+  volatilityIntensity: z.number(), 
   lastTickDirection: z.enum(['up', 'down']),
   marketProfile: MarketProfileSchema,
   adrHigh: z.number(),
@@ -113,4 +115,5 @@ export const VisualizationConfigSchema = z.object({
   singleSidedProfileSide: z.string(),
   showMaxMarker: z.boolean(),
   adrLookbackDays: z.number(),
+  frequencyMode: z.string(),
 });
