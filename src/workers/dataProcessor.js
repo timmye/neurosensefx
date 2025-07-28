@@ -11,22 +11,33 @@ let digits = 5;
 
 self.onmessage = (event) => {
     const { type, payload } = event.data;
-    switch (type) {
-        case 'init':
-            initialize(payload);
-            break;
-        case 'tick':
-            processTick(payload);
-            break;
-        case 'updateConfig':
-            updateConfig(payload);
-            break;
+    try {
+        switch (type) {
+            case 'init':
+                console.log('[E2E_DEBUG | dataProcessor] Initializing with payload:', payload);
+                initialize(payload);
+                console.log('[E2E_DEBUG | dataProcessor] Initial state after init:', state);
+                console.log('[E2E_DEBUG | dataProcessor] Initialized digits:', digits);
+                break;
+            case 'tick':
+                console.log('[E2E_DEBUG | dataProcessor] 5. processTick entry with payload:', payload); // Log 5: processTick entry
+                 console.log('[E2E_DEBUG | dataProcessor] Digits before processing tick:', digits);
+                processTick(payload);
+                 console.log('[E2E_DEBUG | dataProcessor] currentPrice after processing tick:', state.currentPrice);
+                break;
+            case 'updateConfig':
+                updateConfig(payload);
+                break;
+        }
+    } catch (error) {
+        console.error('[E2E_DEBUG | dataProcessor] Uncaught error in onmessage handler:', error);
     }
 };
 
 function initialize(payload) {
     config = payload.config;
-    digits = payload.digits || 5; 
+    // Ensure digits is a number, default to 5 if invalid
+    digits = typeof payload.digits === 'number' ? payload.digits : 5; 
 
     state = {
         currentPrice: payload.initialPrice, 
@@ -56,10 +67,13 @@ function processTick(tick) {
     state.currentPrice = tick.bid;
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
     
-    // This calculation remains correct for determining volatility magnitude
-    const magnitude = Math.abs(state.currentPrice - lastPrice) * Math.pow(10, digits);
+    // Ensure lastPrice is a number before calculating magnitude
+    const magnitude = typeof lastPrice === 'number' 
+        ? Math.abs(state.currentPrice - lastPrice) * Math.pow(10, digits)
+        : 0; // Or handle initial tick differently if lastPrice is not yet a number
     
     const now = performance.now();
+    state.lastTickTime = now; // Corrected in a previous step
     
     state.ticks.push({ price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now });
     state.allTicks.push({ price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now });
@@ -116,7 +130,13 @@ function generateMarketProfile() {
         ? state.allTicks 
         : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
 
-    const priceToBucketFactor = Math.pow(10, digits) / config.priceBucketSize;
+     // Ensure digits is a valid number before using Math.pow
+    const priceToBucketFactor = typeof digits === 'number' && !isNaN(digits) 
+        ? Math.pow(10, digits) / config.priceBucketSize
+        : 0; // Or handle this error appropriately
+
+     if (priceToBucketFactor === 0) return { levels: [] }; // Avoid division by zero
+
 
     relevantTicks.forEach(t => {
         const priceBucket = Math.floor(t.price * priceToBucketFactor);
@@ -139,6 +159,7 @@ function generateMarketProfile() {
 }
 
 function postStateUpdate() {
+     console.log('[E2E_DEBUG | dataProcessor] 6. Posting state update:', state); // Log 6: Before posting state
     if (isNaN(state.currentPrice)) {
         console.error('Worker: Invalid state detected - currentPrice is NaN. Aborting update.');
         return;

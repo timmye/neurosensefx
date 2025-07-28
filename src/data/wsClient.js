@@ -9,6 +9,7 @@ export const subscriptions = writable(new Set());
 
 let ws = null;
 let simulationInterval = null;
+let connectionMonitorInterval = null; // New interval for monitoring connection
 
 const WS_URL = (() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -23,20 +24,58 @@ export function connect() {
     wsStatus.set('ws-connecting');
     try {
         ws = new WebSocket(WS_URL);
-        ws.onopen = () => {};
-        ws.onmessage = (event) => handleSocketMessage(JSON.parse(event.data));
-        ws.onclose = () => {
+        ws.onopen = () => {
+            console.log('[E2E_DEBUG | wsClient] WebSocket connection opened.');
+            startConnectionMonitor();
+        };
+        ws.onmessage = (event) => {
+            console.log('[E2E_DEBUG | wsClient] RAW_MESSAGE:', event.data); // Log 1: Raw data received
+            handleSocketMessage(JSON.parse(event.data));
+        };
+        ws.onclose = (event) => {
+            console.log('[E2E_DEBUG | wsClient] WebSocket connection closed:', event.code, event.reason);
+            stopConnectionMonitor();
             ws = null;
             if (get(wsStatus) !== 'error') wsStatus.set('disconnected');
             availableSymbols.set([]);
         };
         ws.onerror = (err) => {
-            console.error('WebSocket Error:', err);
+            console.error('[E2E_DEBUG | wsClient] WebSocket Error:', err);
+            stopConnectionMonitor();
             if (ws) ws.close();
         };
     } catch (e) {
         console.error('Failed to create WebSocket:', e);
         ws = null;
+    }
+}
+
+function startConnectionMonitor() {
+    stopConnectionMonitor(); // Ensure only one monitor is running
+    connectionMonitorInterval = setInterval(() => {
+        if (ws) {
+            console.log('[E2E_DEBUG | wsClient] WebSocket readyState:', ws.readyState, '(' + getWebSocketReadyStateString(ws.readyState) + ')');
+        } else {
+            console.log('[E2E_DEBUG | wsClient] WebSocket instance is null. Stopping monitor.');
+            stopConnectionMonitor();
+        }
+    }, 2000); // Log every 2 seconds
+}
+
+function stopConnectionMonitor() {
+    if (connectionMonitorInterval) {
+        clearInterval(connectionMonitorInterval);
+        connectionMonitorInterval = null;
+    }
+}
+
+function getWebSocketReadyStateString(readyState) {
+    switch (readyState) {
+        case WebSocket.CONNECTING: return 'CONNECTING';
+        case WebSocket.OPEN: return 'OPEN';
+        case WebSocket.CLOSING: return 'CLOSING';
+        case WebSocket.CLOSED: return 'CLOSED';
+        default: return 'UNKNOWN';
     }
 }
 
@@ -58,6 +97,7 @@ function handleSocketMessage(data) {
     } else if (data.type === 'tick') {
         const tickResult = TickSchema.safeParse(data);
         if (tickResult.success) {
+             console.log('[E2E_DEBUG | wsClient] 2. Valid Tick Received:', tickResult.data); // Log 2: Validated tick
             symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
         } else {
             console.error('[wsClient] Invalid tick data received:', tickResult.error);
