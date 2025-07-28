@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy, afterUpdate } from 'svelte';
+  import { onMount } from 'svelte';
   import { scaleLinear } from 'd3-scale';
   import { drawDayRangeMeter } from '../../lib/viz/dayRangeMeter.js';
   import { drawPriceFloat } from '../../lib/viz/priceFloat.js';
@@ -9,71 +9,50 @@
 
   export let config;
   export let state;
-  export let marketProfile;
 
   let canvas;
   let ctx;
-  let animationFrameId;
-
-  let width = 220;
-  let height = 120;
-  
-  function setupCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
-    ctx.scale(dpr, dpr);
-  }
-
-  function render() {
-    if (!ctx || !config || !state || !marketProfile) {
-      animationFrameId = requestAnimationFrame(render);
-      return;
-    }
-
-    // E2E DEBUGGING
-    console.log(`[E2E_DEBUG | Container] 15. Render loop fired. State:`, state);
-    
-    const domain = [state.adrLow, state.adrHigh];
-    const range = [height, 0];
-    console.log(`[E2E_DEBUG | Container] 16. Y-Scale params. Domain: ${JSON.stringify(domain)}, Range: ${JSON.stringify(range)}`);
-    
-    const y = scaleLinear().domain(domain).range(range);
-    const yCoord = y(state.currentPrice);
-    console.log(`[E2E_DEBUG | Container] 17. Calculated Y-Coordinate for price ${state.currentPrice}: ${yCoord}`);
-
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, width, height);
-    
-    drawDayRangeMeter(ctx, config, state, y);
-    drawMarketProfile(ctx, config, state, y, marketProfile);
-    drawVolatilityOrb(ctx, config, state, width, height);
-    drawPriceFloat(ctx, config, state, y);
-    drawPriceDisplay(ctx, config, state, y, width);
-
-    animationFrameId = requestAnimationFrame(render);
-  }
+  let dpr = 1;
 
   onMount(() => {
     ctx = canvas.getContext('2d');
-    setupCanvas();
-    render();
+    dpr = window.devicePixelRatio || 1;
   });
-  
-  afterUpdate(() => {
-      if(config && (width !== config.visualizationsContentWidth || height !== config.meterHeight)) {
-          width = config.visualizationsContentWidth;
-          height = config.meterHeight;
-          setupCanvas();
-      }
-  })
 
-  onDestroy(() => {
-    cancelAnimationFrame(animationFrameId);
-  });
+  $: if (canvas && config) {
+    const { visualizationsContentWidth, meterHeight } = config;
+    canvas.style.width = `${visualizationsContentWidth}px`;
+    canvas.style.height = `${meterHeight}px`;
+    canvas.width = Math.floor(visualizationsContentWidth * dpr);
+    canvas.height = Math.floor(meterHeight * dpr);
+    ctx?.scale(dpr, dpr);
+  }
+
+  $: if (ctx && state && config) {
+    console.log('[E2E_DEBUG | Container] Drawing canvas because state or config changed:', { state, config });
+    draw(state, config);
+  }
+
+  function draw(currentState, currentConfig) {
+    const { visualizationsContentWidth, meterHeight } = currentConfig;
+    
+    // The single, authoritative Y-scale for this render pass.
+    // It is created using the dynamic visual range.
+    const y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([meterHeight, 0]);
+    
+    console.log(`[E2E_DEBUG | Container] Y-Scale created with visual range [${currentState.visualLow}, ${currentState.visualHigh}]. Price ${currentState.currentPrice} -> Y: ${y(currentState.currentPrice)}`);
+
+    ctx.clearRect(0, 0, visualizationsContentWidth, meterHeight);
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
+
+    // This single y-scale is passed to all drawing functions, ensuring they are perfectly aligned.
+    drawDayRangeMeter(ctx, currentConfig, currentState, y);
+    drawMarketProfile(ctx, currentConfig, currentState, y); // Market Profile correctly uses the dynamic scale.
+    drawVolatilityOrb(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
+    drawPriceFloat(ctx, currentConfig, currentState, y);
+    drawPriceDisplay(ctx, currentConfig, currentState, y, visualizationsContentWidth);
+  }
 
 </script>
 

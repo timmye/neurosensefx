@@ -66,6 +66,9 @@ export const VisualizationStateSchema = z.object({
   marketProfile: MarketProfileSchema,
   adrHigh: z.number(),
   adrLow: z.number(),
+  // ADDED: New properties for dynamic visual range
+  visualHigh: z.number(),
+  visualLow: z.number(),
   todaysHigh: z.number(),
   todaysLow: z.number(),
   flashEffect: FlashEffectSchema.nullable(),

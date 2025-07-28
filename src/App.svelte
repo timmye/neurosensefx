@@ -56,7 +56,6 @@
                 <Container
                   config={data.config}
                   state={data.state}
-                  marketProfile={data.marketProfile}
                 />
               {:else}
                 <div class="placeholder">

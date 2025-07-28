@@ -14,16 +14,10 @@ self.onmessage = (event) => {
     try {
         switch (type) {
             case 'init':
-                console.log('[E2E_DEBUG | dataProcessor] Initializing with payload:', payload);
                 initialize(payload);
-                console.log('[E2E_DEBUG | dataProcessor] Initial state after init:', state);
-                console.log('[E2E_DEBUG | dataProcessor] Initialized digits:', digits);
                 break;
             case 'tick':
-                console.log('[E2E_DEBUG | dataProcessor] 5. processTick entry with payload:', payload); // Log 5: processTick entry
-                 console.log('[E2E_DEBUG | dataProcessor] Digits before processing tick:', digits);
                 processTick(payload);
-                 console.log('[E2E_DEBUG | dataProcessor] currentPrice after processing tick:', state.currentPrice);
                 break;
             case 'updateConfig':
                 updateConfig(payload);
@@ -36,18 +30,28 @@ self.onmessage = (event) => {
 
 function initialize(payload) {
     config = payload.config;
-    // Ensure digits is a number, default to 5 if invalid
     digits = typeof payload.digits === 'number' ? payload.digits : 5; 
+
+    const initialTicks = (payload.initialMarketProfile || []).map(bar => {
+        return {
+            price: bar.close,
+            direction: bar.close > bar.open ? 1 : -1,
+            magnitude: Math.abs(bar.close - bar.open) * Math.pow(10, digits),
+            time: bar.timestamp 
+        };
+    });
 
     state = {
         currentPrice: payload.initialPrice, 
         midPrice: payload.todaysOpen,
         adrHigh: payload.projectedHigh,
         adrLow: payload.projectedLow,
+        visualHigh: payload.projectedHigh,
+        visualLow: payload.projectedLow,
         todaysHigh: payload.todaysHigh,
         todaysLow: payload.todaysLow,
         ticks: [],
-        allTicks: [],
+        allTicks: initialTicks,
         volatility: 0.5,
         volatilityIntensity: 0.25,
         tickMagnitudes: [],
@@ -67,16 +71,26 @@ function processTick(tick) {
     state.currentPrice = tick.bid;
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
     
-    // Ensure lastPrice is a number before calculating magnitude
+    const adrRange = state.adrHigh - state.adrLow;
+    const buffer = adrRange * 0.1;
+
+    if (state.currentPrice > state.visualHigh) {
+        state.visualHigh = state.currentPrice + buffer;
+    }
+    if (state.currentPrice < state.visualLow) {
+        state.visualLow = state.currentPrice - buffer;
+    }
+
     const magnitude = typeof lastPrice === 'number' 
         ? Math.abs(state.currentPrice - lastPrice) * Math.pow(10, digits)
-        : 0; // Or handle initial tick differently if lastPrice is not yet a number
+        : 0;
     
     const now = performance.now();
-    state.lastTickTime = now; // Corrected in a previous step
+    state.lastTickTime = now;
     
-    state.ticks.push({ price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now });
-    state.allTicks.push({ price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now });
+    const newTick = { price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now };
+    state.ticks.push(newTick);
+    state.allTicks.push(newTick);
     state.tickMagnitudes.push(magnitude);
 
     state.todaysHigh = Math.max(state.todaysHigh, tick.bid);
@@ -99,8 +113,8 @@ function updateConfig(newConfig) {
 }
 
 function updateVolatility(now) {
-    const lookbackPeriod = 10000; // 10 seconds
-    state.ticks = state.ticks.filter(tick => now - tick.time <= lookbackPeriod);
+    const lookbackPeriod = 10000;
+    state.ticks = state.ticks.filter(t => now - t.time <= lookbackPeriod);
     if (state.tickMagnitudes.length > 50) state.tickMagnitudes.shift();
     
     if (state.ticks.length < 2) {
@@ -130,13 +144,11 @@ function generateMarketProfile() {
         ? state.allTicks 
         : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
 
-     // Ensure digits is a valid number before using Math.pow
     const priceToBucketFactor = typeof digits === 'number' && !isNaN(digits) 
         ? Math.pow(10, digits) / config.priceBucketSize
-        : 0; // Or handle this error appropriately
+        : 0;
 
-     if (priceToBucketFactor === 0) return { levels: [] }; // Avoid division by zero
-
+     if (priceToBucketFactor === 0) return { levels: [] };
 
     relevantTicks.forEach(t => {
         const priceBucket = Math.floor(t.price * priceToBucketFactor);
@@ -158,8 +170,8 @@ function generateMarketProfile() {
     };
 }
 
+// CORRECTED: The payload now only sends the single, authoritative newState object.
 function postStateUpdate() {
-     console.log('[E2E_DEBUG | dataProcessor] 6. Posting state update:', state); // Log 6: Before posting state
     if (isNaN(state.currentPrice)) {
         console.error('Worker: Invalid state detected - currentPrice is NaN. Aborting update.');
         return;
@@ -167,8 +179,7 @@ function postStateUpdate() {
     self.postMessage({
         type: 'stateUpdate',
         payload: {
-            newState: state,
-            marketProfile: state.marketProfile,
+            newState: state
         }
     });
 }

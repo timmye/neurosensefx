@@ -1,4 +1,4 @@
-import { writable, get } from 'svelte/store';
+import { writable } from 'svelte/store';
 import {
     VisualizationConfigSchema,
     VisualizationStateSchema,
@@ -9,6 +9,7 @@ import {
 const { subscribe, set, update } = writable({});
 const workers = new Map();
 
+// Default configuration remains the same
 export const defaultConfig = VisualizationConfigSchema.parse({
     visualizationsContentWidth: 220,
     meterHeight: 120,
@@ -56,7 +57,6 @@ export const defaultConfig = VisualizationConfigSchema.parse({
 });
 
 function createNewSymbol(symbol, dataPackage) {
-    console.log(`[E2E_DEBUG | symbolStore] 10. Received data package for ${symbol}:`, dataPackage);
     const packageResult = SymbolDataPackageSchema.safeParse(dataPackage);
     if (!packageResult.success) {
         console.error('Invalid data package for new symbol:', packageResult.error);
@@ -67,27 +67,28 @@ function createNewSymbol(symbol, dataPackage) {
     update(symbols => {
         if (symbols[symbol]) return symbols;
 
-        // Reverted to standard worker creation as dynamic template strings are not supported by Vite.
         const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
         worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
         
         const initPayload = {
-            type: 'init', payload: {
+            type: 'init',
+            payload: {
                 config: defaultConfig,
                 ...validatedPackage 
             }
         };
-        console.log(`[E2E_DEBUG | symbolStore] 12. Sending 'init' payload to worker:`, initPayload);
         worker.postMessage(initPayload);
         
         workers.set(symbol, worker);
 
-        // Use initialPrice for the currentPrice to prevent UI flicker
-        const initialState = {
+        // FIXED: Added the missing visualHigh and visualLow properties to satisfy the schema.
+        const initialState = VisualizationStateSchema.parse({
             currentPrice: validatedPackage.initialPrice,
             midPrice: validatedPackage.todaysOpen,
             adrHigh: validatedPackage.projectedHigh,
             adrLow: validatedPackage.projectedLow,
+            visualHigh: validatedPackage.projectedHigh, // Initialize visual range
+            visualLow: validatedPackage.projectedLow,   // Initialize visual range
             todaysHigh: validatedPackage.todaysHigh,
             todaysLow: validatedPackage.todaysLow,
             volatility: 0.5,
@@ -95,15 +96,13 @@ function createNewSymbol(symbol, dataPackage) {
             lastTickDirection: 'up',
             lastTickTime: 0,
             maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
-            marketProfile: { levels: [] },
+            marketProfile: { levels: validatedPackage.initialMarketProfile || [] },
             flashEffect: null
-        };
-        console.log(`[E2E_DEBUG | symbolStore] 11. Created pre-populated initialState:`, initialState);
+        });
         
         symbols[symbol] = {
             config: { ...defaultConfig },
             state: initialState,
-            marketProfile: { levels: [] },
             ready: false
         };
         return { ...symbols };
@@ -115,19 +114,14 @@ function handleWorkerMessage(symbol, data) {
     if (type === 'stateUpdate') {
         const stateResult = VisualizationStateSchema.safeParse(payload.newState);
         if (stateResult.success) {
-            console.log('[E2E_DEBUG | symbolStore] 7. Received state update from worker:', stateResult.data); // Log 7: State from worker
             update(symbols => {
                 const existingSymbol = symbols[symbol];
                 if (existingSymbol) {
-                    const newState = stateResult.data; // Use validated data
-                     // Log 8: State after store update (inside update callback)
-                    console.log('[E2E_DEBUG | symbolStore] 8. Store updated for', symbol, ':', newState);
                     return {
                         ...symbols,
                         [symbol]: {
                             ...existingSymbol,
-                            state: newState,
-                            marketProfile: payload.marketProfile,
+                            state: stateResult.data,
                             ready: true
                         }
                     };
@@ -141,17 +135,34 @@ function handleWorkerMessage(symbol, data) {
 }
 
 function dispatchTick(symbol, tick) {
-    console.log('[E2E_DEBUG | symbolStore] 3. dispatchTick called for', symbol, 'with tick:', tick); // Log 3: dispatchTick entry
     const tickResult = TickSchema.safeParse(tick);
-    if (tickResult.success) {
-        const worker = workers.get(symbol);
-        if (worker) {
-             const tickMessage = { type: 'tick', payload: tickResult.data };
-             console.log('[E2E_DEBUG | symbolStore] 4. Posting tick message to worker:', tickMessage); // Log 4: Before posting to worker
-            worker.postMessage(tickMessage);
-        }
-    } else {
+    if (!tickResult.success) {
         console.error('Invalid tick data:', JSON.stringify(tickResult.error, null, 2));
+        return;
+    }
+    const validatedTick = tickResult.data;
+
+    update(symbols => {
+        const existingSymbol = symbols[symbol];
+        if (existingSymbol) {
+            return {
+                ...symbols,
+                [symbol]: {
+                    ...existingSymbol,
+                    state: {
+                        ...existingSymbol.state,
+                        currentPrice: validatedTick.bid,
+                        lastTickDirection: validatedTick.bid > existingSymbol.state.currentPrice ? 'up' : 'down'
+                    }
+                }
+            };
+        }
+        return symbols;
+    });
+
+    const worker = workers.get(symbol);
+    if (worker) {
+        worker.postMessage({ type: 'tick', payload: validatedTick });
     }
 }
 
