@@ -5,6 +5,7 @@
   import { selectedSymbol } from '../stores/uiState.js';
 
   export let config;
+  export let state;
 
   const dispatch = createEventDispatcher();
 
@@ -40,6 +41,8 @@
   function handleUnsubscribe(symbol) {
       unsubscribe(symbol);
   }
+
+  $: digits = state?.digits || 5;
 
 </script>
 
@@ -103,6 +106,21 @@
                     {/if}
                 </div>
               </div>
+          {/if}
+
+          <!-- Live Debug Info -->
+          {#if state}
+          <div class="control-group-container debug-info">
+              <h3 class="group-title">Live Debug Info</h3>
+              <div class="info-grid">
+                  <span>Profile Levels:</span><span>{state.marketProfile?.levels?.length || 0}</span>
+                  <span>Profile Ticks:</span><span>{state.marketProfile?.tickCount || 0}</span>
+                  <span>ADR High:</span><span>{state.adrHigh?.toFixed(digits)}</span>
+                  <span>ADR Low:</span><span>{state.adrLow?.toFixed(digits)}</span>
+                  <span>Visual High:</span><span>{state.visualHigh?.toFixed(digits)}</span>
+                  <span>Visual Low:</span><span>{state.visualLow?.toFixed(digits)}</span>
+              </div>
+          </div>
           {/if}
 
           {#if config}
@@ -239,6 +257,21 @@
       border-radius: 8px;
       padding: 15px;
       margin-bottom: 15px;
+  }
+  .debug-info {
+      background-color: #4b5563; /* Slightly different background for debug */
+      border: 1px solid #6b7280;
+  }
+  .info-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 5px 10px;
+      font-family: monospace;
+      font-size: 0.9em;
+  }
+  .info-grid span:nth-child(odd) {
+      font-weight: bold;
+      color: #9ca3af;
   }
   .title-bar {
       display: flex;

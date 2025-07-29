@@ -25,6 +25,7 @@
     dataSourceMode.set(event.detail.mode);
     selectedSymbol.set(null);
   }
+
 </script>
 
 <main>
@@ -70,6 +71,7 @@
     <div class="config-panel-container">
       <ConfigPanel
         config={symbols[$selectedSymbol]?.config}
+        state={symbols[$selectedSymbol]?.state} 
         on:dataSourceChange={handleDataSourceChange}
       />
     </div>

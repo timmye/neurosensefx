@@ -51,6 +51,7 @@ export const MarketProfileLevelSchema = z.object({
 
 export const MarketProfileSchema = z.object({
   levels: z.array(MarketProfileLevelSchema),
+  tickCount: z.number().optional().default(0), // Added tickCount for diagnostics
 });
 
 export const VisualizationStateSchema = z.object({

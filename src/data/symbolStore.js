@@ -56,16 +56,21 @@ export const defaultConfig = VisualizationConfigSchema.parse({
 });
 
 function createNewSymbol(symbol, dataPackage) {
+    console.log('[MP_DEBUG | symbolStore] createNewSymbol called for:', symbol, 'with package:', dataPackage);
     const packageResult = SymbolDataPackageSchema.safeParse(dataPackage);
     if (!packageResult.success) {
-        console.error('Invalid data package for new symbol:', packageResult.error);
+        console.error('[MP_DEBUG | symbolStore] Invalid data package for new symbol:', packageResult.error);
         return;
     }
     const validatedPackage = packageResult.data;
 
     update(symbols => {
-        if (symbols[symbol]) return symbols;
+        if (symbols[symbol]) {
+            console.log('[MP_DEBUG | symbolStore] Symbol already exists:', symbol);
+            return symbols;
+        }
 
+        console.log('[MP_DEBUG | symbolStore] Creating new worker for symbol:', symbol);
         const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
         worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
         
@@ -76,6 +81,7 @@ function createNewSymbol(symbol, dataPackage) {
                 ...validatedPackage 
             }
         };
+         console.log('[MP_DEBUG | symbolStore] Posting init message to worker:', initPayload);
         worker.postMessage(initPayload);
         
         workers.set(symbol, worker);
@@ -100,24 +106,29 @@ function createNewSymbol(symbol, dataPackage) {
             marketProfile: { levels: [] }, // Start with an empty profile
             flashEffect: null
         };
+        console.log('[MP_DEBUG | symbolStore] Initial state before worker update:', initialState);
         
         symbols[symbol] = {
             config: { ...defaultConfig },
             state: initialState,
             ready: false // This will become true on the first message from the worker.
         };
+        console.log('[MP_DEBUG | symbolStore] symbolStore after adding new symbol (before worker update):', { ...symbols });
         return { ...symbols };
     });
 }
 
 function handleWorkerMessage(symbol, data) {
+    console.log('[MP_DEBUG | symbolStore] Received worker message for symbol:', symbol, 'data:', data);
     const { type, payload } = data;
     if (type === 'stateUpdate') {
+        console.log('[MP_DEBUG | symbolStore] Received stateUpdate from worker.', payload);
         const stateResult = VisualizationStateSchema.safeParse(payload.newState);
         if (stateResult.success) {
             update(symbols => {
                 const existingSymbol = symbols[symbol];
                 if (existingSymbol) {
+                     console.log('[MP_DEBUG | symbolStore] Updating state for symbol:', symbol);
                     return {
                         ...symbols,
                         [symbol]: {
@@ -127,18 +138,20 @@ function handleWorkerMessage(symbol, data) {
                         }
                     };
                 }
+                console.warn('[MP_DEBUG | symbolStore] Received stateUpdate for non-existent symbol:', symbol);
                 return symbols;
             });
         } else {
-            console.error('Worker: Invalid state data from worker:', JSON.stringify(stateResult.error, null, 2));
+            console.error('[MP_DEBUG | symbolStore] Worker: Invalid state data from worker:', JSON.stringify(stateResult.error, null, 2));
         }
     }
 }
 
 function dispatchTick(symbol, tick) {
+     console.log('[MP_DEBUG | symbolStore] dispatchTick called for:', symbol, 'tick:', tick);
     const tickResult = TickSchema.safeParse(tick);
     if (!tickResult.success) {
-        console.error('Invalid tick data:', JSON.stringify(tickResult.error, null, 2));
+        console.error('[MP_DEBUG | symbolStore] Invalid tick data:', JSON.stringify(tickResult.error, null, 2));
         return;
     }
     const validatedTick = tickResult.data;
@@ -146,6 +159,8 @@ function dispatchTick(symbol, tick) {
     update(symbols => {
         const existingSymbol = symbols[symbol];
         if (existingSymbol) {
+            // Minimal update to the store for immediate price display
+             console.log('[MP_DEBUG | symbolStore] Updating minimal state for symbol:', symbol);
             return {
                 ...symbols,
                 [symbol]: {
@@ -158,16 +173,21 @@ function dispatchTick(symbol, tick) {
                 }
             };
         }
+         console.warn('[MP_DEBUG | symbolStore] dispatchTick for non-existent symbol:', symbol);
         return symbols;
     });
 
     const worker = workers.get(symbol);
     if (worker) {
+        console.log('[MP_DEBUG | symbolStore] Posting tick message to worker:', validatedTick);
         worker.postMessage({ type: 'tick', payload: validatedTick });
+    } else {
+         console.warn('[MP_DEBUG | symbolStore] No worker found for symbol to dispatch tick:', symbol);
     }
 }
 
 function updateConfig(symbol, newConfig) {
+    console.log('[MP_DEBUG | symbolStore] updateConfig called for:', symbol, 'with config:', newConfig);
     const configResult = VisualizationConfigSchema.partial().safeParse(newConfig);
     if (configResult.success) {
         update(symbols => {
@@ -176,8 +196,10 @@ function updateConfig(symbol, newConfig) {
                 const updatedConfig = { ...existingSymbol.config, ...configResult.data };
                 const worker = workers.get(symbol);
                 if (worker) {
+                    console.log('[MP_DEBUG | symbolStore] Posting updateConfig message to worker:', configResult.data);
                     worker.postMessage({ type: 'updateConfig', payload: configResult.data });
                 }
+                 console.log('[MP_DEBUG | symbolStore] Updating config in store for symbol:', symbol, updatedConfig);
                 return {
                     ...symbols,
                     [symbol]: {
@@ -186,21 +208,25 @@ function updateConfig(symbol, newConfig) {
                     }
                 };
             }
+             console.warn('[MP_DEBUG | symbolStore] updateConfig for non-existent symbol:', symbol);
             return symbols;
         });
     } else {
-        console.error('Invalid config data:', JSON.stringify(configResult.error, null, 2));
+        console.error('[MP_DEBUG | symbolStore] Invalid config data:', JSON.stringify(configResult.error, null, 2));
     }
 }
 
 function resetConfig(symbol) {
+     console.log('[MP_DEBUG | symbolStore] resetConfig called for:', symbol);
     update(symbols => {
         const existingSymbol = symbols[symbol];
         if (existingSymbol) {
             const worker = workers.get(symbol);
             if (worker) {
+                 console.log('[MP_DEBUG | symbolStore] Posting resetConfig (defaultConfig) to worker for symbol:', symbol);
                 worker.postMessage({ type: 'updateConfig', payload: { ...defaultConfig } });
             }
+             console.log('[MP_DEBUG | symbolStore] Resetting config in store for symbol:', symbol);
             return {
                 ...symbols,
                 [symbol]: {
@@ -209,26 +235,31 @@ function resetConfig(symbol) {
                 }
             };
         }
+         console.warn('[MP_DEBUG | symbolStore] resetConfig for non-existent symbol:', symbol);
         return symbols;
     });
 }
 
 function removeSymbol(symbol) {
+    console.log('[MP_DEBUG | symbolStore] removeSymbol called for:', symbol);
     update(symbols => {
         const newSymbols = { ...symbols };
         if (newSymbols[symbol]) {
             const worker = workers.get(symbol);
             if (worker) {
+                 console.log('[MP_DEBUG | symbolStore] Terminating worker for symbol:', symbol);
                 worker.terminate();
                 workers.delete(symbol);
             }
             delete newSymbols[symbol];
+             console.log('[MP_DEBUG | symbolStore] Removed symbol from store:', symbol);
         }
         return newSymbols;
     });
 }
 
 function clear() {
+     console.log('[MP_DEBUG | symbolStore] clear called. Terminating all workers.');
     set({});
     workers.forEach(worker => worker.terminate());
     workers.clear();

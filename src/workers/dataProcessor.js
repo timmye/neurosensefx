@@ -12,6 +12,7 @@ let digits = 5;
 self.onmessage = (event) => {
     const { type, payload } = event.data;
     try {
+        console.log(`[MP_DEBUG | Worker] Received message type: ${type}`, payload);
         switch (type) {
             case 'init':
                 initialize(payload);
@@ -24,11 +25,12 @@ self.onmessage = (event) => {
                 break;
         }
     } catch (error) {
-        console.error('[E2E_DEBUG | dataProcessor] Uncaught error in onmessage handler:', error);
+        console.error('[MP_DEBUG | Worker] Uncaught error in onmessage handler:', error);
     }
 };
 
 function initialize(payload) {
+    console.log('[MP_DEBUG | Worker] Initializing with payload:', payload);
     config = payload.config;
     digits = typeof payload.digits === 'number' ? payload.digits : 5; 
 
@@ -38,6 +40,7 @@ function initialize(payload) {
         magnitude: Math.abs(bar.close - bar.open) * Math.pow(10, digits),
         time: bar.timestamp 
     }));
+    console.log('[MP_DEBUG | Worker] Mapped initialMarketProfile to initialTicks:', initialTicks.length);
 
     state = {
         currentPrice: payload.initialPrice, 
@@ -54,11 +57,12 @@ function initialize(payload) {
         volatilityIntensity: 0.25,
         tickMagnitudes: [],
         lastTickDirection: 'up',
-        marketProfile: { levels: [] },
+        marketProfile: { levels: [], tickCount: 0 },
         flashEffect: null,
         lastTickTime: 0,
         maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
     };
+    console.log('[MP_DEBUG | Worker] Initial state created.');
     
     state.marketProfile = generateMarketProfile();
     postStateUpdate();
@@ -101,8 +105,10 @@ function processTick(tick) {
 }
 
 function updateConfig(newConfig) {
+    console.log('[MP_DEBUG | Worker] Updating config with:', newConfig);
     const oldBucketSize = config.priceBucketSize;
     config = { ...config, ...newConfig };
+    console.log('[MP_DEBUG | Worker] Updated config.');
     
     if (newConfig.priceBucketSize && newConfig.priceBucketSize !== oldBucketSize) {
         state.marketProfile = generateMarketProfile();
@@ -135,10 +141,9 @@ function updateVolatility(now) {
 }
 
 function generateMarketProfile() {
-    console.log(`[E2E_DEBUG | dataProcessor] Generating market profile with ${state.allTicks.length} ticks.`);
     if (!config.priceBucketSize || config.priceBucketSize <= 0) {
-        console.warn('[E2E_DEBUG | dataProcessor] Cannot generate profile: invalid priceBucketSize:', config.priceBucketSize);
-        return { levels: [] };
+        console.warn('[MP_DEBUG | Worker] Cannot generate profile: invalid priceBucketSize:', config.priceBucketSize);
+        return { levels: [], tickCount: 0 };
     }
     
     const profileData = new Map();
@@ -146,16 +151,17 @@ function generateMarketProfile() {
         ? state.allTicks 
         : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
 
+    console.log(`[MP_DEBUG | Worker] Using ${relevantTicks.length} relevant ticks for profile generation.`);
+
     const priceToBucketFactor = Math.pow(10, digits) / config.priceBucketSize;
     if (isNaN(priceToBucketFactor) || priceToBucketFactor === 0) {
-         console.error('[E2E_DEBUG | dataProcessor] Cannot generate profile: invalid priceToBucketFactor:', priceToBucketFactor);
-        return { levels: [] };
+         console.error('[MP_DEBUG | Worker] Cannot generate profile: invalid priceToBucketFactor:', priceToBucketFactor);
+        return { levels: [], tickCount: 0 };
     }
 
     relevantTicks.forEach(t => {
         const priceBucket = Math.floor(t.price * priceToBucketFactor);
         if (isNaN(priceBucket)) {
-            console.warn('[E2E_DEBUG | dataProcessor] Skipping tick due to NaN priceBucket. Tick price:', t.price);
             return;
         }
         const bucket = profileData.get(priceBucket) || { buy: 0, sell: 0, total: 0 };
@@ -172,16 +178,17 @@ function generateMarketProfile() {
                 buy: data.buy,
                 sell: data.sell
             }))
-            .sort((a, b) => a.price - b.price)
+            .sort((a, b) => a.price - b.price),
+        tickCount: relevantTicks.length // Add the count of processed ticks
     };
     
-    console.log(`[E2E_DEBUG | dataProcessor] Generated profile with ${finalProfile.levels.length} levels.`);
+    console.log(`[MP_DEBUG | Worker] Generated final profile with ${finalProfile.levels.length} levels from ${finalProfile.tickCount} ticks.`);
     return finalProfile;
 }
 
 function postStateUpdate() {
     if (isNaN(state.currentPrice)) {
-        console.error('Worker: Invalid state detected - currentPrice is NaN. Aborting update.');
+        console.error('[MP_DEBUG | Worker] Invalid state detected - currentPrice is NaN. Aborting update.');
         return;
     }
     self.postMessage({
