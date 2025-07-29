@@ -54,6 +54,13 @@ export const MarketProfileSchema = z.object({
   tickCount: z.number().optional().default(0), // Added tickCount for diagnostics
 });
 
+export const PriceFloatPulseEffectSchema = z.object({
+    active: z.boolean(),
+    magnitude: z.number(),
+    color: z.string(),
+    scale: z.number(),
+}).nullable();
+
 export const VisualizationStateSchema = z.object({
   currentPrice: z.number(),
   midPrice: z.number(),
@@ -74,6 +81,7 @@ export const VisualizationStateSchema = z.object({
   todaysHigh: z.number(),
   todaysLow: z.number(),
   flashEffect: FlashEffectSchema.nullable(),
+  priceFloatPulseEffect: PriceFloatPulseEffectSchema, // New price float pulse state
 });
 
 // Configuration schema
@@ -83,6 +91,9 @@ export const VisualizationConfigSchema = z.object({
   centralAxisXPosition: z.number(),
   adrRange: z.number(),
   adrProximityThreshold: z.number(),
+  adrPulseColor: z.string().optional().default('rgba(59, 130, 246, 0.8)'),
+  adrPulseWidthRatio: z.number().optional().default(1),
+  adrPulseHeight: z.number().optional().default(2),
   priceFontSize: z.number(),
   priceFontWeight: z.string(),
   priceHorizontalOffset: z.number(),
@@ -100,6 +111,10 @@ export const VisualizationConfigSchema = z.object({
   priceFloatWidth: z.number(),
   priceFloatHeight: z.number(),
   priceFloatXOffset: z.number(),
+  showPriceFloatPulse: z.boolean().optional().default(false), // New price float pulse config
+  priceFloatPulseThreshold: z.number().optional().default(0.5), // New price float pulse config
+  priceFloatPulseColor: z.string().optional().default('rgba(167, 139, 250, 0.8)'), // New price float pulse config
+  priceFloatPulseScale: z.number().optional().default(1.5), // New price float pulse config
   showVolatilityOrb: z.boolean(),
   volatilityColorMode: z.string(),
   volatilityOrbBaseWidth: z.number(),
@@ -112,10 +127,11 @@ export const VisualizationConfigSchema = z.object({
   orbFlashThreshold: z.number(),
   orbFlashIntensity: z.number(),
   showMarketProfile: z.boolean(),
-  marketProfileView: z.string(),
+  marketProfileView: z.enum(['bars', 'combined']).default('bars'),
   distributionDepthMode: z.string(),
   distributionPercentage: z.number(),
   priceBucketSize: z.number(),
+  marketProfileWidthRatio: z.number().optional().default(1),
   showSingleSidedProfile: z.boolean(),
   singleSidedProfileSide: z.string(),
   showMaxMarker: z.boolean(),

@@ -1,10 +1,24 @@
-function formatPrice(price) {
-  const priceStr = price.toFixed(5);
+function formatPrice(price, digits) {
+  if (price === undefined || price === null) return null; // Handle null or undefined prices
+
+  const priceStr = price.toFixed(digits);
   const parts = priceStr.split('.');
+
+  // Ensure we have enough decimal places for pip/pipette logic
+  const decimalPart = parts[1] || '';
+  const paddedDecimalPart = decimalPart.padEnd(digits, '0');
+
+  // Define indices based on standard FX (5 digits)
+  const pipStartIndex = digits >= 4 ? digits - 2 : digits;
+  const pipetteIndex = digits >= 5 ? digits - 1 : digits;
+
   return {
-    bigFigure: `${parts[0]}.${parts[1].substring(0, 2)}`,
-    pips: parts[1].substring(2, 4),
-    pipette: parts[1].substring(4, 5),
+    integer: parts[0],
+    decimal: parts[1] !== undefined ? '.' : '',
+    paddedDecimal: paddedDecimalPart,
+    bigFigure: parts[0] + (parts[1] !== undefined ? '.' : '') + paddedDecimalPart.substring(0, pipStartIndex),
+    pips: paddedDecimalPart.substring(pipStartIndex, pipetteIndex),
+    pipette: paddedDecimalPart.substring(pipetteIndex, pipetteIndex + 1),
   };
 }
 
@@ -17,12 +31,21 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
     pipetteFontSizeRatio,
     showPipetteDigit,
     priceFontWeight,
+    priceUseStaticColor,
+    priceStaticColor,
+    priceUpColor,
+    priceDownColor
   } = config;
 
-  const currentPriceY = y(state.currentPrice);
-  const { bigFigure, pips, pipette } = formatPrice(state.currentPrice);
+  const { currentPrice, digits, lastTickDirection } = state;
+  const currentPriceY = y(currentPrice);
 
-  ctx.textAlign = 'left';
+  // Don't draw if current price is not available or outside bounds
+  if (currentPrice === undefined || currentPrice === null || currentPriceY < -50 || currentPriceY > config.meterHeight + 50) return;
+
+  const formattedPrice = formatPrice(currentPrice, digits);
+  if (!formattedPrice) return; // Don't draw if formatting failed
+
   ctx.textBaseline = 'middle';
 
   const bigFigureSize = priceFontSize * bigFigureFontSizeRatio;
@@ -31,22 +54,30 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
 
   let currentX = priceHorizontalOffset;
 
+  // Determine color based on config and last tick direction
+  const textColor = priceUseStaticColor
+    ? priceStaticColor
+    : state.lastTickDirection === 'up' ? priceUpColor : priceDownColor;
+  ctx.fillStyle = textColor;
+
   // Draw Big Figure
+  ctx.textAlign = 'left';
   ctx.font = `${priceFontWeight} ${bigFigureSize}px monospace`;
-  ctx.fillStyle = '#E5E7EB'; // Gray-200
-  ctx.fillText(bigFigure, currentX, currentPriceY);
-  currentX += ctx.measureText(bigFigure).width;
+  ctx.fillText(formattedPrice.bigFigure, currentX, currentPriceY);
+  currentX += ctx.measureText(formattedPrice.bigFigure).width;
 
   // Draw Pips
+  ctx.textAlign = 'left';
   ctx.font = `${priceFontWeight} ${pipsSize}px monospace`;
-  ctx.fillStyle = '#E5E7EB'; // Gray-200
-  ctx.fillText(pips, currentX, currentPriceY);
-  currentX += ctx.measureText(pips).width;
+  ctx.fillText(formattedPrice.pips, currentX, currentPriceY);
+  currentX += ctx.measureText(formattedPrice.pips).width;
 
   // Draw Pipette if enabled
-  if (showPipetteDigit) {
+  if (showPipetteDigit && digits >= 5) { // Only show pipette if symbol has at least 5 digits
+    ctx.textAlign = 'left';
     ctx.font = `${priceFontWeight} ${pipetteSize}px monospace`;
-    ctx.fillStyle = '#E5E7EB'; // Gray-200
-    ctx.fillText(pipette, currentX, currentPriceY);
+    ctx.fillText(formattedPrice.pipette, currentX, currentPriceY);
   }
+
+  // Note: Bounding box and background drawing is not implemented yet.
 }

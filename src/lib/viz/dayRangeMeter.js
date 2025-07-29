@@ -3,14 +3,16 @@ import { scaleLinear } from 'd3-scale';
 export function drawDayRangeMeter(ctx, config, state, y) {
   const {
     centralAxisXPosition,
+    visualizationsContentWidth,
     meterHeight,
-    centralMeterFixedThickness,
+    centralMeterFixedThickness = 1,
     adrProximityThreshold,
-    adrHigh,
-    adrLow,
+    adrPulseColor,
+    adrPulseWidthRatio,
+    adrPulseHeight,
   } = config;
 
-  const currentPrice = state.currentPrice;
+  const { currentPrice, adrHigh, adrLow, todaysHigh, todaysLow, projectedHigh, projectedLow, digits } = state;
 
   // Draw the main meter axis
   ctx.beginPath();
@@ -20,26 +22,70 @@ export function drawDayRangeMeter(ctx, config, state, y) {
   ctx.lineTo(centralAxisXPosition, meterHeight);
   ctx.stroke();
 
-  // ADR Proximity Pulse
-  const adrRange = state.adrHigh - state.adrLow;
-  const proximityUp = Math.abs(state.adrHigh - currentPrice);
-  const proximityDown = Math.abs(currentPrice - state.adrLow);
+  // Draw markers and labels
+  const markerLength = 10;
+  const labelOffset = 15;
+  const labelColor = '#9CA3AF'; // Gray-400
+  const labelFontSize = 10;
 
-  if (proximityUp / adrRange < adrProximityThreshold / 100) {
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)'; // Blue-500 with opacity
-    ctx.lineWidth = centralMeterFixedThickness * 1.5;
-    ctx.moveTo(centralAxisXPosition, y(state.adrHigh));
-    ctx.lineTo(centralAxisXPosition, y(state.adrHigh) + 10);
-    ctx.stroke();
-  }
+  ctx.font = `${labelFontSize}px Arial`;
+  ctx.fillStyle = labelColor;
+  ctx.textAlign = 'left';
 
-  if (proximityDown / adrRange < adrProximityThreshold / 100) {
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)'; // Blue-500 with opacity
-    ctx.lineWidth = centralMeterFixedThickness * 1.5;
-    ctx.moveTo(centralAxisXPosition, y(state.adrLow));
-    ctx.lineTo(centralAxisXPosition, y(state.adrLow) - 10);
-    ctx.stroke();
+  const drawMarkerAndLabel = (price, labelText, color = '#D1D5DB', align = 'left') => {
+      const priceY = y(price);
+      if (priceY === undefined || priceY === null || priceY < -50 || priceY > meterHeight + 50) return;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(centralAxisXPosition - markerLength, priceY);
+      ctx.lineTo(centralAxisXPosition, priceY);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(centralAxisXPosition, priceY);
+      ctx.lineTo(centralAxisXPosition + markerLength, priceY);
+      ctx.stroke();
+
+      ctx.textAlign = align;
+      const textX = align === 'left' ? centralAxisXPosition + labelOffset : centralAxisXPosition - labelOffset;
+      const textY = priceY + labelFontSize * 0.3;
+      ctx.fillText(labelText, textX, textY);
+  };
+
+  const formatPrice = (price) => price?.toFixed(digits) || 'N/A';
+
+  drawMarkerAndLabel(todaysHigh, `H ${formatPrice(todaysHigh)}`, '#F59E0B', 'right');
+  drawMarkerAndLabel(todaysLow, `L ${formatPrice(todaysLow)}`, '#F59E0B', 'right');
+  drawMarkerAndLabel(projectedHigh, `P.High ${formatPrice(projectedHigh)}`, '#3B82F6', 'left');
+  drawMarkerAndLabel(projectedLow, `P.Low ${formatPrice(projectedLow)}`, '#3B82F6', 'left');
+  drawMarkerAndLabel(state.midPrice, `Open ${formatPrice(state.midPrice)}`, '#6B7280', 'right');
+
+  // ADR Proximity Pulse - Drawing horizontal bars at the ADR boundaries
+  const adrRange = adrHigh - adrLow;
+  if (adrRange > 0 && currentPrice !== undefined && currentPrice !== null) {
+      const proximityUp = Math.abs(adrHigh - currentPrice);
+      const proximityDown = Math.abs(currentPrice - adrLow);
+
+      // Use values from config
+      const pulseWidth = visualizationsContentWidth * adrPulseWidthRatio;
+      const pulseX = (visualizationsContentWidth - pulseWidth) / 2; // Center the pulse bar
+
+      if (proximityUp / adrRange < adrProximityThreshold / 100) {
+          const adrHighY = y(adrHigh);
+           if (adrHighY !== undefined && adrHighY !== null && adrHighY > -adrPulseHeight && adrHighY < meterHeight + adrPulseHeight) {
+                ctx.fillStyle = adrPulseColor;
+                ctx.fillRect(pulseX, adrHighY - adrPulseHeight / 2, pulseWidth, adrPulseHeight);
+           }
+      }
+
+      if (proximityDown / adrRange < adrProximityThreshold / 100) {
+          const adrLowY = y(adrLow);
+           if (adrLowY !== undefined && adrLowY !== null && adrLowY > -adrPulseHeight && adrLowY < meterHeight + adrPulseHeight) {
+               ctx.fillStyle = adrPulseColor;
+               ctx.fillRect(pulseX, adrLowY - adrPulseHeight / 2, pulseWidth, adrPulseHeight);
+           }
+      }
   }
 }

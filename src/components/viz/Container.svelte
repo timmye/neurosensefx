@@ -74,8 +74,9 @@
 
     // This single y-scale is passed to all drawing functions, ensuring they are perfectly aligned.
     console.log('[MP_DEBUG | Container] Calling drawing functions...');
-    drawDayRangeMeter(ctx, currentConfig, currentState, y);
-    drawMarketProfile(ctx, currentConfig, currentState, y, currentState.marketProfile); // Pass marketProfile data explicitly
+    // Draw Market Profile first so ADR axis is on top
+    drawMarketProfile(ctx, currentConfig, currentState, y, currentState.marketProfile);
+    drawDayRangeMeter(ctx, currentConfig, currentState, y); // Draw Day Range Meter (ADR axis) second
     drawVolatilityOrb(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
     drawPriceFloat(ctx, currentConfig, currentState, y);
     drawPriceDisplay(ctx, currentConfig, currentState, y, visualizationsContentWidth);

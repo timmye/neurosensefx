@@ -165,6 +165,19 @@
                     <label for="adrProximityThreshold">ADR Proximity Pulse (%): <span>{config.adrProximityThreshold}</span></label>
                     <input type="range" id="adrProximityThreshold" min="0" max="100" step="1" bind:value={config.adrProximityThreshold} on:input={handleConfigChange}>
                 </div>
+                <!-- ADR Pulse Controls -->
+                <div class="control-group">
+                    <label for="adrPulseColor">ADR Pulse Color:</label>
+                    <input type="color" id="adrPulseColor" bind:value={config.adrPulseColor} on:input={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="adrPulseWidthRatio">ADR Pulse Width Ratio (of Viz Width): <span>{config.adrPulseWidthRatio?.toFixed(2)}</span></label>
+                    <input type="range" id="adrPulseWidthRatio" min="0.1" max="1" step="0.05" bind:value={config.adrPulseWidthRatio} on:input={handleConfigChange}>
+                </div>
+                 <div class="control-group">
+                    <label for="adrPulseHeight">ADR Pulse Height: <span>{config.adrPulseHeight}px</span></label>
+                    <input type="range" id="adrPulseHeight" min="1" max="10" step="1" bind:value={config.adrPulseHeight} on:input={handleConfigChange}>
+                </div>
             </div>
 
             <!-- Price Float & Display Controls -->
@@ -222,6 +235,14 @@
                         <option value="left">Left (Sell)</option>
                         <option value="right">Right (Buy)</option>
                     </select>
+                </div>
+                 <div class="control-group">
+                    <label for="priceBucketSize">Profile Detail / Stacking: <span>{config.priceBucketSize}</span></label>
+                    <input type="range" id="priceBucketSize" min="0.1" max="5" step="0.1" bind:value={config.priceBucketSize} on:input={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="marketProfileWidthRatio">Profile Width Ratio: <span>{config.marketProfileWidthRatio?.toFixed(2)}</span></label>
+                    <input type="range" id="marketProfileWidthRatio" min="0.1" max="3" step="0.1" bind:value={config.marketProfileWidthRatio} on:input={handleConfigChange}>
                 </div>
             </div>
 
