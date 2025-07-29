@@ -9,14 +9,15 @@ export const subscriptions = writable(new Set());
 
 let ws = null;
 let simulationInterval = null;
-let connectionMonitorInterval = null; // New interval for monitoring connection
+let connectionMonitorInterval = null;
 
 const WS_URL = (() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
     const path = '/ws';
     return `${protocol}//${host}${path}`;
-})()
+})();
+
 export function connect() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     
@@ -25,15 +26,19 @@ export function connect() {
     try {
         ws = new WebSocket(WS_URL);
         ws.onopen = () => {
-            console.log('[E2E_DEBUG | wsClient] WebSocket connection opened.');
             startConnectionMonitor();
         };
         ws.onmessage = (event) => {
-            console.log('[E2E_DEBUG | wsClient] RAW_MESSAGE:', event.data); // Log 1: Raw data received
-            handleSocketMessage(JSON.parse(event.data));
+            const rawData = JSON.parse(event.data);
+            // FIX: Log the stringified object to see the full data structure.
+            if (rawData.type === 'symbolDataPackage') {
+                console.log('[E2E_DEBUG | wsClient] Received raw data string:', JSON.stringify(rawData, null, 2));
+            } else {
+                 console.log('[E2E_DEBUG | wsClient] Received raw data object:', rawData);
+            }
+            handleSocketMessage(rawData);
         };
         ws.onclose = (event) => {
-            console.log('[E2E_DEBUG | wsClient] WebSocket connection closed:', event.code, event.reason);
             stopConnectionMonitor();
             ws = null;
             if (get(wsStatus) !== 'error') wsStatus.set('disconnected');
@@ -51,15 +56,12 @@ export function connect() {
 }
 
 function startConnectionMonitor() {
-    stopConnectionMonitor(); // Ensure only one monitor is running
+    stopConnectionMonitor();
     connectionMonitorInterval = setInterval(() => {
-        if (ws) {
-            console.log('[E2E_DEBUG | wsClient] WebSocket readyState:', ws.readyState, '(' + getWebSocketReadyStateString(ws.readyState) + ')');
-        } else {
-            console.log('[E2E_DEBUG | wsClient] WebSocket instance is null. Stopping monitor.');
+        if (!ws) {
             stopConnectionMonitor();
         }
-    }, 2000); // Log every 2 seconds
+    }, 2000);
 }
 
 function stopConnectionMonitor() {
@@ -69,21 +71,11 @@ function stopConnectionMonitor() {
     }
 }
 
-function getWebSocketReadyStateString(readyState) {
-    switch (readyState) {
-        case WebSocket.CONNECTING: return 'CONNECTING';
-        case WebSocket.OPEN: return 'OPEN';
-        case WebSocket.CLOSING: return 'CLOSING';
-        case WebSocket.CLOSED: return 'CLOSED';
-        default: return 'UNKNOWN';
-    }
-}
-
 function handleSocketMessage(data) {
     if (data.type === 'symbolDataPackage') {
-        console.log(`[E2E_DEBUG | wsClient] 9. Received 'symbolDataPackage' from server:`, data);
         const packageResult = SymbolDataPackageSchema.safeParse(data);
         if (packageResult.success) {
+            console.log(`[E2E_TRACE | wsClient] Received package with ${packageResult.data.initialMarketProfile.length} profile entries.`);
             handleDataPackage(packageResult.data);
         } else {
             console.error('Invalid symbol data package:', packageResult.error);
@@ -97,7 +89,6 @@ function handleSocketMessage(data) {
     } else if (data.type === 'tick') {
         const tickResult = TickSchema.safeParse(data);
         if (tickResult.success) {
-             console.log('[E2E_DEBUG | wsClient] 2. Valid Tick Received:', tickResult.data); // Log 2: Validated tick
             symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
         } else {
             console.error('[wsClient] Invalid tick data received:', tickResult.error);
@@ -108,10 +99,6 @@ function handleSocketMessage(data) {
 function handleDataPackage(data) {
     symbolStore.createNewSymbol(data.symbol, data);
     subscriptions.update(subs => subs.add(data.symbol));
-    // The backend now atomically subscribes, so this is no longer needed.
-    // if (get(dataSourceMode) === 'live' && ws) {
-    //     ws.send(JSON.stringify({ type: 'start_tick_stream', symbol: data.symbol }));
-    // }
 }
 
 export function disconnect() {
@@ -135,7 +122,7 @@ function startSimulation() {
 
     const mockDataPackage = {
         symbol,
-        digits: 5, // Add the missing digits property
+        digits: 5,
         adr,
         todaysOpen: midPoint,
         todaysHigh: midPoint + 0.00150,
@@ -208,7 +195,6 @@ function startSimulation() {
     simulationLoop();
 }
 
-
 function stopSimulation() {
     if (simulationInterval) {
         cancelAnimationFrame(simulationInterval);
@@ -218,7 +204,7 @@ function stopSimulation() {
 
 export function subscribe(symbol) {
     if (get(dataSourceMode) === 'live' && get(wsStatus) === 'connected' && ws) {
-        const adrLookbackDays = 5;
+        const adrLookbackDays = 14;
         ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays }));
     }
 }

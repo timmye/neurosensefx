@@ -9,7 +9,6 @@ import {
 const { subscribe, set, update } = writable({});
 const workers = new Map();
 
-// Default configuration remains the same
 export const defaultConfig = VisualizationConfigSchema.parse({
     visualizationsContentWidth: 220,
     meterHeight: 120,
@@ -81,14 +80,16 @@ function createNewSymbol(symbol, dataPackage) {
         
         workers.set(symbol, worker);
 
-        // FIXED: Added the missing visualHigh and visualLow properties to satisfy the schema.
-        const initialState = VisualizationStateSchema.parse({
+        // CORRECTED: The store now only creates a minimal, pre-worker state.
+        // The full state, including the processed market profile, will be established
+        // when the worker returns its first 'stateUpdate' message.
+        const initialState = {
             currentPrice: validatedPackage.initialPrice,
             midPrice: validatedPackage.todaysOpen,
             adrHigh: validatedPackage.projectedHigh,
             adrLow: validatedPackage.projectedLow,
-            visualHigh: validatedPackage.projectedHigh, // Initialize visual range
-            visualLow: validatedPackage.projectedLow,   // Initialize visual range
+            visualHigh: validatedPackage.projectedHigh,
+            visualLow: validatedPackage.projectedLow,
             todaysHigh: validatedPackage.todaysHigh,
             todaysLow: validatedPackage.todaysLow,
             volatility: 0.5,
@@ -96,14 +97,14 @@ function createNewSymbol(symbol, dataPackage) {
             lastTickDirection: 'up',
             lastTickTime: 0,
             maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
-            marketProfile: { levels: validatedPackage.initialMarketProfile || [] },
+            marketProfile: { levels: [] }, // Start with an empty profile
             flashEffect: null
-        });
+        };
         
         symbols[symbol] = {
             config: { ...defaultConfig },
             state: initialState,
-            ready: false
+            ready: false // This will become true on the first message from the worker.
         };
         return { ...symbols };
     });

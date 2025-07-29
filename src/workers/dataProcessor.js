@@ -32,14 +32,12 @@ function initialize(payload) {
     config = payload.config;
     digits = typeof payload.digits === 'number' ? payload.digits : 5; 
 
-    const initialTicks = (payload.initialMarketProfile || []).map(bar => {
-        return {
-            price: bar.close,
-            direction: bar.close > bar.open ? 1 : -1,
-            magnitude: Math.abs(bar.close - bar.open) * Math.pow(10, digits),
-            time: bar.timestamp 
-        };
-    });
+    const initialTicks = (payload.initialMarketProfile || []).map(bar => ({
+        price: bar.close,
+        direction: bar.close > bar.open ? 1 : -1,
+        magnitude: Math.abs(bar.close - bar.open) * Math.pow(10, digits),
+        time: bar.timestamp 
+    }));
 
     state = {
         currentPrice: payload.initialPrice, 
@@ -137,28 +135,36 @@ function updateVolatility(now) {
 }
 
 function generateMarketProfile() {
-    if (!config.priceBucketSize || config.priceBucketSize <= 0) return { levels: [] };
+    console.log(`[E2E_DEBUG | dataProcessor] Generating market profile with ${state.allTicks.length} ticks.`);
+    if (!config.priceBucketSize || config.priceBucketSize <= 0) {
+        console.warn('[E2E_DEBUG | dataProcessor] Cannot generate profile: invalid priceBucketSize:', config.priceBucketSize);
+        return { levels: [] };
+    }
     
     const profileData = new Map();
     const relevantTicks = config.distributionDepthMode === 'all' 
         ? state.allTicks 
         : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
 
-    const priceToBucketFactor = typeof digits === 'number' && !isNaN(digits) 
-        ? Math.pow(10, digits) / config.priceBucketSize
-        : 0;
-
-     if (priceToBucketFactor === 0) return { levels: [] };
+    const priceToBucketFactor = Math.pow(10, digits) / config.priceBucketSize;
+    if (isNaN(priceToBucketFactor) || priceToBucketFactor === 0) {
+         console.error('[E2E_DEBUG | dataProcessor] Cannot generate profile: invalid priceToBucketFactor:', priceToBucketFactor);
+        return { levels: [] };
+    }
 
     relevantTicks.forEach(t => {
         const priceBucket = Math.floor(t.price * priceToBucketFactor);
+        if (isNaN(priceBucket)) {
+            console.warn('[E2E_DEBUG | dataProcessor] Skipping tick due to NaN priceBucket. Tick price:', t.price);
+            return;
+        }
         const bucket = profileData.get(priceBucket) || { buy: 0, sell: 0, total: 0 };
         if (t.direction > 0) bucket.buy++; else bucket.sell++;
         bucket.total++;
         profileData.set(priceBucket, bucket);
     });
 
-    return {
+    const finalProfile = {
         levels: Array.from(profileData.entries())
             .map(([bucket, data]) => ({
                 price: bucket / priceToBucketFactor,
@@ -168,9 +174,11 @@ function generateMarketProfile() {
             }))
             .sort((a, b) => a.price - b.price)
     };
+    
+    console.log(`[E2E_DEBUG | dataProcessor] Generated profile with ${finalProfile.levels.length} levels.`);
+    return finalProfile;
 }
 
-// CORRECTED: The payload now only sends the single, authoritative newState object.
 function postStateUpdate() {
     if (isNaN(state.currentPrice)) {
         console.error('Worker: Invalid state detected - currentPrice is NaN. Aborting update.');

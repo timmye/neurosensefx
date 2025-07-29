@@ -8,6 +8,7 @@ export const TickSchema = z.object({
   timestamp: z.number(),
 });
 
+// CORRECTED: Define a clear schema for the historical data from the backend.
 export const HistoricalBarSchema = z.object({
   open: z.number(),
   high: z.number(),
@@ -25,15 +26,16 @@ export const MarketDataSchema = z.object({
   todaysLow: z.number(),
 });
 
+// CORRECTED: Use the specific HistoricalBarSchema instead of the overly-permissive z.any().
 export const SymbolDataPackageSchema = MarketDataSchema.extend({
   symbol: z.string(),
   digits: z.number().int(),
   initialPrice: z.number(),
-  initialMarketProfile: z.array(z.any()),
+  initialMarketProfile: z.array(HistoricalBarSchema), 
 });
 
 
-// State schemas
+// State schemas for the frontend
 export const FlashEffectSchema = z.object({
   magnitude: z.number(),
   direction: z.enum(['up', 'down']),
@@ -66,7 +68,6 @@ export const VisualizationStateSchema = z.object({
   marketProfile: MarketProfileSchema,
   adrHigh: z.number(),
   adrLow: z.number(),
-  // ADDED: New properties for dynamic visual range
   visualHigh: z.number(),
   visualLow: z.number(),
   todaysHigh: z.number(),
