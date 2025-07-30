@@ -35,7 +35,6 @@ self.onmessage = (event) => {
 };
 
 function initialize(payload) {
-    // Test Point 3: Log the incoming payload from the backend
     console.log('--- Point of Failure 3: Incorrect Data Received by Frontend ---');
     console.log('Data Worker: Initial Payload:', payload);
     console.log('--- End of Point of Failure 3 ---');
@@ -43,40 +42,26 @@ function initialize(payload) {
     config = payload.config;
     localDigits = typeof payload.digits === 'number' ? payload.digits : 5;
 
-    // Convert all incoming price and range values using the helper.
     const todaysOpen = convertValue(payload.todaysOpen, localDigits);
     const initialPrice = convertValue(payload.initialPrice, localDigits);
-    const todaysHigh = convertValue(payload.todaysHigh, localDigits);
-    const todaysLow = convertValue(payload.todaysLow, localDigits);
-    const adr = convertValue(payload.adr, localDigits); // ADR must also be converted
-
-    // Correctly calculate the ADR high and low based on half of the ADR range.
-    const adrHigh = todaysOpen + (adr / 2);
-    const adrLow = todaysOpen - (adr / 2);
-
-    const initialTicks = (payload.initialMarketProfile || []).map(bar => {
-        const open = convertValue(bar.open, localDigits);
-        const close = convertValue(bar.close, localDigits);
-        return {
-            price: close,
-            direction: close > open ? 1 : -1,
-            magnitude: Math.abs(close - open) * Math.pow(10, localDigits),
-            time: bar.timestamp
-        };
-    });
-
+    
     state = {
         currentPrice: initialPrice,
         midPrice: todaysOpen,
-        adrHigh: adrHigh,
-        adrLow: adrLow,
-        visualHigh: adrHigh,
-        visualLow: adrLow,
-        todaysHigh: todaysHigh,
-        todaysLow: todaysLow,
+        projectedAdrHigh: convertValue(payload.projectedHigh, localDigits),
+        projectedAdrLow: convertValue(payload.projectedLow, localDigits),
+        visualHigh: convertValue(payload.projectedHigh, localDigits),
+        visualLow: convertValue(payload.projectedLow, localDigits),
+        todaysHigh: convertValue(payload.todaysHigh, localDigits),
+        todaysLow: convertValue(payload.todaysLow, localDigits),
         digits: localDigits,
         ticks: [],
-        allTicks: initialTicks,
+        allTicks: (payload.initialMarketProfile || []).map(bar => ({
+            price: convertValue(bar.close, localDigits),
+            direction: convertValue(bar.close, localDigits) > convertValue(bar.open, localDigits) ? 1 : -1,
+            magnitude: Math.abs(convertValue(bar.close, localDigits) - convertValue(bar.open, localDigits)) * Math.pow(10, localDigits),
+            time: bar.timestamp
+        })),
         volatility: 0.5,
         volatilityIntensity: 0.25,
         tickMagnitudes: [],
@@ -98,7 +83,6 @@ function initialize(payload) {
     postStateUpdate();
 }
 
-// ... (rest of the file is unchanged)
 function processTick(rawTick) {
     const tick = {
       ...rawTick,
@@ -111,16 +95,9 @@ function processTick(rawTick) {
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
     state.lastTick = tick;
 
-    const adrRange = state.adrHigh - state.adrLow;
-    const buffer = adrRange * 0.1;
-
-    if (state.currentPrice > state.visualHigh) {
-        state.visualHigh = state.currentPrice + buffer;
-    }
-    if (state.currentPrice < state.visualLow) {
-        state.visualLow = state.visualLow - buffer;
-    }
-
+    state.todaysHigh = Math.max(state.todaysHigh, tick.bid);
+    state.todaysLow = Math.min(state.todaysLow, tick.bid);
+    
     const magnitude = typeof lastPrice === 'number'
         ? Math.abs(state.currentPrice - lastPrice) * Math.pow(10, localDigits)
         : 0;
@@ -132,9 +109,6 @@ function processTick(rawTick) {
     state.ticks.push(newTick);
     state.allTicks.push(newTick);
     state.tickMagnitudes.push(magnitude);
-
-    state.todaysHigh = Math.max(state.todaysHigh, tick.bid);
-    state.todaysLow = Math.min(state.todaysLow, tick.bid);
 
     updateVolatility(now);
     state.marketProfile = generateMarketProfile();
@@ -228,20 +202,19 @@ function generateMarketProfile() {
 }
 
 function recalculateVisualRange() {
-    let minPrice = state.adrLow;
-    let maxPrice = state.adrHigh;
+    const { projectedAdrHigh, projectedAdrLow, todaysHigh, todaysLow, currentPrice, marketProfile } = state;
 
-    if (config.showMarketProfile && state.marketProfile && state.marketProfile.levels.length > 0) {
-        const mpPrices = state.marketProfile.levels.map(l => l.price);
+    let minPrice = Math.min(projectedAdrLow, todaysLow, currentPrice);
+    let maxPrice = Math.max(projectedAdrHigh, todaysHigh, currentPrice);
+
+    if (config.showMarketProfile && marketProfile && marketProfile.levels.length > 0) {
+        const mpPrices = marketProfile.levels.map(l => l.price);
         minPrice = Math.min(minPrice, ...mpPrices);
         maxPrice = Math.max(maxPrice, ...mpPrices);
     }
     
-    minPrice = Math.min(minPrice, state.todaysLow);
-    maxPrice = Math.max(maxPrice, state.todaysHigh);
-
-    const adrRange = state.adrHigh - state.adrLow;
-    const buffer = adrRange * 0.1;
+    const range = maxPrice - minPrice;
+    const buffer = range * 0.1;
 
     state.visualLow = minPrice - buffer;
     state.visualHigh = maxPrice + buffer;

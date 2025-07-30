@@ -12,7 +12,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
     adrPulseHeight,
   } = config;
 
-  const { currentPrice, adrHigh, adrLow, todaysHigh, todaysLow, projectedHigh, projectedLow, digits } = state;
+  const { currentPrice, todaysHigh, todaysLow, projectedAdrHigh, projectedAdrLow, digits } = state;
 
   // Draw the main meter axis
   ctx.beginPath();
@@ -58,22 +58,22 @@ export function drawDayRangeMeter(ctx, config, state, y) {
 
   drawMarkerAndLabel(todaysHigh, `H ${formatPrice(todaysHigh)}`, '#F59E0B', 'right');
   drawMarkerAndLabel(todaysLow, `L ${formatPrice(todaysLow)}`, '#F59E0B', 'right');
-  drawMarkerAndLabel(projectedHigh, `P.High ${formatPrice(projectedHigh)}`, '#3B82F6', 'left');
-  drawMarkerAndLabel(projectedLow, `P.Low ${formatPrice(projectedLow)}`, '#3B82F6', 'left');
+  drawMarkerAndLabel(projectedAdrHigh, `P.High ${formatPrice(projectedAdrHigh)}`, '#3B82F6', 'left');
+  drawMarkerAndLabel(projectedAdrLow, `P.Low ${formatPrice(projectedAdrLow)}`, '#3B82F6', 'left');
   drawMarkerAndLabel(state.midPrice, `Open ${formatPrice(state.midPrice)}`, '#6B7280', 'right');
 
   // ADR Proximity Pulse - Drawing horizontal bars at the ADR boundaries
-  const adrRange = adrHigh - adrLow;
+  const adrRange = projectedAdrHigh - projectedAdrLow;
   if (adrRange > 0 && currentPrice !== undefined && currentPrice !== null) {
-      const proximityUp = Math.abs(adrHigh - currentPrice);
-      const proximityDown = Math.abs(currentPrice - adrLow);
+      const proximityUp = Math.abs(projectedAdrHigh - currentPrice);
+      const proximityDown = Math.abs(currentPrice - projectedAdrLow);
 
       // Use values from config
       const pulseWidth = visualizationsContentWidth * adrPulseWidthRatio;
       const pulseX = (visualizationsContentWidth - pulseWidth) / 2; // Center the pulse bar
 
       if (proximityUp / adrRange < adrProximityThreshold / 100) {
-          const adrHighY = y(adrHigh);
+          const adrHighY = y(projectedAdrHigh);
            if (adrHighY !== undefined && adrHighY !== null && adrHighY > -adrPulseHeight && adrHighY < meterHeight + adrPulseHeight) {
                 ctx.fillStyle = adrPulseColor;
                 ctx.fillRect(pulseX, adrHighY - adrPulseHeight / 2, pulseWidth, adrPulseHeight);
@@ -81,7 +81,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
       }
 
       if (proximityDown / adrRange < adrProximityThreshold / 100) {
-          const adrLowY = y(adrLow);
+          const adrLowY = y(projectedAdrLow);
            if (adrLowY !== undefined && adrLowY !== null && adrLowY > -adrPulseHeight && adrLowY < meterHeight + adrPulseHeight) {
                ctx.fillStyle = adrPulseColor;
                ctx.fillRect(pulseX, adrLowY - adrPulseHeight / 2, pulseWidth, adrPulseHeight);
