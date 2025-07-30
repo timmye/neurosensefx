@@ -42,6 +42,7 @@
       unsubscribe(symbol);
   }
 
+  // Use state.digits if available, otherwise default to 5.
   $: digits = state?.digits || 5;
 
 </script>
@@ -115,16 +116,21 @@
               <div class="info-grid">
                   <span>Profile Levels:</span><span>{state.marketProfile?.levels?.length || 0}</span>
                   <span>Profile Ticks:</span><span>{state.marketProfile?.tickCount || 0}</span>
-                  <span>ADR High:</span><span>{state.adrHigh?.toFixed(digits)}</span>
-                  <span>ADR Low:</span><span>{state.adrLow?.toFixed(digits)}</span>
-                  <span>Visual High:</span><span>{state.visualHigh?.toFixed(digits)}</span>
-                  <span>Visual Low:</span><span>{state.visualLow?.toFixed(digits)}</span>
+                  <span>ADR High:</span><span>{state.adrHigh?.toFixed(5)}</span>
+                  <span>ADR Low:</span><span>{state.adrLow?.toFixed(5)}</span>
+                  <span>Visual High:</span><span>{state.visualHigh?.toFixed(5)}</span>
+                  <span>Visual Low:</span><span>{state.visualLow?.toFixed(5)}</span>
+                  <hr/>
+                  <span>Current Price:</span><span>{state.currentPrice?.toFixed(digits)}</span>
+                  <span>Digits:</span><span>{state.digits}</span>
+                  <span>Tick Direction:</span><span>{state.lastTickDirection}</span>
+                  <span>Volatility:</span><span>{state.volatility?.toFixed(4)}</span>
               </div>
           </div>
           {/if}
 
           {#if config}
-            <hr/>
+            <hr class="divider"/>
             <div class="title-bar">
                 <h2 class="group-title">Visual Settings for {$selectedSymbol}</h2>
                 <button class="reset-button" on:click={handleReset}>Reset to Defaults</button>
@@ -225,15 +231,12 @@
                     <label for="showMarketProfile">Show Market Profile</label>
                     <input type="checkbox" id="showMarketProfile" bind:checked={config.showMarketProfile} on:change={handleConfigChange}>
                 </div>
-                 <div class="control-group">
-                    <label for="showSingleSidedProfile">Single-Sided Profile</label>
-                    <input type="checkbox" id="showSingleSidedProfile" bind:checked={config.showSingleSidedProfile} on:change={handleConfigChange}>
-                </div>
                 <div class="control-group">
-                    <label for="singleSidedProfileSide">Side to Display</label>
-                    <select id="singleSidedProfileSide" bind:value={config.singleSidedProfileSide} on:change={handleConfigChange} disabled={!config.showSingleSidedProfile}>
-                        <option value="left">Left (Sell)</option>
-                        <option value="right">Right (Buy)</option>
+                    <label for="marketProfileView">View Mode</label>
+                    <select id="marketProfileView" bind:value={config.marketProfileView} on:change={handleConfigChange}>
+                        <option value="separate">Separate Buy/Sell</option>
+                        <option value="combinedLeft">Combined (Left)</option>
+                        <option value="combinedRight">Combined (Right)</option>
                     </select>
                 </div>
                  <div class="control-group">
@@ -337,7 +340,7 @@
       font-size: 0.8em;
       padding: 4px 8px;
   }
-  hr {
+  .divider, hr {
       border: none;
       border-top: 1px solid #374151;
       margin: 20px 0;

@@ -7,12 +7,18 @@ import {
 
 let config = {};
 let state = {};
-let digits = 5;
+let localDigits = 5;
+
+// This function correctly applies the transformation for any value
+// from the backend that represents a price or a price range.
+function convertValue(value, digits) {
+  const actualValue = value / 100000.0;
+  return Number(actualValue.toFixed(digits));
+}
 
 self.onmessage = (event) => {
     const { type, payload } = event.data;
     try {
-        console.log(`[MP_DEBUG | Worker] Received message type: ${type}`, payload);
         switch (type) {
             case 'init':
                 initialize(payload);
@@ -30,27 +36,41 @@ self.onmessage = (event) => {
 };
 
 function initialize(payload) {
-    console.log('[MP_DEBUG | Worker] Initializing with payload:', payload);
     config = payload.config;
-    digits = typeof payload.digits === 'number' ? payload.digits : 5; 
+    localDigits = typeof payload.digits === 'number' ? payload.digits : 5;
 
-    const initialTicks = (payload.initialMarketProfile || []).map(bar => ({
-        price: bar.close,
-        direction: bar.close > bar.open ? 1 : -1,
-        magnitude: Math.abs(bar.close - bar.open) * Math.pow(10, digits),
-        time: bar.timestamp 
-    }));
-    console.log('[MP_DEBUG | Worker] Mapped initialMarketProfile to initialTicks:', initialTicks.length);
+    // Convert all incoming price and range values using the helper.
+    const todaysOpen = convertValue(payload.todaysOpen, localDigits);
+    const initialPrice = convertValue(payload.initialPrice, localDigits);
+    const todaysHigh = convertValue(payload.todaysHigh, localDigits);
+    const todaysLow = convertValue(payload.todaysLow, localDigits);
+    const adr = convertValue(payload.adr, localDigits); // ADR must also be converted
+
+    // Correctly calculate the ADR high and low based on half of the ADR range.
+    const adrHigh = todaysOpen + (adr / 2);
+    const adrLow = todaysOpen - (adr / 2);
+
+    const initialTicks = (payload.initialMarketProfile || []).map(bar => {
+        const open = convertValue(bar.open, localDigits);
+        const close = convertValue(bar.close, localDigits);
+        return {
+            price: close,
+            direction: close > open ? 1 : -1,
+            magnitude: Math.abs(close - open) * Math.pow(10, localDigits),
+            time: bar.timestamp
+        };
+    });
 
     state = {
-        currentPrice: payload.initialPrice, 
-        midPrice: payload.todaysOpen,
-        adrHigh: payload.projectedHigh,
-        adrLow: payload.projectedLow,
-        visualHigh: payload.projectedHigh,
-        visualLow: payload.projectedLow,
-        todaysHigh: payload.todaysHigh,
-        todaysLow: payload.todaysLow,
+        currentPrice: initialPrice,
+        midPrice: todaysOpen,
+        adrHigh: adrHigh,
+        adrLow: adrLow,
+        visualHigh: adrHigh,
+        visualLow: adrLow,
+        todaysHigh: todaysHigh,
+        todaysLow: todaysLow,
+        digits: localDigits,
         ticks: [],
         allTicks: initialTicks,
         volatility: 0.5,
@@ -61,18 +81,25 @@ function initialize(payload) {
         flashEffect: null,
         lastTickTime: 0,
         maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
+        priceFloatPulseEffect: { active: false, magnitude: 0, color: '', scale: 1 }
     };
-    console.log('[MP_DEBUG | Worker] Initial state created.');
-    
+
     state.marketProfile = generateMarketProfile();
     postStateUpdate();
 }
 
-function processTick(tick) {
+// ... (rest of the file is unchanged)
+function processTick(rawTick) {
+    const tick = {
+      ...rawTick,
+      bid: convertValue(rawTick.bid, localDigits),
+      ask: convertValue(rawTick.ask, localDigits),
+    };
+
     const lastPrice = state.currentPrice;
     state.currentPrice = tick.bid;
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
-    
+
     const adrRange = state.adrHigh - state.adrLow;
     const buffer = adrRange * 0.1;
 
@@ -80,16 +107,16 @@ function processTick(tick) {
         state.visualHigh = state.currentPrice + buffer;
     }
     if (state.currentPrice < state.visualLow) {
-        state.visualLow = state.currentPrice - buffer;
+        state.visualLow = state.visualLow - buffer;
     }
 
-    const magnitude = typeof lastPrice === 'number' 
-        ? Math.abs(state.currentPrice - lastPrice) * Math.pow(10, digits)
+    const magnitude = typeof lastPrice === 'number'
+        ? Math.abs(state.currentPrice - lastPrice) * Math.pow(10, localDigits)
         : 0;
-    
+
     const now = performance.now();
     state.lastTickTime = now;
-    
+
     const newTick = { price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now };
     state.ticks.push(newTick);
     state.allTicks.push(newTick);
@@ -100,16 +127,13 @@ function processTick(tick) {
 
     updateVolatility(now);
     state.marketProfile = generateMarketProfile();
-    
     postStateUpdate();
 }
 
 function updateConfig(newConfig) {
-    console.log('[MP_DEBUG | Worker] Updating config with:', newConfig);
     const oldBucketSize = config.priceBucketSize;
     config = { ...config, ...newConfig };
-    console.log('[MP_DEBUG | Worker] Updated config.');
-    
+
     if (newConfig.priceBucketSize && newConfig.priceBucketSize !== oldBucketSize) {
         state.marketProfile = generateMarketProfile();
         postStateUpdate();
@@ -120,21 +144,21 @@ function updateVolatility(now) {
     const lookbackPeriod = 10000;
     state.ticks = state.ticks.filter(t => now - t.time <= lookbackPeriod);
     if (state.tickMagnitudes.length > 50) state.tickMagnitudes.shift();
-    
+
     if (state.ticks.length < 2) {
         state.volatility *= 0.95;
         return;
     }
-    
+
     const avgMagnitude = state.tickMagnitudes.reduce((sum, mag) => sum + mag, 0) / state.tickMagnitudes.length;
     const tickFrequency = state.ticks.length / (lookbackPeriod / 1000);
-    
+
     const magnitudeScore = Math.min(avgMagnitude / 2, 3);
     const frequencyScore = Math.min(tickFrequency / 5, 3);
-    
+
     const rawVolatility = (magnitudeScore * 0.6) + (frequencyScore * 0.4);
-    
-    const smoothingFactor = 0.2; 
+
+    const smoothingFactor = 0.2;
     state.volatility = ((state.volatility || 0) * (1 - smoothingFactor)) + (rawVolatility * smoothingFactor);
     state.volatility = Math.max(0.05, state.volatility);
     state.volatilityIntensity = Math.min(1, state.volatility / 3.5);
@@ -142,20 +166,17 @@ function updateVolatility(now) {
 
 function generateMarketProfile() {
     if (!config.priceBucketSize || config.priceBucketSize <= 0) {
-        console.warn('[MP_DEBUG | Worker] Cannot generate profile: invalid priceBucketSize:', config.priceBucketSize);
         return { levels: [], tickCount: 0 };
     }
-    
+
     const profileData = new Map();
-    const relevantTicks = config.distributionDepthMode === 'all' 
-        ? state.allTicks 
+    const relevantTicks = config.distributionDepthMode === 'all'
+        ? state.allTicks
         : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
 
-    console.log(`[MP_DEBUG | Worker] Using ${relevantTicks.length} relevant ticks for profile generation.`);
+    const priceToBucketFactor = 1 / config.priceBucketSize;
 
-    const priceToBucketFactor = Math.pow(10, digits) / config.priceBucketSize;
     if (isNaN(priceToBucketFactor) || priceToBucketFactor === 0) {
-         console.error('[MP_DEBUG | Worker] Cannot generate profile: invalid priceToBucketFactor:', priceToBucketFactor);
         return { levels: [], tickCount: 0 };
     }
 
@@ -179,10 +200,9 @@ function generateMarketProfile() {
                 sell: data.sell
             }))
             .sort((a, b) => a.price - b.price),
-        tickCount: relevantTicks.length // Add the count of processed ticks
+        tickCount: relevantTicks.length
     };
-    
-    console.log(`[MP_DEBUG | Worker] Generated final profile with ${finalProfile.levels.length} levels from ${finalProfile.tickCount} ticks.`);
+
     return finalProfile;
 }
 

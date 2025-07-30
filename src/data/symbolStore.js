@@ -31,7 +31,7 @@ export const defaultConfig = VisualizationConfigSchema.parse({
     showPipetteDigit: false,
     priceFloatWidth: 50,
     priceFloatHeight: 1,
-    priceFloatXOffset: 20,
+    priceFloatXOffset: 0,
     showVolatilityOrb: true,
     volatilityColorMode: 'intensity',
     volatilityOrbBaseWidth: 70,
@@ -44,19 +44,16 @@ export const defaultConfig = VisualizationConfigSchema.parse({
     orbFlashThreshold: 2.0,
     orbFlashIntensity: 0.8,
     showMarketProfile: true,
-    marketProfileView: 'bars',
+    marketProfileView: 'separate',
     distributionDepthMode: 'all',
     distributionPercentage: 50,
     priceBucketSize: 0.5,
-    showSingleSidedProfile: false,
-    singleSidedProfileSide: 'right',
     showMaxMarker: true,
     adrLookbackDays: 14,
     frequencyMode: 'normal'
 });
 
 function createNewSymbol(symbol, dataPackage) {
-    console.log('[MP_DEBUG | symbolStore] createNewSymbol called for:', symbol, 'with package:', dataPackage);
     const packageResult = SymbolDataPackageSchema.safeParse(dataPackage);
     if (!packageResult.success) {
         console.error('[MP_DEBUG | symbolStore] Invalid data package for new symbol:', packageResult.error);
@@ -66,14 +63,14 @@ function createNewSymbol(symbol, dataPackage) {
 
     update(symbols => {
         if (symbols[symbol]) {
-            console.log('[MP_DEBUG | symbolStore] Symbol already exists:', symbol);
             return symbols;
         }
 
-        console.log('[MP_DEBUG | symbolStore] Creating new worker for symbol:', symbol);
         const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
         worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
         
+        // CRITICAL FIX: The payload sent to the worker is now the raw, validated data package.
+        // The worker is responsible for all data transformations.
         const initPayload = {
             type: 'init',
             payload: {
@@ -81,113 +78,54 @@ function createNewSymbol(symbol, dataPackage) {
                 ...validatedPackage 
             }
         };
-         console.log('[MP_DEBUG | symbolStore] Posting init message to worker:', initPayload);
+
         worker.postMessage(initPayload);
-        
         workers.set(symbol, worker);
 
-        // CORRECTED: The store now only creates a minimal, pre-worker state.
-        // The full state, including the processed market profile, will be established
-        // when the worker returns its first 'stateUpdate' message.
-        const initialState = {
-            currentPrice: validatedPackage.initialPrice,
-            midPrice: validatedPackage.todaysOpen,
-            adrHigh: validatedPackage.projectedHigh,
-            adrLow: validatedPackage.projectedLow,
-            visualHigh: validatedPackage.projectedHigh,
-            visualLow: validatedPackage.projectedLow,
-            todaysHigh: validatedPackage.todaysHigh,
-            todaysLow: validatedPackage.todaysLow,
-            volatility: 0.5,
-            volatilityIntensity: 0.25,
-            lastTickDirection: 'up',
-            lastTickTime: 0,
-            maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
-            marketProfile: { levels: [] }, // Start with an empty profile
-            flashEffect: null
-        };
-        console.log('[MP_DEBUG | symbolStore] Initial state before worker update:', initialState);
-        
+        // The store now only holds the config and a 'ready' flag.
+        // The entire state object will be created and managed by the worker.
         symbols[symbol] = {
             config: { ...defaultConfig },
-            state: initialState,
-            ready: false // This will become true on the first message from the worker.
+            state: null, // State will be populated by the first worker message
+            ready: false 
         };
-        console.log('[MP_DEBUG | symbolStore] symbolStore after adding new symbol (before worker update):', { ...symbols });
         return { ...symbols };
     });
 }
 
 function handleWorkerMessage(symbol, data) {
-    console.log('[MP_DEBUG | symbolStore] Received worker message for symbol:', symbol, 'data:', data);
     const { type, payload } = data;
     if (type === 'stateUpdate') {
-        console.log('[MP_DEBUG | symbolStore] Received stateUpdate from worker.', payload);
         const stateResult = VisualizationStateSchema.safeParse(payload.newState);
         if (stateResult.success) {
             update(symbols => {
                 const existingSymbol = symbols[symbol];
                 if (existingSymbol) {
-                     console.log('[MP_DEBUG | symbolStore] Updating state for symbol:', symbol);
                     return {
                         ...symbols,
                         [symbol]: {
                             ...existingSymbol,
                             state: stateResult.data,
-                            ready: true
+                            ready: true // Set ready flag on first valid state update
                         }
                     };
                 }
-                console.warn('[MP_DEBUG | symbolStore] Received stateUpdate for non-existent symbol:', symbol);
                 return symbols;
             });
         } else {
-            console.error('[MP_DEBUG | symbolStore] Worker: Invalid state data from worker:', JSON.stringify(stateResult.error, null, 2));
+            console.error('[MP_DEBUG | symbolStore] FATAL: Invalid state data from worker. The UI will not render.', JSON.stringify(stateResult.error, null, 2));
         }
     }
 }
 
 function dispatchTick(symbol, tick) {
-     console.log('[MP_DEBUG | symbolStore] dispatchTick called for:', symbol, 'tick:', tick);
-    const tickResult = TickSchema.safeParse(tick);
-    if (!tickResult.success) {
-        console.error('[MP_DEBUG | symbolStore] Invalid tick data:', JSON.stringify(tickResult.error, null, 2));
-        return;
-    }
-    const validatedTick = tickResult.data;
-
-    update(symbols => {
-        const existingSymbol = symbols[symbol];
-        if (existingSymbol) {
-            // Minimal update to the store for immediate price display
-             console.log('[MP_DEBUG | symbolStore] Updating minimal state for symbol:', symbol);
-            return {
-                ...symbols,
-                [symbol]: {
-                    ...existingSymbol,
-                    state: {
-                        ...existingSymbol.state,
-                        currentPrice: validatedTick.bid,
-                        lastTickDirection: validatedTick.bid > existingSymbol.state.currentPrice ? 'up' : 'down'
-                    }
-                }
-            };
-        }
-         console.warn('[MP_DEBUG | symbolStore] dispatchTick for non-existent symbol:', symbol);
-        return symbols;
-    });
-
     const worker = workers.get(symbol);
     if (worker) {
-        console.log('[MP_DEBUG | symbolStore] Posting tick message to worker:', validatedTick);
-        worker.postMessage({ type: 'tick', payload: validatedTick });
-    } else {
-         console.warn('[MP_DEBUG | symbolStore] No worker found for symbol to dispatch tick:', symbol);
+        worker.postMessage({ type: 'tick', payload: tick });
     }
 }
 
 function updateConfig(symbol, newConfig) {
-    console.log('[MP_DEBUG | symbolStore] updateConfig called for:', symbol, 'with config:', newConfig);
     const configResult = VisualizationConfigSchema.partial().safeParse(newConfig);
     if (configResult.success) {
         update(symbols => {
@@ -196,10 +134,8 @@ function updateConfig(symbol, newConfig) {
                 const updatedConfig = { ...existingSymbol.config, ...configResult.data };
                 const worker = workers.get(symbol);
                 if (worker) {
-                    console.log('[MP_DEBUG | symbolStore] Posting updateConfig message to worker:', configResult.data);
                     worker.postMessage({ type: 'updateConfig', payload: configResult.data });
                 }
-                 console.log('[MP_DEBUG | symbolStore] Updating config in store for symbol:', symbol, updatedConfig);
                 return {
                     ...symbols,
                     [symbol]: {
@@ -208,7 +144,6 @@ function updateConfig(symbol, newConfig) {
                     }
                 };
             }
-             console.warn('[MP_DEBUG | symbolStore] updateConfig for non-existent symbol:', symbol);
             return symbols;
         });
     } else {
@@ -217,16 +152,13 @@ function updateConfig(symbol, newConfig) {
 }
 
 function resetConfig(symbol) {
-     console.log('[MP_DEBUG | symbolStore] resetConfig called for:', symbol);
     update(symbols => {
         const existingSymbol = symbols[symbol];
         if (existingSymbol) {
             const worker = workers.get(symbol);
             if (worker) {
-                 console.log('[MP_DEBUG | symbolStore] Posting resetConfig (defaultConfig) to worker for symbol:', symbol);
                 worker.postMessage({ type: 'updateConfig', payload: { ...defaultConfig } });
             }
-             console.log('[MP_DEBUG | symbolStore] Resetting config in store for symbol:', symbol);
             return {
                 ...symbols,
                 [symbol]: {
@@ -235,31 +167,26 @@ function resetConfig(symbol) {
                 }
             };
         }
-         console.warn('[MP_DEBUG | symbolStore] resetConfig for non-existent symbol:', symbol);
         return symbols;
     });
 }
 
 function removeSymbol(symbol) {
-    console.log('[MP_DEBUG | symbolStore] removeSymbol called for:', symbol);
     update(symbols => {
         const newSymbols = { ...symbols };
         if (newSymbols[symbol]) {
             const worker = workers.get(symbol);
             if (worker) {
-                 console.log('[MP_DEBUG | symbolStore] Terminating worker for symbol:', symbol);
                 worker.terminate();
                 workers.delete(symbol);
             }
             delete newSymbols[symbol];
-             console.log('[MP_DEBUG | symbolStore] Removed symbol from store:', symbol);
         }
         return newSymbols;
     });
 }
 
 function clear() {
-     console.log('[MP_DEBUG | symbolStore] clear called. Terminating all workers.');
     set({});
     workers.forEach(worker => worker.terminate());
     workers.clear();

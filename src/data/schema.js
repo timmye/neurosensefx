@@ -81,7 +81,8 @@ export const VisualizationStateSchema = z.object({
   todaysHigh: z.number(),
   todaysLow: z.number(),
   flashEffect: FlashEffectSchema.nullable(),
-  priceFloatPulseEffect: PriceFloatPulseEffectSchema, // New price float pulse state
+  priceFloatPulseEffect: PriceFloatPulseEffectSchema,
+  digits: z.number().int(), // FIX: Add digits to state schema
 });
 
 // Configuration schema
@@ -127,13 +128,13 @@ export const VisualizationConfigSchema = z.object({
   orbFlashThreshold: z.number(),
   orbFlashIntensity: z.number(),
   showMarketProfile: z.boolean(),
-  marketProfileView: z.enum(['bars', 'combined']).default('bars'),
+  // FIX: Updated marketProfileView to reflect the new combined options.
+  // Removed showSingleSidedProfile and singleSidedProfileSide as they are now redundant.
+  marketProfileView: z.enum(['separate', 'combinedLeft', 'combinedRight']).default('separate'),
   distributionDepthMode: z.string(),
   distributionPercentage: z.number(),
   priceBucketSize: z.number(),
   marketProfileWidthRatio: z.number().optional().default(1),
-  showSingleSidedProfile: z.boolean(),
-  singleSidedProfileSide: z.string(),
   showMaxMarker: z.boolean(),
   adrLookbackDays: z.number(),
   frequencyMode: z.string(),

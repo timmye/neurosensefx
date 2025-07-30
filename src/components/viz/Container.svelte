@@ -15,72 +15,59 @@
   let dpr = 1;
 
   onMount(() => {
-    console.log('[MP_DEBUG | Container] onMount lifecycle hook. Initial config:', config);
     ctx = canvas.getContext('2d');
     dpr = window.devicePixelRatio || 1;
-     console.log('[MP_DEBUG | Container] Canvas context and DPR initialized.', { ctx, dpr });
   });
 
   $: if (canvas && config) {
-    console.log('[MP_DEBUG | Container] Canvas or config changed. Resizing canvas.', config);
     const { visualizationsContentWidth, meterHeight } = config;
     canvas.style.width = `${visualizationsContentWidth}px`;
     canvas.style.height = `${meterHeight}px`;
     canvas.width = Math.floor(visualizationsContentWidth * dpr);
     canvas.height = Math.floor(meterHeight * dpr);
     ctx?.scale(dpr, dpr);
-     console.log('[MP_DEBUG | Container] Canvas resized to:', { width: canvas.width, height: canvas.height, styleWidth: canvas.style.width, styleHeight: canvas.style.height, dpr });
   }
 
   $: if (ctx && state && config) {
-    console.log('[MP_DEBUG | Container] Drawing canvas because state or config changed.', { state, config });
     draw(state, config);
   }
 
   function draw(currentState, currentConfig) {
-    console.log('[MP_DEBUG | Container] draw function called.', { currentState, currentConfig });
     const { visualizationsContentWidth, meterHeight } = currentConfig;
-    
-    // --- Dynamic Y-Scale Calculation --- START
-    let minVisiblePrice = currentState.visualLow;
-    let maxVisiblePrice = currentState.visualHigh;
 
-    // Include market profile levels in the visible price range if shown
-    if (currentConfig.showMarketProfile && currentState.marketProfile && currentState.marketProfile.levels && currentState.marketProfile.levels.length > 0) {
-        const mpPrices = currentState.marketProfile.levels.map(l => l.price);
-        const mpMinPrice = Math.min(...mpPrices);
-        const mpMaxPrice = Math.max(...mpPrices);
+    // FIX: Convert all price-like values from state to decimals before using them.
+    const conversionFactor = 100000.0;
+    const visualLow = currentState.visualLow / conversionFactor;
+    const visualHigh = currentState.visualHigh / conversionFactor;
 
-        minVisiblePrice = Math.min(minVisiblePrice, mpMinPrice);
-        maxVisiblePrice = Math.max(maxVisiblePrice, mpMaxPrice);
+    let minVisiblePrice = visualLow;
+    let maxVisiblePrice = visualHigh;
+
+    if (currentConfig.showMarketProfile && currentState.marketProfile && currentState.marketProfile.levels.length > 0) {
+        const mpPrices = currentState.marketProfile.levels.map(l => (l.price / conversionFactor));
+        minVisiblePrice = Math.min(minVisiblePrice, ...mpPrices);
+        maxVisiblePrice = Math.max(maxVisiblePrice, ...mpPrices);
     }
 
-    // Add padding to the visible range
     const priceRange = maxVisiblePrice - minVisiblePrice;
-    const padding = priceRange * 0.1; // 10% padding
+    const padding = priceRange * 0.1;
 
     const finalMinPrice = minVisiblePrice - padding;
     const finalMaxPrice = maxVisiblePrice + padding;
-    // --- Dynamic Y-Scale Calculation --- END
-
+    
+    // The Y-scale is now created with the correct decimal-based domain.
     const y = scaleLinear().domain([finalMinPrice, finalMaxPrice]).range([meterHeight, 0]);
     
-    console.log(`[MP_DEBUG | Container] Y-Scale created with dynamic domain [${finalMinPrice}, ${finalMaxPrice}] and range [${meterHeight}, 0]. Testing current price ${currentState.currentPrice} -> Y: ${y(currentState.currentPrice)}`);
-
     ctx.clearRect(0, 0, visualizationsContentWidth, meterHeight);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
-     console.log('[MP_DEBUG | Container] Canvas cleared and background filled.');
 
-    // This single y-scale is passed to all drawing functions, ensuring they are perfectly aligned.
-    console.log('[MP_DEBUG | Container] Calling drawing functions...');
-    // Draw Market Profile first so ADR axis is on top
+    // Pass the original state object to the children, they will handle their own conversions.
     drawMarketProfile(ctx, currentConfig, currentState, y, currentState.marketProfile);
-    drawDayRangeMeter(ctx, currentConfig, currentState, y); // Draw Day Range Meter (ADR axis) second
+    drawDayRangeMeter(ctx, currentConfig, currentState, y); 
     drawVolatilityOrb(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
     drawPriceFloat(ctx, currentConfig, currentState, y);
     drawPriceDisplay(ctx, currentConfig, currentState, y, visualizationsContentWidth);
-     console.log('[MP_DEBUG | Container] Drawing functions called.');
   }
 
 </script>
