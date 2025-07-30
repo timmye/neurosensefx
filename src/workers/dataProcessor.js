@@ -152,10 +152,7 @@ function generateMarketProfile() {
     const pipetteSize = 1 / Math.pow(10, localDigits);
     const priceBucketSize = pipetteSize * (config.priceBucketMultiplier || 1);
 
-    console.log('[MP_DEBUG | Worker] Market Profile Generation Started');
-    console.log(`[MP_DEBUG | Worker]   - priceBucketSize: ${priceBucketSize}`);
     if (!priceBucketSize || priceBucketSize <= 0) {
-        console.error('[MP_DEBUG | Worker] Invalid priceBucketSize. Aborting profile generation.');
         return { levels: [], tickCount: 0 };
     }
 
@@ -165,22 +162,19 @@ function generateMarketProfile() {
         : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
 
     const priceToBucketFactor = 1 / priceBucketSize;
-    console.log(`[MP_DEBUG | Worker]   - priceToBucketFactor: ${priceToBucketFactor}`);
 
     if (isNaN(priceToBucketFactor) || priceToBucketFactor === 0) {
-        console.error('[MP_DEBUG | Worker] Invalid priceToBucketFactor. Aborting profile generation.');
         return { levels: [], tickCount: 0 };
     }
 
     relevantTicks.forEach(t => {
         const priceBucket = Math.floor(t.price * priceToBucketFactor);
         if (isNaN(priceBucket)) {
-            console.warn(`[MP_DEBUG | Worker] NaN priceBucket for tick: ${t.price}`);
             return;
         }
         const bucket = profileData.get(priceBucket) || { buy: 0, sell: 0, total: 0 };
         if (t.direction > 0) bucket.buy++; else bucket.sell++;
-        bucket.total++;
+        bucket.total = bucket.buy + bucket.sell;
         profileData.set(priceBucket, bucket);
     });
 
@@ -190,14 +184,13 @@ function generateMarketProfile() {
                 price: bucket / priceToBucketFactor,
                 volume: data.total,
                 buy: data.buy,
-                sell: data.sell
+                sell: data.sell,
+                total: data.total
             }))
             .sort((a, b) => a.price - b.price),
         tickCount: relevantTicks.length
     };
     
-    console.log(`[MP_DEBUG | Worker]   - Generated ${finalProfile.levels.length} profile levels.`);
-    console.log('[MP_DEBUG | Worker] Market Profile Generation Finished');
     return finalProfile;
 }
 

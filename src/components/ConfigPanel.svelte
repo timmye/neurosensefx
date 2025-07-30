@@ -194,6 +194,29 @@
                     <input type="range" id="priceFloatWidth" min="10" max="200" step="1" bind:value={config.priceFloatWidth} on:change={handleConfigChange}>
                 </div>
                 <div class="control-group">
+                    <label for="priceFloatHeight">Price Float Thickness: <span>{config.priceFloatHeight}px</span></label>
+                    <input type="range" id="priceFloatHeight" min="1" max="10" step="1" bind:value={config.priceFloatHeight} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="priceFloatUseDirectionalColor">Use Directional Color</label>
+                    <input type="checkbox" id="priceFloatUseDirectionalColor" bind:checked={config.priceFloatUseDirectionalColor} on:change={handleConfigChange}>
+                </div>
+                {#if config.priceFloatUseDirectionalColor}
+                <div class="control-group">
+                    <label for="priceFloatUpColor">Up Color:</label>
+                    <input type="color" id="priceFloatUpColor" bind:value={config.priceFloatUpColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="priceFloatDownColor">Down Color:</label>
+                    <input type="color" id="priceFloatDownColor" bind:value={config.priceFloatDownColor} on:change={handleConfigChange}>
+                </div>
+                {:else}
+                <div class="control-group">
+                    <label for="priceFloatColor">Price Float Color:</label>
+                    <input type="color" id="priceFloatColor" bind:value={config.priceFloatColor} on:change={handleConfigChange}>
+                </div>
+                {/if}
+                <div class="control-group">
                     <label for="priceFontSize">Price Font Size: <span>{config.priceFontSize}px</span></label>
                     <input type="range" id="priceFontSize" min="10" max="100" step="1" bind:value={config.priceFontSize} on:change={handleConfigChange}>
                 </div>
@@ -201,6 +224,25 @@
                     <label for="showPipetteDigit">Show Pipette Digit</label>
                     <input type="checkbox" id="showPipetteDigit" bind:checked={config.showPipetteDigit} on:change={handleConfigChange}>
                 </div>
+                <div class="control-group">
+                    <label for="priceUseStaticColor">Use Static Price Color</label>
+                    <input type="checkbox" id="priceUseStaticColor" bind:checked={config.priceUseStaticColor} on:change={handleConfigChange}>
+                </div>
+                {#if config.priceUseStaticColor}
+                <div class="control-group">
+                    <label for="priceStaticColor">Price Color:</label>
+                    <input type="color" id="priceStaticColor" bind:value={config.priceStaticColor} on:change={handleConfigChange}>
+                </div>
+                {:else}
+                <div class="control-group">
+                    <label for="priceUpColor">Price Up Color:</label>
+                    <input type="color" id="priceUpColor" bind:value={config.priceUpColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="priceDownColor">Price Down Color:</label>
+                    <input type="color" id="priceDownColor" bind:value={config.priceDownColor} on:change={handleConfigChange}>
+                </div>
+                {/if}
             </div>
 
             <!-- Volatility Orb Controls -->
@@ -234,10 +276,14 @@
                 <div class="control-group">
                     <label for="marketProfileView">View Mode</label>
                     <select id="marketProfileView" bind:value={config.marketProfileView} on:change={handleConfigChange}>
-                        <option value="separate">Separate Buy/Sell</option>
+                        <option value="separate">Up/Down Separate</option>
                         <option value="combinedLeft">Combined (Left)</option>
                         <option value="combinedRight">Combined (Right)</option>
                     </select>
+                </div>
+                <div class="control-group">
+                    <label for="marketProfileOutline">Outline</label>
+                    <input type="checkbox" id="marketProfileOutline" bind:checked={config.marketProfileOutline} on:change={handleConfigChange}>
                 </div>
                  <div class="control-group">
                     <label for="priceBucketMultiplier">Profile Detail / Stacking: <span>{config.priceBucketMultiplier}x</span></label>
@@ -248,7 +294,7 @@
                     <input type="range" id="marketProfileWidthRatio" min="0.1" max="3" step="0.1" bind:value={config.marketProfileWidthRatio} on:change={handleConfigChange}>
                 </div>
             </div>
-
+            
           {/if}
       </div>
   </div>

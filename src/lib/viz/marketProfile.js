@@ -1,4 +1,5 @@
 import { scaleLinear } from 'd3-scale';
+import { line, curveBasis } from 'd3-shape';
 
 export function drawMarketProfile(ctx, config, state, y, marketProfile) {
   if (!config.showMarketProfile || !marketProfile || !marketProfile.levels || marketProfile.levels.length === 0) {
@@ -9,7 +10,8 @@ export function drawMarketProfile(ctx, config, state, y, marketProfile) {
     centralAxisXPosition, 
     visualizationsContentWidth, 
     marketProfileWidthRatio,
-    marketProfileView
+    marketProfileView,
+    marketProfileOutline,
   } = config;
 
   const availableWidth = (visualizationsContentWidth / 2) - 10;
@@ -22,30 +24,64 @@ export function drawMarketProfile(ctx, config, state, y, marketProfile) {
 
   const x = scaleLinear().domain([0, maxVolume]).range([0, availableWidth * marketProfileWidthRatio]);
 
-  marketProfile.levels.forEach(level => {
-    const levelY = y(level.price);
+  const drawAsOutline = (data, color, side) => {
+    const lineGenerator = line()
+      .x(d => d.x)
+      .y(d => d.y)
+      .curve(curveBasis);
     
-    if (levelY < 0 || levelY > config.meterHeight) {
-        return;
-    }
+    ctx.beginPath();
+    lineGenerator.context(ctx)(side === 'left' ? data : data.reverse());
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  };
 
-    if (marketProfileView === 'separate') {
-      const sellWidth = x(level.sell);
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
-      ctx.fillRect(centralAxisXPosition - sellWidth, levelY, sellWidth, 1);
-
-      const buyWidth = x(level.buy);
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.4)';
-      ctx.fillRect(centralAxisXPosition, levelY, buyWidth, 1);
+  const drawAsBars = (yPos, width, color, position) => {
+    ctx.fillStyle = color;
+    if (position === 'left') {
+      ctx.fillRect(centralAxisXPosition - width, yPos, width, 1);
     } else {
-      const totalWidth = x(level.total);
-      ctx.fillStyle = 'rgba(156, 163, 175, 0.4)';
-      
-      if (marketProfileView === 'combinedLeft') {
-        ctx.fillRect(centralAxisXPosition - totalWidth, levelY, totalWidth, 1);
-      } else { // 'combinedRight'
-        ctx.fillRect(centralAxisXPosition, levelY, totalWidth, 1);
-      }
+      ctx.fillRect(centralAxisXPosition, yPos, width, 1);
     }
-  });
+  };
+
+  if (marketProfileView === 'separate') {
+    if (marketProfileOutline) {
+      const leftData = marketProfile.levels.map(level => ({
+        x: centralAxisXPosition - x(level.sell),
+        y: y(level.price)
+      }));
+      const rightData = marketProfile.levels.map(level => ({
+        x: centralAxisXPosition + x(level.buy),
+        y: y(level.price)
+      }));
+      drawAsOutline(leftData, 'rgba(239, 68, 68, 0.8)', 'left');
+      drawAsOutline(rightData, 'rgba(59, 130, 246, 0.8)', 'right');
+    } else {
+      marketProfile.levels.forEach(level => {
+        const levelY = y(level.price);
+        if (levelY < 0 || levelY > config.meterHeight) return;
+        drawAsBars(levelY, x(level.sell), 'rgba(239, 68, 68, 0.4)', 'left');
+        drawAsBars(levelY, x(level.buy), 'rgba(59, 130, 246, 0.4)', 'right');
+      });
+    }
+  } else { // combinedLeft or combinedRight
+    if (marketProfileOutline) {
+      const data = marketProfile.levels.map(level => ({
+        x: marketProfileView === 'combinedLeft' 
+          ? centralAxisXPosition - x(level.total)
+          : centralAxisXPosition + x(level.total),
+        y: y(level.price)
+      }));
+      drawAsOutline(data, 'rgba(156, 163, 175, 0.8)', marketProfileView === 'combinedLeft' ? 'left' : 'right');
+    } else {
+      marketProfile.levels.forEach(level => {
+        const levelY = y(level.price);
+        if (levelY < 0 || levelY > config.meterHeight) return;
+        const position = marketProfileView === 'combinedLeft' ? 'left' : 'right';
+        drawAsBars(levelY, x(level.total), 'rgba(156, 163, 175, 0.4)', position);
+      });
+    }
+  }
 }
