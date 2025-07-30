@@ -1,6 +1,4 @@
 function formatPrice(price, digits) {
-  // No longer need to divide by 100000 here, as the price is now correct
-  // from the data worker.
   if (price === undefined || price === null) return null;
 
   const priceStr = price.toFixed(digits);
@@ -44,15 +42,21 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
     priceDownColor
   } = config;
 
-  const { currentPrice, digits, lastTickDirection } = state; 
+  const { currentPrice, digits, lastTickDirection, lastTick } = state; 
+
+  const displayPrice = lastTick ? lastTick.bid : currentPrice;
   
-  // The y-scale is now consistent with the price format.
-  const currentPriceY = y(currentPrice); 
+  const currentPriceY = y(displayPrice);
 
-  if (currentPrice === undefined || currentPrice === null || isNaN(currentPriceY)) return;
+  if (displayPrice === undefined || displayPrice === null || isNaN(currentPriceY)) return;
 
-  // The formatPrice function now receives the correct decimal price.
-  const formattedPrice = formatPrice(currentPrice, digits);
+  const formattedPrice = formatPrice(displayPrice, digits);
+
+  console.log('--- Point of Failure 4: Incorrect Price Display ---');
+  console.log(`Price Display: Price from state: ${displayPrice}, Digits: ${digits}`);
+  console.log('Price Display: Formatted Price:', formattedPrice);
+  console.log('--- End of Point of Failure 4 ---');
+
   if (!formattedPrice) return;
 
   ctx.textBaseline = 'middle';

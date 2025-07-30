@@ -157,32 +157,32 @@
                 <h3 class="group-title">Layout & Meter</h3>
                 <div class="control-group">
                     <label for="visualizationsContentWidth">Viz Width: <span>{config.visualizationsContentWidth}px</span></label>
-                    <input type="range" id="visualizationsContentWidth" min="100" max="500" step="1" bind:value={config.visualizationsContentWidth} on:input={handleConfigChange}>
+                    <input type="range" id="visualizationsContentWidth" min="100" max="500" step="1" bind:value={config.visualizationsContentWidth} on:change={handleConfigChange}>
                 </div>
                  <div class="control-group">
                     <label for="meterHeight">Viz Height: <span>{config.meterHeight}px</span></label>
-                    <input type="range" id="meterHeight" min="50" max="300" step="1" bind:value={config.meterHeight} on:input={handleConfigChange}>
+                    <input type="range" id="meterHeight" min="50" max="300" step="1" bind:value={config.meterHeight} on:change={handleConfigChange}>
                 </div>
                 <div class="control-group">
                     <label for="centralAxisXPosition">ADR Axis X-Position: <span>{config.centralAxisXPosition}px</span></label>
-                    <input type="range" id="centralAxisXPosition" min="0" max={config.visualizationsContentWidth} step="1" bind:value={config.centralAxisXPosition} on:input={handleConfigChange}>
+                    <input type="range" id="centralAxisXPosition" min="0" max={config.visualizationsContentWidth} step="1" bind:value={config.centralAxisXPosition} on:change={handleConfigChange}>
                 </div>
                 <div class="control-group">
                     <label for="adrProximityThreshold">ADR Proximity Pulse (%): <span>{config.adrProximityThreshold}</span></label>
-                    <input type="range" id="adrProximityThreshold" min="0" max="100" step="1" bind:value={config.adrProximityThreshold} on:input={handleConfigChange}>
+                    <input type="range" id="adrProximityThreshold" min="0" max="100" step="1" bind:value={config.adrProximityThreshold} on:change={handleConfigChange}>
                 </div>
                 <!-- ADR Pulse Controls -->
                 <div class="control-group">
                     <label for="adrPulseColor">ADR Pulse Color:</label>
-                    <input type="color" id="adrPulseColor" bind:value={config.adrPulseColor} on:input={handleConfigChange}>
+                    <input type="color" id="adrPulseColor" bind:value={config.adrPulseColor} on:change={handleConfigChange}>
                 </div>
                 <div class="control-group">
                     <label for="adrPulseWidthRatio">ADR Pulse Width Ratio (of Viz Width): <span>{config.adrPulseWidthRatio?.toFixed(2)}</span></label>
-                    <input type="range" id="adrPulseWidthRatio" min="0.1" max="1" step="0.05" bind:value={config.adrPulseWidthRatio} on:input={handleConfigChange}>
+                    <input type="range" id="adrPulseWidthRatio" min="0.1" max="1" step="0.05" bind:value={config.adrPulseWidthRatio} on:change={handleConfigChange}>
                 </div>
                  <div class="control-group">
                     <label for="adrPulseHeight">ADR Pulse Height: <span>{config.adrPulseHeight}px</span></label>
-                    <input type="range" id="adrPulseHeight" min="1" max="10" step="1" bind:value={config.adrPulseHeight} on:input={handleConfigChange}>
+                    <input type="range" id="adrPulseHeight" min="1" max="10" step="1" bind:value={config.adrPulseHeight} on:change={handleConfigChange}>
                 </div>
             </div>
 
@@ -191,11 +191,11 @@
                 <h3 class="group-title">Price Elements</h3>
                 <div class="control-group">
                     <label for="priceFloatWidth">Price Float Width: <span>{config.priceFloatWidth}px</span></label>
-                    <input type="range" id="priceFloatWidth" min="10" max="200" step="1" bind:value={config.priceFloatWidth} on:input={handleConfigChange}>
+                    <input type="range" id="priceFloatWidth" min="10" max="200" step="1" bind:value={config.priceFloatWidth} on:change={handleConfigChange}>
                 </div>
                 <div class="control-group">
                     <label for="priceFontSize">Price Font Size: <span>{config.priceFontSize}px</span></label>
-                    <input type="range" id="priceFontSize" min="10" max="100" step="1" bind:value={config.priceFontSize} on:input={handleConfigChange}>
+                    <input type="range" id="priceFontSize" min="10" max="100" step="1" bind:value={config.priceFontSize} on:change={handleConfigChange}>
                 </div>
                 <div class="control-group">
                     <label for="showPipetteDigit">Show Pipette Digit</label>
@@ -212,7 +212,7 @@
                 </div>
                 <div class="control-group">
                     <label for="volatilityOrbBaseWidth">Orb Base Width: <span>{config.volatilityOrbBaseWidth}</span></label>
-                    <input type="range" id="volatilityOrbBaseWidth" min="10" max="200" step="1" bind:value={config.volatilityOrbBaseWidth} on:input={handleConfigChange}>
+                    <input type="range" id="volatilityOrbBaseWidth" min="10" max="200" step="1" bind:value={config.volatilityOrbBaseWidth} on:change={handleConfigChange}>
                 </div>
                 <div class="control-group">
                     <label for="volatilityColorMode">Orb Color Mode</label>
@@ -240,12 +240,12 @@
                     </select>
                 </div>
                  <div class="control-group">
-                    <label for="priceBucketSize">Profile Detail / Stacking: <span>{config.priceBucketSize}</span></label>
-                    <input type="range" id="priceBucketSize" min="0.1" max="5" step="0.1" bind:value={config.priceBucketSize} on:input={handleConfigChange}>
+                    <label for="priceBucketMultiplier">Profile Detail / Stacking: <span>{config.priceBucketMultiplier}x</span></label>
+                    <input type="range" id="priceBucketMultiplier" min="1" max="100" step="1" bind:value={config.priceBucketMultiplier} on:change={handleConfigChange}>
                 </div>
                 <div class="control-group">
                     <label for="marketProfileWidthRatio">Profile Width Ratio: <span>{config.marketProfileWidthRatio?.toFixed(2)}</span></label>
-                    <input type="range" id="marketProfileWidthRatio" min="0.1" max="3" step="0.1" bind:value={config.marketProfileWidthRatio} on:input={handleConfigChange}>
+                    <input type="range" id="marketProfileWidthRatio" min="0.1" max="3" step="0.1" bind:value={config.marketProfileWidthRatio} on:change={handleConfigChange}>
                 </div>
             </div>
 

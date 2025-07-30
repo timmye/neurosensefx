@@ -29,40 +29,22 @@
   }
 
   $: if (ctx && state && config) {
+    console.log('--- Point of Failure 5: Data Fed to Visualization Container ---');
+    console.log('State:', JSON.parse(JSON.stringify(state)));
+    console.log('Config:', JSON.parse(JSON.stringify(config)));
+    console.log('--- End of Point of Failure 5 ---');
     draw(state, config);
   }
 
   function draw(currentState, currentConfig) {
     const { visualizationsContentWidth, meterHeight } = currentConfig;
-
-    // FIX: Convert all price-like values from state to decimals before using them.
-    const conversionFactor = 100000.0;
-    const visualLow = currentState.visualLow / conversionFactor;
-    const visualHigh = currentState.visualHigh / conversionFactor;
-
-    let minVisiblePrice = visualLow;
-    let maxVisiblePrice = visualHigh;
-
-    if (currentConfig.showMarketProfile && currentState.marketProfile && currentState.marketProfile.levels.length > 0) {
-        const mpPrices = currentState.marketProfile.levels.map(l => (l.price / conversionFactor));
-        minVisiblePrice = Math.min(minVisiblePrice, ...mpPrices);
-        maxVisiblePrice = Math.max(maxVisiblePrice, ...mpPrices);
-    }
-
-    const priceRange = maxVisiblePrice - minVisiblePrice;
-    const padding = priceRange * 0.1;
-
-    const finalMinPrice = minVisiblePrice - padding;
-    const finalMaxPrice = maxVisiblePrice + padding;
     
-    // The Y-scale is now created with the correct decimal-based domain.
-    const y = scaleLinear().domain([finalMinPrice, finalMaxPrice]).range([meterHeight, 0]);
+    const y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([meterHeight, 0]);
     
     ctx.clearRect(0, 0, visualizationsContentWidth, meterHeight);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
 
-    // Pass the original state object to the children, they will handle their own conversions.
     drawMarketProfile(ctx, currentConfig, currentState, y, currentState.marketProfile);
     drawDayRangeMeter(ctx, currentConfig, currentState, y); 
     drawVolatilityOrb(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);

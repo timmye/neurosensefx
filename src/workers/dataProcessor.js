@@ -12,8 +12,7 @@ let localDigits = 5;
 // This function correctly applies the transformation for any value
 // from the backend that represents a price or a price range.
 function convertValue(value, digits) {
-  const actualValue = value / 100000.0;
-  return Number(actualValue.toFixed(digits));
+  return Number(value.toFixed(digits));
 }
 
 self.onmessage = (event) => {
@@ -36,6 +35,11 @@ self.onmessage = (event) => {
 };
 
 function initialize(payload) {
+    // Test Point 3: Log the incoming payload from the backend
+    console.log('--- Point of Failure 3: Incorrect Data Received by Frontend ---');
+    console.log('Data Worker: Initial Payload:', payload);
+    console.log('--- End of Point of Failure 3 ---');
+
     config = payload.config;
     localDigits = typeof payload.digits === 'number' ? payload.digits : 5;
 
@@ -81,10 +85,16 @@ function initialize(payload) {
         flashEffect: null,
         lastTickTime: 0,
         maxDeflection: { up: 0, down: 0, lastUpdateTime: 0 },
-        priceFloatPulseEffect: { active: false, magnitude: 0, color: '', scale: 1 }
+        priceFloatPulseEffect: { active: false, magnitude: 0, color: '', scale: 1 },
+        lastTick: {
+            bid: initialPrice,
+            ask: initialPrice,
+            timestamp: Date.now(),
+        }
     };
 
     state.marketProfile = generateMarketProfile();
+    recalculateVisualRange();
     postStateUpdate();
 }
 
@@ -99,6 +109,7 @@ function processTick(rawTick) {
     const lastPrice = state.currentPrice;
     state.currentPrice = tick.bid;
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
+    state.lastTick = tick;
 
     const adrRange = state.adrHigh - state.adrLow;
     const buffer = adrRange * 0.1;
@@ -127,17 +138,16 @@ function processTick(rawTick) {
 
     updateVolatility(now);
     state.marketProfile = generateMarketProfile();
+    recalculateVisualRange();
     postStateUpdate();
 }
 
 function updateConfig(newConfig) {
-    const oldBucketSize = config.priceBucketSize;
     config = { ...config, ...newConfig };
-
-    if (newConfig.priceBucketSize && newConfig.priceBucketSize !== oldBucketSize) {
-        state.marketProfile = generateMarketProfile();
-        postStateUpdate();
-    }
+    
+    state.marketProfile = generateMarketProfile();
+    recalculateVisualRange();
+    postStateUpdate();
 }
 
 function updateVolatility(now) {
@@ -165,7 +175,13 @@ function updateVolatility(now) {
 }
 
 function generateMarketProfile() {
-    if (!config.priceBucketSize || config.priceBucketSize <= 0) {
+    const pipetteSize = 1 / Math.pow(10, localDigits);
+    const priceBucketSize = pipetteSize * (config.priceBucketMultiplier || 1);
+
+    console.log('[MP_DEBUG | Worker] Market Profile Generation Started');
+    console.log(`[MP_DEBUG | Worker]   - priceBucketSize: ${priceBucketSize}`);
+    if (!priceBucketSize || priceBucketSize <= 0) {
+        console.error('[MP_DEBUG | Worker] Invalid priceBucketSize. Aborting profile generation.');
         return { levels: [], tickCount: 0 };
     }
 
@@ -174,15 +190,18 @@ function generateMarketProfile() {
         ? state.allTicks
         : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
 
-    const priceToBucketFactor = 1 / config.priceBucketSize;
+    const priceToBucketFactor = 1 / priceBucketSize;
+    console.log(`[MP_DEBUG | Worker]   - priceToBucketFactor: ${priceToBucketFactor}`);
 
     if (isNaN(priceToBucketFactor) || priceToBucketFactor === 0) {
+        console.error('[MP_DEBUG | Worker] Invalid priceToBucketFactor. Aborting profile generation.');
         return { levels: [], tickCount: 0 };
     }
 
     relevantTicks.forEach(t => {
         const priceBucket = Math.floor(t.price * priceToBucketFactor);
         if (isNaN(priceBucket)) {
+            console.warn(`[MP_DEBUG | Worker] NaN priceBucket for tick: ${t.price}`);
             return;
         }
         const bucket = profileData.get(priceBucket) || { buy: 0, sell: 0, total: 0 };
@@ -202,9 +221,32 @@ function generateMarketProfile() {
             .sort((a, b) => a.price - b.price),
         tickCount: relevantTicks.length
     };
-
+    
+    console.log(`[MP_DEBUG | Worker]   - Generated ${finalProfile.levels.length} profile levels.`);
+    console.log('[MP_DEBUG | Worker] Market Profile Generation Finished');
     return finalProfile;
 }
+
+function recalculateVisualRange() {
+    let minPrice = state.adrLow;
+    let maxPrice = state.adrHigh;
+
+    if (config.showMarketProfile && state.marketProfile && state.marketProfile.levels.length > 0) {
+        const mpPrices = state.marketProfile.levels.map(l => l.price);
+        minPrice = Math.min(minPrice, ...mpPrices);
+        maxPrice = Math.max(maxPrice, ...mpPrices);
+    }
+    
+    minPrice = Math.min(minPrice, state.todaysLow);
+    maxPrice = Math.max(maxPrice, state.todaysHigh);
+
+    const adrRange = state.adrHigh - state.adrLow;
+    const buffer = adrRange * 0.1;
+
+    state.visualLow = minPrice - buffer;
+    state.visualHigh = maxPrice + buffer;
+}
+
 
 function postStateUpdate() {
     if (isNaN(state.currentPrice)) {

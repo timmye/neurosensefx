@@ -82,7 +82,8 @@ export const VisualizationStateSchema = z.object({
   todaysLow: z.number(),
   flashEffect: FlashEffectSchema.nullable(),
   priceFloatPulseEffect: PriceFloatPulseEffectSchema,
-  digits: z.number().int(), // FIX: Add digits to state schema
+  digits: z.number().int(),
+  lastTick: TickSchema.extend({ symbol: z.string().optional() }).nullable(), // Added lastTick to the state
 });
 
 // Configuration schema
@@ -112,10 +113,10 @@ export const VisualizationConfigSchema = z.object({
   priceFloatWidth: z.number(),
   priceFloatHeight: z.number(),
   priceFloatXOffset: z.number(),
-  showPriceFloatPulse: z.boolean().optional().default(false), // New price float pulse config
-  priceFloatPulseThreshold: z.number().optional().default(0.5), // New price float pulse config
-  priceFloatPulseColor: z.string().optional().default('rgba(167, 139, 250, 0.8)'), // New price float pulse config
-  priceFloatPulseScale: z.number().optional().default(1.5), // New price float pulse config
+  showPriceFloatPulse: z.boolean().optional().default(false),
+  priceFloatPulseThreshold: z.number().optional().default(0.5),
+  priceFloatPulseColor: z.string().optional().default('rgba(167, 139, 250, 0.8)'),
+  priceFloatPulseScale: z.number().optional().default(1.5),
   showVolatilityOrb: z.boolean(),
   volatilityColorMode: z.string(),
   volatilityOrbBaseWidth: z.number(),
@@ -128,12 +129,10 @@ export const VisualizationConfigSchema = z.object({
   orbFlashThreshold: z.number(),
   orbFlashIntensity: z.number(),
   showMarketProfile: z.boolean(),
-  // FIX: Updated marketProfileView to reflect the new combined options.
-  // Removed showSingleSidedProfile and singleSidedProfileSide as they are now redundant.
   marketProfileView: z.enum(['separate', 'combinedLeft', 'combinedRight']).default('separate'),
   distributionDepthMode: z.string(),
   distributionPercentage: z.number(),
-  priceBucketSize: z.number(),
+  priceBucketMultiplier: z.number().optional().default(1),
   marketProfileWidthRatio: z.number().optional().default(1),
   showMaxMarker: z.boolean(),
   adrLookbackDays: z.number(),
