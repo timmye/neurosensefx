@@ -16,6 +16,9 @@ function convertValue(value, digits) {
 }
 
 self.onmessage = (event) => {
+    // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
+    console.log(`[DEBUG_TRACE | Worker] Received message:`, JSON.stringify(event.data));
+
     const { type, payload } = event.data;
     try {
         switch (type) {
@@ -165,13 +168,9 @@ function generateMarketProfile() {
 }
 
 function recalculateVisualRange() {
-    // Determine the absolute min and max points we need to display by
-    // comparing the actual day's range with the projected ADR.
     const minPrice = Math.min(state.todaysLow, state.projectedAdrLow);
     const maxPrice = Math.max(state.todaysHigh, state.projectedAdrHigh);
     
-    // Add a 5% padding to the top and bottom for visual comfort.
-    // This prevents markers from sitting at the very edge of the container.
     const padding = (maxPrice - minPrice) * 0.05; 
     
     state.visualLow = minPrice - padding;

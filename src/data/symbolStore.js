@@ -47,7 +47,7 @@ export const defaultConfig = VisualizationConfigSchema.parse({
     marketProfileView: 'separate',
     distributionDepthMode: 'all',
     distributionPercentage: 50,
-    priceBucketMultiplier: 1, // This will now be used correctly by the worker
+    priceBucketMultiplier: 1,
     showMaxMarker: true,
     adrLookbackDays: 14,
     frequencyMode: 'normal'
@@ -92,7 +92,6 @@ function createNewSymbol(symbol, dataPackage) {
 function handleWorkerMessage(symbol, data) {
     const { type, payload } = data;
     if (type === 'stateUpdate') {
-        // The worker now sends a validated state object, so we can trust it.
         update(symbols => {
             const existingSymbol = symbols[symbol];
             if (existingSymbol) {
@@ -111,6 +110,9 @@ function handleWorkerMessage(symbol, data) {
 }
 
 function dispatchTick(symbol, tick) {
+    // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
+    console.log(`[DEBUG_TRACE | symbolStore] Dispatching tick to worker for ${symbol}:`, JSON.stringify(tick));
+
     const worker = workers.get(symbol);
     if (worker) {
         worker.postMessage({ type: 'tick', payload: tick });

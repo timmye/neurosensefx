@@ -40,7 +40,8 @@ export function connect() {
             if (rawData.type === 'symbolDataPackage') {
                 console.log('[MP_DEBUG | wsClient] Received symbolDataPackage raw data string:', JSON.stringify(rawData, null, 2));
             } else {
-                 console.log('[MP_DEBUG | wsClient] Received raw data object:', rawData);
+                 // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
+                 console.log(`[DEBUG_TRACE | wsClient] Received message from WebSocket:`, JSON.stringify(rawData));
             }
             handleSocketMessage(rawData);
         };
@@ -87,7 +88,9 @@ function stopConnectionMonitor() {
 }
 
 function handleSocketMessage(data) {
-     console.log('[MP_DEBUG | wsClient] Handling socket message type:', data.type);
+    // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
+    console.log(`[DEBUG_TRACE | wsClient] Received message from WebSocket:`, JSON.stringify(data));
+
     if (data.type === 'symbolDataPackage') {
         const packageResult = SymbolDataPackageSchema.safeParse(data);
         if (packageResult.success) {
@@ -107,7 +110,8 @@ function handleSocketMessage(data) {
     } else if (data.type === 'tick') {
         const tickResult = TickSchema.safeParse(data);
         if (tickResult.success) {
-             console.log('[MP_DEBUG | wsClient] Dispatching tick:', tickResult.data);
+             // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
+             console.log(`[DEBUG_TRACE | wsClient] Dispatching tick to store/worker:`, JSON.stringify(tickResult.data));
             symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
         } else {
             console.error('[MP_DEBUG | wsClient] Invalid tick data received:', tickResult.error);
@@ -272,15 +276,17 @@ export function unsubscribe(symbol) {
     });
 }
 
-dataSourceMode.subscribe(mode => {
-    console.log('[MP_DEBUG | wsClient] dataSourceMode changed to:', mode);
-    symbolStore.clear();
-    subscriptions.set(new Set());
-    if (mode === 'simulated') {
-        disconnect(); // Ensure disconnect for clean transition
-        startSimulation();
-    } else {
-        stopSimulation();
-        connect();
-    }
-});
+export function initializeWsClient() {
+    dataSourceMode.subscribe(mode => {
+        console.log('[MP_DEBUG | wsClient] dataSourceMode changed to:', mode);
+        symbolStore.clear();
+        subscriptions.set(new Set());
+        if (mode === 'simulated') {
+            disconnect(); // Ensure disconnect for clean transition
+            startSimulation();
+        } else {
+            stopSimulation();
+            connect();
+        }
+    });
+}
