@@ -19,8 +19,8 @@ export const HistoricalBarSchema = z.object({
 
 export const MarketDataSchema = z.object({
   adr: z.number(),
-  projectedHigh: z.number(),
-  projectedLow: z.number(),
+  projectedAdrHigh: z.number(),
+  projectedAdrLow: z.number(),
   todaysOpen: z.number(),
   todaysHigh: z.number(),
   todaysLow: z.number(),

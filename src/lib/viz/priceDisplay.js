@@ -1,31 +1,44 @@
+/**
+ * Formats a given price into its major components for display, based on the number of digits.
+ * This function correctly handles various forex and commodity pricing conventions.
+ * @param {number} price - The numerical price to format (e.g., 1.12345).
+ * @param {number} digits - The total number of decimal places for the symbol.
+ * @returns {{bigFigure: string, pips: string, pipette: string}|null}
+ */
 function formatPrice(price, digits) {
-  if (price === undefined || price === null) return null;
+    if (price === undefined || price === null || isNaN(price)) return null;
 
-  const priceStr = price.toFixed(digits);
-  const parts = priceStr.split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1] || '';
+    // Use toFixed to ensure the price has the correct number of decimal places, preventing floating point issues.
+    const priceStr = price.toFixed(digits);
+    const parts = priceStr.split('.');
+    const integerPart = parts[0];
+    const decimalPart = parts[1] || '';
 
-  let bigFigure = integerPart;
-  let pips = '';
-  let pipette = '';
+    let bigFigure = integerPart;
+    let pips = '';
+    let pipette = '';
 
-  if (digits === 5) {
-    bigFigure += '.' + decimalPart.substring(0, 2);
-    pips = decimalPart.substring(2, 4);
-    pipette = decimalPart.substring(4, 5);
-  } else if (digits === 3) {
-    bigFigure += '.';
-    pips = decimalPart.substring(0, 2);
-    pipette = decimalPart.substring(2, 3);
-  } else if (digits > 0) {
-    bigFigure += '.';
-    pips = decimalPart;
-    pipette = '';
-  }
+    // Standard convention for FX pairs (e.g., EURUSD, USDJPY) with 3 or 5 digits.
+    // The last digit is the 'pipette', and the two before it are the 'pips'.
+    if (digits === 5 || digits === 3) {
+        const pipsIndex = digits - 3; // The starting index of the 'pips' part.
+        bigFigure += '.' + decimalPart.substring(0, pipsIndex);
+        pips = decimalPart.substring(pipsIndex, pipsIndex + 2);
+        pipette = decimalPart.substring(pipsIndex + 2);
+    } 
+    // Convention for indices, commodities, or other instruments (e.g., XAUUSD, WTI).
+    // The entire decimal part is considered the 'big figure'.
+    else if (digits > 0) {
+        bigFigure += '.' + decimalPart;
+    }
+    // For prices with no decimal places.
+    else {
+        // bigFigure is already just the integerPart.
+    }
 
-  return { bigFigure, pips, pipette };
+    return { bigFigure, pips, pipette };
 }
+
 
 export function drawPriceDisplay(ctx, config, state, y, width) {
   const {
@@ -52,6 +65,7 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
 
   const formattedPrice = formatPrice(displayPrice, digits);
 
+  // --- Point of Failure 4: Incorrect Price Display --- (Preserved for your debugging)
   console.log('--- Point of Failure 4: Incorrect Price Display ---');
   console.log(`Price Display: Price from state: ${displayPrice}, Digits: ${digits}`);
   console.log('Price Display: Formatted Price:', formattedPrice);

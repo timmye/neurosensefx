@@ -116,8 +116,8 @@
               <div class="info-grid">
                   <span>Profile Levels:</span><span>{state.marketProfile?.levels?.length || 0}</span>
                   <span>Profile Ticks:</span><span>{state.marketProfile?.tickCount || 0}</span>
-                  <span>ADR High:</span><span>{state.adrHigh?.toFixed(5)}</span>
-                  <span>ADR Low:</span><span>{state.adrLow?.toFixed(5)}</span>
+                  <span>ADR High:</span><span>{state.projectedAdrHigh?.toFixed(5)}</span>
+                  <span>ADR Low:</span><span>{state.projectedAdrLow?.toFixed(5)}</span>
                   <span>Visual High:</span><span>{state.visualHigh?.toFixed(5)}</span>
                   <span>Visual Low:</span><span>{state.visualLow?.toFixed(5)}</span>
                   <hr/>
