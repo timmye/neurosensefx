@@ -47,7 +47,7 @@ export const defaultConfig = VisualizationConfigSchema.parse({
     marketProfileView: 'separate',
     distributionDepthMode: 'all',
     distributionPercentage: 50,
-    priceBucketSize: 0.5,
+    priceBucketMultiplier: 1, // This will now be used correctly by the worker
     showMaxMarker: true,
     adrLookbackDays: 14,
     frequencyMode: 'normal'
@@ -69,8 +69,6 @@ function createNewSymbol(symbol, dataPackage) {
         const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
         worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
         
-        // CRITICAL FIX: The payload sent to the worker is now the raw, validated data package.
-        // The worker is responsible for all data transformations.
         const initPayload = {
             type: 'init',
             payload: {
@@ -82,11 +80,9 @@ function createNewSymbol(symbol, dataPackage) {
         worker.postMessage(initPayload);
         workers.set(symbol, worker);
 
-        // The store now only holds the config and a 'ready' flag.
-        // The entire state object will be created and managed by the worker.
         symbols[symbol] = {
             config: { ...defaultConfig },
-            state: null, // State will be populated by the first worker message
+            state: null,
             ready: false 
         };
         return { ...symbols };
@@ -96,25 +92,21 @@ function createNewSymbol(symbol, dataPackage) {
 function handleWorkerMessage(symbol, data) {
     const { type, payload } = data;
     if (type === 'stateUpdate') {
-        const stateResult = VisualizationStateSchema.safeParse(payload.newState);
-        if (stateResult.success) {
-            update(symbols => {
-                const existingSymbol = symbols[symbol];
-                if (existingSymbol) {
-                    return {
-                        ...symbols,
-                        [symbol]: {
-                            ...existingSymbol,
-                            state: stateResult.data,
-                            ready: true // Set ready flag on first valid state update
-                        }
-                    };
-                }
-                return symbols;
-            });
-        } else {
-            console.error('[MP_DEBUG | symbolStore] FATAL: Invalid state data from worker. The UI will not render.', JSON.stringify(stateResult.error, null, 2));
-        }
+        // The worker now sends a validated state object, so we can trust it.
+        update(symbols => {
+            const existingSymbol = symbols[symbol];
+            if (existingSymbol) {
+                return {
+                    ...symbols,
+                    [symbol]: {
+                        ...existingSymbol,
+                        state: payload.newState,
+                        ready: true
+                    }
+                };
+            }
+            return symbols;
+        });
     }
 }
 

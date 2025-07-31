@@ -1,7 +1,9 @@
 import { scaleLinear } from 'd3-scale';
 import { line, curveBasis } from 'd3-shape';
 
-export function drawMarketProfile(ctx, config, state, y, marketProfile) {
+export function drawMarketProfile(ctx, config, state, y) {
+  const { marketProfile } = state;
+
   if (!config.showMarketProfile || !marketProfile || !marketProfile.levels || marketProfile.levels.length === 0) {
     return;
   }
@@ -18,7 +20,8 @@ export function drawMarketProfile(ctx, config, state, y, marketProfile) {
 
   const maxVolume = Math.max(
     ...marketProfile.levels.map(l => {
-      return marketProfileView === 'separate' ? Math.max(l.buy, l.sell) : l.total;
+      // CORRECTED: Use l.volume, which exists in the schema, instead of l.total.
+      return marketProfileView === 'separate' ? Math.max(l.buy, l.sell) : l.volume;
     }), 0
   );
 
@@ -70,8 +73,8 @@ export function drawMarketProfile(ctx, config, state, y, marketProfile) {
     if (marketProfileOutline) {
       const data = marketProfile.levels.map(level => ({
         x: marketProfileView === 'combinedLeft' 
-          ? centralAxisXPosition - x(level.total)
-          : centralAxisXPosition + x(level.total),
+          ? centralAxisXPosition - x(level.volume) // CORRECTED
+          : centralAxisXPosition + x(level.volume), // CORRECTED
         y: y(level.price)
       }));
       drawAsOutline(data, 'rgba(156, 163, 175, 0.8)', marketProfileView === 'combinedLeft' ? 'left' : 'right');
@@ -80,7 +83,8 @@ export function drawMarketProfile(ctx, config, state, y, marketProfile) {
         const levelY = y(level.price);
         if (levelY < 0 || levelY > config.meterHeight) return;
         const position = marketProfileView === 'combinedLeft' ? 'left' : 'right';
-        drawAsBars(levelY, x(level.total), 'rgba(156, 163, 175, 0.4)', position);
+        // CORRECTED
+        drawAsBars(levelY, x(level.volume), 'rgba(156, 163, 175, 0.4)', position);
       });
     }
   }

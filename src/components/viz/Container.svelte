@@ -46,7 +46,7 @@
     ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
 
     // Corrected: Pass only the marketProfile data to drawMarketProfile
-    drawMarketProfile(ctx, currentConfig, currentState, y, currentState.marketProfile);
+    drawMarketProfile(ctx, currentConfig, currentState, y);
 
     drawDayRangeMeter(ctx, currentConfig, currentState, y); 
     drawVolatilityOrb(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);

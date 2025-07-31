@@ -172,8 +172,8 @@ function startSimulation() {
         todaysOpen: midPoint,
         todaysHigh: midPoint + 0.00150,
         todaysLow: midPoint - 0.00250,
-        projectedHigh: midPoint + adr / 2,
-        projectedLow: midPoint - adr / 2,
+        projectedAdrHigh: midPoint + adr / 2,
+        projectedAdrLow: midPoint - adr / 2,
         initialPrice: midPoint,
         initialMarketProfile: mockInitialMarketProfile,
     };

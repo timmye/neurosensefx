@@ -8,6 +8,14 @@ export const TickSchema = z.object({
   timestamp: z.number(),
 });
 
+// A more comprehensive representation of a tick, including calculated values.
+export const ProcessedTickSchema = z.object({
+    price: z.number(),
+    direction: z.number(),
+    magnitude: z.number(),
+    time: z.number(),
+});
+
 // CORRECTED: Define a clear schema for the historical data from the backend.
 export const HistoricalBarSchema = z.object({
   open: z.number(),
@@ -83,7 +91,11 @@ export const VisualizationStateSchema = z.object({
   flashEffect: FlashEffectSchema.nullable(),
   priceFloatPulseEffect: PriceFloatPulseEffectSchema,
   digits: z.number().int(),
-  lastTick: TickSchema.extend({ symbol: z.string().optional() }).nullable(), // Added lastTick to the state
+  lastTick: TickSchema.extend({ symbol: z.string().optional() }).nullable(),
+  // Explicitly include the 'fat state' fields for debugging and flexibility.
+  ticks: z.array(ProcessedTickSchema),
+  allTicks: z.array(ProcessedTickSchema),
+  tickMagnitudes: z.array(z.number()),
 });
 
 // Configuration schema
