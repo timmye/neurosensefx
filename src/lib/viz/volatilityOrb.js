@@ -1,3 +1,6 @@
+// Animation state for the orb
+let pulseAngle = 0;
+
 export function drawVolatilityOrb(ctx, config, state, width, height) {
     if (!config.showVolatilityOrb || !state.volatilityIntensity) return;
 
@@ -11,13 +14,25 @@ export function drawVolatilityOrb(ctx, config, state, width, height) {
     
     const { volatilityIntensity, lastTickDirection } = state;
 
+    // --- Performant Pulse Animation ---
+    // The pulse "advances" with each data tick, tying the animation directly
+    // to market activity. The speed is proportional to volatility.
+    const pulseSpeed = 0.5 + (volatilityIntensity * 1.5); 
+    pulseAngle += pulseSpeed;
+    if (pulseAngle > Math.PI * 2) {
+        pulseAngle -= Math.PI * 2;
+    }
+
+    const pulseMagnitude = 1 + (Math.sin(pulseAngle) * 0.08); // 8% size variance
+
     const centerX = centralAxisXPosition;
     const centerY = height / 2;
-    const radius = volatilityOrbBaseWidth * volatilitySizeMultiplier * volatilityIntensity;
+    
+    const baseRadius = volatilityOrbBaseWidth * volatilitySizeMultiplier * volatilityIntensity;
+    const radius = baseRadius * pulseMagnitude;
 
     if (radius <= 0) return;
 
-    // Determine color based on mode and intensity
     let baseColor;
     if (volatilityColorMode === 'directional') {
         baseColor = lastTickDirection === 'up' ? '59, 130, 246' : '239, 68, 68'; // Blue or Red
@@ -31,15 +46,15 @@ export function drawVolatilityOrb(ctx, config, state, width, height) {
         baseColor = '79, 70, 229'; // Default Purple
     }
 
-    const maxOpacity = 0.5;
-    const opacity = volatilityOrbInvertBrightness ? 
-        (1 - volatilityIntensity) * maxOpacity : 
-        volatilityIntensity * maxOpacity;
+    const maxOpacity = 0.4; // Slightly reduced for a subtler effect
+    const opacity = (volatilityOrbInvertBrightness ? 
+        (1 - volatilityIntensity) : 
+        volatilityIntensity) * maxOpacity;
 
     const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
     
     gradient.addColorStop(0, `rgba(${baseColor}, ${opacity})`);
-    gradient.addColorStop(0.5, `rgba(${baseColor}, ${opacity * 0.5})`);
+    gradient.addColorStop(0.6, `rgba(${baseColor}, ${opacity * 0.4})`); // Adjusted stop for a softer edge
     gradient.addColorStop(1, `rgba(${baseColor}, 0)`);
 
     ctx.fillStyle = gradient;

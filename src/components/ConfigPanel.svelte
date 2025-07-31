@@ -186,6 +186,37 @@
                 </div>
             </div>
 
+            <!-- Event Highlighting -->
+            <div class="control-group-container">
+                <h3 class="group-title">Event Highlighting</h3>
+                <div class="control-group">
+                    <label for="showFlash">Show Flash on Significant Tick</label>
+                    <input type="checkbox" id="showFlash" bind:checked={config.showFlash} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="flashThreshold">Flash Threshold (pips): <span>{config.flashThreshold}</span></label>
+                    <input type="range" id="flashThreshold" min="0.1" max="10" step="0.1" bind:value={config.flashThreshold} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="flashIntensity">Flash Intensity: <span>{config.flashIntensity?.toFixed(2)}</span></label>
+                    <input type="range" id="flashIntensity" min="0.05" max="1" step="0.05" bind:value={config.flashIntensity} on:change={handleConfigChange}>
+                </div>
+                 <div class="control-group">
+                    <label for="showOrbFlash">Show Orb Flash on Significant Tick</label>
+                    <input type="checkbox" id="showOrbFlash" bind:checked={config.showOrbFlash} on:change={handleConfigChange}>
+                </div>
+                 {#if config.showOrbFlash}
+                    <div class="control-group">
+                        <label for="orbFlashThreshold">Orb Flash Threshold (pips): <span>{config.orbFlashThreshold}</span></label>
+                        <input type="range" id="orbFlashThreshold" min="0.1" max="10" step="0.1" bind:value={config.orbFlashThreshold} on:change={handleConfigChange}>
+                    </div>
+                    <div class="control-group">
+                        <label for="orbFlashIntensity">Orb Flash Intensity: <span>{config.orbFlashIntensity?.toFixed(2)}</span></label>
+                        <input type="range" id="orbFlashIntensity" min="0.05" max="1" step="0.05" bind:value={config.orbFlashIntensity} on:change={handleConfigChange}>
+                    </div>
+                 {/if}
+            </div>
+
             <!-- Price Float & Display Controls -->
             <div class="control-group-container">
                 <h3 class="group-title">Price Elements</h3>
@@ -282,7 +313,7 @@
                     </select>
                 </div>
                 <div class="control-group">
-                    <label for="marketProfileOutline">Outline</label>
+                    <label for="marketProfileOutline">Outline View (Filled)</label>
                     <input type="checkbox" id="marketProfileOutline" bind:checked={config.marketProfileOutline} on:change={handleConfigChange}>
                 </div>
                  <div class="control-group">

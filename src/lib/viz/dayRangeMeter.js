@@ -8,8 +8,6 @@ export function drawDayRangeMeter(ctx, config, state, y) {
     centralMeterFixedThickness = 1,
     adrProximityThreshold,
     adrPulseColor,
-    adrPulseWidthRatio,
-    adrPulseHeight,
   } = config;
 
   const { currentPrice, todaysHigh, todaysLow, projectedAdrHigh, projectedAdrLow, digits } = state;
@@ -62,30 +60,39 @@ export function drawDayRangeMeter(ctx, config, state, y) {
   drawMarkerAndLabel(projectedAdrLow, `P.Low ${formatPrice(projectedAdrLow)}`, '#3B82F6', 'left');
   drawMarkerAndLabel(state.midPrice, `Open ${formatPrice(state.midPrice)}`, '#6B7280', 'right');
 
-  // ADR Proximity Pulse - Drawing horizontal bars at the ADR boundaries
+  // --- ADR Proximity Pulse ---
   const adrRange = projectedAdrHigh - projectedAdrLow;
   if (adrRange > 0 && currentPrice !== undefined && currentPrice !== null) {
       const proximityUp = Math.abs(projectedAdrHigh - currentPrice);
       const proximityDown = Math.abs(currentPrice - projectedAdrLow);
+      
+      const threshold = adrRange * (adrProximityThreshold / 100);
 
-      // Use values from config
-      const pulseWidth = visualizationsContentWidth * adrPulseWidthRatio;
-      const pulseX = (visualizationsContentWidth - pulseWidth) / 2; // Center the pulse bar
+      const drawPulse = (yPos, proximity) => {
+          if (yPos === undefined || yPos === null || yPos < 0 || yPos > meterHeight) return;
+          
+          const intensity = 1 - (proximity / threshold);
+          if (intensity <= 0) return;
+          
+          const pulseRadius = 20 + (intensity * 30); // Dynamic radius
+          const pulseOpacity = intensity * 0.7; // Dynamic opacity
 
-      if (proximityUp / adrRange < adrProximityThreshold / 100) {
-          const adrHighY = y(projectedAdrHigh);
-           if (adrHighY !== undefined && adrHighY !== null && adrHighY > -adrPulseHeight && adrHighY < meterHeight + adrPulseHeight) {
-                ctx.fillStyle = adrPulseColor;
-                ctx.fillRect(pulseX, adrHighY - adrPulseHeight / 2, pulseWidth, adrPulseHeight);
-           }
+          const gradient = ctx.createRadialGradient(centralAxisXPosition, yPos, 0, centralAxisXPosition, yPos, pulseRadius);
+          gradient.addColorStop(0, `rgba(${adrPulseColor}, ${pulseOpacity})`);
+          gradient.addColorStop(1, `rgba(${adrPulseColor}, 0)`);
+          
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(centralAxisXPosition, yPos, pulseRadius, 0, 2 * Math.PI);
+          ctx.fill();
+      };
+
+      if (proximityUp < threshold) {
+          drawPulse(y(projectedAdrHigh), proximityUp);
       }
 
-      if (proximityDown / adrRange < adrProximityThreshold / 100) {
-          const adrLowY = y(projectedAdrLow);
-           if (adrLowY !== undefined && adrLowY !== null && adrLowY > -adrPulseHeight && adrLowY < meterHeight + adrPulseHeight) {
-               ctx.fillStyle = adrPulseColor;
-               ctx.fillRect(pulseX, adrLowY - adrPulseHeight / 2, pulseWidth, adrPulseHeight);
-           }
+      if (proximityDown < threshold) {
+          drawPulse(y(projectedAdrLow), proximityDown);
       }
   }
 }

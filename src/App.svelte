@@ -79,6 +79,9 @@
 </main>
 
 <style>
+  :global(body) {
+    background-color: #111827;
+  }
   .viz-wrapper {
     border: 2px solid transparent;
     border-radius: 8px;

@@ -52,7 +52,9 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
     priceUseStaticColor,
     priceStaticColor,
     priceUpColor,
-    priceDownColor
+    priceDownColor,
+    showPriceBackground,
+    priceDisplayPadding = 4 // Default padding
   } = config;
 
   const { currentPrice, digits, lastTickDirection, lastTick } = state; 
@@ -65,12 +67,6 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
 
   const formattedPrice = formatPrice(displayPrice, digits);
 
-  // --- Point of Failure 4: Incorrect Price Display --- (Preserved for your debugging)
-  console.log('--- Point of Failure 4: Incorrect Price Display ---');
-  console.log(`Price Display: Price from state: ${displayPrice}, Digits: ${digits}`);
-  console.log('Price Display: Formatted Price:', formattedPrice);
-  console.log('--- End of Point of Failure 4 ---');
-
   if (!formattedPrice) return;
 
   ctx.textBaseline = 'middle';
@@ -78,6 +74,39 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
   const bigFigureSize = priceFontSize * bigFigureFontSizeRatio;
   const pipsSize = priceFontSize * pipFontSizeRatio;
   const pipetteSize = priceFontSize * pipetteFontSizeRatio;
+
+  // --- Measure text widths and heights for accurate background ---
+  ctx.font = `${priceFontWeight} ${bigFigureSize}px monospace`;
+  const bigFigureMetrics = ctx.measureText(formattedPrice.bigFigure);
+  const bigFigureWidth = bigFigureMetrics.width;
+  const textHeight = bigFigureMetrics.actualBoundingBoxAscent + bigFigureMetrics.actualBoundingBoxDescent; // Use actual text height
+
+  let pipsWidth = 0;
+  if (formattedPrice.pips) {
+    ctx.font = `${priceFontWeight} ${pipsSize}px monospace`;
+    pipsWidth = ctx.measureText(formattedPrice.pips).width;
+  }
+
+  let pipetteWidth = 0;
+   if (showPipetteDigit && formattedPrice.pipette) {
+    ctx.font = `${priceFontWeight} ${pipetteSize}px monospace`;
+    pipetteWidth = ctx.measureText(formattedPrice.pipette).width;
+  }
+
+  const totalTextWidth = bigFigureWidth + pipsWidth + pipetteWidth;
+  const backgroundWidth = totalTextWidth + (priceDisplayPadding * 2);
+  // Calculate background height based on actual text height plus padding
+  const backgroundHeight = textHeight + (priceDisplayPadding * 2);
+
+  // Calculate background position relative to the text's middle baseline
+  const backgroundX = priceHorizontalOffset - priceDisplayPadding;
+  const backgroundY = currentPriceY - (textHeight / 2) - priceDisplayPadding; // Position based on text height and padding
+
+  // Draw background if enabled
+  if (showPriceBackground) {
+    ctx.fillStyle = 'rgba(17, 24, 39, 0.8)'; // Increased opacity slightly for better visibility
+    ctx.fillRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
+  }
 
   let currentX = priceHorizontalOffset;
 
@@ -87,14 +116,16 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
   ctx.fillStyle = textColor;
 
   ctx.textAlign = 'left';
+  
+  // Draw text components
   ctx.font = `${priceFontWeight} ${bigFigureSize}px monospace`;
   ctx.fillText(formattedPrice.bigFigure, currentX, currentPriceY);
-  currentX += ctx.measureText(formattedPrice.bigFigure).width;
+  currentX += bigFigureWidth; // Use measured width
 
   if (formattedPrice.pips) {
     ctx.font = `${priceFontWeight} ${pipsSize}px monospace`;
     ctx.fillText(formattedPrice.pips, currentX, currentPriceY);
-    currentX += ctx.measureText(formattedPrice.pips).width;
+    currentX += pipsWidth; // Use measured width
   }
 
   if (showPipetteDigit && formattedPrice.pipette) {
