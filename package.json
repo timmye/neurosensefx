@@ -11,6 +11,7 @@
     "ws-stream": "node ctrader_tick_backend/websocket-tick-streamer.js"
   },
   "dependencies": {
+    "@reiryoku/ctrader-layer": "^2.2.0",
     "d3": "^7.9.0",
     "svelte": "^4.2.7",
     "zod": "^3.22.4"

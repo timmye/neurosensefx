@@ -26,7 +26,6 @@
 
   $: if (canvas && config) {
     const { visualizationsContentWidth, meterHeight } = config;
-    canvas.style.width = `${visualizationsContentWidth}px`;
     canvas.style.height = `${meterHeight}px`;
     canvas.width = Math.floor(visualizationsContentWidth * dpr);
     canvas.height = Math.floor(meterHeight * dpr);
@@ -77,19 +76,19 @@
   }
 </script>
 
-<div class="viz-container">
+<div class="viz-container" style="width: {config.visualizationsContentWidth}px;">
   <canvas bind:this={canvas}></canvas>
 </div>
 
 <style>
   .viz-container {
     position: relative;
-    width: 100%;
     height: 100%;
     line-height: 0;
   }
   canvas {
     display: block;
     background-color: #111827;
+    width: 100%;
   }
 </style>

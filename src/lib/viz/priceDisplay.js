@@ -19,24 +19,43 @@ function formatPrice(price, digits) {
     let pipette = '';
 
     // Standard convention for FX pairs (e.g., EURUSD, USDJPY) with 3 or 5 digits.
-    // The last digit is the 'pipette', and the two before it are the 'pips'.
     if (digits === 5 || digits === 3) {
-        const pipsIndex = digits - 3; // The starting index of the 'pips' part.
+        const pipsIndex = digits - 3;
         bigFigure += '.' + decimalPart.substring(0, pipsIndex);
         pips = decimalPart.substring(pipsIndex, pipsIndex + 2);
         pipette = decimalPart.substring(pipsIndex + 2);
     } 
-    // Convention for indices, commodities, or other instruments (e.g., XAUUSD, WTI).
-    // The entire decimal part is considered the 'big figure'.
+    // Convention for other instruments.
     else if (digits > 0) {
         bigFigure += '.' + decimalPart;
     }
-    // For prices with no decimal places.
-    else {
-        // bigFigure is already just the integerPart.
-    }
 
     return { bigFigure, pips, pipette };
+}
+
+/**
+ * Safely converts a HEX color to an RGBA string.
+ * @param {string} hex - The hex color code (e.g., '#RRGGBB' or '#RGB').
+ * @param {number} opacity - The opacity value (0 to 1).
+ * @returns {string} The RGBA color string.
+ */
+function hexToRgba(hex, opacity) {
+    if (!hex) return 'rgba(0,0,0,0)'; // Return transparent for invalid hex
+    
+    const finalOpacity = (opacity === undefined || opacity === null) ? 1 : opacity;
+
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 4) {
+        r = parseInt(hex[1] + hex[1], 16);
+        g = parseInt(hex[2] + hex[2], 16);
+        b = parseInt(hex[3] + hex[3], 16);
+    } else if (hex.length === 7) {
+        r = parseInt(hex.substring(1, 3), 16);
+        g = parseInt(hex.substring(3, 5), 16);
+        b = parseInt(hex.substring(5, 7), 16);
+    }
+    
+    return `rgba(${r},${g},${b},${finalOpacity})`;
 }
 
 
@@ -54,7 +73,13 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
     priceUpColor,
     priceDownColor,
     showPriceBackground,
-    priceDisplayPadding = 4 // Default padding
+    showPriceBoundingBox,
+    priceDisplayPadding = 4,
+    // Provide default values to prevent crashes from incomplete config
+    priceBackgroundColor = '#111827',
+    priceBackgroundOpacity = 0.8,
+    priceBoxOutlineColor = '#4B5563',
+    priceBoxOutlineOpacity = 1,
   } = config;
 
   const { currentPrice, digits, lastTickDirection, lastTick } = state; 
@@ -79,7 +104,7 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
   ctx.font = `${priceFontWeight} ${bigFigureSize}px monospace`;
   const bigFigureMetrics = ctx.measureText(formattedPrice.bigFigure);
   const bigFigureWidth = bigFigureMetrics.width;
-  const textHeight = bigFigureMetrics.actualBoundingBoxAscent + bigFigureMetrics.actualBoundingBoxDescent; // Use actual text height
+  const textHeight = bigFigureMetrics.actualBoundingBoxAscent + bigFigureMetrics.actualBoundingBoxDescent;
 
   let pipsWidth = 0;
   if (formattedPrice.pips) {
@@ -95,17 +120,22 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
 
   const totalTextWidth = bigFigureWidth + pipsWidth + pipetteWidth;
   const backgroundWidth = totalTextWidth + (priceDisplayPadding * 2);
-  // Calculate background height based on actual text height plus padding
   const backgroundHeight = textHeight + (priceDisplayPadding * 2);
 
-  // Calculate background position relative to the text's middle baseline
   const backgroundX = priceHorizontalOffset - priceDisplayPadding;
-  const backgroundY = currentPriceY - (textHeight / 2) - priceDisplayPadding; // Position based on text height and padding
+  const backgroundY = currentPriceY - (textHeight / 2) - priceDisplayPadding;
 
   // Draw background if enabled
   if (showPriceBackground) {
-    ctx.fillStyle = 'rgba(17, 24, 39, 0.8)'; // Increased opacity slightly for better visibility
+    ctx.fillStyle = hexToRgba(priceBackgroundColor, priceBackgroundOpacity);
     ctx.fillRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
+  }
+
+  // Draw bounding box if enabled
+  if (showPriceBoundingBox) {
+    ctx.strokeStyle = hexToRgba(priceBoxOutlineColor, priceBoxOutlineOpacity);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
   }
 
   let currentX = priceHorizontalOffset;
@@ -120,12 +150,12 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
   // Draw text components
   ctx.font = `${priceFontWeight} ${bigFigureSize}px monospace`;
   ctx.fillText(formattedPrice.bigFigure, currentX, currentPriceY);
-  currentX += bigFigureWidth; // Use measured width
+  currentX += bigFigureWidth;
 
   if (formattedPrice.pips) {
     ctx.font = `${priceFontWeight} ${pipsSize}px monospace`;
     ctx.fillText(formattedPrice.pips, currentX, currentPriceY);
-    currentX += pipsWidth; // Use measured width
+    currentX += pipsWidth;
   }
 
   if (showPipetteDigit && formattedPrice.pipette) {

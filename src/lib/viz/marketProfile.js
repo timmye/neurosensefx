@@ -1,6 +1,25 @@
 import { scaleLinear } from 'd3-scale';
 import { line, curveBasis } from 'd3-shape';
 
+function hexToRgba(hex, opacity) {
+    if (!hex) return 'rgba(0,0,0,0)';
+    
+    const finalOpacity = (opacity === undefined || opacity === null) ? 1 : opacity;
+
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 4) {
+        r = parseInt(hex[1] + hex[1], 16);
+        g = parseInt(hex[2] + hex[2], 16);
+        b = parseInt(hex[3] + hex[3], 16);
+    } else if (hex.length === 7) {
+        r = parseInt(hex.substring(1, 3), 16);
+        g = parseInt(hex.substring(3, 5), 16);
+        b = parseInt(hex.substring(5, 7), 16);
+    }
+    
+    return `rgba(${r},${g},${b},${finalOpacity})`;
+}
+
 export function drawMarketProfile(ctx, config, state, y) {
   const { marketProfile } = state;
 
@@ -14,6 +33,14 @@ export function drawMarketProfile(ctx, config, state, y) {
     marketProfileWidthRatio,
     marketProfileView,
     marketProfileOutline,
+    marketProfileUpColor,
+    marketProfileDownColor,
+    marketProfileOpacity,
+    marketProfileOutlineShowStroke,
+    marketProfileOutlineStrokeWidth,
+    marketProfileOutlineUpColor,
+    marketProfileOutlineDownColor,
+    marketProfileOutlineOpacity,
   } = config;
 
   const availableWidth = (visualizationsContentWidth / 2) - 10;
@@ -26,13 +53,17 @@ export function drawMarketProfile(ctx, config, state, y) {
 
   const x = scaleLinear().domain([0, maxVolume]).range([0, availableWidth * marketProfileWidthRatio]);
   
-  // Calculate bar height based on the scale, ensuring a minimum height
   const barHeight = (marketProfile.levels.length > 1)
     ? Math.abs(y(marketProfile.levels[0].price) - y(marketProfile.levels[1].price))
-    : 1; // Default to 1 if only one level
+    : 1;
 
-  const drawAsFilledShape = (data, color, side) => {
-    if (data.length < 2) return; // Need at least 2 points for a path
+  const upColor = hexToRgba(marketProfileUpColor, marketProfileOpacity);
+  const downColor = hexToRgba(marketProfileDownColor, marketProfileOpacity);
+  const outlineUpColor = hexToRgba(marketProfileOutlineUpColor, marketProfileOutlineOpacity);
+  const outlineDownColor = hexToRgba(marketProfileOutlineDownColor, marketProfileOutlineOpacity);
+
+  const drawAsFilledShape = (data, fillColor, strokeColor, side) => {
+    if (data.length < 2) return;
 
     const lineGenerator = line()
       .x(d => d.x)
@@ -43,7 +74,6 @@ export function drawMarketProfile(ctx, config, state, y) {
     ctx.beginPath();
     lineGenerator(side === 'left' ? data : data.reverse());
     
-    // Close the path back to the central axis for filling
     const firstPoint = data[0];
     const lastPoint = data[data.length - 1];
 
@@ -56,8 +86,14 @@ export function drawMarketProfile(ctx, config, state, y) {
     }
 
     ctx.closePath();
-    ctx.fillStyle = color;
+    ctx.fillStyle = fillColor;
     ctx.fill();
+
+    if (marketProfileOutlineShowStroke) {
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = marketProfileOutlineStrokeWidth;
+        ctx.stroke();
+    }
   };
 
   const drawAsBars = (yPos, width, color, position) => {
@@ -69,15 +105,7 @@ export function drawMarketProfile(ctx, config, state, y) {
     }
   };
 
-  // --- Drawing Logic based on Config ---
-  if (config.marketProfileOutline) { // Outline view (filled)
-    let data;
-    let color;
-    let side;
-
-    // Use a lighter purple for the filled outline
-    const filledOutlineColor = 'rgba(191, 147, 255, 0.3)'; // A lighter, semi-transparent purple
-
+  if (config.marketProfileOutline) {
     if (marketProfileView === 'separate') {
         const leftData = marketProfile.levels.map(level => ({
             x: centralAxisXPosition - x(level.sell),
@@ -88,39 +116,31 @@ export function drawMarketProfile(ctx, config, state, y) {
             y: y(level.price)
         }));
         
-        // Use the new filledOutlineColor for both sides in separate view outline
-        drawAsFilledShape(leftData, filledOutlineColor, 'left');
-        drawAsFilledShape(rightData, filledOutlineColor, 'right');
+        drawAsFilledShape(leftData, downColor, outlineDownColor, 'left');
+        drawAsFilledShape(rightData, upColor, outlineUpColor, 'right');
 
-    } else { // combinedLeft or combinedRight
-        data = marketProfile.levels.map(level => ({
+    } else {
+        const data = marketProfile.levels.map(level => ({
             x: marketProfileView === 'combinedLeft' 
               ? centralAxisXPosition - x(level.volume)
               : centralAxisXPosition + x(level.volume),
             y: y(level.price)
         }));
-        side = marketProfileView === 'combinedLeft' ? 'left' : 'right';
-        // Use the new filledOutlineColor for combined view outline
-        drawAsFilledShape(data, filledOutlineColor, side);
+        const side = marketProfileView === 'combinedLeft' ? 'left' : 'right';
+        drawAsFilledShape(data, upColor, outlineUpColor, side);
     }
 
-  } else { // Bars view
-    // Keep existing bar colors (red/blue for separate, gray for combined)
-    const combinedBarColor = 'rgba(156, 163, 175, 0.4)'; // Original gray for combined bars
-    const buyBarColor = 'rgba(59, 130, 246, 0.4)'; // Original blue for buy bars
-    const sellBarColor = 'rgba(239, 68, 68, 0.4)'; // Original red for sell bars
-
+  } else {
     marketProfile.levels.forEach(level => {
       const levelY = y(level.price);
-      // Only draw if within canvas bounds (with a small buffer)
       if (levelY < -barHeight || levelY > meterHeight + barHeight) return;
 
       if (marketProfileView === 'separate') {
-           drawAsBars(levelY - barHeight / 2, x(level.sell), sellBarColor, 'left');
-           drawAsBars(levelY - barHeight / 2, x(level.buy), buyBarColor, 'right');
-      } else { // combinedLeft or combinedRight
+           drawAsBars(levelY - barHeight / 2, x(level.sell), downColor, 'left');
+           drawAsBars(levelY - barHeight / 2, x(level.buy), upColor, 'right');
+      } else {
            const position = marketProfileView === 'combinedLeft' ? 'left' : 'right';
-           drawAsBars(levelY - barHeight / 2, x(level.volume), combinedBarColor, position);
+           drawAsBars(levelY - barHeight / 2, x(level.volume), upColor, position);
       }
     });
   }

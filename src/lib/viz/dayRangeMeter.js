@@ -1,13 +1,46 @@
 import { scaleLinear } from 'd3-scale';
 
+function hexToRgba(hex, opacity) {
+    if (!hex) return 'rgba(0,0,0,0)';
+    
+    const finalOpacity = (opacity === undefined || opacity === null) ? 1 : opacity;
+
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 4) {
+        r = parseInt(hex[1] + hex[1], 16);
+        g = parseInt(hex[2] + hex[2], 16);
+        b = parseInt(hex[3] + hex[3], 16);
+    } else if (hex.length === 7) {
+        r = parseInt(hex.substring(1, 3), 16);
+        g = parseInt(hex.substring(3, 5), 16);
+        b = parseInt(hex.substring(5, 7), 16);
+    }
+    
+    return `rgba(${r},${g},${b},${finalOpacity})`;
+}
+
 export function drawDayRangeMeter(ctx, config, state, y) {
   const {
     centralAxisXPosition,
-    visualizationsContentWidth,
     meterHeight,
     centralMeterFixedThickness = 1,
     adrProximityThreshold,
-    adrPulseColor,
+    pHighLowLabelSide,
+    ohlLabelSide,
+
+    pHighLowLabelShowBackground,
+    pHighLowLabelBackgroundColor,
+    pHighLowLabelBackgroundOpacity,
+    pHighLowLabelShowBoxOutline,
+    pHighLowLabelBoxOutlineColor,
+    pHighLowLabelBoxOutlineOpacity,
+
+    ohlLabelShowBackground,
+    ohlLabelBackgroundColor,
+    ohlLabelBackgroundOpacity,
+    ohlLabelShowBoxOutline,
+    ohlLabelBoxOutlineColor,
+    ohlLabelBoxOutlineOpacity,
   } = config;
 
   const { currentPrice, todaysHigh, todaysLow, projectedAdrHigh, projectedAdrLow, digits } = state;
@@ -25,40 +58,70 @@ export function drawDayRangeMeter(ctx, config, state, y) {
   const labelOffset = 15;
   const labelColor = '#9CA3AF'; // Gray-400
   const labelFontSize = 10;
+  const labelPadding = 4;
 
   ctx.font = `${labelFontSize}px Arial`;
   ctx.fillStyle = labelColor;
-  ctx.textAlign = 'left';
 
-  const drawMarkerAndLabel = (price, labelText, color = '#D1D5DB', align = 'left') => {
+  const drawMarkerAndLabel = (price, labelText, color = '#D1D5DB', side = 'left', labelType) => {
       const priceY = y(price);
       if (priceY === undefined || priceY === null || priceY < -50 || priceY > meterHeight + 50) return;
 
+      const showBackground = labelType === 'pHighLow' ? pHighLowLabelShowBackground : ohlLabelShowBackground;
+      const backgroundColor = labelType === 'pHighLow' ? pHighLowLabelBackgroundColor : ohlLabelBackgroundColor;
+      const backgroundOpacity = labelType === 'pHighLow' ? pHighLowLabelBackgroundOpacity : ohlLabelBackgroundOpacity;
+      const showBoxOutline = labelType === 'pHighLow' ? pHighLowLabelShowBoxOutline : ohlLabelShowBoxOutline;
+      const boxOutlineColor = labelType === 'pHighLow' ? pHighLowLabelBoxOutlineColor : ohlLabelBoxOutlineColor;
+      const boxOutlineOpacity = labelType === 'pHighLow' ? pHighLowLabelBoxOutlineOpacity : ohlLabelBoxOutlineOpacity;
+      
+      const metrics = ctx.measureText(labelText);
+      const textWidth = metrics.width;
+      const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+
+      const backgroundWidth = textWidth + (labelPadding * 2);
+      const backgroundHeight = textHeight + (labelPadding * 2);
+      
+      const textAlign = side === 'right' ? 'left' : 'right';
+      const textX = side === 'right' 
+        ? centralAxisXPosition + labelOffset 
+        : centralAxisXPosition - labelOffset;
+      const backgroundX = side === 'right'
+        ? textX - labelPadding
+        : textX - textWidth - labelPadding;
+      const backgroundY = priceY - (backgroundHeight / 2);
+
+      if (showBackground) {
+          ctx.fillStyle = hexToRgba(backgroundColor, backgroundOpacity);
+          ctx.fillRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
+      }
+
+      if (showBoxOutline) {
+          ctx.strokeStyle = hexToRgba(boxOutlineColor, boxOutlineOpacity);
+          ctx.lineWidth = 1;
+          ctx.strokeRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
+      }
+      
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(centralAxisXPosition - markerLength, priceY);
-      ctx.lineTo(centralAxisXPosition, priceY);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(centralAxisXPosition, priceY);
       ctx.lineTo(centralAxisXPosition + markerLength, priceY);
       ctx.stroke();
 
-      ctx.textAlign = align;
-      const textX = align === 'left' ? centralAxisXPosition + labelOffset : centralAxisXPosition - labelOffset;
-      const textY = priceY + labelFontSize * 0.3;
+      ctx.textAlign = textAlign;
+      const textY = priceY + (textHeight / 2) - metrics.actualBoundingBoxDescent;
+      ctx.fillStyle = color;
       ctx.fillText(labelText, textX, textY);
   };
 
   const formatPrice = (price) => price?.toFixed(digits) || 'N/A';
 
-  drawMarkerAndLabel(todaysHigh, `H ${formatPrice(todaysHigh)}`, '#F59E0B', 'right');
-  drawMarkerAndLabel(todaysLow, `L ${formatPrice(todaysLow)}`, '#F59E0B', 'right');
-  drawMarkerAndLabel(projectedAdrHigh, `P.High ${formatPrice(projectedAdrHigh)}`, '#3B82F6', 'left');
-  drawMarkerAndLabel(projectedAdrLow, `P.Low ${formatPrice(projectedAdrLow)}`, '#3B82F6', 'left');
-  drawMarkerAndLabel(state.midPrice, `Open ${formatPrice(state.midPrice)}`, '#6B7280', 'right');
+  // Draw labels based on the side configured in the store
+  drawMarkerAndLabel(todaysHigh, `H ${formatPrice(todaysHigh)}`, '#F59E0B', ohlLabelSide, 'ohl');
+  drawMarkerAndLabel(todaysLow, `L ${formatPrice(todaysLow)}`, '#F59E0B', ohlLabelSide, 'ohl');
+  drawMarkerAndLabel(projectedAdrHigh, `P.High ${formatPrice(projectedAdrHigh)}`, '#3B82F6', pHighLowLabelSide, 'pHighLow');
+  drawMarkerAndLabel(projectedAdrLow, `P.Low ${formatPrice(projectedAdrLow)}`, '#3B82F6', pHighLowLabelSide, 'pHighLow');
+  drawMarkerAndLabel(state.midPrice, `Open ${formatPrice(state.midPrice)}`, '#6B7280', ohlLabelSide, 'ohl');
 
   // --- ADR Proximity Pulse ---
   const adrRange = projectedAdrHigh - projectedAdrLow;
@@ -78,8 +141,8 @@ export function drawDayRangeMeter(ctx, config, state, y) {
           const pulseOpacity = intensity * 0.7; // Dynamic opacity
 
           const gradient = ctx.createRadialGradient(centralAxisXPosition, yPos, 0, centralAxisXPosition, yPos, pulseRadius);
-          gradient.addColorStop(0, `rgba(${adrPulseColor}, ${pulseOpacity})`);
-          gradient.addColorStop(1, `rgba(${adrPulseColor}, 0)`);
+          gradient.addColorStop(0, `rgba(59, 130, 246, ${pulseOpacity})`); // Using blue from config
+          gradient.addColorStop(1, `rgba(59, 130, 246, 0)`);
           
           ctx.fillStyle = gradient;
           ctx.beginPath();

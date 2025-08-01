@@ -184,6 +184,80 @@
                     <label for="adrPulseHeight">ADR Pulse Height: <span>{config.adrPulseHeight}px</span></label>
                     <input type="range" id="adrPulseHeight" min="1" max="10" step="1" bind:value={config.adrPulseHeight} on:change={handleConfigChange}>
                 </div>
+                <div class="control-group">
+                  <label>PHigh/PLow Label Side</label>
+                  <div class="radio-group">
+                    <label><input type="radio" bind:group={config.pHighLowLabelSide} on:change={handleConfigChange} value="left"> Left</label>
+                    <label><input type="radio" bind:group={config.pHighLowLabelSide} on:change={handleConfigChange} value="right"> Right</label>
+                  </div>
+                </div>
+                <div class="control-group">
+                  <label>OHL Label Side</label>
+                  <div class="radio-group">
+                    <label><input type="radio" bind:group={config.ohlLabelSide} on:change={handleConfigChange} value="left"> Left</label>
+                    <label><input type="radio" bind:group={config.ohlLabelSide} on:change={handleConfigChange} value="right"> Right</label>
+                  </div>
+                </div>
+
+                <!-- pHigh/low Label Background and Outline -->
+                <div class="control-group">
+                    <label for="pHighLowLabelShowBackground">Show PH/L Background</label>
+                    <input type="checkbox" id="pHighLowLabelShowBackground" bind:checked={config.pHighLowLabelShowBackground} on:change={handleConfigChange}>
+                </div>
+                {#if config.pHighLowLabelShowBackground}
+                <div class="control-group">
+                    <label for="pHighLowLabelBackgroundColor">PH/L Background Color:</label>
+                    <input type="color" id="pHighLowLabelBackgroundColor" bind:value={config.pHighLowLabelBackgroundColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="pHighLowLabelBackgroundOpacity">PH/L Background Opacity: <span>{config.pHighLowLabelBackgroundOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="pHighLowLabelBackgroundOpacity" min="0" max="1" step="0.05" bind:value={config.pHighLowLabelBackgroundOpacity} on:change={handleConfigChange}>
+                </div>
+                {/if}
+                <div class="control-group">
+                    <label for="pHighLowLabelShowBoxOutline">Show PH/L Box Outline</label>
+                    <input type="checkbox" id="pHighLowLabelShowBoxOutline" bind:checked={config.pHighLowLabelShowBoxOutline} on:change={handleConfigChange}>
+                </div>
+                {#if config.pHighLowLabelShowBoxOutline}
+                <div class="control-group">
+                    <label for="pHighLowLabelBoxOutlineColor">PH/L Box Outline Color:</label>
+                    <input type="color" id="pHighLowLabelBoxOutlineColor" bind:value={config.pHighLowLabelBoxOutlineColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="pHighLowLabelBoxOutlineOpacity">PH/L Box Outline Opacity: <span>{config.pHighLowLabelBoxOutlineOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="pHighLowLabelBoxOutlineOpacity" min="0" max="1" step="0.05" bind:value={config.pHighLowLabelBoxOutlineOpacity} on:change={handleConfigChange}>
+                </div>
+                {/if}
+
+                <!-- ohl Label Background and Outline -->
+                <div class="control-group">
+                    <label for="ohlLabelShowBackground">Show OHL Background</label>
+                    <input type="checkbox" id="ohlLabelShowBackground" bind:checked={config.ohlLabelShowBackground} on:change={handleConfigChange}>
+                </div>
+                {#if config.ohlLabelShowBackground}
+                <div class="control-group">
+                    <label for="ohlLabelBackgroundColor">OHL Background Color:</label>
+                    <input type="color" id="ohlLabelBackgroundColor" bind:value={config.ohlLabelBackgroundColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="ohlLabelBackgroundOpacity">OHL Background Opacity: <span>{config.ohlLabelBackgroundOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="ohlLabelBackgroundOpacity" min="0" max="1" step="0.05" bind:value={config.ohlLabelBackgroundOpacity} on:change={handleConfigChange}>
+                </div>
+                {/if}
+                <div class="control-group">
+                    <label for="ohlLabelShowBoxOutline">Show OHL Box Outline</label>
+                    <input type="checkbox" id="ohlLabelShowBoxOutline" bind:checked={config.ohlLabelShowBoxOutline} on:change={handleConfigChange}>
+                </div>
+                {#if config.ohlLabelShowBoxOutline}
+                <div class="control-group">
+                    <label for="ohlLabelBoxOutlineColor">OHL Box Outline Color:</label>
+                    <input type="color" id="ohlLabelBoxOutlineColor" bind:value={config.ohlLabelBoxOutlineColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="ohlLabelBoxOutlineOpacity">OHL Box Outline Opacity: <span>{config.ohlLabelBoxOutlineOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="ohlLabelBoxOutlineOpacity" min="0" max="1" step="0.05" bind:value={config.ohlLabelBoxOutlineOpacity} on:change={handleConfigChange}>
+                </div>
+                {/if}
             </div>
 
             <!-- Event Highlighting -->
@@ -274,6 +348,34 @@
                     <input type="color" id="priceDownColor" bind:value={config.priceDownColor} on:change={handleConfigChange}>
                 </div>
                 {/if}
+                <div class="control-group">
+                    <label for="showPriceBackground">Show Price Background</label>
+                    <input type="checkbox" id="showPriceBackground" bind:checked={config.showPriceBackground} on:change={handleConfigChange}>
+                </div>
+                {#if config.showPriceBackground}
+                <div class="control-group">
+                    <label for="priceBackgroundColor">Background Color:</label>
+                    <input type="color" id="priceBackgroundColor" bind:value={config.priceBackgroundColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="priceBackgroundOpacity">Background Opacity: <span>{config.priceBackgroundOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="priceBackgroundOpacity" min="0" max="1" step="0.05" bind:value={config.priceBackgroundOpacity} on:change={handleConfigChange}>
+                </div>
+                {/if}
+                <div class="control-group">
+                    <label for="showPriceBoundingBox">Show Price Bounding Box</label>
+                    <input type="checkbox" id="showPriceBoundingBox" bind:checked={config.showPriceBoundingBox} on:change={handleConfigChange}>
+                </div>
+                {#if config.showPriceBoundingBox}
+                <div class="control-group">
+                    <label for="priceBoxOutlineColor">Box Outline Color:</label>
+                    <input type="color" id="priceBoxOutlineColor" bind:value={config.priceBoxOutlineColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="priceBoxOutlineOpacity">Box Outline Opacity: <span>{config.priceBoxOutlineOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="priceBoxOutlineOpacity" min="0" max="1" step="0.05" bind:value={config.priceBoxOutlineOpacity} on:change={handleConfigChange}>
+                </div>
+                {/if}
             </div>
 
             <!-- Volatility Orb Controls -->
@@ -316,6 +418,28 @@
                     <label for="marketProfileOutline">Outline View (Filled)</label>
                     <input type="checkbox" id="marketProfileOutline" bind:checked={config.marketProfileOutline} on:change={handleConfigChange}>
                 </div>
+                {#if config.marketProfileOutline}
+                <div class="control-group">
+                    <label for="marketProfileOutlineShowStroke">Show Outline Stroke</label>
+                    <input type="checkbox" id="marketProfileOutlineShowStroke" bind:checked={config.marketProfileOutlineShowStroke} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="marketProfileOutlineStrokeWidth">Outline Stroke Width: <span>{config.marketProfileOutlineStrokeWidth}</span></label>
+                    <input type="range" id="marketProfileOutlineStrokeWidth" min="1" max="10" step="1" bind:value={config.marketProfileOutlineStrokeWidth} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="marketProfileOutlineUpColor">Outline Up Color:</label>
+                    <input type="color" id="marketProfileOutlineUpColor" bind:value={config.marketProfileOutlineUpColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="marketProfileOutlineDownColor">Outline Down Color:</label>
+                    <input type="color" id="marketProfileOutlineDownColor" bind:value={config.marketProfileOutlineDownColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="marketProfileOutlineOpacity">Outline Opacity: <span>{config.marketProfileOutlineOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="marketProfileOutlineOpacity" min="0" max="1" step="0.05" bind:value={config.marketProfileOutlineOpacity} on:change={handleConfigChange}>
+                </div>
+                {/if}
                  <div class="control-group">
                     <label for="priceBucketMultiplier">Profile Detail / Stacking: <span>{config.priceBucketMultiplier}x</span></label>
                     <input type="range" id="priceBucketMultiplier" min="1" max="100" step="1" bind:value={config.priceBucketMultiplier} on:change={handleConfigChange}>
@@ -323,6 +447,18 @@
                 <div class="control-group">
                     <label for="marketProfileWidthRatio">Profile Width Ratio: <span>{config.marketProfileWidthRatio?.toFixed(2)}</span></label>
                     <input type="range" id="marketProfileWidthRatio" min="0.1" max="3" step="0.1" bind:value={config.marketProfileWidthRatio} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="marketProfileUpColor">Up Color:</label>
+                    <input type="color" id="marketProfileUpColor" bind:value={config.marketProfileUpColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="marketProfileDownColor">Down Color:</label>
+                    <input type="color" id="marketProfileDownColor" bind:value={config.marketProfileDownColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="marketProfileOpacity">Opacity: <span>{config.marketProfileOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="marketProfileOpacity" min="0" max="1" step="0.05" bind:value={config.marketProfileOpacity} on:change={handleConfigChange}>
                 </div>
             </div>
             
@@ -405,6 +541,17 @@
   input[type="checkbox"] {
     width: auto;
     align-self: flex-start;
+  }
+  .radio-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .radio-group label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: normal;
   }
   button {
       cursor: pointer;
