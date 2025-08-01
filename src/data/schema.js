@@ -98,16 +98,66 @@ export const VisualizationStateSchema = z.object({
   tickMagnitudes: z.array(z.number()),
 });
 
-// Configuration schema
+// =================================================================================
+// VISUALIZATION CONFIGURATION SCHEMA
+// =================================================================================
+// This Zod schema is the single source of truth for the *shape* of the visualization configuration.
+//
+// CRITICAL RELATIONSHIPS:
+// 1. `src/stores/configStore.js`: The `rawDefaults` object in this file is parsed
+//    by this schema. If a property exists in `rawDefaults` but is not defined
+//    here, the `parse()` operation will FAIL, and the entire app configuration
+//    will break.
+//
+// 2. `src/components/ConfigPanel.svelte`: This component contains the UI controls
+//    that modify the configuration. Every setting in the panel must have a
+//    corresponding field in this schema and a default value in `configStore.js`.
+//
+// Therefore, any new configurable setting must be added in THREE places:
+//    - Here, in `VisualizationConfigSchema`.
+//    - In `configStore.js` with a default value.
+//    - In `ConfigPanel.svelte` as a UI control.
+// =================================================================================
 export const VisualizationConfigSchema = z.object({
+  // Layout & Meter
   visualizationsContentWidth: z.number(),
   meterHeight: z.number(),
   centralAxisXPosition: z.number(),
   adrRange: z.number(),
+  adrLookbackDays: z.number(),
   adrProximityThreshold: z.number(),
-  adrPulseColor: z.string().optional().default('rgba(59, 130, 246, 0.8)'),
-  adrPulseWidthRatio: z.number().optional().default(1),
-  adrPulseHeight: z.number().optional().default(2),
+  adrPulseColor: z.string(),
+  adrPulseWidthRatio: z.number(),
+  adrPulseHeight: z.number(),
+
+  // Labels (PH/PL, OHL)
+  pHighLowLabelSide: z.string(),
+  ohlLabelSide: z.string(),
+  pHighLowLabelShowBackground: z.boolean(),
+  pHighLowLabelBackgroundColor: z.string(),
+  pHighLowLabelBackgroundOpacity: z.number(),
+  pHighLowLabelShowBoxOutline: z.boolean(),
+  pHighLowLabelBoxOutlineColor: z.string(),
+  pHighLowLabelBoxOutlineOpacity: z.number(),
+  ohlLabelShowBackground: z.boolean(),
+  ohlLabelBackgroundColor: z.string(),
+  ohlLabelBackgroundOpacity: z.number(),
+  ohlLabelShowBoxOutline: z.boolean(),
+  ohlLabelBoxOutlineColor: z.string(),
+  ohlLabelBoxOutlineOpacity: z.number(),
+
+  // Price Float & Display
+  priceFloatWidth: z.number(),
+  priceFloatHeight: z.number(),
+  priceFloatXOffset: z.number(),
+  priceFloatUseDirectionalColor: z.boolean(),
+  priceFloatColor: z.string(),
+  priceFloatUpColor: z.string(),
+  priceFloatDownColor: z.string(),
+  showPriceFloatPulse: z.boolean(),
+  priceFloatPulseThreshold: z.number(),
+  priceFloatPulseColor: z.string(),
+  priceFloatPulseScale: z.number(),
   priceFontSize: z.number(),
   priceFontWeight: z.string(),
   priceHorizontalOffset: z.number(),
@@ -115,38 +165,51 @@ export const VisualizationConfigSchema = z.object({
   bigFigureFontSizeRatio: z.number(),
   pipFontSizeRatio: z.number(),
   pipetteFontSizeRatio: z.number(),
+  showPipetteDigit: z.boolean(),
   priceUseStaticColor: z.boolean(),
   priceStaticColor: z.string(),
   priceUpColor: z.string(),
   priceDownColor: z.string(),
-  showPriceBoundingBox: z.boolean(),
   showPriceBackground: z.boolean(),
-  showPipetteDigit: z.boolean(),
-  priceFloatWidth: z.number(),
-  priceFloatHeight: z.number(),
-  priceFloatXOffset: z.number(),
-  showPriceFloatPulse: z.boolean().optional().default(false),
-  priceFloatPulseThreshold: z.number().optional().default(0.5),
-  priceFloatPulseColor: z.string().optional().default('rgba(167, 139, 250, 0.8)'),
-  priceFloatPulseScale: z.number().optional().default(1.5),
+  priceBackgroundColor: z.string(),
+  priceBackgroundOpacity: z.number(),
+  showPriceBoundingBox: z.boolean(),
+  priceBoxOutlineColor: z.string(),
+  priceBoxOutlineOpacity: z.number(),
+  
+  // Volatility Orb
   showVolatilityOrb: z.boolean(),
   volatilityColorMode: z.string(),
   volatilityOrbBaseWidth: z.number(),
   volatilityOrbInvertBrightness: z.boolean(),
   volatilitySizeMultiplier: z.number(),
+  
+  // Event Highlighting
   showFlash: z.boolean(),
   flashThreshold: z.number(),
   flashIntensity: z.number(),
   showOrbFlash: z.boolean(),
   orbFlashThreshold: z.number(),
   orbFlashIntensity: z.number(),
+  
+  // Market Profile
   showMarketProfile: z.boolean(),
-  marketProfileView: z.enum(['separate', 'combinedLeft', 'combinedRight']).default('separate'),
+  marketProfileView: z.enum(['separate', 'combinedLeft', 'combinedRight']),
+  marketProfileUpColor: z.string(),
+  marketProfileDownColor: z.string(),
+  marketProfileOpacity: z.number(),
+  marketProfileOutline: z.boolean(),
+  marketProfileOutlineShowStroke: z.boolean(),
+  marketProfileOutlineStrokeWidth: z.number(),
+  marketProfileOutlineUpColor: z.string(),
+  marketProfileOutlineDownColor: z.string(),
+  marketProfileOutlineOpacity: z.number(),
   distributionDepthMode: z.string(),
   distributionPercentage: z.number(),
-  priceBucketMultiplier: z.number().optional().default(1),
-  marketProfileWidthRatio: z.number().optional().default(1),
+  priceBucketMultiplier: z.number(),
+  marketProfileWidthRatio: z.number(),
   showMaxMarker: z.boolean(),
-  adrLookbackDays: z.number(),
+  
+  // Simulation
   frequencyMode: z.string(),
 });
