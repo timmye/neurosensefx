@@ -345,7 +345,7 @@
                 </div>
                 <div class="control-group">
                     <label for="priceDownColor">Price Down Color:</label>
-                    <input type="color" id="priceDownColor" bind:value={config.priceDown_color} on:change={handleConfigChange}>
+                    <input type="color" id="priceDownColor" bind:value={config.priceDownColor} on:change={handleConfigChange}>
                 </div>
                 {/if}
                 <div class="control-group">
@@ -384,10 +384,6 @@
                 <div class="control-group">
                     <label for="showVolatilityOrb">Show Volatility Orb</label>
                     <input type="checkbox" id="showVolatilityOrb" bind:checked={config.showVolatilityOrb} on:change={handleConfigChange}>
-                </div>
-                <div class="control-group">
-                    <label for="showVolatilityMetric">Show Volatility Metric</label>
-                    <input type="checkbox" id="showVolatilityMetric" bind:checked={config.showVolatilityMetric} on:change={handleConfigChange}>
                 </div>
                 <div class="control-group">
                     <label for="volatilityOrbBaseWidth">Orb Base Width: <span>{config.volatilityOrbBaseWidth}</span></label>

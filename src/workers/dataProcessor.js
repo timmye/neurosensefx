@@ -16,9 +16,6 @@ function convertValue(value, digits) {
 }
 
 self.onmessage = (event) => {
-    // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
-    console.log(`[DEBUG_TRACE | Worker] Received message:`, JSON.stringify(event.data));
-
     const { type, payload } = event.data;
     try {
         switch (type) {
@@ -33,7 +30,7 @@ self.onmessage = (event) => {
                 break;
         }
     } catch (error) {
-        console.error('[MP_DEBUG | Worker] Uncaught error in onmessage handler:', error);
+        console.error('[WORKER_DEBUG] FATAL: Uncaught error in onmessage handler:', error);
     }
 };
 
@@ -71,7 +68,8 @@ function initialize(payload) {
             price: convertValue(bar.close, localDigits),
             direction: convertValue(bar.close, localDigits) > convertValue(bar.open, localDigits) ? 1 : -1,
             magnitude: Math.abs(convertValue(bar.close, localDigits) - convertValue(bar.open, localDigits)) * Math.pow(10, localDigits),
-            time: bar.timestamp
+            time: bar.timestamp,
+            ticks: bar.volume ?? 1
         })),
     };
 
@@ -89,7 +87,7 @@ function processTick(rawTick) {
     
     const magnitude = Math.abs(state.currentPrice - lastPrice) * Math.pow(10, localDigits);
     const now = performance.now();
-    const newTick = { price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now };
+    const newTick = { price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now, ticks: 1 };
     
     state.ticks.push(newTick);
     state.allTicks.push(newTick);
@@ -105,7 +103,16 @@ function updateConfig(newConfig) {
 
 function runCalculationsAndPostUpdate() {
     updateVolatility(performance.now());
-    state.marketProfile = generateMarketProfile();
+
+    console.log('[WORKER_DEBUG] Entering targeted debug zone. `state.allTicks`:', state.allTicks);
+    try {
+        state.marketProfile = generateMarketProfile();
+    } catch (error) {
+        console.error('[WORKER_DEBUG] CRITICAL_ERROR in generateMarketProfile:', error);
+        // We must not proceed if this fails.
+        return;
+    }
+
     recalculateVisualRange();
     postStateUpdate();
 }
@@ -142,15 +149,15 @@ function generateMarketProfile() {
     const profileData = new Map();
     const relevantTicks = config.distributionDepthMode === 'all'
         ? state.allTicks
-        : state.allTicks.slice(-Math.floor(state.allTicks.length * (config.distributionPercentage / 100)));
+        : state.allTicks.slice(-Math.floor(state.allTicks.length * ((config.distributionPercentage ?? 100) / 100)));
 
     const priceToBucketFactor = 1 / priceBucketSize;
 
     relevantTicks.forEach(t => {
         const priceBucket = Math.floor(t.price * priceToBucketFactor);
         const bucket = profileData.get(priceBucket) || { buy: 0, sell: 0, volume: 0 };
-        if (t.direction > 0) bucket.buy++; else bucket.sell++;
-        bucket.volume++;
+        if (t.direction > 0) bucket.buy += t.ticks; else bucket.sell += t.ticks;
+        bucket.volume += t.ticks;
         profileData.set(priceBucket, bucket);
     });
 
@@ -161,7 +168,7 @@ function generateMarketProfile() {
             buy: data.buy,
             sell: data.sell,
         })).sort((a, b) => a.price - b.price),
-        tickCount: relevantTicks.length
+        tickCount: relevantTicks.reduce((sum, t) => sum + t.ticks, 0)
     };
     
     return finalProfile;
@@ -185,6 +192,6 @@ function postStateUpdate() {
             payload: { newState: result.data }
         });
     } else {
-        console.error('[MP_DEBUG | Worker] Invalid state detected. Aborting update.', result.error.format());
+        console.error('[WORKER_DEBUG] Invalid state detected. Aborting update.', result.error.format());
     }
 }

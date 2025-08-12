@@ -9,24 +9,24 @@ const rawDefaults = {
     // Layout & Meter
     visualizationsContentWidth: 300,
     meterHeight: 120,
-    centralAxisXPosition: 230,
-    adrRange: 100, // This seems to be a static value from the original context
+    centralAxisXPosition: 220,
+    adrRange: 100,
     adrLookbackDays: 14,
     adrProximityThreshold: 10,
     adrPulseColor: '#3B82F6',
     adrPulseWidthRatio: 1,
     adrPulseHeight: 2,
 
-    // Labels (PH/PL, OHL) - Adding all missing properties
+    // Labels (PH/PL, OHL)
     pHighLowLabelSide: 'right',
     ohlLabelSide: 'right',
-    pHighLowLabelShowBackground: false,
+    pHighLowLabelShowBackground: true,
     pHighLowLabelBackgroundColor: '#1f2937',
     pHighLowLabelBackgroundOpacity: 0.7,
     pHighLowLabelShowBoxOutline: false,
     pHighLowLabelBoxOutlineColor: '#4b5563',
     pHighLowLabelBoxOutlineOpacity: 1,
-    ohlLabelShowBackground: false,
+    ohlLabelShowBackground: true,
     ohlLabelBackgroundColor: '#1f2937',
     ohlLabelBackgroundOpacity: 0.7,
     ohlLabelShowBoxOutline: false,
@@ -38,7 +38,7 @@ const rawDefaults = {
     priceFloatHeight: 4,
     priceFloatXOffset: 0,
     priceFloatUseDirectionalColor: true,
-    priceFloatColor: '#a78bfa', // Default purple color
+    priceFloatColor: '#a78bfa',
     priceFloatUpColor: '#3b82f6',
     priceFloatDownColor: '#ef4444',
     showPriceFloatPulse: false,
@@ -49,11 +49,11 @@ const rawDefaults = {
     priceFontWeight: '600',
     priceHorizontalOffset: 4,
     priceDisplayPadding: 0,
-    bigFigureFontSizeRatio: 1.2,
-    pipFontSizeRatio: 1.1,
-    pipetteFontSizeRatio: 0.8,
+    bigFigureFontSizeRatio: 0.7,
+    pipFontSizeRatio: 1.0,
+    pipetteFontSizeRatio: 0.4,
     showPipetteDigit: true,
-    priceUseStaticColor: true,
+    priceUseStaticColor: false,
     priceStaticColor: '#d1d5db',
     priceUpColor: '#3b82f6',
     priceDownColor: '#ef4444',
@@ -81,11 +81,11 @@ const rawDefaults = {
     
     // Market Profile
     showMarketProfile: true,
-    marketProfileView: 'combinedRight',
+    marketProfileView: 'Righcombined',
     marketProfileUpColor: '#3b82f6',
     marketProfileDownColor: '#ef4444',
     marketProfileOpacity: 0.7,
-    marketProfileOutline: false,
+    marketProfileOutline: true,
     marketProfileOutlineShowStroke: true,
     marketProfileOutlineStrokeWidth: 1,
     marketProfileOutlineUpColor: '#3b82f6',
@@ -98,7 +98,7 @@ const rawDefaults = {
     showMaxMarker: true,
     
     // Simulation
-    frequencyMode: 'volatile'
+    frequencyMode: 'normal'
 };
 
 // Create a single, validated source of truth for the default configuration

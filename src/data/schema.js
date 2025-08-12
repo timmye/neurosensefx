@@ -194,7 +194,7 @@ export const VisualizationConfigSchema = z.object({
   
   // Market Profile
   showMarketProfile: z.boolean(),
-  marketProfileView: z.enum(['separate', 'combinedLeft', 'combinedRight']),
+  marketProfileView: z.enum(['separate', 'combinedLeft', 'Righcombined']),
   marketProfileUpColor: z.string(),
   marketProfileDownColor: z.string(),
   marketProfileOpacity: z.number(),

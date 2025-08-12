@@ -123,7 +123,7 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
   const backgroundHeight = textHeight + (priceDisplayPadding * 2);
 
   const backgroundX = priceHorizontalOffset - priceDisplayPadding;
-  const backgroundY = currentPriceY - (textHeight / 2) - priceDisplayPadding;
+  const backgroundY = currentPriceY - (backgroundHeight / 2);
 
   // Draw background if enabled
   if (showPriceBackground) {

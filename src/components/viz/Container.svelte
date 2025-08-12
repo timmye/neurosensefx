@@ -6,6 +6,7 @@
   import { drawPriceDisplay } from '../../lib/viz/priceDisplay.js';
   import { drawVolatilityOrb } from '../../lib/viz/volatilityOrb.js';
   import { drawMarketProfile } from '../../lib/viz/marketProfile.js';
+  import { drawVolatilityMetric } from '../../lib/viz/volatilityMetric.js';
 
   export let config;
   export let state;
@@ -34,7 +35,7 @@
 
   // Watch for state or config changes to trigger a redraw
   $: if (ctx && state && config) {
-    // If a significant tick occurs and flash is enabled, start the flash animation state
+    // If a significant tick occurs and- flash is enabled, start the flash animation state
     if (state.isSignificantTick && config.showFlash) {
         flashOpacity = config.flashIntensity;
         flashStartTime = performance.now();
@@ -59,6 +60,7 @@
     drawVolatilityOrb(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
     drawPriceFloat(ctx, currentConfig, currentState, y);
     drawPriceDisplay(ctx, currentConfig, currentState, y, visualizationsContentWidth);
+    drawVolatilityMetric(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
 
     // --- Draw Flash Overlay ---
     if (flashOpacity > 0) {
