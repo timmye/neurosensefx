@@ -285,6 +285,10 @@ export function initializeWsClient() {
             disconnect(); // Ensure disconnect for clean transition
             startSimulation();
         } else {
+            // Ensure a clean slate before attempting to connect to live data
+            if (ws && ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CONNECTING) {
+                disconnect();
+            }
             stopSimulation();
             connect();
         }

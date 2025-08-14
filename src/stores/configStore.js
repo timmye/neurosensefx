@@ -17,6 +17,20 @@ const rawDefaults = {
     adrPulseWidthRatio: 1,
     adrPulseHeight: 2,
 
+    // ADR Range Indicator
+    showAdrRangeIndicatorLines: true,
+    adrRangeIndicatorLinesColor: '#9CA3AF',
+    adrRangeIndicatorLinesThickness: 1,
+    showAdrRangeIndicatorLabel: true,
+    adrRangeIndicatorLabelColor: '#E5E7EB',
+    adrRangeIndicatorLabelShowBackground: true,
+    adrRangeIndicatorLabelBackgroundColor: '#1F2937',
+    adrRangeIndicatorLabelBackgroundOpacity: 0.8,
+ adrLabelType: 'staticPercentage',
+    adrRangeIndicatorLabelShowBoxOutline: true,
+    adrRangeIndicatorLabelBoxOutlineColor: '#4B5563',
+    adrRangeIndicatorLabelBoxOutlineOpacity: 1,
+
     // Labels (PH/PL, OHL)
     pHighLowLabelSide: 'right',
     ohlLabelSide: 'right',
@@ -70,6 +84,7 @@ const rawDefaults = {
     volatilityOrbBaseWidth: 70,
     volatilityOrbInvertBrightness: false,
     volatilitySizeMultiplier: 1.5,
+    showVolatilityMetric: true,
     
     // Event Highlighting
     showFlash: false,
@@ -81,7 +96,7 @@ const rawDefaults = {
     
     // Market Profile
     showMarketProfile: true,
-    marketProfileView: 'Righcombined',
+    marketProfileView: 'combinedRight',
     marketProfileUpColor: '#3b82f6',
     marketProfileDownColor: '#ef4444',
     marketProfileOpacity: 0.7,

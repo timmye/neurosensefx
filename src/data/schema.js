@@ -14,6 +14,7 @@ export const ProcessedTickSchema = z.object({
     direction: z.number(),
     magnitude: z.number(),
     time: z.number(),
+    ticks: z.number().optional(),
 });
 
 // CORRECTED: Define a clear schema for the historical data from the backend.
@@ -23,6 +24,7 @@ export const HistoricalBarSchema = z.object({
   low: z.number(),
   close: z.number(),
   timestamp: z.number(),
+  volume: z.number().optional(),
 });
 
 export const MarketDataSchema = z.object({
@@ -92,7 +94,7 @@ export const VisualizationStateSchema = z.object({
   priceFloatPulseEffect: PriceFloatPulseEffectSchema,
   digits: z.number().int(),
   lastTick: TickSchema.extend({ symbol: z.string().optional() }).nullable(),
-  // Explicitly include the 'fat state' fields for debugging and flexibility.
+  maxAdrPercentage: z.number(),
   ticks: z.array(ProcessedTickSchema),
   allTicks: z.array(ProcessedTickSchema),
   tickMagnitudes: z.array(z.number()),
@@ -100,23 +102,6 @@ export const VisualizationStateSchema = z.object({
 
 // =================================================================================
 // VISUALIZATION CONFIGURATION SCHEMA
-// =================================================================================
-// This Zod schema is the single source of truth for the *shape* of the visualization configuration.
-//
-// CRITICAL RELATIONSHIPS:
-// 1. `src/stores/configStore.js`: The `rawDefaults` object in this file is parsed
-//    by this schema. If a property exists in `rawDefaults` but is not defined
-//    here, the `parse()` operation will FAIL, and the entire app configuration
-//    will break.
-//
-// 2. `src/components/ConfigPanel.svelte`: This component contains the UI controls
-//    that modify the configuration. Every setting in the panel must have a
-//    corresponding field in this schema and a default value in `configStore.js`.
-//
-// Therefore, any new configurable setting must be added in THREE places:
-//    - Here, in `VisualizationConfigSchema`.
-//    - In `configStore.js` with a default value.
-//    - In `ConfigPanel.svelte` as a UI control.
 // =================================================================================
 export const VisualizationConfigSchema = z.object({
   // Layout & Meter
@@ -129,6 +114,20 @@ export const VisualizationConfigSchema = z.object({
   adrPulseColor: z.string(),
   adrPulseWidthRatio: z.number(),
   adrPulseHeight: z.number(),
+
+  // ADR Range Indicator
+  showAdrRangeIndicatorLines: z.boolean(),
+  adrRangeIndicatorLinesColor: z.string(),
+  adrRangeIndicatorLinesThickness: z.number(),
+  showAdrRangeIndicatorLabel: z.boolean(),
+  adrRangeIndicatorLabelColor: z.string(),
+  adrRangeIndicatorLabelShowBackground: z.boolean(),
+  adrRangeIndicatorLabelBackgroundColor: z.string(),
+  adrRangeIndicatorLabelBackgroundOpacity: z.number(),
+  adrRangeIndicatorLabelShowBoxOutline: z.boolean(),
+  adrLabelType: z.enum(['staticPercentage', 'dynamicPercentage']),
+  adrRangeIndicatorLabelBoxOutlineColor: z.string(),
+  adrRangeIndicatorLabelBoxOutlineOpacity: z.number(),
 
   // Labels (PH/PL, OHL)
   pHighLowLabelSide: z.string(),
@@ -183,6 +182,7 @@ export const VisualizationConfigSchema = z.object({
   volatilityOrbBaseWidth: z.number(),
   volatilityOrbInvertBrightness: z.boolean(),
   volatilitySizeMultiplier: z.number(),
+  showVolatilityMetric: z.boolean(),
   
   // Event Highlighting
   showFlash: z.boolean(),
@@ -194,7 +194,7 @@ export const VisualizationConfigSchema = z.object({
   
   // Market Profile
   showMarketProfile: z.boolean(),
-  marketProfileView: z.enum(['separate', 'combinedLeft', 'Righcombined']),
+  marketProfileView: z.enum(['separate', 'combinedLeft', 'combinedRight']),
   marketProfileUpColor: z.string(),
   marketProfileDownColor: z.string(),
   marketProfileOpacity: z.number(),

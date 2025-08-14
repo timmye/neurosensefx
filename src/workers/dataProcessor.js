@@ -48,6 +48,7 @@ function initialize(payload) {
         visualLow: convertValue(payload.projectedAdrLow, localDigits),
         todaysHigh: convertValue(payload.todaysHigh, localDigits),
         todaysLow: convertValue(payload.todaysLow, localDigits),
+        maxAdrPercentage: 0.3,
         digits: localDigits,
         lastTickDirection: 'up',
         volatility: 0.5,
@@ -103,16 +104,7 @@ function updateConfig(newConfig) {
 
 function runCalculationsAndPostUpdate() {
     updateVolatility(performance.now());
-
-    console.log('[WORKER_DEBUG] Entering targeted debug zone. `state.allTicks`:', state.allTicks);
-    try {
-        state.marketProfile = generateMarketProfile();
-    } catch (error) {
-        console.error('[WORKER_DEBUG] CRITICAL_ERROR in generateMarketProfile:', error);
-        // We must not proceed if this fails.
-        return;
-    }
-
+    state.marketProfile = generateMarketProfile();
     recalculateVisualRange();
     postStateUpdate();
 }
@@ -175,13 +167,35 @@ function generateMarketProfile() {
 }
 
 function recalculateVisualRange() {
-    const minPrice = Math.min(state.todaysLow, state.projectedAdrLow);
-    const maxPrice = Math.max(state.todaysHigh, state.projectedAdrHigh);
+    const adrRange = state.projectedAdrHigh - state.projectedAdrLow;
+    const priceDistanceFromOpen = Math.abs(state.currentPrice - state.midPrice);
+    const currentAdrPercentage = priceDistanceFromOpen / adrRange;
+
+    let targetAdrPercentage = 0.3; // Default to 30%
+    if (currentAdrPercentage > 0.75) {
+        targetAdrPercentage = 1.0;
+    } else if (currentAdrPercentage > 0.5) {
+        targetAdrPercentage = 0.75;
+    } else if (currentAdrPercentage > 0.3) {
+        targetAdrPercentage = 0.5;
+    }
+
+    state.maxAdrPercentage = Math.max(state.maxAdrPercentage, targetAdrPercentage);
+
+    const visualRangeHalf = (adrRange / 2) * state.maxAdrPercentage;
+    const visualHigh = state.midPrice + visualRangeHalf;
+    const visualLow = state.midPrice - visualRangeHalf;
     
-    const padding = (maxPrice - minPrice) * 0.05; 
-    
-    state.visualLow = minPrice - padding;
-    state.visualHigh = maxPrice + padding;
+    // Ensure the actual day's high/low are always visible
+    const finalHigh = Math.max(visualHigh, state.todaysHigh);
+    const finalLow = Math.min(visualLow, state.todaysLow);
+
+    const padding = (finalHigh - finalLow) * 0.05;
+
+    state.visualHigh = finalHigh + padding;
+    state.visualLow = finalLow - padding;
+
+    console.log(`[WORKER_DEBUG] ADR%: ${currentAdrPercentage.toFixed(2)}, MaxADR%: ${state.maxAdrPercentage.toFixed(2)}, VisualRange: ${state.visualLow.toFixed(5)} - ${state.visualHigh.toFixed(5)}`);
 }
 
 function postStateUpdate() {

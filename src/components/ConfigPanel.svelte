@@ -62,7 +62,7 @@
               </div>
               <div class="control-group">
                   <label for="dataSource">Data Source</label>
-                  <select id="dataSource" bind:value={$dataSourceMode} on:change={(e) => dispatch('dataSourceChange', { mode: e.target.value })}>
+                  <select id="dataSource" bind:value={$dataSourceMode} on:change={(e) => { $dataSourceMode = e.target.value; dispatch('dataSourceChange', { mode: e.target.value }); }}>
                       <option value="simulated">Simulated Data</option>
                       <option value="live">Live Data (cTrader)</option>
                   </select>
@@ -73,36 +73,37 @@
           {#if $dataSourceMode === 'live'}
               <div class="control-group-container">
                 <div class="title-bar">
-                    <h2 class="group-title">Live Connection</h2>
+ <h2 class="group-title">Live Connection</h2>
                 </div>
+                
                 <div class="control-group">
                     <div class="status-box">
                         <span class="status-indicator status-{$wsStatus}"></span>
                         <span class="status-text">{$wsStatus}</span>
                     </div>
-                    {#if $wsStatus === 'connected'}
-                        <div class="subscription-controls">
-                            <select bind:value={selectedSymbolForSubscription}>
-                                <option value={null}>Select a symbol...</option>
-                                {#each $availableSymbols as symbol}
-                                    <option value={symbol} disabled={subscribedSymbols.includes(symbol)}>{symbol}</option>
-                                {/each}
-                            </select>
-                            <button on:click={handleSubscribe} disabled={!selectedSymbolForSubscription}>Subscribe</button>
-                        </div>
-
-                        {#if subscribedSymbols.length > 0}
-                            <div class="subscribed-list">
-                                <h4>Active Subscriptions:</h4>
-                                <ul>
-                                    {#each subscribedSymbols as symbol}
-                                        <li>
-                                            <span>{symbol}</span>
-                                            <button class="unsubscribe-button" on:click={() => handleUnsubscribe(symbol)}>X</button>
-                                        </li>
+ {#if $wsStatus === 'connected'}
+ <div class="subscription-controls">
+ <select bind:value={selectedSymbolForSubscription}>
+ <option value={null}>Select a symbol...</option>
+ {#each $availableSymbols as symbol}
+ <option value={symbol} disabled={subscribedSymbols.includes(symbol)}>{symbol}</option>
                                     {/each}
-                                </ul>
-                            </div>
+ </select>
+ <button on:click={handleSubscribe} disabled={!selectedSymbolForSubscription}>Subscribe</button>
+ </div>
+
+ {#if subscribedSymbols.length > 0}
+ <div class="subscribed-list">
+ <h4>Active Subscriptions:</h4>
+ <ul>
+ {#each subscribedSymbols as symbol}
+ <li>
+ <span>{symbol}</span>
+ <button class="unsubscribe-button" on:click={() => handleUnsubscribe(symbol)}>X</button>
+ </li>
+                                        {/each}
+ </ul>
+ </div>
                         {/if}
                     {/if}
                 </div>
@@ -111,8 +112,9 @@
 
           <!-- Live Debug Info -->
           {#if state}
-          <div class="control-group-container debug-info">
-              <h3 class="group-title">Live Debug Info</h3>
+          
+ <div class="control-group-container debug-info">
+ <h3 class="group-title">Live Debug Info</h3>
               <div class="info-grid">
                   <span>Profile Levels:</span><span>{state.marketProfile?.levels?.length || 0}</span>
                   <span>Profile Ticks:</span><span>{state.marketProfile?.tickCount || 0}</span>
@@ -260,6 +262,57 @@
                 {/if}
             </div>
 
+            <!-- ADR Range Indicator -->
+            <div class="control-group-container">
+                <h3 class="group-title">ADR Range Indicator</h3>
+                <div class="control-group">
+                    <label for="showAdrRangeIndicatorLines">Show Indicator Lines</label>
+                    <input type="checkbox" id="showAdrRangeIndicatorLines" bind:checked={config.showAdrRangeIndicatorLines} on:change={handleConfigChange}>
+                </div>
+                {#if config.showAdrRangeIndicatorLines}
+                <div class="control-group">
+                    <label for="adrRangeIndicatorLinesColor">Lines Color:</label>
+                    <input type="color" id="adrRangeIndicatorLinesColor" bind:value={config.adrRangeIndicatorLinesColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="adrRangeIndicatorLinesThickness">Lines Thickness: <span>{config.adrRangeIndicatorLinesThickness}px</span></label>
+                    <input type="range" id="adrRangeIndicatorLinesThickness" min="1" max="10" step="1" bind:value={config.adrRangeIndicatorLinesThickness} on:change={handleConfigChange}>
+                </div>
+                {/if}
+                <div class="control-group">
+                    <label for="showAdrRangeIndicatorLabel">Show Indicator Label</label>
+                    <input type="checkbox" id="showAdrRangeIndicatorLabel" bind:checked={config.showAdrRangeIndicatorLabel} on:change={handleConfigChange}>
+                </div>
+                {#if config.showAdrRangeIndicatorLabel}
+                <div class="control-group">
+                    <label for="adrLabelType">ADR Label Type</label>
+                    <select id="adrLabelType" bind:value={config.adrLabelType} on:change={handleConfigChange}>
+                        <option value="staticPercentage">Static Percentage</option>
+                        <option value="dynamicPercentage">Dynamic Percentage</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="adrRangeIndicatorLabelColor">Label Color:</label>
+                    <input type="color" id="adrRangeIndicatorLabelColor" bind:value={config.adrRangeIndicatorLabelColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="adrRangeIndicatorLabelShowBackground">Show Label Background</label>
+                    <input type="checkbox" id="adrRangeIndicatorLabelShowBackground" bind:checked={config.adrRangeIndicatorLabelShowBackground} on:change={handleConfigChange}>
+                </div>
+                {#if config.adrRangeIndicatorLabelShowBackground}
+                <div class="control-group">
+                    <label for="adrRangeIndicatorLabelBackgroundColor">Label Background Color:</label>
+                    <input type="color" id="adrRangeIndicatorLabelBackgroundColor" bind:value={config.adrRangeIndicatorLabelBackgroundColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="adrRangeIndicatorLabelBackgroundOpacity">Label Background Opacity: <span>{config.adrRangeIndicatorLabelBackgroundOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="adrRangeIndicatorLabelBackgroundOpacity" min="0" max="1" step="0.05" bind:value={config.adrRangeIndicatorLabelBackgroundOpacity} on:change={handleConfigChange}>
+                </div>
+                {/if}
+                {/if}
+            </div>
+
             <!-- Event Highlighting -->
             <div class="control-group-container">
                 <h3 class="group-title">Event Highlighting</h3>
@@ -345,8 +398,8 @@
                 </div>
                 <div class="control-group">
                     <label for="priceDownColor">Price Down Color:</label>
-                    <input type="color" id="priceDownColor" bind:value={config.priceDown_color} on:change={handleConfigChange}>
-                </div>
+                    <input type="color" id="priceDownColor" bind:value={config.priceDownColor} on:change={handleConfigChange}>
+ </div>
                 {/if}
                 <div class="control-group">
                     <label for="showPriceBackground">Show Price Background</label>

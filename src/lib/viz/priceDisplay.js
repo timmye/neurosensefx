@@ -94,17 +94,22 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
 
   if (!formattedPrice) return;
 
+  // Use middle baseline for correct vertical centering.
   ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
 
   const bigFigureSize = priceFontSize * bigFigureFontSizeRatio;
   const pipsSize = priceFontSize * pipFontSizeRatio;
   const pipetteSize = priceFontSize * pipetteFontSizeRatio;
 
   // --- Measure text widths and heights for accurate background ---
+  ctx.font = `${priceFontWeight} ${pipsSize}px monospace`;
+  const pipsMetrics = ctx.measureText(formattedPrice.pips || '00');
+  const textHeight = (pipsMetrics.actualBoundingBoxAscent + pipsMetrics.actualBoundingBoxDescent);
+  
+  // Measure full text metrics to accurately center the background and text.
   ctx.font = `${priceFontWeight} ${bigFigureSize}px monospace`;
-  const bigFigureMetrics = ctx.measureText(formattedPrice.bigFigure);
-  const bigFigureWidth = bigFigureMetrics.width;
-  const textHeight = bigFigureMetrics.actualBoundingBoxAscent + bigFigureMetrics.actualBoundingBoxDescent;
+  const bigFigureWidth = ctx.measureText(formattedPrice.bigFigure).width;
 
   let pipsWidth = 0;
   if (formattedPrice.pips) {
@@ -124,6 +129,9 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
 
   const backgroundX = priceHorizontalOffset - priceDisplayPadding;
   const backgroundY = currentPriceY - (backgroundHeight / 2);
+  
+  // The y-coordinate for drawing text, centered within the background box.
+  const textY = backgroundY + priceDisplayPadding + textHeight / 2 + pipsMetrics.actualBoundingBoxDescent;
 
   // Draw background if enabled
   if (showPriceBackground) {
@@ -144,8 +152,6 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
     ? priceStaticColor
     : lastTickDirection === 'up' ? priceUpColor : priceDownColor;
   ctx.fillStyle = textColor;
-
-  ctx.textAlign = 'left';
   
   // Draw text components
   ctx.font = `${priceFontWeight} ${bigFigureSize}px monospace`;
