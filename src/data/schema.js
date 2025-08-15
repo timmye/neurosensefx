@@ -176,6 +176,15 @@ export const VisualizationConfigSchema = z.object({
   priceBoxOutlineColor: z.string(),
   priceBoxOutlineOpacity: z.number(),
   
+  // Markers
+  markerLineColor: z.string(),
+  markerLineThickness: z.number(),
+
+  // Hover Indicator
+  hoverLabelShowBackground: z.boolean(),
+  hoverLabelBackgroundColor: z.string(),
+  hoverLabelBackgroundOpacity: z.number(),
+
   // Volatility Orb
   showVolatilityOrb: z.boolean(),
   volatilityColorMode: z.string(),

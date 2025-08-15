@@ -1,5 +1,18 @@
 import { get } from 'svelte/store';
 
+/**
+ * Helper function to convert hex color string to RGBA string.
+ * @param {string} hex - Hex color string (e.g., "#RRGGBB" or "#RGB").
+ * @param {number} alpha - Alpha transparency value (0 to 1).
+ * @returns {string} RGBA color string (e.g., "rgba(255, 0, 0, 0.5)").
+ */
+function hexToRgba(hex, alpha) {
+    const bigint = parseInt(hex.slice(1), 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+}
 export function drawHoverIndicator(ctx, config, state, y, hoverState) {
     // Ensure hoverState is active
     if (!hoverState) {
@@ -37,8 +50,8 @@ export function drawHoverIndicator(ctx, config, state, y, hoverState) {
         ctx.stroke();
 
         // Draw the price label
-        const labelText = hoverPrice.toFixed(digits);
-        const labelFontSize = 10;
+        const labelText = hoverPrice.toFixed(state.digits);
+        const labelFontSize = 10; // config.hoverLabelFontSize || 10; // Use config, fallback to 10 - TO BE ADDED TO CONFIG
         const labelPadding = 5; // Padding around the label
         const labelOffsetFromLine = 10; // Distance from the line
 
@@ -52,11 +65,18 @@ export function drawHoverIndicator(ctx, config, state, y, hoverState) {
         // Position the label to the right of the line, near the central axis or a side
         let labelX = visualizationsContentWidth / 2 + labelOffsetFromLine; // Example positioning
 
-        // Consider placing the label near the central axis for better visibility
-        const centralAxisX = config.centralAxisXPosition;
-        if (centralAxisX + labelOffsetFromLine + metrics.width < visualizationsContentWidth) {
-            labelX = centralAxisX + labelOffsetFromLine;
-        } else if (centralAxisX - labelOffsetFromLine - metrics.width > 0) {
+        // Calculate background dimensions and position
+        const textWidth = metrics.width;
+        const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+        const backgroundX = (ctx.textAlign === 'right') ? labelX - textWidth - labelPadding : labelX - labelPadding;
+        const backgroundY = hoverY - (textHeight / 2) - labelPadding; // Center vertically around hoverY
+        const backgroundWidth = textWidth + labelPadding * 2;
+        const backgroundHeight = textHeight + labelPadding * 2;
+
+ const centralAxisX = config.centralAxisXPosition;
+ if (centralAxisX + labelOffsetFromLine + metrics.width < visualizationsContentWidth) {
+ labelX = centralAxisX + labelOffsetFromLine;
+ } else if (centralAxisX - labelOffsetFromLine - metrics.width > 0) {
             labelX = centralAxisX - labelOffsetFromLine - metrics.width;
             ctx.textAlign = 'right';
         } else {
@@ -65,8 +85,16 @@ export function drawHoverIndicator(ctx, config, state, y, hoverState) {
             ctx.textAlign = 'right';
         }
 
-        // Use hoverY for the vertical position of the text
-        ctx.fillText(labelText, labelX, hoverY);
+        // Draw background rectangle if enabled in config (after labelX is finalized)
+       if (config.hoverLabelShowBackground) {
+            const backgroundColor = hexToRgba(config.hoverLabelBackgroundColor || '#000000', config.hoverLabelBackgroundOpacity || 0.7); // Use config, fallback to defaults
+            ctx.fillStyle = backgroundColor;
+            ctx.fillRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
+        }
+
+        // Draw the text label on top of the background
+        ctx.fillStyle = '#9CA3AF'; // config.hoverLabelColor || '#9CA3AF'; // Use config, fallback to grey - TO BE ADDED TO CONFIG
+	ctx.fillText(labelText, labelX, hoverY);
     } finally {
         ctx.restore(); // Restore the original canvas state (including transformation)
     }

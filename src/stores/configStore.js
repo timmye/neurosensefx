@@ -110,8 +110,17 @@ const rawDefaults = {
     distributionPercentage: 50,
     priceBucketMultiplier: 1,
     marketProfileWidthRatio: 1,
-    showMaxMarker: true,
-    
+ showMaxMarker: true,
+
+    // Price Markers
+ markerLineColor: '#FFFFFF',
+ markerLineThickness: 2,
+
+    // Hover Indicator
+ hoverLabelShowBackground: true,
+ hoverLabelBackgroundColor: '#000000',
+ hoverLabelBackgroundOpacity: 0.7,
+
     // Simulation
     frequencyMode: 'normal'
 };

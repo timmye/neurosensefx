@@ -313,6 +313,25 @@
                 {/if}
             </div>
 
+            <!-- Price Markers -->
+            <div class="control-group-container">
+                <h3 class="group-title">Price Markers</h3>
+                <div class="control-group">
+                    <label for="markerLineColor">Line Color:</label>
+                    <input type="color" id="markerLineColor" bind:value={config.markerLineColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="markerLineThickness">Line Thickness: <span>{config.markerLineThickness}px</span></label>
+                    <input type="range" id="markerLineThickness" min="1" max="5" step="1" bind:value={config.markerLineThickness} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="markerLabelColor">Label Color:</label>
+                    <input type="color" id="markerLabelColor" bind:value={config.markerLabelColor} on:change={handleConfigChange}>
+                </div>
+            </div>
+
+
+
             <!-- Event Highlighting -->
             <div class="control-group-container">
                 <h3 class="group-title">Event Highlighting</h3>
@@ -431,6 +450,24 @@
                 {/if}
             </div>
 
+            <!-- Hover Indicator Label Background -->
+            <div class="control-group-container">
+                <h3 class="group-title">Hover Label</h3>
+                 <div class="control-group">
+                    <label for="hoverLabelShowBackground">Show Label Background</label>
+                    <input type="checkbox" id="hoverLabelShowBackground" bind:checked={config.hoverLabelShowBackground} on:change={handleConfigChange}>
+                </div>
+                {#if config.hoverLabelShowBackground}
+                <div class="control-group">
+                    <label for="hoverLabelBackgroundColor">Label Background Color:</label>
+                    <input type="color" id="hoverLabelBackgroundColor" bind:value={config.hoverLabelBackgroundColor} on:change={handleConfigChange}>
+                </div>
+                <div class="control-group">
+                    <label for="hoverLabelBackgroundOpacity">Label Background Opacity: <span>{config.hoverLabelBackgroundOpacity?.toFixed(2)}</span></label>
+                    <input type="range" id="hoverLabelBackgroundOpacity" min="0" max="1" step="0.05" bind:value={config.hoverLabelBackgroundOpacity} on:change={handleConfigChange}>
+                </div>
+                {/if}
+            </div>
             <!-- Volatility Orb Controls -->
             <div class="control-group-container">
                 <h3 class="group-title">Volatility Orb</h3>

@@ -9,8 +9,10 @@
   import { drawMarketProfile } from '../../lib/viz/marketProfile.js';
   import { drawVolatilityMetric } from '../../lib/viz/volatilityMetric.js';
   import { drawHoverIndicator } from '../../lib/viz/hoverIndicator.js';
+  import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js'; // Import drawPriceMarkers
   import { hoverState } from '../../stores/uiState.js';
 
+  import { markerStore } from '../../stores/markerStore.js'; // Import markerStore
   export let config;
   export let state;
 
@@ -19,6 +21,7 @@
   let dpr = 1;
   let y; // Declare y scale at the top level to be accessible everywhere
 
+  let markers = []; // Local variable to hold the markers from the store
   // State for flash animation
   let flashOpacity = 0;
   let flashDuration = 300; // ms
@@ -33,17 +36,23 @@
   $: if (canvas && config) {
     const { visualizationsContentWidth, meterHeight } = config;
     canvas.style.height = `${meterHeight}px`;
+    // Remove the explicit setting of canvas width/height here,
+    // rely on the reactive block below that depends on state/config
+    // to set the dimensions consistently before drawing.
     canvas.width = Math.floor(visualizationsContentWidth * dpr);
     canvas.height = Math.floor(meterHeight * dpr);
     ctx?.scale(dpr, dpr);
   }
 
-  // This reactive block triggers a redraw whenever the core data, config, or hover state changes
-  $: if (ctx && state && config) {
+  // This reactive block triggers a redraw whenever the core data, config, hover state, or marker store changes
+  $: if (ctx && state && config && $hoverState !== undefined && $markerStore !== undefined) {
     // We access $hoverState here to make this block reactive to its changes
- console.log('Reactive block triggered by change. Hover state is:', $hoverState);
-    const hoverIsActive = $hoverState;
-    draw(state, config);
+    // We access $markerStore here to make this block reactive to its changes
+    markers = $markerStore; // Update local markers variable
+
+    // Trigger draw when state, config, hoverState, or markerStore changes
+    // The check for ctx, state, config ensures everything is ready
+    draw(state, config, markers); // Pass the markers array to the draw function
   }
 
   function handleMouseMove(event) {
@@ -60,6 +69,36 @@
   }
   function handleMouseLeave() {
     hoverState.set(null);
+  }
+
+  function handleClick(event) {
+    console.log('handleClick called');
+    if (!y) return; // Guard against accessing y before it's initialized
+
+    const rect = canvas.getBoundingClientRect();
+    const cssY = event.clientY - rect.top;
+
+    // Hit detection threshold in CSS pixels
+    const hitThreshold = 5; 
+
+    // Check if clicking on an existing marker
+    const clickedMarker = $markerStore.find(marker => {
+      const markerY = y(marker.price); // Convert marker price to Y coordinate
+      console.log('Hit detection: markerY =', markerY, ', cssY =', cssY, ', difference =', Math.abs(cssY - markerY));
+      return Math.abs(cssY - markerY) < hitThreshold;
+    });
+
+    console.log('Clicked marker result:', clickedMarker);
+
+    if (clickedMarker) {
+      console.log('Removing marker:', clickedMarker.id);
+      markerStore.remove(clickedMarker.id);
+    } else {
+      // If not clicking on a marker, add a new one
+      const clickedPrice = y.invert(cssY);
+      console.log('Adding marker:', clickedPrice);
+      markerStore.add(clickedPrice);      
+    }
   }
 
   function draw(currentState, currentConfig) {
@@ -82,6 +121,8 @@
     drawPriceDisplay(ctx, currentConfig, currentState, y, visualizationsContentWidth);
     drawVolatilityMetric(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
 
+    // --- Draw Price Markers (on top of core visuals, below hover/flash) ---
+    drawPriceMarkers(ctx, currentConfig, currentState, y, markers);
     // --- Draw Hover Indicator (must be last to be on top) ---
     drawHoverIndicator(ctx, currentConfig, currentState, y, $hoverState);
 
@@ -101,7 +142,7 @@
 </script>
 
 <div class="viz-container" style="width: {config.visualizationsContentWidth}px;">
-  <canvas bind:this={canvas} on:mousemove={handleMouseMove} on:mouseleave={handleMouseLeave}></canvas>
+  <canvas bind:this={canvas} on:mousemove={handleMouseMove} on:mouseleave={handleMouseLeave} on:click={handleClick}></canvas>
 </div>
 
 <style>
