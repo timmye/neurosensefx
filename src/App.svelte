@@ -3,6 +3,7 @@
   import { get } from 'svelte/store';
   import Container from './components/viz/Container.svelte';
   import ConfigPanel from './components/ConfigPanel.svelte';
+  import MultiSymbolADR from './components/viz/MultiSymbolADR.svelte'; // Import the new component
   import { symbolStore } from './data/symbolStore.js';
   import { dataSourceMode, wsStatus } from './data/wsClient.js';
   import { selectedSymbol } from './stores/uiState.js';
@@ -30,6 +31,15 @@
 
 <main>
   <div class="main-container">
+    
+    <!-- New Multi-Symbol ADR Panel -->
+    {#if Object.keys(symbols).length > 0}
+      <div class="adr-panel-container">
+        <div class="symbol-header">ADR Overview</div>
+        <MultiSymbolADR />
+      </div>
+    {/if}
+
     <div class="viz-area">
       {#if Object.keys(symbols).length === 0}
         <div class="placeholder">
@@ -101,12 +111,23 @@
     display: flex;
     height: 100vh;
   }
+  /* Style for the new ADR panel */
+  .adr-panel-container {
+    width: 150px; /* Canvas is 120px wide */
+    flex-shrink: 0;
+    padding: 20px 10px;
+    border-right: 1px solid #374151;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
   .viz-area {
     flex-grow: 1;
     padding: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
+    overflow-x: auto;
   }
   .viz-grid {
     display: grid;

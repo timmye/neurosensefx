@@ -1,8 +1,6 @@
-# Dependencies
-/node_modules
-/ctrader_tick_backend/node_modules
+# Ignore environment variables file
+.env
 
-# Build output
-/dist
-backend.log
+# Ignore log files
+*.log
 backend.log

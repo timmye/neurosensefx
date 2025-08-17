@@ -26,7 +26,7 @@ const rawDefaults = {
     adrRangeIndicatorLabelShowBackground: true,
     adrRangeIndicatorLabelBackgroundColor: '#1F2937',
     adrRangeIndicatorLabelBackgroundOpacity: 0.8,
- adrLabelType: 'staticPercentage',
+    adrLabelType: 'dynamicPercentage',
     adrRangeIndicatorLabelShowBoxOutline: true,
     adrRangeIndicatorLabelBoxOutlineColor: '#4B5563',
     adrRangeIndicatorLabelBoxOutlineOpacity: 1,
@@ -51,15 +51,15 @@ const rawDefaults = {
     priceFloatWidth: 100,
     priceFloatHeight: 4,
     priceFloatXOffset: 0,
-    priceFloatUseDirectionalColor: true,
-    priceFloatColor: '#a78bfa',
+    priceFloatUseDirectionalColor: false,
+    priceFloatColor: '#FFFFFF', // CORRECTED: Default to white
     priceFloatUpColor: '#3b82f6',
     priceFloatDownColor: '#ef4444',
     showPriceFloatPulse: false,
     priceFloatPulseThreshold: 0.5,
     priceFloatPulseColor: 'rgba(167, 139, 250, 0.8)',
     priceFloatPulseScale: 1.5,
-    priceFontSize: 50,
+    priceFontSize: 65,
     priceFontWeight: '600',
     priceHorizontalOffset: 4,
     priceDisplayPadding: 0,
@@ -80,8 +80,8 @@ const rawDefaults = {
     
     // Volatility Orb
     showVolatilityOrb: true,
-    volatilityColorMode: 'intensity',
-    volatilityOrbBaseWidth: 70,
+    volatilityColorMode: 'directional',
+    volatilityOrbBaseWidth: 200,
     volatilityOrbInvertBrightness: false,
     volatilitySizeMultiplier: 1.5,
     showVolatilityMetric: true,
@@ -97,14 +97,14 @@ const rawDefaults = {
     // Market Profile
     showMarketProfile: true,
     marketProfileView: 'combinedRight',
-    marketProfileUpColor: '#3b82f6',
-    marketProfileDownColor: '#ef4444',
+    marketProfileUpColor: '#a78bfa', // CORRECTED: Default to purple
+    marketProfileDownColor: '#a78bfa', // CORRECTED: Default to purple
     marketProfileOpacity: 0.7,
     marketProfileOutline: true,
     marketProfileOutlineShowStroke: true,
     marketProfileOutlineStrokeWidth: 1,
-    marketProfileOutlineUpColor: '#3b82f6',
-    marketProfileOutlineDownColor: '#ef4444',
+    marketProfileOutlineUpColor: '#a78bfa', // CORRECTED: Default to purple
+    marketProfileOutlineDownColor: '#a78bfa', // CORRECTED: Default to purple
     marketProfileOutlineOpacity: 1,
     distributionDepthMode: 'all',
     distributionPercentage: 50,

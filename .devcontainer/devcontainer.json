@@ -1,0 +1,21 @@
+{
+  "name": "NeuroSense FX Development",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "svelte.svelte-vscode",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  },
+  "forwardPorts": [9002],
+  "postCreateCommand": "./setup_project.sh",
+  // CORRECTED: Use a single, unified script to manage the entire startup sequence.
+  // This mirrors the behavior of the Firebase Studio 'onStart' hook and ensures
+  // the backend is running before the frontend.
+  "postStartCommand": "./startup_local_dev.sh",
+  "remoteUser": "node"
+}
