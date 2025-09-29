@@ -31,6 +31,7 @@ This project includes detailed documentation for a deeper understanding of its d
 -   **[Front-End Documentation](./docs/Front_End_Documentation.md):** The primary technical guide to the frontend, covering architecture, state management, the rendering pipeline, and component structure.
 -   **[Design Intent](./specs/NeuroSense%20FX_design%20intent.txt):** The core human-centric design philosophy and foundational principles.
 -   **[Build Plan](./specs/Ground-Up%20Build%20Plan%20(Performant%20&%20Simple).txt):** The original technical specifications for the application.
+-   **[Local Development Guide](./README_LOCAL_DEV.md):** Comprehensive guide for setting up and running the project locally with troubleshooting tips.
 
 ## 🚀 Front-End Quick Start
 
@@ -44,3 +45,13 @@ The front-end is a Svelte application built with Vite, featuring a modular archi
 To get started with front-end development:
 1. `npm install`
 2. `npm run dev`
+
+## 🛠️ Development Tools
+
+This project includes several scripts to help with development:
+
+- `./setup_project.sh` - Sets up the entire development environment
+- `./startup_local_dev.sh` - Starts both backend and frontend servers
+- `./cleanup_dev_env.sh` - Cleans up the development environment for a fresh start
+
+For detailed instructions on local development, please see [Local Development Guide](./README_LOCAL_DEV.md).

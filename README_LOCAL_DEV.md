@@ -48,11 +48,11 @@ The project is configured to run inside a standardized VS Code Development Conta
 
 The `postStartCommand` in the `devcontainer.json` configuration executes the `startup_local_dev.sh` script. This script automatically:
 1.  **Cleans up** any old server processes.
-2.  **Updates** the `cTrader-Layer` submodule.
+2.  **Updates** the submodules to the latest version.
 3.  **Starts the backend server** in the background.
 4.  **Starts the frontend server** in the foreground.
 
-A port will be forwarded, and you can access the application in your browser at the URL provided in the VS Code "Ports" tab (usually `http://localhost:9002`).
+A port will be forwarded, and you can access the application in your browser at the URL provided in the VS Code "Ports" tab (usually `http://localhost:5173` for the frontend and `http://localhost:8080` for the backend WebSocket).
 
 ## 4. Development Workflow
 
@@ -62,3 +62,86 @@ A port will be forwarded, and you can access the application in your browser at 
   tail -f backend.log
   ```
 - To stop the application, use `Ctrl+C` in the primary terminal. This will stop both the startup script and the frontend server.
+
+## 5. Troubleshooting Common Issues
+
+### Node Modules Issues
+If you encounter issues with dependencies:
+1. Run `./setup_project.sh` to clean and reinstall all dependencies
+2. Check that all submodules are properly initialized
+
+### Vite Server Issues
+If the frontend server fails to start:
+1. Ensure all dependencies are installed (`npm install`)
+2. Check that the `node_modules/.bin/vite` file exists
+3. Try running `npm run dev` directly
+
+### Backend Connection Issues
+If the frontend cannot connect to the backend:
+1. Check that the backend is running (`tail -f backend.log`)
+2. Verify your `.env` file contains correct cTrader API credentials
+3. Ensure the backend WebSocket server is listening on port 8080
+
+### Submodule Issues
+If submodules are not updating correctly:
+1. Run `git submodule update --init --recursive`
+2. Check that both `ctrader_tick_backend` and `ctrader_tick_backend/cTrader-Layer` directories exist
+
+## 6. Manual Setup (Alternative Approach)
+
+If you prefer to set up the environment manually:
+
+1. **Initialize submodules:**
+   ```bash
+   git submodule update --init --recursive
+   ```
+
+2. **Install dependencies in order:**
+   ```bash
+   # Install cTrader-Layer dependencies and build
+   cd ctrader_tick_backend/cTrader-Layer
+   npm install
+   npm run safe-build
+   cd ../../
+   
+   # Install backend dependencies
+   cd ctrader_tick_backend
+   npm install
+   cd ..
+   
+   # Install frontend dependencies
+   npm install
+   ```
+
+3. **Start servers manually:**
+   ```bash
+   # In one terminal, start the backend
+   cd ctrader_tick_backend
+   npm start
+   
+   # In another terminal, start the frontend
+   npm run dev
+   ```
+
+## 7. Clean Installation
+
+To perform a completely clean installation:
+
+1. **Remove all node_modules and package-lock.json files:**
+   ```bash
+   find . -name "node_modules" -type d -exec rm -rf {} +
+   find . -name "package-lock.json" -type f -delete
+   ```
+
+2. **Reinitialize submodules:**
+   ```bash
+   git submodule deinit -f .
+   git submodule update --init --recursive
+   ```
+
+3. **Run the setup script:**
+   ```bash
+   ./setup_project.sh
+   ```
+
+This approach ensures a completely fresh environment with all dependencies properly installed.

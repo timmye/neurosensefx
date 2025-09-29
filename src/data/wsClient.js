@@ -12,6 +12,11 @@ let simulationInterval = null;
 let connectionMonitorInterval = null;
 
 const WS_URL = (() => {
+    // Use VITE_BACKEND_URL if available (for cloud environments), otherwise use the default local URL
+    if (import.meta.env.VITE_BACKEND_URL) {
+        return import.meta.env.VITE_BACKEND_URL;
+    }
+    
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
     const path = '/ws';
