@@ -71,8 +71,7 @@ This project provides a comprehensive set of commands for setup, development, an
 - `npm run lint` - Run code linter
 
 ### 🖥️ Local Development
-- [`./startup_local_dev.sh`](startup_local_dev.sh) - Alternative script for starting local development environment
-- [`./run_neurosense.sh`](run_neurosense.sh) - Launch the NeuroSense application
+- [`./run.sh`](run.sh) - Unified service management (primary interface)
 
 > **Note**: The `cleanup_dev_env.sh` script mentioned in some documentation has been consolidated into `setup_project.sh --clean` and is no longer a separate file. Use `./setup_project.sh --clean` for a complete environment reset.
 

@@ -3,6 +3,7 @@
   import { dataSourceMode, wsStatus, availableSymbols, subscribe, unsubscribe } from '../data/wsClient.js';
   import { symbolStore } from '../data/symbolStore.js';
   import { selectedSymbol } from '../stores/uiState.js';
+  import FXSymbolSelector from './FXSymbolSelector.svelte';
 
   export let config;
   export let state;
@@ -34,6 +35,14 @@
 
   function handleSubscribe() {
       if (selectedSymbolForSubscription) {
+          subscribe(selectedSymbolForSubscription);
+      }
+  }
+
+  function handleSymbolSelect(event) {
+      selectedSymbolForSubscription = event.detail.symbol;
+      // Subscribe if shouldSubscribe is true (Enter key pressed)
+      if (event.detail.shouldSubscribe) {
           subscribe(selectedSymbolForSubscription);
       }
   }
@@ -83,12 +92,17 @@
                     </div>
  {#if $wsStatus === 'connected'}
  <div class="subscription-controls">
- <select bind:value={selectedSymbolForSubscription}>
- <option value={null}>Select a symbol...</option>
- {#each $availableSymbols as symbol}
- <option value={symbol} disabled={subscribedSymbols.includes(symbol)}>{symbol}</option>
-                                    {/each}
- </select>
+ <div class="symbol-selector-wrapper">
+   <label for="fx-symbol-selector" class="visually-hidden">Select a symbol</label>
+   <FXSymbolSelector
+     id="fx-symbol-selector"
+     bind:selectedSymbol={selectedSymbolForSubscription}
+     availableSymbols={$availableSymbols}
+     subscribedSymbols={subscribedSymbols}
+     placeholder="Select a symbol..."
+     on:select={handleSymbolSelect}
+   />
+ </div>
  <button on:click={handleSubscribe} disabled={!selectedSymbolForSubscription}>Subscribe</button>
  </div>
 
@@ -718,5 +732,22 @@
         color: #ef4444;
         cursor: pointer;
         font-weight: bold;
+    }
+
+    .symbol-selector-wrapper {
+        position: relative;
+        width: 100%;
+    }
+
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
     }
 </style>

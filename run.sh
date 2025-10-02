@@ -68,20 +68,30 @@ start_backend() {
     
     # Check if process is still running and responding
     if kill -0 $backend_pid 2>/dev/null; then
-        # Additional health check - see if it's listening on the expected port
-        if netstat -tlnp 2>/dev/null | grep -q "8080"; then
+        # Additional health check - see if it's responding on the expected port
+        if curl -s http://localhost:8080 > /dev/null 2>&1; then
             log "Backend started successfully (PID: $backend_pid)"
             log "Backend logs: $BACKEND_LOG"
             return 0
         else
-            log_warn "Backend process running but not listening on port 8080"
+            log_warn "Backend process running but not responding on port 8080"
             # Check recent log entries for errors
             if [[ -f "../$BACKEND_LOG" ]]; then
                 tail -n 10 "../$BACKEND_LOG" | log_warn
             fi
-            kill $backend_pid 2>/dev/null || true
-            rm -f "$BACKEND_PID_FILE"
-            return 1
+            # Don't kill the process if it's running but just not responding yet
+            # Give it more time
+            sleep 3
+            if curl -s http://localhost:8080 > /dev/null 2>&1; then
+                log "Backend started successfully (PID: $backend_pid) - verified after delay"
+                log "Backend logs: $BACKEND_LOG"
+                return 0
+            else
+                log_error "Backend not responding after additional wait"
+                kill $backend_pid 2>/dev/null || true
+                rm -f "$BACKEND_PID_FILE"
+                return 1
+            fi
         fi
     else
         log_error "Failed to start backend - process exited immediately"
@@ -115,32 +125,37 @@ start_frontend() {
     
     # Check if process is still running and responding
     if kill -0 $frontend_pid 2>/dev/null; then
-        # Debug: Show what netstat sees
-        netstat_output=$(netstat -tlnp 2>/dev/null | grep "5173" || echo "No match")
-        log "DEBUG: Netstat output for 5173: $netstat_output"
+        # Debug: Show what curl sees
+        curl_output=$(curl -s http://localhost:5173 > /dev/null 2>&1; echo $?)
+        log "DEBUG: Curl output for 5173: $curl_output"
         log "DEBUG: Current working directory: $(pwd)"
         
-        # Additional health check - see if it's listening on the expected port
-        # Try curl as an alternative to netstat
+        # Additional health check - see if it's responding on the expected port
         if curl -s http://localhost:5173 > /dev/null 2>&1; then
             log "Frontend started successfully (PID: $frontend_pid) - verified with curl"
             log "Frontend logs: frontend.log"
             log "Access application at: http://localhost:5173"
             return 0
-        elif netstat -tlnp 2>/dev/null | grep -q "5173"; then
-            log "Frontend started successfully (PID: $frontend_pid)"
-            log "Frontend logs: frontend.log"
-            log "Access application at: http://localhost:5173"
-            return 0
         else
-            log_warn "Frontend process running but not listening on port 5173"
+            log_warn "Frontend process running but not responding on port 5173"
             # Check recent log entries for errors
             if [[ -f "frontend.log" ]]; then
                 tail -n 10 "frontend.log" | log_warn
             fi
-            kill $frontend_pid 2>/dev/null || true
-            rm -f "$FRONTEND_PID_FILE"
-            return 1
+            # Don't kill the process if it's running but just not responding yet
+            # Give it more time
+            sleep 3
+            if curl -s http://localhost:5173 > /dev/null 2>&1; then
+                log "Frontend started successfully (PID: $frontend_pid) - verified after delay"
+                log "Frontend logs: frontend.log"
+                log "Access application at: http://localhost:5173"
+                return 0
+            else
+                log_error "Frontend not responding after additional wait"
+                kill $frontend_pid 2>/dev/null || true
+                rm -f "$FRONTEND_PID_FILE"
+                return 1
+            fi
         fi
     else
         log_error "Failed to start frontend - process exited immediately"
@@ -204,11 +219,11 @@ status() {
     fi
     
     log "=== Port Status ==="
-    if command -v netstat >/dev/null 2>&1; then
-        log "Port 8080 (Backend): $(if netstat -tlnp 2>/dev/null | grep -q '8080'; then echo -e "${GREEN}LISTENING${NC}"; else echo -e "${RED}NOT LISTENING${NC}"; fi)"
-        log "Port 5173 (Frontend): $(if netstat -tlnp 2>/dev/null | grep -q '5173'; then echo -e "${GREEN}LISTENING${NC}"; else echo -e "${RED}NOT LISTENING${NC}"; fi)"
+    if command -v curl >/dev/null 2>&1; then
+        log "Port 8080 (Backend): $(if curl -s http://localhost:8080 > /dev/null 2>&1; then echo -e "${GREEN}RESPONDING${NC}"; else echo -e "${RED}NOT RESPONDING${NC}"; fi)"
+        log "Port 5173 (Frontend): $(if curl -s http://localhost:5173 > /dev/null 2>&1; then echo -e "${GREEN}RESPONDING${NC}"; else echo -e "${RED}NOT RESPONDING${NC}"; fi)"
     else
-        log "netstat not available, skipping port check"
+        log "curl not available, skipping port check"
     fi
 }
 

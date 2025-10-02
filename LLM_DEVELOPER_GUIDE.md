@@ -17,10 +17,10 @@ This guide provides LLM developers with everything needed to understand, run, an
 ### One-Command Setup & Run
 ```bash
 # Make script executable
-chmod +x run_neurosense.sh
+chmod +x run.sh
 
 # Start the application
-./run_neurosense.sh start
+./run.sh start
 ```
 
 ### Verification Checklist
@@ -33,14 +33,14 @@ chmod +x run_neurosense.sh
 ## 🧩 Key Files for LLM Understanding
 1. [`src/components/viz/Container.svelte`](src/components/viz/Container.svelte) - Main visualization component
 2. [`src/data/wsClient.js`](src/data/wsClient.js) - WebSocket client for real-time data
-3. [`ctrader_tick_backend/CTraderSession.js`](ctrader_tick_backend/CTraderSession.js) - cTrader API integration
+3. [`services/tick-backend/CTraderSession.js`](services/tick-backend/CTraderSession.js) - cTrader API integration
 4. [`src/workers/dataProcessor.js`](src/workers/dataProcessor.js) - Background data processing
 
 ## 💡 LLM Cheat Sheet
 ```markdown
-1. START:        ./run_neurosense.sh start
-2. STOP:         ./run_neurosense.sh stop
-3. LOGS:         ./run_neurosense.sh logs
+1. START:        ./run.sh start
+2. STOP:         ./run.sh stop
+3. LOGS:         ./run.sh logs
 4. SIMULATE:     Modify `src/data/wsClient.js` to use mock data
 5. DEBUG:        Add console logs to `CTraderSession.js` connection handlers
 ```
@@ -63,15 +63,15 @@ cat ctrader_tick_backend/.env
 ### Data Not Displaying
 1. Check browser console for WebSocket errors
 2. Verify backend is running: `curl http://localhost:8080`
-3. Check symbol subscriptions in [`SymbolSubscription.js`](ctrader_tick_backend/src/subscription/SymbolSubscription.js)
+3. Check symbol subscriptions in [`SymbolSubscription.js`](services/tick-backend/src/subscription/SymbolSubscription.js)
 
 ### Windows-Specific Issues
 ```bash
 # If chmod command fails on Windows, use:
-bash run_neurosense.sh start
+bash run.sh start
 
-# Or use the Windows-specific startup script:
-./startup_local_dev.sh
+# Or use the unified script:
+./run.sh start
 ```
 
 ### Port Already in Use
@@ -92,7 +92,7 @@ const THROTTLE_INTERVAL = 100;     // Increase for lower CPU usage
 ## 🧪 Testing Framework
 ```bash
 # Run backend tests
-cd ctrader_tick_backend
+cd services/tick-backend
 npm test
 
 # Run frontend tests
@@ -103,13 +103,13 @@ npm run test
 1. Start with market simulation (`src/data/wsClient.js`)
 2. Modify visualization parameters (`src/lib/viz/marketPulse.js`)
 3. Add new indicators (`src/lib/viz/volatilityMetric.js`)
-4. Integrate new data sources (`ctrader_tick_backend/websocket-tick-streamer.js`)
+4. Integrate new data sources (`services/tick-backend/stream-real.cjs`)
 
 ## 🤖 LLM Development Workflow
 ```mermaid
 graph TD
     A[Clone Repo] --> B[Set .env]
-    B --> C[./run_neurosense.sh start]
+    B --> C[./run.sh start]
     C --> D{Test Connection}
     D -->|Success| E[Modify Components]
     D -->|Failure| F[Check LLM Troubleshooting]
@@ -124,7 +124,7 @@ A: Set `USE_SIMULATION=true` in `src/data/wsClient.js`
 A: Create new files in `src/lib/viz/` and import in `Container.svelte`
 
 **Q: How to debug WebSocket issues?**  
-A: Use `DEBUG=websocket node server.js` in backend directory
+A: Use `DEBUG=websocket node server.js` in services/tick-backend directory
 
 **Q: What's the safest way to modify rendering?**  
 A: Start with `src/lib/viz/priceDisplay.js` - isolated rendering component
