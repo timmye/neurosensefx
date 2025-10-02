@@ -46,7 +46,7 @@ The project is configured to run inside a standardized VS Code Development Conta
 
 **Everything is now fully automatic and perfectly mirrors the cloud environment.**
 
-The `postStartCommand` in the `devcontainer.json` configuration executes the `startup_local_dev.sh` script. This script automatically:
+The `postStartCommand` in the `devcontainer.json` configuration executes the `./run.sh start` command. This command automatically:
 1.  **Cleans up** any old server processes.
 2.  **Updates** the submodules to the latest version.
 3.  **Starts the backend server** in the background.
@@ -81,67 +81,40 @@ If the frontend cannot connect to the backend:
 1. Check that the backend is running (`tail -f backend.log`)
 2. Verify your `.env` file contains correct cTrader API credentials
 3. Ensure the backend WebSocket server is listening on port 8080
+### Debugging and Logging
+
+The system now includes enhanced debugging capabilities:
+
+1. **Backend Debugging:**
+   - The backend server includes detailed DEBUG logging that traces the cTrader connection process
+   - Logs are written to `backend.log` and can be monitored with `tail -f backend.log`
+   - When cTrader connection fails, the backend will continue running in degraded mode and log detailed error information
+
+2. **Frontend Debugging:**
+   - The frontend Vite server logs startup information to `frontend.log`
+   - Check this file if the frontend fails to start or is not accessible
+
+3. **Service Health Checks:**
+   - Use `./run.sh status` to check if services are running and listening on their expected ports
+   - Use `./run.sh logs` to view live logs from both services
 
 ### Submodule Issues
 If submodules are not updating correctly:
 1. Run `git submodule update --init --recursive`
-2. Check that both `ctrader_tick_backend` and `ctrader_tick_backend/cTrader-Layer` directories exist
+2. Check that both `services/tick-backend` and `libs/cTrader-Layer` directories exist
 
-## 6. Manual Setup (Alternative Approach)
-
-If you prefer to set up the environment manually:
-
-1. **Initialize submodules:**
-   ```bash
-   git submodule update --init --recursive
-   ```
-
-2. **Install dependencies in order:**
-   ```bash
-   # Install cTrader-Layer dependencies and build
-   cd ctrader_tick_backend/cTrader-Layer
-   npm install
-   npm run safe-build
-   cd ../../
-   
-   # Install backend dependencies
-   cd ctrader_tick_backend
-   npm install
-   cd ..
-   
-   # Install frontend dependencies
-   npm install
-   ```
-
-3. **Start servers manually:**
-   ```bash
-   # In one terminal, start the backend
-   cd ctrader_tick_backend
-   npm start
-   
-   # In another terminal, start the frontend
-   npm run dev
-   ```
-
-## 7. Clean Installation
+## 6. Clean Installation
 
 To perform a completely clean installation:
 
-1. **Remove all node_modules and package-lock.json files:**
-   ```bash
-   find . -name "node_modules" -type d -exec rm -rf {} +
-   find . -name "package-lock.json" -type f -delete
-   ```
+```bash
+./setup.sh --clean
+```
 
-2. **Reinitialize submodules:**
-   ```bash
-   git submodule deinit -f .
-   git submodule update --init --recursive
-   ```
-
-3. **Run the setup script:**
-   ```bash
-   ./setup_project.sh
-   ```
+This will:
+1. Stop any running services
+2. Remove all node_modules and package-lock.json files
+3. Clean log files
+4. Reinstall all dependencies
 
 This approach ensures a completely fresh environment with all dependencies properly installed.

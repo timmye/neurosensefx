@@ -1,6 +1,162 @@
-# Ignore environment variables file
-.env
+# Dependencies
+node_modules/
+.npm/
+.npmrc
+.npmignore
+.yarn/
+.yarnrc
+.yarnrc.yml
+.pnpm-store/
+pnpm-lock.yaml
+.yalc/
+yalc.lock
 
-# Ignore log files
+# Build outputs
+dist/
+build/
+out/
+lib/
+coverage/
+.nyc_output/
+.eslintcache
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!*.example
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*~
+*.swp
+*.tmp
+.DS_Store
+Thumbs.db
+*.tmp.*
+
+# IDE files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.idea/
+*.iml
+*.iws
+out/
+.idea_modules/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build outputs
+*.js
+*.map
+*.d.ts
+*.d.ts.map
+
+# Temporary files
+tmp/
+temp/
+
+# PID files
+*.pid
+backend.pid
+frontend.pid
+
+# Log files
 *.log
 backend.log
+frontend.log
+
+# NPP backup files
+nppBackup/
+
+# Monorepo specific
+libs/**/node_modules/
+libs/**/dist/
+libs/**/build/
+services/**/node_modules/
+services/**/dist/
+services/**/build/
+services/**/nppBackup/
+
+# Vite
+.vite/
+*.local
+
+# Typescript
+*.tsbuildinfo
+
+# Package lock files (uncomment if you want to ignore them)
+# package-lock.json
+# yarn.lock
+
+# Docker
+docker-compose.override.yml
+
+# cTrader specific
+*.ctrader
+
+# Archive files
+archive/
+
+# Development scripts that are no longer used
+cleanup_dev_env.sh
+run_neurosense.sh
+startup_local_dev.sh
+ctrader_tick_backend
+
+# Config files that are machine-specific
+config/
+*.config.js.timestamp-*
+
+# Vim/Neovim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+
+# Git submodules
+.gitmodules
+
+# Timestamp files
+*.timestamp-*
+
+# Backend log files
+backend.log
+frontend.log

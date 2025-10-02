@@ -7,7 +7,8 @@
     "vscode": {
       "extensions": [
         "svelte.svelte-vscode",
-        "dbaeumer.vscode-eslint"
+        "dbaeumer.vscode-eslint",
+        "RooVeterinaryInc.roo-cline"
       ]
     }
   },
@@ -16,6 +17,6 @@
   // Use a single, unified script to manage the entire startup sequence.
   // This mirrors the behavior of the Firebase Studio 'onStart' hook and ensures
   // the backend is running before the frontend.
-  "postStartCommand": "./startup_local_dev.sh",
+  "postStartCommand": "./run.sh start",
   "remoteUser": "node"
 }

@@ -8,7 +8,7 @@ This project is configured for **Firebase Studio (IDX)** and is designed for a s
 
 This project is fully automated. When you open it in Firebase Studio, a setup script (`setup_project.sh`) will automatically:
 
-1.  **Initialize Git Submodules:** Clones the `ctrader_tick_backend` and its nested `cTrader-Layer` submodule.
+1.  **Initialize Dependencies:** Sets up the monorepo structure with `libs/cTrader-Layer` and `services/tick-backend`.
 2.  **Install All Dependencies:** Runs `npm install` for the frontend, backend, and cTrader layer in the correct order.
 3.  **Build the cTrader Layer:** Compiles the necessary TypeScript files for the backend.
 4.  **Start the Backend Server:** The Node.js backend will start automatically on port 8080.
@@ -16,13 +16,13 @@ This project is fully automated. When you open it in Firebase Studio, a setup sc
 
 ## 🏛️ Project Architecture
 
-This repository uses a modular, submodule-based architecture to keep the frontend and backend concerns cleanly separated.
+This repository uses a monorepo architecture to keep concerns separated while maintaining tight integration:
 
 -   **`neurosensefx` (Root):** The Svelte frontend application. It uses a performant, canvas-based rendering pipeline and includes a realistic simulation engine for robust testing and development.
--   **`ctrader_tick_backend` (Submodule):** A standalone Node.js server that connects to the cTrader API, processes data, and streams ticks via WebSockets.
--   **`cTrader-Layer` (Nested Submodule):** A specific communication layer for low-level interaction with the cTrader Open API.
+-   **`services/tick-backend`:** The Node.js backend service that connects to the cTrader API, processes data, and streams ticks via WebSockets.
+-   **`libs/cTrader-Layer`:** A shared library providing low-level interaction with the cTrader Open API.
 
-This structure allows for independent development and versioning of each component.
+This structure allows for coordinated development while maintaining clear separation of concerns.
 
 ## 📚 Documentation
 
@@ -42,16 +42,38 @@ The front-end is a Svelte application built with Vite, featuring a modular archi
 -   **State Management:** State is managed centrally using Svelte stores and a web worker (`src/workers/dataProcessor.js`) to offload heavy computation from the UI thread.
 -   **Simulation:** A realistic simulation engine in `src/data/wsClient.js` generates a continuous stream of tick data with trending behavior for development and testing.
 
-To get started with front-end development:
-1. `npm install`
-2. `npm run dev`
+To get started:
+1. `./setup.sh` (or `./setup.sh --clean` for fresh install)
+2. `npm start` (or `./run.sh start`)
+3. Access app at http://localhost:5173
 
-## 🛠️ Development Tools
+## 🛠️ Command Reference
 
-This project includes several scripts to help with development:
+This project provides a comprehensive set of commands for setup, development, and maintenance. All commands should be executed from the project root directory.
 
-- `./setup_project.sh` - Sets up the entire development environment
-- `./startup_local_dev.sh` - Starts both backend and frontend servers
-- `./cleanup_dev_env.sh` - Cleans up the development environment for a fresh start
+### 🧰 Project Setup
+- [`./setup_project.sh`](setup_project.sh) - Configures the development environment
+  - Standard setup: `./setup_project.sh`
+  - Clean setup (removes existing dependencies first): `./setup_project.sh --clean`
+
+### ⚙️ Service Management
+- [`./run.sh`](run.sh) - Unified service management (primary interface)
+  - Start all services: `./run.sh start`
+  - Stop all services: `./run.sh stop`
+  - Check service status: `./run.sh status`
+  - View real-time logs: `./run.sh logs`
+
+### 📦 npm Scripts
+- `npm start` - Alias for `./run.sh start`
+- `npm run dev` - Start development server directly
+- `npm run build` - Create production build
+- `npm run preview` - Preview production build
+- `npm run lint` - Run code linter
+
+### 🖥️ Local Development
+- [`./startup_local_dev.sh`](startup_local_dev.sh) - Alternative script for starting local development environment
+- [`./run_neurosense.sh`](run_neurosense.sh) - Launch the NeuroSense application
+
+> **Note**: The `cleanup_dev_env.sh` script mentioned in some documentation has been consolidated into `setup_project.sh --clean` and is no longer a separate file. Use `./setup_project.sh --clean` for a complete environment reset.
 
 For detailed instructions on local development, please see [Local Development Guide](./README_LOCAL_DEV.md).

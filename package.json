@@ -8,10 +8,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "ws-stream": "node ctrader_tick_backend/websocket-tick-streamer.js"
+    "start": "./run.sh start",
+    "stop": "./run.sh stop",
+    "status": "./run.sh status",
+    "logs": "./run.sh logs"
   },
   "dependencies": {
-    "@reiryoku/ctrader-layer": "^2.2.0",
+    "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
     "d3": "^7.9.0",
     "svelte": "^4.2.7",
     "zod": "^3.22.4"

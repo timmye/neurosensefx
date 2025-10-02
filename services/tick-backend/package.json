@@ -1,0 +1,33 @@
+{
+    "name": "ticks_v7",
+    "version": "1.0.0",
+    "description": "cTrader live tick streaming application",
+    "main": "server.js",
+    "scripts": {
+        "test-subscription": "node test/test-subscription.js",
+        "live-display": "node bin/live-display.js",
+        "subscribe": "node bin/subscribe.js",
+        "start": "node server.js",
+        "dev": "node server.js",
+        "ws-stream": "node server.js"
+    },
+    "dependencies": {
+        "@reiryoku/ctrader-layer": "file:../../libs/cTrader-Layer",
+        "blessed": "^0.1.81",
+        "blessed-contrib": "^4.11.0",
+        "chalk": "^4.1.2",
+        "cli-table3": "^0.6.3",
+        "commander": "^14.0.0",
+        "dotenv": "^16.3.1",
+        "events": "^3.3.0",
+        "inquirer": "^8.2.6",
+        "moment": "^2.30.1",
+        "protobufjs": "^7.2.5",
+        "winston": "^3.10.0",
+        "ws": "^8.14.2",
+        "yargs": "^17.7.2"
+    },
+    "engines": {
+        "node": ">=12.0.0"
+    }
+}
