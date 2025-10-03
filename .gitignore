@@ -11,14 +11,14 @@ pnpm-lock.yaml
 .yalc/
 yalc.lock
 
-# Build outputs
+# Build outputs (specific directories)
 dist/
-build/
 out/
-lib/
 coverage/
 .nyc_output/
 .eslintcache
+
+# Note: We want to keep build/ for libs/cTrader-Layer as it contains compiled runtime code
 
 # Logs
 logs
@@ -78,8 +78,8 @@ out/
 ehthumbs.db
 Thumbs.db
 
-# Build outputs
-*.js
+# Build artifacts (specific files)
+# Note: We want to keep .js files for backend services and compiled libraries
 *.map
 *.d.ts
 *.d.ts.map
@@ -104,10 +104,8 @@ nppBackup/
 # Monorepo specific
 libs/**/node_modules/
 libs/**/dist/
-libs/**/build/
 services/**/node_modules/
 services/**/dist/
-services/**/build/
 services/**/nppBackup/
 
 # Vite
