@@ -1,6 +1,8 @@
 import { writable, get } from 'svelte/store';
 import { symbolStore, defaultConfig } from './symbolStore';
 import { TickSchema, SymbolDataPackageSchema } from './schema.js';
+import { validateTick, validateSymbol, handleValidationError, handleNetworkError, handleWebSocketError, validateBatch } from '../utils/dataValidator.js';
+import { handleError, ErrorTypes, ErrorSeverity } from '../utils/errorHandler.js';
 
 export const wsStatus = writable('disconnected');
 export const dataSourceMode = writable('simulated');
@@ -40,18 +42,34 @@ export function connect() {
             startConnectionMonitor();
         };
         ws.onmessage = (event) => {
-            const rawData = JSON.parse(event.data);
-            // FIX: Log the stringified object to see the full data structure.
-            if (rawData.type === 'symbolDataPackage') {
-                console.log('[MP_DEBUG | wsClient] Received symbolDataPackage raw data string:', JSON.stringify(rawData, null, 2));
-            } else {
-                 // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
-                 console.log(`[DEBUG_TRACE | wsClient] Received message from WebSocket:`, JSON.stringify(rawData));
+            try {
+                const rawData = JSON.parse(event.data);
+                // FIX: Log the stringified object to see the full data structure.
+                if (rawData.type === 'symbolDataPackage') {
+                    console.log('[MP_DEBUG | wsClient] Received symbolDataPackage raw data string:', JSON.stringify(rawData, null, 2));
+                } else {
+                     // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
+                     console.log(`[DEBUG_TRACE | wsClient] Received message from WebSocket:`, JSON.stringify(rawData));
+                }
+                handleSocketMessage(rawData);
+            } catch (parseError) {
+                handleError(parseError, {
+                    type: ErrorTypes.DATA,
+                    severity: ErrorSeverity.MEDIUM,
+                    component: 'wsClient',
+                    action: 'parse_message',
+                    rawData: event.data
+                });
             }
-            handleSocketMessage(rawData);
         };
         ws.onclose = (event) => {
-             console.log('[MP_DEBUG | wsClient] WebSocket closed:', event.code, event.reason);
+            console.log('[MP_DEBUG | wsClient] WebSocket closed:', event.code, event.reason);
+            handleWebSocketError(event, {
+                component: 'wsClient',
+                action: 'connection_closed',
+                code: event.code,
+                reason: event.reason
+            });
             stopConnectionMonitor();
             ws = null;
             if (get(wsStatus) !== 'error') wsStatus.set('disconnected');
@@ -60,6 +78,10 @@ export function connect() {
         };
         ws.onerror = (err) => {
             console.error('[MP_DEBUG | wsClient] WebSocket Error:', err);
+            handleWebSocketError(err, {
+                component: 'wsClient',
+                action: 'connection_error'
+            });
             stopConnectionMonitor();
             if (ws) ws.close(); // Ensure close is called on error
              wsStatus.set('error'); // Set status to error on connection failure
@@ -67,6 +89,13 @@ export function connect() {
         };
     } catch (e) {
         console.error('[MP_DEBUG | wsClient] Failed to create WebSocket:', e);
+        handleError(e, {
+            type: ErrorTypes.NETWORK,
+            severity: ErrorSeverity.HIGH,
+            component: 'wsClient',
+            action: 'create_websocket',
+            url: WS_URL
+        });
         ws = null;
          wsStatus.set('error'); // Set status to error on creation failure
           console.log('[MP_DEBUG | wsClient] Setting wsStatus to error.');
@@ -96,31 +125,92 @@ function handleSocketMessage(data) {
     // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
     console.log(`[DEBUG_TRACE | wsClient] Received message from WebSocket:`, JSON.stringify(data));
 
-    if (data.type === 'symbolDataPackage') {
-        const packageResult = SymbolDataPackageSchema.safeParse(data);
-        if (packageResult.success) {
-            console.log(`[MP_TRACE | wsClient] Received package with ${packageResult.data.initialMarketProfile.length} profile entries.`, packageResult.data);
-            handleDataPackage(packageResult.data);
+    try {
+        if (data.type === 'symbolDataPackage') {
+            const packageResult = SymbolDataPackageSchema.safeParse(data);
+            if (packageResult.success) {
+                console.log(`[MP_TRACE | wsClient] Received package with ${packageResult.data.initialMarketProfile.length} profile entries.`, packageResult.data);
+                handleDataPackage(packageResult.data);
+            } else {
+                const error = new Error(`Invalid symbol data package: ${packageResult.error.message}`);
+                handleError(error, {
+                    type: ErrorTypes.VALIDATION,
+                    severity: ErrorSeverity.MEDIUM,
+                    component: 'wsClient',
+                    action: 'validate_symbol_package',
+                    data: data
+                });
+            }
+        } else if (data.type === 'status' || data.type === 'ready') {
+             const status = data.type === 'ready' ? 'connected' : data.status;
+             wsStatus.set(status);
+              console.log('[MP_DEBUG | wsClient] Setting wsStatus to:', status);
+             if(status === 'connected'){
+                 // Validate available symbols
+                 if (data.availableSymbols) {
+                     const symbolValidation = validateBatch(data.availableSymbols, (symbol) => {
+                         return { isValid: typeof symbol === 'string', normalizedValue: symbol };
+                     });
+                     if (symbolValidation.isValid) {
+                         availableSymbols.set(symbolValidation.normalizedValues);
+                         console.log('[MP_DEBUG | wsClient] Available symbols set:', data.availableSymbols);
+                     } else {
+                         handleError(new Error('Invalid symbols in availableSymbols'), {
+                             type: ErrorTypes.VALIDATION,
+                             severity: ErrorSeverity.LOW,
+                             component: 'wsClient',
+                             action: 'validate_available_symbols'
+                         });
+                     }
+                 }
+             }
+        } else if (data.type === 'tick') {
+            const tickResult = TickSchema.safeParse(data);
+            if (tickResult.success) {
+                // Additional validation
+                const tickValidation = validateTick(tickResult.data);
+                if (tickValidation.isValid) {
+                     // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
+                     console.log(`[DEBUG_TRACE | wsClient] Dispatching tick to store/worker:`, JSON.stringify(tickValidation.normalizedValue));
+                    symbolStore.dispatchTick(tickValidation.normalizedValue.symbol, tickValidation.normalizedValue);
+                } else {
+                    handleError(new Error(`Tick validation failed: ${tickValidation.errors.join(', ')}`), {
+                        type: ErrorTypes.VALIDATION,
+                        severity: ErrorSeverity.MEDIUM,
+                        component: 'wsClient',
+                        action: 'validate_tick',
+                        tickData: tickResult.data
+                    });
+                }
+            } else {
+                const error = new Error(`Invalid tick data received: ${tickResult.error.message}`);
+                handleError(error, {
+                    type: ErrorTypes.VALIDATION,
+                    severity: ErrorSeverity.MEDIUM,
+                    component: 'wsClient',
+                    action: 'parse_tick',
+                    data: data
+                });
+            }
         } else {
-            console.error('[MP_DEBUG | wsClient] Invalid symbol data package:', packageResult.error);
+            // Unknown message type
+            handleError(new Error(`Unknown message type: ${data.type}`), {
+                type: ErrorTypes.DATA,
+                severity: ErrorSeverity.LOW,
+                component: 'wsClient',
+                action: 'handle_unknown_message',
+                messageType: data.type,
+                data: data
+            });
         }
-    } else if (data.type === 'status' || data.type === 'ready') {
-         const status = data.type === 'ready' ? 'connected' : data.status;
-         wsStatus.set(status);
-          console.log('[MP_DEBUG | wsClient] Setting wsStatus to:', status);
-         if(status === 'connected'){
-             availableSymbols.set(data.availableSymbols || []);
-              console.log('[MP_DEBUG | wsClient] Available symbols set:', data.availableSymbols);
-         }
-    } else if (data.type === 'tick') {
-        const tickResult = TickSchema.safeParse(data);
-        if (tickResult.success) {
-             // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
-             console.log(`[DEBUG_TRACE | wsClient] Dispatching tick to store/worker:`, JSON.stringify(tickResult.data));
-            symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
-        } else {
-            console.error('[MP_DEBUG | wsClient] Invalid tick data received:', tickResult.error);
-        }
+    } catch (error) {
+        handleError(error, {
+            type: ErrorTypes.SYSTEM,
+            severity: ErrorSeverity.HIGH,
+            component: 'wsClient',
+            action: 'handle_socket_message',
+            data: data
+        });
     }
 }
 
