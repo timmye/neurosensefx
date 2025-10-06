@@ -514,11 +514,15 @@ class CacheManager {
   }
 
   /**
-   * Simple compression (placeholder)
+   * Simple compression (FUTURE: implement actual compression)
+   * TODO: Implement real compression for cached data
+   * Currently returns JSON string - no compression applied
    */
-  simpleCompress(data) {
-    // In production, use proper compression like LZ-string
-    return data;
+  compress(data) {
+    // FUTURE_IMPLEMENTATION: Add real compression for cache data
+    // Consider using compression library like pako or lz-string
+    console.warn('[dataCache] Using placeholder compression - implement real compression for production');
+    return JSON.stringify(data);
   }
 
   /**

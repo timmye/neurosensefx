@@ -257,43 +257,84 @@ export class StatePersistenceManager {
   }
 
   /**
+   * Compress data (FUTURE: implement actual compression algorithm)
+   * TODO: Implement LZ4 or similar compression for large datasets
+   * Currently returns JSON string - no compression applied
+   */
+  compressData(data) {
+    // FUTURE_IMPLEMENTATION: Add real compression for workspace data
+    // Consider using compression library like pako or lz-string
+    console.warn('[statePersistence] Using placeholder compression - implement real compression for production');
+    return JSON.stringify(data);
+  }
+
+  /**
+   * Decompress data (FUTURE: implement actual decompression)
+   * TODO: Implement decompression matching compressData algorithm
+   * Currently parses JSON string - no decompression applied
+   */
+  decompressData(compressedData) {
+    // FUTURE_IMPLEMENTATION: Add real decompression
+    console.warn('[statePersistence] Using placeholder decompression - implement real decompression for production');
+    return JSON.parse(compressedData);
+  }
+
+  /**
+   * Encrypt data (FUTURE: implement actual encryption)
+   * TODO: Implement proper encryption using Web Crypto API
+   * Currently uses base64 encoding - NOT REAL ENCRYPTION
+   */
+  encryptData(data) {
+    // FUTURE_IMPLEMENTATION: Implement proper encryption using Web Crypto API
+    // WARNING: Current implementation is NOT secure - base64 is not encryption
+    console.warn('[statePersistence] Using placeholder encryption - implement real encryption for production');
+    return btoa(JSON.stringify(data));
+  }
+
+  /**
+   * Decrypt data (FUTURE: implement actual decryption)
+   * TODO: Implement proper decryption matching encryptData algorithm
+   * Currently uses base64 decoding - NOT REAL DECRYPTION
+   */
+  decryptData(encryptedData) {
+    // FUTURE_IMPLEMENTATION: Implement proper decryption
+    // WARNING: Current implementation is NOT secure - base64 is not decryption
+    console.warn('[statePersistence] Using placeholder decryption - implement real decryption for production');
+    return JSON.parse(atob(encryptedData));
+  }
+
+  /**
    * Get storage statistics
    */
   getStorageStats() {
     const stats = {
       totalSize: 0,
       keys: {},
-      lastSaveTimes: Object.fromEntries(this.lastSaveTimes),
-      autoSaveActive: Array.from(this.autoSaveTimers.keys())
+      availableSpace: 0
     };
 
-    for (const [name, key] of Object.entries(STORAGE_KEYS)) {
-      try {
-        const stored = localStorage.getItem(key);
-        if (stored) {
-          const size = this.calculateSize(stored);
-          stats.keys[name] = {
+    // Calculate total size and individual key sizes
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        try {
+          const value = localStorage.getItem(key);
+          const size = new Blob([value]).size;
+          
+          stats.totalSize += size;
+          stats.keys[key] = {
             key,
             size,
-            exists: true,
-            lastModified: this.lastSaveTimes.get(key) || null
+            exists: true
           };
-          stats.totalSize += size;
-        } else {
-          stats.keys[name] = {
+        } catch (error) {
+          stats.keys[key] = {
             key,
             size: 0,
             exists: false,
-            lastModified: null
+            error: error.message
           };
         }
-      } catch (error) {
-        stats.keys[name] = {
-          key,
-          size: 0,
-          exists: false,
-          error: error.message
-        };
       }
     }
 
@@ -492,42 +533,6 @@ export class StatePersistenceManager {
         }
       });
     }
-  }
-
-  /**
-   * Compress data (placeholder implementation)
-   */
-  async compressData(data) {
-    // In a real implementation, you might use compression libraries
-    // For now, just return the data as-is
-    return { ...data, metadata: { ...data.metadata, compressed: true } };
-  }
-
-  /**
-   * Decompress data (placeholder implementation)
-   */
-  async decompressData(data) {
-    // In a real implementation, you would decompress the data
-    // For now, just return the data as-is
-    return data;
-  }
-
-  /**
-   * Encrypt data (placeholder implementation)
-   */
-  async encryptData(data) {
-    // In a real implementation, you would encrypt the data
-    // For now, just return the data as-is
-    return { ...data, metadata: { ...data.metadata, encrypted: true } };
-  }
-
-  /**
-   * Decrypt data (placeholder implementation)
-   */
-  async decryptData(data) {
-    // In a real implementation, you would decrypt the data
-    // For now, just return the data as-is
-    return data;
   }
 
   /**

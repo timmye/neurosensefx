@@ -24,6 +24,12 @@ export { default as CanvasPreview } from './CanvasPreview.svelte';
 export { default as ColorSchemeSelector } from './ColorSchemeSelector.svelte';
 export { default as IndicatorSettings } from './IndicatorSettings.svelte';
 export { default as GridSnapIndicator } from './GridSnapIndicator.svelte';
+export { default as DragHandle } from './DragHandle.svelte';
+export { default as ResizeHandle } from './ResizeHandle.svelte';
+export { default as SelectionBox } from './SelectionBox.svelte';
+export { default as ADRPulseIndicator } from './ADRPulseIndicator.svelte';
+export { default as MarketFlashIndicator } from './MarketFlashIndicator.svelte';
+export { default as MarketSimulationControls } from './MarketSimulationControls.svelte';
 
 // Component metadata for programmatic access
 export const MOLECULE_COMPONENTS = {

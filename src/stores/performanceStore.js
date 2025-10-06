@@ -163,11 +163,25 @@ class PerformanceMonitor {
   }
 
   /**
-   * Measure network latency (placeholder implementation)
+   * Measure network latency (FUTURE: implement actual network latency measurement)
+   * TODO: Implement real network latency measurement using fetch API or WebSocket ping
+   * Currently returns simulated latency - NOT REAL MEASUREMENT
    */
   measureNetworkLatency() {
-    // In a real implementation, this would measure actual request latency
-    return Math.random() * 100; // Simulated latency
+    // FUTURE_IMPLEMENTATION: Measure actual network latency
+    // Consider using fetch with timing or WebSocket ping/pong
+    console.warn('[PerformanceStore] Using placeholder network latency - implement real measurement for production');
+    
+    // For now, return a reasonable estimate based on connection type
+    if (navigator.connection) {
+      const connection = navigator.connection;
+      if (connection.effectiveType === '4g') return 20;
+      if (connection.effectiveType === '3g') return 100;
+      if (connection.effectiveType === '2g') return 300;
+    }
+    
+    // Fallback to simulated value
+    return Math.random() * 50 + 10; // 10-60ms simulated latency
   }
 
   /**

@@ -4,7 +4,7 @@ import './styles/base.css';
 import './styles/utilities.css';
 import './styles/components.css';
 
-import App from './App.svelte';
+import App from './App-New.svelte';
 import { initializeWsClient } from './data/wsClient.js';
 
 const app = new App({

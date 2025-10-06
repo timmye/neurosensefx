@@ -825,10 +825,10 @@
           
           <div class="setting-group">
             <label>Auto-save</label>
-            <Toggle
-              bind:checked={workspace?.globalSettings?.autoSave}
-              on:change={(v) => workspaceStore.updateGlobalSettings({ autoSave: v })}
-            />
+              <Toggle
+                checked={workspace?.globalSettings?.autoSave || false}
+                on:change={(v) => workspaceStore.updateGlobalSettings({ autoSave: v.detail })}
+              />
           </div>
           
           <div class="setting-group">

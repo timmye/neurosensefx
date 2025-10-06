@@ -357,9 +357,44 @@ export class ErrorHandler {
    * @param {NeuroSenseError} error - Network error
    */
   async retryNetworkOperation(error) {
-    // This would be implemented based on the specific network operation
-    // For now, just throw to trigger retry logic
-    throw new Error('Network retry not implemented');
+    const { url, method, body, headers } = error.context;
+    
+    if (!url) {
+      throw new Error('Network retry requires URL in error context');
+    }
+
+    // Implement exponential backoff with jitter
+    const baseDelay = 1000;
+    const maxDelay = 30000;
+    const attempt = this.retryQueue.get(`network_${url}`)?.attempt || 0;
+    
+    if (attempt >= this.options.retryAttempts) {
+      throw new Error(`Max retry attempts (${this.options.retryAttempts}) reached for network operation`);
+    }
+
+    const delay = Math.min(baseDelay * Math.pow(2, attempt) + Math.random() * 1000, maxDelay);
+    
+    console.log(`[ErrorHandler] Retrying network operation to ${url} (attempt ${attempt + 1}/${this.options.retryAttempts}) after ${delay}ms`);
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    try {
+      const response = await fetch(url, {
+        method: method || 'GET',
+        headers: headers || {},
+        body: body || null
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      console.log(`[ErrorHandler] Network retry successful for ${url}`);
+      return response;
+    } catch (retryError) {
+      console.error(`[ErrorHandler] Network retry failed for ${url}:`, retryError.message);
+      throw retryError;
+    }
   }
 
   /**
@@ -367,9 +402,49 @@ export class ErrorHandler {
    * @param {NeuroSenseError} error - WebSocket error
    */
   async retryWebSocketConnection(error) {
-    // This would reconnect the WebSocket
-    // Implementation depends on WebSocket management
-    throw new Error('WebSocket retry not implemented');
+    // Import wsClient dynamically to avoid circular dependencies
+    const { connect, wsStatus } = await import('../data/wsClient.js');
+    
+    const reconnect = async () => {
+      console.log(`[ErrorHandler] Attempting WebSocket reconnection (attempt ${this.retryQueue.get('websocket')?.attempt + 1 || 1})`);
+      
+      // Clear any existing connection
+      const { disconnect } = await import('../data/wsClient.js');
+      disconnect();
+      
+      // Wait before reconnecting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Attempt to reconnect
+      connect();
+      
+      // Wait for connection result
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('WebSocket connection timeout'));
+        }, 10000);
+        
+        const unsubscribe = wsStatus.subscribe(status => {
+          if (status === 'connected') {
+            clearTimeout(timeout);
+            unsubscribe();
+            console.log('[ErrorHandler] WebSocket reconnection successful');
+            resolve();
+          } else if (status === 'error' || status === 'disconnected') {
+            clearTimeout(timeout);
+            unsubscribe();
+            reject(new Error('WebSocket reconnection failed'));
+          }
+        });
+      });
+    };
+    
+    try {
+      await reconnect();
+    } catch (retryError) {
+      console.error('[ErrorHandler] WebSocket reconnection failed:', retryError.message);
+      throw retryError;
+    }
   }
 
   /**

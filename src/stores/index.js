@@ -5,7 +5,7 @@
 
 // Basic stores (from Chunk 1.3 specifications)
 export { connectionStore, isConnected } from './connectionStore.js';
-export { symbolStore, selectedSymbolData } from './symbolStore.js';
+export { symbolStore, selectedSymbolData } from '../data/symbolStore.js';
 export { uiStateStore } from './uiStateStore.js';
 
 // Core stores
@@ -16,7 +16,7 @@ export { default as configStore } from './configStore.js';
 export { default as markerStore } from './markerStore.js';
 
 // Enhanced UI state store
-export { uiStateStore, selectedSymbol, selectedCanvas, activePanel, sidebarCollapsed, sidebarWidth, toolbarVisible, statusBarVisible, gridVisible, snapToGrid, hoverState, dragState } from './enhancedUIState.js';
+export { selectedSymbol, selectedCanvas, activePanel, sidebarCollapsed, sidebarWidth, toolbarVisible, statusBarVisible, gridVisible, snapToGrid, hoverState, dragState } from './enhancedUIState.js';
 
 // Performance monitoring store
 export { performanceStore, performanceMetrics, performanceAlerts, performanceThresholds, isPerformanceHealthy } from './performanceStore.js';

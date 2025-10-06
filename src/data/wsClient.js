@@ -247,13 +247,13 @@ function startSimulation() {
     const midPoint = 1.25500;
     const adr = 0.00850;
 
-    // Add some mock market profile data for simulation debugging
-     const mockInitialMarketProfile = [];
-     // Example: Add a few mock bars
+    // Add simulated market profile data for development testing
+     const simulatedInitialMarketProfile = [];
+     // Generate simulated historical price bars for development testing
      for(let i = 0; i < 100; i++) {
          const open = midPoint + (Math.random() - 0.5) * 0.0005;
          const close = open + (Math.random() - 0.5) * 0.0005;
-         mockInitialMarketProfile.push({
+         simulatedInitialMarketProfile.push({
              open,
              close,
              high: Math.max(open, close) + Math.random() * 0.0001,
@@ -262,9 +262,9 @@ function startSimulation() {
              volume: Math.floor(Math.random() * 1000)
          });
      }
-     console.log('[MP_DEBUG | wsClient] Generated mockInitialMarketProfile for simulation:', mockInitialMarketProfile);
+     console.log('[MP_DEBUG | wsClient] Generated simulatedInitialMarketProfile for development:', simulatedInitialMarketProfile);
 
-    const mockDataPackage = {
+    const simulatedDataPackage = {
         symbol,
         digits: 5,
         adr,
@@ -274,10 +274,10 @@ function startSimulation() {
         projectedAdrHigh: midPoint + adr / 2,
         projectedAdrLow: midPoint - adr / 2,
         initialPrice: midPoint,
-        initialMarketProfile: mockInitialMarketProfile,
+        initialMarketProfile: simulatedInitialMarketProfile,
     };
 
-    symbolStore.createNewSymbol(symbol, mockDataPackage);
+    symbolStore.createNewSymbol(symbol, simulatedDataPackage);
     subscriptions.set(new Set([symbol]));
      console.log('[MP_DEBUG | wsClient] Created new symbol and subscription for simulation.');
 

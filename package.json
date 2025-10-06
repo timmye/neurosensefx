@@ -11,7 +11,12 @@
     "start": "./run.sh start",
     "stop": "./run.sh stop",
     "status": "./run.sh status",
-    "logs": "./run.sh logs"
+    "logs": "./run.sh logs",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch"
   },
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
@@ -22,9 +27,15 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.0.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/svelte": "^5.2.8",
+    "@testing-library/user-event": "^14.6.1",
+    "@vitest/ui": "^3.2.4",
     "eslint": "^8.56.0",
     "eslint-plugin-svelte": "^2.35.1",
+    "jsdom": "^27.0.0",
     "prettier": "^3.1.1",
-    "vite": "^5.4.19"
+    "vite": "^5.4.19",
+    "vitest": "^3.2.4"
   }
 }
