@@ -23,6 +23,7 @@ export { default as IndicatorToggle } from './IndicatorToggle.svelte';
 export { default as CanvasPreview } from './CanvasPreview.svelte';
 export { default as ColorSchemeSelector } from './ColorSchemeSelector.svelte';
 export { default as IndicatorSettings } from './IndicatorSettings.svelte';
+export { default as GridSnapIndicator } from './GridSnapIndicator.svelte';
 
 // Component metadata for programmatic access
 export const MOLECULE_COMPONENTS = {

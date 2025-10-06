@@ -16,6 +16,7 @@
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
     "d3": "^7.9.0",
+    "lucide-svelte": "^0.544.0",
     "svelte": "^4.2.7",
     "zod": "^3.22.4"
   },

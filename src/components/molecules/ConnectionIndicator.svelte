@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   import { Badge } from '../atoms/index.js';
+  import { Wifi, WifiOff, Loader2, AlertCircle, XCircle, CheckCircle } from 'lucide-svelte';
   
   // Component props
   export let status = 'disconnected'; // 'connected', 'connecting', 'disconnected', 'error'
@@ -19,25 +20,25 @@
   const statusConfig = {
     connected: {
       color: 'success',
-      icon: '●',
+      icon: Wifi,
       label: 'Connected',
       description: 'Successfully connected to the data service'
     },
     connecting: {
       color: 'info',
-      icon: '⟳',
+      icon: Loader2,
       label: 'Connecting',
       description: 'Establishing connection to the data service'
     },
     disconnected: {
       color: 'neutral',
-      icon: '○',
+      icon: WifiOff,
       label: 'Disconnected',
       description: 'Not connected to the data service'
     },
     error: {
       color: 'danger',
-      icon: '✕',
+      icon: XCircle,
       label: 'Error',
       description: 'Connection error occurred'
     }
@@ -88,11 +89,17 @@
     animate();
   }
   
+  // Get icon size based on component size
+  $: iconSize = {
+    sm: 14,
+    md: 16,
+    lg: 20
+  }[size] || 16;
+
   // Calculate visual properties
   $: indicatorStyle = `
     ${animated && status === 'connecting' ? `
       animation: pulse 1.5s ease-in-out infinite;
-      transform: rotate(${animationPhase * 360}deg);
     ` : ''}
   `;
   
@@ -116,9 +123,9 @@
 >
   <!-- Status indicator -->
   <div class="connection-indicator__status" style={indicatorStyle}>
-    <span class="connection-indicator__icon">
-      {currentConfig.icon}
-    </span>
+    <div class="connection-indicator__icon">
+      <svelte:component this={currentConfig.icon} size={iconSize} />
+    </div>
   </div>
   
   <!-- Label and additional info -->
@@ -246,8 +253,18 @@
   }
   
   .connection-indicator__icon {
-    font-size: var(--text-sm);
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .connection-indicator__icon :deep(svg) {
+    width: auto;
+    height: auto;
+  }
+  
+  .connection-indicator--connecting .connection-indicator__icon :deep(svg) {
+    animation: spin 1s linear infinite;
   }
   
   .connection-indicator__info {
@@ -290,6 +307,11 @@
       opacity: 0.7;
       transform: scale(0.95);
     }
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
   
   .connection-indicator--animating .connection-indicator__status {

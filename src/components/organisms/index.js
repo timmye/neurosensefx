@@ -12,6 +12,10 @@ export { default as DataTable } from './DataTable.svelte';
 export { default as Tabs } from './Tabs.svelte';
 export { default as Modal } from './Modal.svelte';
 export { default as Panel } from './Panel.svelte';
+export { default as WorkspaceManager } from './workspace/WorkspaceManager.svelte';
+export { default as WorkspaceGrid } from './workspace/WorkspaceGrid.svelte';
+export { default as DragDropManager } from './workspace/DragDropManager.svelte';
+export { default as CanvasInteractionManager } from './workspace/CanvasInteractionManager.svelte';
 
 // Component metadata for programmatic access
 export const ORGANISM_COMPONENTS = {

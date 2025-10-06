@@ -4,6 +4,8 @@
    * A versatile button component with multiple variants, sizes, and states
    */
 
+  import { Settings, Trash2, Eye, EyeOff, Wifi, WifiOff, AlertCircle, CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-svelte';
+
   export let variant = 'primary'; // primary, secondary, ghost, outline, danger
   export let size = 'md'; // xs, sm, md, lg, xl
   export let disabled = false;
@@ -17,6 +19,9 @@
   export let type = 'button';
   export let ariaLabel = '';
   export let ariaDescribedBy = '';
+
+  // Common icon mappings for convenience
+  export let iconType = null; // settings, delete, visibility, connection, status, etc.
 
   // Generate unique ID for accessibility
   let buttonId = `button-${Math.random().toString(36).substr(2, 9)}`;
@@ -57,12 +62,37 @@
 
   // Get icon size based on button size
   $: iconSize = {
-    xs: '12px',
-    sm: '14px',
-    md: '16px',
-    lg: '18px',
-    xl: '20px'
-  }[size] || '16px';
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 18,
+    xl: 20
+  }[size] || 16;
+
+  // Map icon types to Lucide components
+  $: iconComponent = (() => {
+    if (icon) return icon;
+    if (!iconType) return null;
+    
+    const iconMap = {
+      settings: Settings,
+      delete: Trash2,
+      visibility: Eye,
+      'visibility-off': EyeOff,
+      connection: Wifi,
+      'connection-off': WifiOff,
+      alert: AlertCircle,
+      success: CheckCircle,
+      error: XCircle,
+      warning: AlertTriangle,
+      loading: Loader2
+    };
+    
+    return iconMap[iconType] || null;
+  })();
+
+  // Determine which icon to show
+  $: displayIcon = loading ? Loader2 : iconComponent;
 </script>
 
 {#if isLink}
@@ -79,10 +109,12 @@
     on:keydown={handleKeydown}
   >
     {#if loading}
-      <div class="btn-spinner" style="--icon-size: {iconSize}"></div>
-    {:else if icon}
-      <div class="btn-icon" style="--icon-size: {iconSize}">
-        {@html icon}
+      <div class="btn-icon">
+        <Loader2 size={iconSize} />
+      </div>
+    {:else if displayIcon}
+      <div class="btn-icon">
+        <svelte:component this={displayIcon} size={iconSize} />
       </div>
     {/if}
     
@@ -102,10 +134,12 @@
     on:keydown={handleKeydown}
   >
     {#if loading}
-      <div class="btn-spinner" style="--icon-size: {iconSize}"></div>
-    {:else if icon}
-      <div class="btn-icon" style="--icon-size: {iconSize}">
-        {@html icon}
+      <div class="btn-icon">
+        <Loader2 size={iconSize} />
+      </div>
+    {:else if displayIcon}
+      <div class="btn-icon">
+        <svelte:component this={displayIcon} size={iconSize} />
       </div>
     {/if}
     

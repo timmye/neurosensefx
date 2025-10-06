@@ -597,7 +597,7 @@
           <h3>Indicator Configuration</h3>
           
           <IndicatorToggle
-            {indicators}
+            indicators={availableIndicators}
             bind:activeIndicators
             on:indicatorsChange={handleIndicatorsChange}
             on:indicatorSettings={handleIndicatorSettings}

@@ -1,7 +1,10 @@
 <script>
+  import { CheckCircle, AlertCircle, XCircle, Loader2, Circle } from 'lucide-svelte';
+
   export let status = 'idle'; // idle, success, warning, error, loading
   export let size = 'medium'; // small, medium, large
   export let label = '';
+  export let showIcon = true;
   
   function getClasses() {
     return [
@@ -20,10 +23,32 @@
       default: return 'var(--text-secondary)';
     }
   }
+
+  // Get icon size based on component size
+  $: iconSize = {
+    small: 12,
+    medium: 16,
+    large: 20
+  }[size] || 16;
+
+  // Map status to Lucide icons
+  $: statusIcon = {
+    success: CheckCircle,
+    warning: AlertCircle,
+    error: XCircle,
+    loading: Loader2,
+    idle: Circle
+  }[status] || Circle;
 </script>
 
 <div class="status-indicator-wrapper">
-  <div class={getClasses()} style="--status-color: {getStatusColor()}"></div>
+  {#if showIcon}
+    <div class="status-icon">
+      <svelte:component this={statusIcon} size={iconSize} style="color: {getStatusColor()}" />
+    </div>
+  {:else}
+    <div class={getClasses()} style="--status-color: {getStatusColor()}"></div>
+  {/if}
   {#if label}
     <span class="status-label">{label}</span>
   {/if}
@@ -67,6 +92,21 @@
     color: var(--text-primary);
   }
   
+  .status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .status-icon :deep(svg) {
+    width: auto;
+    height: auto;
+  }
+  
+  .status-loading :deep(svg) {
+    animation: spin 1s linear infinite;
+  }
+  
   @keyframes pulse {
     0%, 100% {
       opacity: 1;
@@ -74,5 +114,10 @@
     50% {
       opacity: 0.5;
     }
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 </style>
