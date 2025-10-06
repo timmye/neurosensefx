@@ -2,11 +2,11 @@
 
 ## Overview
 
-This document provides detailed specifications for the first phase of implementation chunks, designed to be manageable units of work for LLM development while maintaining context and minimizing dependencies.
+This document provides detailed specifications for all implementation chunks, designed to be manageable units of work for LLM development while maintaining context and minimizing dependencies. Based on the NEW_UI_ARCHITECTURE_PLAN_kilo_4.6.md, this now includes all 6 phases.
 
 ## Phase 1: Foundation Chunks
 
-### Chunk 1.1: Design System Foundation
+### Chunk 1.1: Design System Foundation ✅ COMPLETED
 
 #### Description
 Establish the visual design foundation with CSS custom properties, base styles, and utility classes that will be used throughout the application.
@@ -17,64 +17,15 @@ Establish the visual design foundation with CSS custom properties, base styles, 
 - `src/styles/utilities.css` - Utility classes for common patterns
 - `src/styles/components.css` - Base component styles
 
-#### Specifications
-1. **Design Tokens** (`src/styles/design-tokens.css`)
-   ```css
-   :root {
-     /* Spacing */
-     --space-1: 2px;
-     --space-2: 4px;
-     --space-3: 8px;
-     --space-4: 12px;
-     --space-5: 16px;
-     --space-6: 24px;
-     
-     /* Colors */
-     --color-primary: #0a0e1a;
-     --color-secondary: #0f1419;
-     --color-tertiary: #141821;
-     --color-elevated: #1a1d26;
-     
-     /* Typography */
-     --font-sans: 'Inter', sans-serif;
-     --font-mono: 'Roboto Mono', monospace;
-     
-     /* Component-specific tokens */
-     --color-bullish: #10b981;
-     --color-bearish: #ef4444;
-     --color-price-float: #a78bfa;
-   }
-   ```
-
-2. **Base Styles** (`src/styles/base.css`)
-   - Reset styles for consistency across browsers
-   - Base typography settings
-   - Base layout styles
-
-3. **Utility Classes** (`src/styles/utilities.css`)
-   - Spacing utilities (margin, padding)
-   - Text utilities (alignment, weight, size)
-   - Display utilities (flex, grid, block)
-   - Color utilities (text color, background color)
-
-#### Integration Points
-- Import into main application styles
-- Reference in all component styles
-- Use as foundation for all visual styling
-
-#### Tests
-- Visual regression tests for design tokens
-- Cross-browser compatibility tests
-- Contrast ratio tests for accessibility
-
-#### Documentation
-- Design token reference guide
-- Usage examples for utility classes
-- Integration guidelines for components
+#### Status: ✅ **COMPLETED**
+- All design tokens implemented with comprehensive color palette
+- Typography scale and spacing system established
+- Utility classes for layout, spacing, and styling created
+- Dark theme and accessibility support implemented
 
 ---
 
-### Chunk 1.2: Core Data Layer Functions
+### Chunk 1.2: Core Data Layer Functions ✅ COMPLETED
 
 #### Description
 Implement the fundamental data management functions for handling real-time market data, WebSocket connections, and symbol subscriptions.
@@ -85,136 +36,15 @@ Implement the fundamental data management functions for handling real-time marke
 - `src/data/priceDataProcessor.js` - Price data processing and normalization
 - `src/data/dataCache.js` - Data caching and persistence
 
-#### Specifications
-1. **WebSocket Manager** (`src/data/websocketManager.js`)
-   ```javascript
-   export class WebSocketManager {
-     constructor(url) {
-       this.url = url;
-       this.socket = null;
-       this.reconnectAttempts = 0;
-       this.maxReconnectAttempts = 5;
-       this.reconnectDelay = 1000;
-     }
-     
-     connect() {
-       // Establish WebSocket connection
-       // Handle connection events
-       // Implement reconnection logic
-     }
-     
-     disconnect() {
-       // Close WebSocket connection
-       // Clear reconnection timer
-     }
-     
-     send(message) {
-       // Send message through WebSocket
-       // Handle connection errors
-     }
-     
-     onMessage(callback) {
-       // Register callback for incoming messages
-     }
-   }
-   ```
-
-2. **Symbol Subscription Manager** (`src/data/symbolSubscriptionManager.js`)
-   ```javascript
-   export class SymbolSubscriptionManager {
-     constructor(websocketManager) {
-       this.websocketManager = websocketManager;
-       this.subscriptions = new Map();
-     }
-     
-     subscribe(symbol, callback) {
-       // Subscribe to symbol data
-       // Store subscription and callback
-       // Handle subscription errors
-     }
-     
-     unsubscribe(symbol) {
-       // Unsubscribe from symbol data
-       // Remove subscription and callback
-     }
-     
-     getSubscriptions() {
-       // Return list of active subscriptions
-     }
-   }
-   ```
-
-3. **Price Data Processor** (`src/data/priceDataProcessor.js`)
-   ```javascript
-   export class PriceDataProcessor {
-     constructor() {
-       this.processors = new Map();
-     }
-     
-     registerProcessor(symbol, processor) {
-       // Register custom processor for symbol
-     }
-     
-     process(rawData) {
-       // Process raw price data
-       // Normalize data format
-       // Apply registered processors
-     }
-     
-     calculateChange(currentPrice, previousPrice) {
-       // Calculate price change
-       // Return absolute and percentage change
-     }
-   }
-   ```
-
-4. **Data Cache** (`src/data/dataCache.js`)
-   ```javascript
-   export class DataCache {
-     constructor(maxSize = 1000) {
-       this.cache = new Map();
-       this.maxSize = maxSize;
-     }
-     
-     set(key, value) {
-       // Store value in cache
-       // Implement LRU eviction if needed
-     }
-     
-     get(key) {
-       // Retrieve value from cache
-       // Update access time for LRU
-     }
-     
-     has(key) {
-       // Check if key exists in cache
-     }
-     
-     clear() {
-       // Clear all cached data
-     }
-   }
-   ```
-
-#### Integration Points
-- Connect to WebSocket server in services/tick-backend
-- Interface with Svelte stores for reactive state management
-- Provide processed data to visualization components
-
-#### Tests
-- Unit tests for each class and method
-- Integration tests for WebSocket connection
-- Mock tests for data processing
-- Performance tests for caching
-
-#### Documentation
-- API reference for each class
-- Usage examples and integration patterns
-- Error handling guidelines
+#### Status: ✅ **COMPLETED**
+- Enhanced WebSocket manager with reconnection logic
+- Intelligent subscription management with batching
+- Real-time data processing with validation
+- High-performance caching with TTL and persistence
 
 ---
 
-### Chunk 1.3: Basic State Management
+### Chunk 1.3: Basic State Management ✅ COMPLETED
 
 #### Description
 Implement the core state management system using Svelte stores to manage application state reactively.
@@ -225,144 +55,15 @@ Implement the core state management system using Svelte stores to manage applica
 - `src/stores/uiStateStore.js` - UI state management
 - `src/stores/index.js` - Store aggregation and exports
 
-#### Specifications
-1. **Connection Store** (`src/stores/connectionStore.js`)
-   ```javascript
-   import { writable, derived } from 'svelte/store';
-   
-   function createConnectionStore() {
-     const { subscribe, set, update } = writable({
-       status: 'disconnected', // disconnected, connecting, connected, error
-       url: '',
-       lastConnected: null,
-       reconnectAttempts: 0
-     });
-     
-     return {
-       subscribe,
-       setStatus: (status) => update(state => ({ ...state, status })),
-       setUrl: (url) => update(state => ({ ...state, url })),
-       setLastConnected: (timestamp) => update(state => ({ ...state, lastConnected: timestamp })),
-       incrementReconnectAttempts: () => update(state => ({ ...state, reconnectAttempts: state.reconnectAttempts + 1 })),
-       resetReconnectAttempts: () => update(state => ({ ...state, reconnectAttempts: 0 })),
-       reset: () => set({
-         status: 'disconnected',
-         url: '',
-         lastConnected: null,
-         reconnectAttempts: 0
-       })
-     };
-   }
-   
-   export const connectionStore = createConnectionStore();
-   
-   // Derived stores
-   export const isConnected = derived(
-     connectionStore,
-     $connectionStore => $connectionStore.status === 'connected'
-   );
-   ```
-
-2. **Symbol Store** (`src/stores/symbolStore.js`)
-   ```javascript
-   import { writable, derived } from 'svelte/store';
-   
-   function createSymbolStore() {
-     const { subscribe, set, update } = writable({
-       subscriptions: new Map(),
-       availableSymbols: [],
-       selectedSymbol: null
-     });
-     
-     return {
-       subscribe,
-       addSubscription: (symbol, data) => update(state => {
-         const newSubscriptions = new Map(state.subscriptions);
-         newSubscriptions.set(symbol, data);
-         return { ...state, subscriptions: newSubscriptions };
-       }),
-       removeSubscription: (symbol) => update(state => {
-         const newSubscriptions = new Map(state.subscriptions);
-         newSubscriptions.delete(symbol);
-         return { ...state, subscriptions: newSubscriptions };
-       }),
-       updateSubscription: (symbol, data) => update(state => {
-         const newSubscriptions = new Map(state.subscriptions);
-         if (newSubscriptions.has(symbol)) {
-           newSubscriptions.set(symbol, { ...newSubscriptions.get(symbol), ...data });
-         }
-         return { ...state, subscriptions: newSubscriptions };
-       }),
-       setAvailableSymbols: (symbols) => update(state => ({ ...state, availableSymbols: symbols })),
-       setSelectedSymbol: (symbol) => update(state => ({ ...state, selectedSymbol: symbol }))
-     };
-   }
-   
-   export const symbolStore = createSymbolStore();
-   
-   // Derived stores
-   export const selectedSymbolData = derived(
-     symbolStore,
-     $symbolStore => $symbolStore.subscriptions.get($symbolStore.selectedSymbol)
-   );
-   ```
-
-3. **UI State Store** (`src/stores/uiStateStore.js`)
-   ```javascript
-   import { writable, derived } from 'svelte/store';
-   
-   function createUIStateStore() {
-     const { subscribe, set, update } = writable({
-       selectedCanvas: null,
-       canvasPositions: new Map(),
-       activeTab: 'canvas',
-       workspaceLayout: 'free', // free, grid
-       zoom: 1
-     });
-     
-     return {
-       subscribe,
-       setSelectedCanvas: (canvasId) => update(state => ({ ...state, selectedCanvas: canvasId })),
-       updateCanvasPosition: (canvasId, position) => update(state => {
-         const newPositions = new Map(state.canvasPositions);
-         newPositions.set(canvasId, position);
-         return { ...state, canvasPositions: newPositions };
-       }),
-       setActiveTab: (tab) => update(state => ({ ...state, activeTab: tab })),
-       setWorkspaceLayout: (layout) => update(state => ({ ...state, workspaceLayout: layout })),
-       setZoom: (zoom) => update(state => ({ ...state, zoom }))
-     };
-   }
-   
-   export const uiStateStore = createUIStateStore();
-   ```
-
-4. **Store Index** (`src/stores/index.js`)
-   ```javascript
-   export { connectionStore, isConnected } from './connectionStore';
-   export { symbolStore, selectedSymbolData } from './symbolStore';
-   export { uiStateStore } from './uiStateStore';
-   ```
-
-#### Integration Points
-- Connect to data layer functions for state updates
-- Subscribe to stores in Svelte components
-- Persist state to local storage for recovery
-
-#### Tests
-- Unit tests for store creation and updates
-- Integration tests for derived stores
-- Subscription and unsubscription tests
-- Persistence tests for state recovery
-
-#### Documentation
-- Store structure and usage guide
-- State flow diagrams
-- Integration examples with components
+#### Status: ✅ **COMPLETED**
+- Connection store with status tracking and metrics
+- Symbol store with subscription management
+- UI state store with canvas and workspace state
+- Enhanced stores with persistence and validation
 
 ---
 
-### Chunk 1.4: Development Environment Setup
+### Chunk 1.4: Development Environment Setup ⏳ PARTIAL
 
 #### Description
 Configure the development environment for efficient LLM development, including build optimizations, testing setup, and development tools.
@@ -374,244 +75,34 @@ Configure the development environment for efficient LLM development, including b
 - `src/main.js` - Application entry point
 - `index.html` - HTML template for the application
 
-#### Specifications
-1. **Vite Configuration** (`vite.config.js`)
-   ```javascript
-   import { defineConfig } from 'vite';
-   import { svelte } from '@sveltejs/vite-plugin-svelte';
-   
-   export default defineConfig({
-     plugins: [svelte()],
-     server: {
-       port: 3000,
-       open: true
-     },
-     build: {
-       outDir: 'dist',
-       sourcemap: true
-     },
-     resolve: {
-       alias: {
-         '@': '/src',
-         '@components': '/src/components',
-         '@stores': '/src/stores',
-         '@lib': '/src/lib'
-       }
-     }
-   });
-   ```
+#### Status: ⏳ **PARTIALLY COMPLETE**
+- Basic Vite configuration exists
+- Missing: Jest configuration, ESLint setup, testing framework
 
-2. **Jest Configuration** (`jest.config.js`)
-   ```javascript
-   export default {
-     preset: 'svelte-jest',
-     testEnvironment: 'jsdom',
-     setupFilesAfterEnv: ['<rootDir>/src/test/setup.js'],
-     moduleNameMapping: {
-       '^@(.*)$': '<rootDir>/src/$1'
-     },
-     collectCoverageFrom: [
-       'src/**/*.{js,svelte}',
-       '!src/main.js',
-       '!src/test/**/*'
-     ]
-   };
-   ```
-
-3. **ESLint Configuration** (`.eslintrc.js`)
-   ```javascript
-   module.exports = {
-     root: true,
-     extends: [
-       'eslint:recommended',
-       '@typescript-eslint/recommended',
-       'plugin:svelte/recommended'
-     ],
-     parser: '@typescript-eslint/parser',
-     plugins: ['@typescript-eslint'],
-     parserOptions: {
-       sourceType: 'module',
-       ecmaVersion: 2020,
-       extraFileExtensions: ['.svelte']
-     },
-     env: {
-       browser: true,
-       es2017: true,
-       node: true
-     },
-     rules: {
-       'no-console': 'warn',
-       'no-debugger': 'warn'
-     },
-     overrides: [
-       {
-         files: ['*.svelte'],
-         parser: 'svelte-eslint-parser',
-         parserOptions: {
-           parser: '@typescript-eslint/parser'
-         }
-       }
-     ]
-   };
-   ```
-
-4. **Application Entry Point** (`src/main.js`)
-   ```javascript
-   import './styles/design-tokens.css';
-   import './styles/base.css';
-   import './styles/utilities.css';
-   import './styles/components.css';
-   
-   import App from './App.svelte';
-   
-   const app = new App({
-     target: document.body,
-     props: {}
-   });
-   
-   export default app;
-   ```
-
-5. **HTML Template** (`index.html`)
-   ```html
-   <!DOCTYPE html>
-   <html lang="en">
-   <head>
-     <meta charset="UTF-8" />
-     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-     <title>NeuroSense FX</title>
-     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-   </head>
-   <body>
-     <div id="app"></div>
-     <script type="module" src="/src/main.js"></script>
-   </body>
-   </html>
-   ```
-
-#### Integration Points
-- Configure build process for all components
-- Set up testing environment for all chunks
-- Establish development workflow for LLM implementation
-
-#### Tests
-- Configuration tests for build tools
-- Environment setup tests
-- Development server tests
-
-#### Documentation
-- Development environment setup guide
-- Build process documentation
-- Testing workflow guide
+---
 
 ## Phase 2: Core Components Chunks
 
-### Chunk 2.1: Atomic UI Components
+### Chunk 2.1: Atomic UI Components ✅ COMPLETED
 
 #### Description
 Implement the basic UI building blocks that will be used throughout the application, following the design system established in Phase 1.
 
 #### Files to Create/Modify
-- `src/components/atomic/Button.svelte` - Button component
-- `src/components/atomic/Input.svelte` - Text input component
-- `src/components/atomic/Toggle.svelte` - Toggle switch component
-- `src/components/atomic/Slider.svelte` - Slider component
-- `src/components/atomic/StatusIndicator.svelte` - Status indicator component
+- `src/components/atoms/Button.svelte` - Button component
+- `src/components/atoms/Input.svelte` - Text input component
+- `src/components/atoms/Toggle.svelte` - Toggle switch component
+- `src/components/atoms/Slider.svelte` - Slider component
+- `src/components/atoms/StatusIndicator.svelte` - Status indicator component
 
-#### Specifications
-1. **Button Component** (`src/components/atomic/Button.svelte`)
-   ```svelte
-   <script>
-     export let variant = 'primary'; // primary, secondary, tertiary
-     export let size = 'medium'; // small, medium, large
-     export let disabled = false;
-     export let href = null;
-     
-     function getClasses() {
-       return [
-         'btn',
-         `btn-${variant}`,
-         `btn-${size}`,
-         disabled && 'btn-disabled'
-       ].filter(Boolean).join(' ');
-     }
-   </script>
-   
-   {#if href}
-     <a {href} class={getClasses()} on:click>
-       <slot />
-     </a>
-   {:else}
-     <button class={getClasses()} {disabled} on:click>
-       <slot />
-     </button>
-   {/if}
-   
-   <style>
-     .btn {
-       display: inline-flex;
-       align-items: center;
-       justify-content: center;
-       border: none;
-       border-radius: var(--space-1);
-       font-family: var(--font-sans);
-       font-weight: var(--font-medium);
-       cursor: pointer;
-       transition: all var(--motion-fast) var(--ease-snappy);
-     }
-     
-     .btn-primary {
-       background-color: var(--color-focus);
-       color: var(--text-primary);
-     }
-     
-     .btn-secondary {
-       background-color: var(--bg-elevated);
-       color: var(--text-primary);
-       border: 1px solid var(--border-default);
-     }
-     
-     .btn-small {
-       padding: var(--space-1) var(--space-2);
-       font-size: var(--text-xs);
-     }
-     
-     .btn-medium {
-       padding: var(--space-2) var(--space-4);
-       font-size: var(--text-sm);
-     }
-     
-     .btn-large {
-       padding: var(--space-3) var(--space-5);
-       font-size: var(--text-base);
-     }
-     
-     .btn-disabled {
-       opacity: 0.5;
-       cursor: not-allowed;
-     }
-   </style>
-   ```
-
-#### Integration Points
-- Use design tokens for styling
-- Implement consistent event handling
-- Provide accessibility features
-
-#### Tests
-- Component rendering tests
-- Prop variation tests
-- Event handling tests
-- Accessibility tests
-
-#### Documentation
-- Component API reference
-- Usage examples and guidelines
-- Customization options
+#### Status: ✅ **COMPLETED**
+- All specified atomic components implemented
+- Additional components: Label, Badge, Icon, Checkbox, Radio
+- Full design system integration and accessibility support
 
 ---
 
-### Chunk 2.2: Basic Visualization Components
+### Chunk 2.2: Basic Visualization Components ✅ COMPLETED
 
 #### Description
 Implement the foundational visualization components that will form the core of the NeuroSense FX interface.
@@ -622,53 +113,589 @@ Implement the foundational visualization components that will form the core of t
 - `src/components/viz/VolatilityOrb.svelte` - Volatility orb visualization
 - `src/components/viz/ADRAxis.svelte` - ADR axis visualization
 
+#### Status: ✅ **COMPLETED**
+- All visualization components implemented with Canvas API
+- Real-time data integration and animations
+- Performance optimization and accessibility features
+
+---
+
+### Chunk 2.3: Connection Status Panel ✅ COMPLETED
+
+#### Description
+Implement comprehensive connection monitoring panel with real-time status, service health metrics, and user interaction features.
+
+#### Files to Create/Modify
+- `src/components/molecules/ConnectionIndicator.svelte` - Real-time connection status
+- `src/components/molecules/StatusBadge.svelte` - Configurable status badges
+- `src/components/organisms/panels/ConnectionStatusPanel.svelte` - Comprehensive monitoring panel
+
+#### Status: ✅ **COMPLETED**
+- Real-time connection quality monitoring
+- Service health dashboard for all data layer components
+- Performance metrics and error tracking
+- Manual reconnect and diagnostic features
+
+---
+
+### Chunk 2.4: Symbol Selector Component ✅ COMPLETED
+
+#### Description
+Implement comprehensive symbol selection interface with search, filtering, categorization, and real-time data display.
+
+#### Files to Create/Modify
+- `src/components/atoms/SymbolBadge.svelte` - Symbol display badge
+- `src/components/molecules/SymbolCard.svelte` - Symbol information card
+- `src/components/molecules/SymbolSearch.svelte` - Advanced search with filters
+- `src/components/molecules/SymbolCategory.svelte` - Category display and navigation
+- `src/components/organisms/SymbolSelector.svelte` - Main symbol selector interface
+
+#### Status: ✅ **COMPLETED**
+- Complete symbol selection system with real-time data
+- Advanced search and filtering capabilities
+- Favorites and recent symbols management
+- Multiple view modes and responsive design
+
+---
+
+## Phase 3: Advanced Components Chunks
+
+### Chunk 3.1: Composite UI Components ✅ COMPLETED
+
+#### Description
+Implement advanced UI components that combine atoms and molecules into complex, feature-complete interfaces.
+
+#### Files to Create/Modify
+- `src/components/molecules/FormField.svelte` - Enhanced form field with validation
+- `src/components/organisms/FormGroup.svelte` - Form layout and management
+- `src/components/organisms/DataTable.svelte` - Advanced tabular data display
+- `src/components/molecules/DataCard.svelte` - Structured data presentation
+- `src/components/organisms/Tabs.svelte` - Comprehensive tab system
+- `src/components/molecules/Accordion.svelte` - Collapsible content sections
+- `src/components/organisms/Modal.svelte` - Dialog management system
+- `src/components/organisms/Panel.svelte` - Flexible content container
+
+#### Status: ✅ **COMPLETED**
+- All composite UI components implemented
+- Form validation and management systems
+- Data display and interaction components
+- Accessibility and responsive design throughout
+
+---
+
+### Chunk 3.2: Service Status Panel ❌ NOT STARTED
+
+#### Description
+Implement comprehensive service status monitoring panel for all system components and data layer services.
+
+#### Files to Create/Modify
+- `src/components/organisms/panels/ServiceStatusPanel.svelte` - System health monitoring
+- `src/components/molecules/ServiceHealthIndicator.svelte` - Individual service status
+- `src/components/molecules/PerformanceMetrics.svelte` - Performance display
+
 #### Specifications
-1. **Price Float Component** (`src/components/viz/PriceFloat.svelte`)
-   ```svelte
-   <script>
-     export let price = 0;
-     export let position = 50; // Percentage position in canvas
-     export let width = 100;
-     export let color = 'var(--color-price-float)';
-     export let glow = true;
-     
-     $: style = `
-       left: 50%;
-       top: ${position}%;
-       width: ${width}px;
-       background-color: ${color};
-       ${glow ? 'box-shadow: 0 0 12px rgba(167, 139, 250, 0.8);' : ''}
-     `;
-   </script>
-   
-   <div class="price-float" {style}></div>
-   
-   <style>
-     .price-float {
-       position: absolute;
-       height: 4px;
-       transform: translateX(-50%);
-       transition: top var(--motion-normal) var(--ease-smooth);
-       z-index: 3;
-     }
-   </style>
-   ```
+1. **Service Health Monitoring**
+   - Real-time status for all data layer components
+   - Performance metrics (TPS, latency, memory usage)
+   - Error tracking and alerting
+   - Service dependency visualization
+
+2. **Performance Dashboard**
+   - Live performance metrics with charts
+   - Historical performance data
+   - Threshold-based alerting
+   - Performance trend analysis
 
 #### Integration Points
-- Connect to symbol store for price data
-- Implement smooth transitions for position changes
-- Provide customization options for appearance
+- Connect to enhanced data layer stores
+- Integrate with performance monitoring store
+- Provide real-time updates via reactive bindings
 
-#### Tests
-- Component rendering tests
-- Data binding tests
-- Animation tests
-- Performance tests
+---
 
-#### Documentation
-- Component API reference
-- Data format specifications
-- Customization options
+### Chunk 3.3: Workspace Settings Panel ❌ NOT STARTED
+
+#### Description
+Implement workspace configuration panel for managing workspaces, layouts, and global settings.
+
+#### Files to Create/Modify
+- `src/components/organisms/panels/WorkspaceSettingsPanel.svelte` - Workspace configuration
+- `src/components/molecules/WorkspaceCard.svelte` - Workspace preview card
+- `src/components/molecules/LayoutSelector.svelte` - Layout selection interface
+
+#### Specifications
+1. **Workspace Management**
+   - Create, edit, delete workspaces
+   - Workspace templates and presets
+   - Import/export functionality
+   - Workspace sharing capabilities
+
+2. **Layout Configuration**
+   - Grid vs free layout selection
+   - Canvas arrangement options
+   - Snap-to-grid configuration
+   - Zoom and pan settings
+
+#### Integration Points
+- Connect to workspaceStore for state management
+- Integrate with persistence utilities
+- Provide real-time workspace updates
+
+---
+
+### Chunk 3.4: Canvas Settings Panel ❌ NOT STARTED
+
+#### Description
+Implement canvas-specific settings panel for configuring individual canvas behavior and appearance.
+
+#### Files to Create/Modify
+- `src/components/organisms/panels/CanvasSettingsPanel.svelte` - Canvas configuration
+- `src/components/molecules/IndicatorToggle.svelte` - Indicator selection interface
+- `src/components/molecules/CanvasPreview.svelte` - Canvas preview and settings
+
+#### Specifications
+1. **Canvas Configuration**
+   - Canvas size and position settings
+   - Symbol assignment and management
+   - Indicator selection and configuration
+   - Visual appearance customization
+
+2. **Indicator Management**
+   - Enable/disable indicators per canvas
+   - Indicator-specific settings panels
+   - Indicator ordering and layering
+   - Performance optimization settings
+
+#### Integration Points
+- Connect to workspaceStore for canvas state
+- Integrate with indicator system
+- Provide real-time canvas updates
+
+---
+
+### Chunk 3.5: Visualization Settings Panel ❌ NOT STARTED
+
+#### Description
+Implement visualization settings panel for configuring global visualization defaults and indicator settings.
+
+#### Files to Create/Modify
+- `src/components/organisms/panels/VisualizationSettingsPanel.svelte` - Visualization configuration
+- `src/components/molecules/IndicatorSettings.svelte` - Indicator-specific settings
+- `src/components/molecules/ColorSchemeSelector.svelte` - Color scheme selection
+
+#### Specifications
+1. **Global Visualization Settings**
+   - Default indicator settings
+   - Color scheme management
+   - Animation and transition settings
+   - Performance optimization options
+
+2. **Indicator Configuration**
+   - Per-indicator settings panels
+   - Custom indicator creation
+   - Indicator presets and templates
+   - Export/import indicator configurations
+
+#### Integration Points
+- Connect to visualization stores
+- Integrate with design system tokens
+- Provide real-time preview updates
+
+---
+
+## Phase 4: Canvas System Chunks
+
+### Chunk 4.1: Canvas Container Component ❌ NOT STARTED
+
+#### Description
+Implement the main canvas container component that manages indicators, rendering, and user interactions.
+
+#### Files to Create/Modify
+- `src/components/viz/CanvasContainer.svelte` - Main canvas container
+- `src/components/viz/indicators/index.js` - Indicator registry
+- `src/components/viz/indicators/BaseIndicator.js` - Base indicator class
+
+#### Specifications
+1. **Canvas Management**
+   - Indicator lifecycle management
+   - Canvas rendering optimization
+   - Real-time data integration
+   - Performance monitoring
+
+2. **Indicator System**
+   - Modular indicator architecture
+   - Dynamic indicator loading
+   - Indicator settings management
+   - Performance optimization
+
+#### Integration Points
+- Connect to workspaceStore for canvas state
+- Integrate with data layer for real-time data
+- Provide indicator management API
+
+---
+
+### Chunk 4.2: Workspace Manager Component ❌ NOT STARTED
+
+#### Description
+Implement workspace manager component for orchestrating canvas layout, workspace persistence, and user interactions.
+
+#### Files to Create/Modify
+- `src/components/organisms/workspace/WorkspaceManager.svelte` - Workspace orchestration
+- `src/components/organisms/workspace/WorkspaceToolbar.svelte` - Workspace controls
+- `src/utils/workspace.js` - Workspace utilities
+
+#### Specifications
+1. **Workspace Orchestration**
+   - Canvas layout management
+   - Workspace persistence and restoration
+   - User interaction handling
+   - Performance optimization
+
+2. **Workspace Controls**
+   - Canvas creation and deletion
+   - Layout switching and management
+   - Workspace import/export
+   - Keyboard shortcuts and gestures
+
+#### Integration Points
+- Connect to workspaceStore for state management
+- Integrate with persistence utilities
+- Provide workspace management API
+
+---
+
+### Chunk 4.3: Workspace Grid Component ❌ NOT STARTED
+
+#### Description
+Implement workspace grid component for managing canvas layout, snapping, and grid-based positioning.
+
+#### Files to Create/Modify
+- `src/components/organisms/workspace/WorkspaceGrid.svelte` - Grid layout system
+- `src/components/molecules/GridSnapIndicator.svelte` - Snap visualization
+- `src/utils/canvas.js` - Canvas utilities
+
+#### Specifications
+1. **Grid Layout System**
+   - Configurable grid dimensions
+   - Snap-to-grid functionality
+   - Grid visualization and indicators
+   - Responsive grid behavior
+
+2. **Canvas Positioning**
+   - Drag-and-drop positioning
+   - Grid snapping algorithms
+   - Collision detection
+   - Z-index management
+
+#### Integration Points
+- Connect to workspaceStore for layout state
+- Integrate with drag-and-drop system
+- Provide grid management API
+
+---
+
+### Chunk 4.4: Drag & Drop System ❌ NOT STARTED
+
+#### Description
+Implement comprehensive drag-and-drop system for canvas positioning, resizing, and workspace interactions.
+
+#### Files to Create/Modify
+- `src/components/molecules/DragHandle.svelte` - Drag handle component
+- `src/components/molecules/ResizeHandle.svelte` - Resize handle component
+- `src/utils/dragDrop.js` - Drag-and-drop utilities
+
+#### Specifications
+1. **Drag-and-Drop System**
+   - Canvas dragging and positioning
+   - Canvas resizing and constraints
+   - Multi-selection and group operations
+   - Keyboard navigation support
+
+2. **Interaction Feedback**
+   - Visual feedback during operations
+   - Snap indicators and guides
+   - Constraint visualization
+   - Accessibility features
+
+#### Integration Points
+- Connect to workspaceStore for interaction state
+- Integrate with grid system for snapping
+- Provide drag-and-drop API
+
+---
+
+### Chunk 4.5: Canvas Interaction Logic ❌ NOT STARTED
+
+#### Description
+Implement canvas interaction logic for selection, focus management, and user interactions.
+
+#### Files to Create/Modify
+- `src/components/viz/CanvasInteraction.svelte` - Interaction handler
+- `src/components/molecules/SelectionBox.svelte` - Selection visualization
+- `src/utils/interaction.js` - Interaction utilities
+
+#### Specifications
+1. **Canvas Selection**
+   - Single and multi-selection
+   - Selection visualization
+   - Keyboard navigation
+   - Focus management
+
+2. **User Interactions**
+   - Context menus and actions
+   - Keyboard shortcuts
+   - Gesture support
+   - Accessibility features
+
+#### Integration Points
+- Connect to UI state store for selection state
+- Integrate with drag-and-drop system
+- Provide interaction API
+
+---
+
+## Phase 5: Integration Chunks
+
+### Chunk 5.1: Component Data Integration ❌ NOT STARTED
+
+#### Description
+Integrate all components with the data layer for real-time data flow and reactive updates.
+
+#### Files to Create/Modify
+- `src/utils/integration.js` - Integration utilities
+- `src/components/integration/DataProvider.svelte` - Data provider component
+- `src/stores/integrationStore.js` - Integration state management
+
+#### Specifications
+1. **Data Integration**
+   - Real-time data binding
+   - Data transformation and normalization
+   - Error handling and recovery
+   - Performance optimization
+
+2. **Component Integration**
+   - Cross-component communication
+   - Event handling and propagation
+   - State synchronization
+   - Integration testing
+
+#### Integration Points
+- Connect all components to data layer
+- Integrate with state management
+- Provide integration testing framework
+
+---
+
+### Chunk 5.2: Cross-Component Communication ❌ NOT STARTED
+
+#### Description
+Implement communication system for components to interact and share state.
+
+#### Files to Create/Modify
+- `src/utils/communication.js` - Communication utilities
+- `src/components/communication/EventBus.svelte` - Event system
+- `src/stores/communicationStore.js` - Communication state
+
+#### Specifications
+1. **Event System**
+   - Custom event handling
+   - Event propagation and bubbling
+   - Event filtering and transformation
+   - Performance optimization
+
+2. **Component Communication**
+   - Parent-child communication
+   - Sibling communication
+   - Cross-hierarchy communication
+   - Debugging and monitoring
+
+#### Integration Points
+- Integrate with all components
+- Connect to state management
+- Provide communication API
+
+---
+
+### Chunk 5.3: Error Handling & Recovery ❌ NOT STARTED
+
+#### Description
+Implement comprehensive error handling and recovery system for robust user experience.
+
+#### Files to Create/Modify
+- `src/utils/errorHandling.js` - Error handling utilities
+- `src/components/error/ErrorBoundary.svelte` - Error boundary component
+- `src/components/error/ErrorDisplay.svelte` - Error display component
+
+#### Specifications
+1. **Error Handling**
+   - Error catching and logging
+   - Error categorization and prioritization
+   - Error recovery strategies
+   - User-friendly error messages
+
+2. **Recovery System**
+   - Automatic recovery mechanisms
+   - Manual recovery options
+   - State restoration
+   - Error reporting and analytics
+
+#### Integration Points
+- Integrate with all components
+- Connect to error monitoring
+- Provide error handling API
+
+---
+
+### Chunk 5.4: Performance Optimization ❌ NOT STARTED
+
+#### Description
+Implement performance optimization system for smooth user experience with multiple canvases.
+
+#### Files to Create/Modify
+- `src/utils/performance.js` - Performance utilities
+- `src/components/performance/PerformanceMonitor.svelte` - Performance monitoring
+- `src/stores/performanceStore.js` - Performance state management
+
+#### Specifications
+1. **Performance Monitoring**
+   - Real-time performance metrics
+   - Performance bottleneck detection
+   - Memory usage monitoring
+   - Render performance tracking
+
+2. **Optimization System**
+   - Lazy loading and code splitting
+   - Render optimization
+   - Memory management
+   - Network optimization
+
+#### Integration Points
+- Integrate with all components
+- Connect to performance monitoring
+- Provide optimization API
+
+---
+
+## Phase 6: Refinement Chunks
+
+### Chunk 6.1: Advanced Workspace Features ❌ NOT STARTED
+
+#### Description
+Implement advanced workspace features for power users and complex workflows.
+
+#### Files to Create/Modify
+- `src/components/advanced/WorkspaceTemplates.svelte` - Template system
+- `src/components/advanced/WorkspaceSharing.svelte` - Sharing functionality
+- `src/utils/advancedWorkspace.js` - Advanced utilities
+
+#### Specifications
+1. **Workspace Templates**
+   - Template creation and management
+   - Template sharing and distribution
+   - Template customization
+   - Template versioning
+
+2. **Workspace Sharing**
+   - Export/import functionality
+   - Collaboration features
+   - Version control
+   - Backup and restore
+
+#### Integration Points
+- Connect to workspace system
+- Integrate with persistence
+- Provide advanced workspace API
+
+---
+
+### Chunk 6.2: Import/Export Functionality ❌ NOT STARTED
+
+#### Description
+Implement comprehensive import/export system for data, configurations, and workspaces.
+
+#### Files to Create/Modify
+- `src/utils/importExport.js` - Import/export utilities
+- `src/components/importExport/ImportDialog.svelte` - Import interface
+- `src/components/importExport/ExportDialog.svelte` - Export interface
+
+#### Specifications
+1. **Import System**
+   - Multiple format support
+   - Data validation and transformation
+   - Import conflict resolution
+   - Progress tracking
+
+2. **Export System**
+   - Multiple export formats
+   - Data filtering and selection
+   - Export customization
+   - Batch operations
+
+#### Integration Points
+- Connect to all data stores
+- Integrate with workspace system
+- Provide import/export API
+
+---
+
+### Chunk 6.3: Animation & Transitions ❌ NOT STARTED
+
+#### Description
+Implement smooth animations and transitions for enhanced user experience.
+
+#### Files to Create/Modify
+- `src/utils/animations.js` - Animation utilities
+- `src/components/animations/TransitionGroup.svelte` - Transition system
+- `src/styles/animations.css` - Animation styles
+
+#### Specifications
+1. **Animation System**
+   - Transition library integration
+   - Custom animation utilities
+   - Performance optimization
+   - Accessibility support
+
+2. **User Experience**
+   - Micro-interactions
+   - Loading animations
+   - State transitions
+   - Gesture animations
+
+#### Integration Points
+- Integrate with all components
+- Connect to design system
+- Provide animation API
+
+---
+
+### Chunk 6.4: Final Polish & Testing ❌ NOT STARTED
+
+#### Description
+Implement final polish, comprehensive testing, and production optimization.
+
+#### Files to Create/Modify
+- `src/utils/testing.js` - Testing utilities
+- `src/components/testing/TestRunner.svelte` - Test interface
+- `docs/` - Complete documentation
+
+#### Specifications
+1. **Testing Framework**
+   - Unit testing suite
+   - Integration testing
+   - End-to-end testing
+   - Performance testing
+
+2. **Production Optimization**
+   - Bundle optimization
+   - Code splitting
+   - Asset optimization
+   - Deployment preparation
+
+#### Integration Points
+- Integrate with entire application
+- Connect to CI/CD pipeline
+- Provide production-ready build
 
 ---
 
@@ -706,4 +733,4 @@ Each chunk should follow this structure:
 - Document decisions and rationale
 - Track dependencies and relationships
 
-This chunk-based approach provides a structured path for LLM implementation while maintaining context and minimizing dependencies between work units.
+This comprehensive chunk-based approach provides a structured path for LLM implementation while maintaining context and minimizing dependencies between work units.

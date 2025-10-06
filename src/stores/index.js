@@ -3,6 +3,11 @@
  * Provides centralized access to all state management stores
  */
 
+// Basic stores (from Chunk 1.3 specifications)
+export { connectionStore, isConnected } from './connectionStore.js';
+export { symbolStore, selectedSymbolData } from './symbolStore.js';
+export { uiStateStore } from './uiStateStore.js';
+
 // Core stores
 export { workspaceStore, canvases, visibleCanvases, gridSettings, viewSettings, globalSettings, symbolSubscriptions, visualizationSettings, canvasCount, activeCanvasCount, workspaceInfo, getCanvasById, getCanvasesBySymbol } from './workspaceStore.js';
 

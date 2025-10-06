@@ -2,6 +2,10 @@
 // These components combine molecules and atoms to create complex, feature-complete UI sections
 
 export { default as ConnectionStatusPanel } from './panels/ConnectionStatusPanel.svelte';
+export { default as ServiceStatusPanel } from './panels/ServiceStatusPanel.svelte';
+export { default as WorkspaceSettingsPanel } from './panels/WorkspaceSettingsPanel.svelte';
+export { default as CanvasSettingsPanel } from './panels/CanvasSettingsPanel.svelte';
+export { default as VisualizationSettingsPanel } from './panels/VisualizationSettingsPanel.svelte';
 export { default as SymbolSelector } from './SymbolSelector.svelte';
 export { default as FormGroup } from './FormGroup.svelte';
 export { default as DataTable } from './DataTable.svelte';

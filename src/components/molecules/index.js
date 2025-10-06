@@ -11,6 +11,18 @@ export { default as SymbolCategory } from './SymbolCategory.svelte';
 export { default as FormField } from './FormField.svelte';
 export { default as DataCard } from './DataCard.svelte';
 export { default as Accordion } from './Accordion.svelte';
+export { default as ServiceHealthIndicator } from './ServiceHealthIndicator.svelte';
+export { default as PerformanceMetrics } from './PerformanceMetrics.svelte';
+
+// Workspace-related molecules
+export { default as WorkspaceTemplate } from './WorkspaceTemplate.svelte';
+export { default as WorkspaceImport } from './WorkspaceImport.svelte';
+
+// Visualization-related molecules
+export { default as IndicatorToggle } from './IndicatorToggle.svelte';
+export { default as CanvasPreview } from './CanvasPreview.svelte';
+export { default as ColorSchemeSelector } from './ColorSchemeSelector.svelte';
+export { default as IndicatorSettings } from './IndicatorSettings.svelte';
 
 // Component metadata for programmatic access
 export const MOLECULE_COMPONENTS = {

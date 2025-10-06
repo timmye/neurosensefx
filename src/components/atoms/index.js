@@ -9,7 +9,10 @@ export { default as Input } from './Input.svelte';
 export { default as Label } from './Label.svelte';
 export { default as Checkbox } from './Checkbox.svelte';
 export { default as Radio } from './Radio.svelte';
+export { default as Select } from './Select.svelte';
 export { default as Slider } from './Slider.svelte';
+export { default as Toggle } from './Toggle.svelte';
+export { default as StatusIndicator } from './StatusIndicator.svelte';
 
 // Display components
 export { default as Badge } from './Badge.svelte';
