@@ -8,15 +8,14 @@
       "extensions": [
         "svelte.svelte-vscode",
         "dbaeumer.vscode-eslint",
-        "RooVeterinaryInc.roo-cline"
+        "RooVeterinaryInc.roo-cline",
+        "saoudrizwan.claude-dev",
+        "kilocode.kilo-code"
       ]
     }
   },
   "forwardPorts": [5173, 8080],
   "postCreateCommand": "./setup_project.sh",
-  // Use a single, unified script to manage the entire startup sequence.
-  // This mirrors the behavior of the Firebase Studio 'onStart' hook and ensures
-  // the backend is running before the frontend.
   "postStartCommand": "./run.sh start",
   "remoteUser": "node"
 }

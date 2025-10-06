@@ -158,3 +158,18 @@ config/
 # Backend log files
 backend.log
 frontend.log
+
+# Dev Container personal data
+.devcontainer/devcontainer.local.json
+
+
+# Legacy AI extension data
+.cline/
+.roo/
+.kilo-code/
+.ai-history/
+.vscode-server/
+
+# Environment files (additional)
+.env.local
+.env.*.local

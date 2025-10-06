@@ -120,8 +120,8 @@ start_frontend() {
     # Save PID
     echo $frontend_pid > "$FRONTEND_PID_FILE"
     
-    # Wait a moment for startup
-    sleep 5
+    # Wait a moment for startup (increased from 5 to 10 seconds)
+    sleep 10
     
     # Check if process is still running and responding
     if kill -0 $frontend_pid 2>/dev/null; then
@@ -143,8 +143,8 @@ start_frontend() {
                 tail -n 10 "frontend.log" | log_warn
             fi
             # Don't kill the process if it's running but just not responding yet
-            # Give it more time
-            sleep 3
+            # Give it more time (increased from 3 to 10 seconds)
+            sleep 10
             if curl -s http://localhost:5173 > /dev/null 2>&1; then
                 log "Frontend started successfully (PID: $frontend_pid) - verified after delay"
                 log "Frontend logs: frontend.log"

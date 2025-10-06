@@ -1,0 +1,255 @@
+/* NeuroSense FX Design Tokens
+ * CSS Custom Properties for consistent design system
+ */
+
+:root {
+  /* === Spacing System === */
+  --space-0: 0px;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+  --space-9: 64px;
+  --space-10: 96px;
+  --space-11: 128px;
+  --space-12: 192px;
+
+  /* === Density Tokens === */
+  --density-padding-compact: var(--space-1);
+  --density-padding-normal: var(--space-2);
+  --density-padding-comfortable: var(--space-3);
+
+  /* === Color Palette === */
+  
+  /* Primary Colors - Dark Theme */
+  --color-primary: #0a0e1a;
+  --color-secondary: #0f1419;
+  --color-tertiary: #141821;
+  --color-quaternary: #1a1d26;
+  --color-elevated: #1e222a;
+  --color-surface: #252830;
+  --color-overlay: #2a2d35;
+
+  /* Semantic Colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Trading Specific Colors */
+  --color-bullish: #10b981;
+  --color-bearish: #ef4444;
+  --color-neutral: #6b7280;
+  --color-price-float: #a78bfa;
+  --color-volatility-low: #10b981;
+  --color-volatility-medium: #f59e0b;
+  --color-volatility-high: #ef4444;
+
+  /* Interactive Colors */
+  --color-focus: #6366f1;
+  --color-hover: #4f46e5;
+  --color-active: #4338ca;
+  --color-disabled: #374151;
+
+  /* Text Colors */
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --text-inverse: #111827;
+  --text-muted: #6b7280;
+
+  /* Border Colors */
+  --border-default: #374151;
+  --border-subtle: #4b5563;
+  --border-strong: #1f2937;
+  --border-focus: var(--color-focus);
+  --border-error: var(--color-error);
+
+  /* Background Colors */
+  --bg-primary: var(--color-primary);
+  --bg-secondary: var(--color-secondary);
+  --bg-tertiary: var(--color-tertiary);
+  --bg-elevated: var(--color-elevated);
+  --bg-surface: var(--color-surface);
+  --bg-overlay: var(--color-overlay);
+  --bg-canvas: #0d0d0d;
+
+  /* === Typography System === */
+  
+  /* Font Families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Roboto Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  --font-display: 'Inter', sans-serif;
+
+  /* Font Sizes */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 1.875rem;  /* 30px */
+  --text-4xl: 2.25rem;   /* 36px */
+
+  /* Font Weights */
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Line Heights */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  /* === Motion & Animation === */
+  
+  /* Durations */
+  --motion-instant: 0ms;
+  --motion-fast: 150ms;
+  --motion-normal: 250ms;
+  --motion-slow: 400ms;
+  --motion-slower: 600ms;
+
+  /* Easing Functions */
+  --ease-linear: linear;
+  --ease-snappy: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* === Shadows === */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(167, 139, 250, 0.3);
+
+  /* === Border Radius === */
+  --radius-none: 0px;
+  --radius-sm: 2px;
+  --radius-base: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* === Z-Index Scale === */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+
+  /* === Component Specific Tokens === */
+  
+  /* Button Tokens */
+  --btn-height-sm: 24px;
+  --btn-height-md: 32px;
+  --btn-height-lg: 40px;
+  --btn-padding-x-sm: var(--space-2);
+  --btn-padding-x-md: var(--space-4);
+  --btn-padding-x-lg: var(--space-6);
+
+  /* Input Tokens */
+  --input-height-sm: 24px;
+  --input-height-md: 32px;
+  --input-height-lg: 40px;
+  --input-padding-x: var(--space-3);
+  --input-border-width: 1px;
+  --input-border-focus-width: 2px;
+
+  /* Canvas Tokens */
+  --canvas-border-radius: var(--radius-base);
+  --canvas-shadow: var(--shadow-md);
+  --canvas-glow: var(--shadow-glow);
+
+  /* Panel Tokens */
+  --panel-header-height: 40px;
+  --panel-padding: var(--space-4);
+  --panel-border-radius: var(--radius-md);
+
+  /* === Trading Specific Tokens === */
+  
+  /* Price Display */
+  --price-font-size: var(--text-2xl);
+  --price-font-weight: var(--font-semibold);
+  --price-change-positive: var(--color-bullish);
+  --price-change-negative: var(--color-bearish);
+
+  /* Market Profile */
+  --market-profile-opacity: 0.7;
+  --market-profile-stroke-width: 1px;
+  --market-profile-fill-color: rgba(167, 139, 250, 0.3);
+
+  /* Volatility Orb */
+  --volatility-orb-base-size: 200px;
+  --volatility-orb-min-size: 50px;
+  --volatility-orb-max-size: 300px;
+
+  /* ADR Meter */
+  --adr-meter-height: 4px;
+  --adr-meter-threshold-color: var(--color-warning);
+  --adr-meter-normal-color: var(--color-info);
+
+  /* === Responsive Breakpoints === */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  /* === Grid System === */
+  --grid-columns: 12;
+  --grid-gap: var(--space-4);
+  --grid-container-padding: var(--space-4);
+
+  /* === Workspace Specific Tokens === */
+  --workspace-grid-columns: 4;
+  --workspace-grid-rows: 3;
+  --workspace-grid-gap: var(--space-2);
+  --workspace-canvas-min-width: 200px;
+  --workspace-canvas-min-height: 120px;
+  --workspace-canvas-default-width: 220px;
+  --workspace-canvas-default-height: 120px;
+}
+
+/* === Light Theme Overrides === */
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Light theme colors can be defined here when needed */
+    /* For now, we're focusing on the dark theme as specified */
+  }
+}
+
+/* === High Contrast Mode === */
+@media (prefers-contrast: high) {
+  :root {
+    --border-default: #000000;
+    --text-primary: #000000;
+    --bg-primary: #ffffff;
+    --color-focus: #0000ff;
+  }
+}
+
+/* === Reduced Motion === */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-normal: 0ms;
+    --motion-slow: 0ms;
+    --motion-slower: 0ms;
+    --ease-snappy: linear;
+    --ease-smooth: linear;
+    --ease-bounce: linear;
+  }
+}

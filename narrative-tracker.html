@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FX Narrative Tracker - Prototype</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-right: auto;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #475569;
+        }
+
+        .btn-secondary:hover {
+            background: #64748b;
+        }
+
+        .btn-icon {
+            padding: 8px;
+            background: transparent;
+            border: 1px solid #475569;
+            color: #94a3b8;
+        }
+
+        .btn-icon:hover {
+            background: #334155;
+            border-color: #64748b;
+            color: #e2e8f0;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid #334155;
+            padding: 80px 20px 20px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .sidebar h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: #e2e8f0;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Main Timeline Area */
+        .main-content {
+            flex: 1;
+            padding: 80px 20px 20px;
+            position: relative;
+        }
+
+        .timeline-container {
+            height: 100%;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 12px;
+            border: 1px solid #334155;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .timeline-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Timeline Elements */
+        .timeline-axis {
+            stroke: #475569;
+            stroke-width: 2;
+        }
+
+        .timeline-grid {
+            stroke: #1e293b;
+            stroke-width: 1;
+            stroke-dasharray: 2,4;
+        }
+
+        .timeline-label {
+            fill: #94a3b8;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .narrative-node {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .narrative-node:hover {
+            filter: brightness(1.2);
+        }
+
+        .narrative-thread {
+            fill: none;
+            stroke-width: 3;
+            opacity: 0.7;
+        }
+
+        .connection-line {
+            fill: none;
+            stroke-width: 2;
+            opacity: 0.6;
+            stroke-dasharray: 5,5;
+            animation: dash 20s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -100;
+            }
+        }
+
+        /* Thread Panel */
+        .thread-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 340px;
+            right: 20px;
+            height: 120px;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            z-index: 100;
+        }
+
+        .thread-item {
+            min-width: 150px;
+            padding: 12px;
+            background: rgba(51, 65, 85, 0.5);
+            border: 1px solid #475569;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .thread-item:hover {
+            background: rgba(71, 85, 105, 0.7);
+            transform: translateY(-2px);
+        }
+
+        .thread-item.active {
+            border-color: #4f46e5;
+            background: rgba(79, 70, 229, 0.2);
+        }
+
+        .thread-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-bottom: 8px;
+        }
+
+        .thread-name {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 4px;
+        }
+
+        .thread-count {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        /* Narrative Detail Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .close-btn:hover {
+            color: #e2e8f0;
+        }
+
+        .modal-body {
+            color: #e2e8f0;
+        }
+
+        .detail-item {
+            margin-bottom: 16px;
+        }
+
+        .detail-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            font-size: 1rem;
+            color: #f1f5f9;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: rgba(79, 70, 229, 0.2);
+            border: 1px solid #4f46e5;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #a5b4fc;
+            margin-right: 8px;
+        }
+
+        .impact-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .impact-high {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+        }
+
+        .impact-medium {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid #f59e0b;
+            color: #fcd34d;
+        }
+
+        .impact-low {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid #22c55e;
+            color: #86efac;
+        }
+
+        /* Connection Tools */
+        .connection-tools {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            display: none;
+            z-index: 150;
+        }
+
+        .connection-tools.active {
+            display: block;
+        }
+
+        .connection-type {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: #e2e8f0;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .connection-type:hover {
+            background: #334155;
+            border-color: #64748b;
+        }
+
+        .connection-type.selected {
+            background: #4f46e5;
+            border-color: #6366f1;
+        }
+
+        /* Zoom Controls */
+        .zoom-controls {
+            position: absolute;
+            top: 80px;
+            left: 340px;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 8px;
+            display: flex;
+            gap: 4px;
+            z-index: 150;
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #94a3b8;
+            font-size: 1.125rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 280px;
+            }
+            
+            .thread-panel {
+                left: 300px;
+            }
+            
+            .zoom-controls {
+                left: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1>FX Narrative Tracker</h1>
+            <div class="header-controls">
+                <button class="btn btn-secondary" onclick="resetView()">Reset View</button>
+                <button class="btn btn-secondary" onclick="toggleConnectionMode()">
+                    <span id="connectionModeText">Connect Mode</span>
+                </button>
+                <button class="btn" onclick="addSampleNarratives()">Load Sample Data</button>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <h2>Create Narrative</h2>
+            <form id="narrativeForm">
+                <div class="form-group">
+                    <label for="narrativeTitle">Title</label>
+                    <input type="text" id="narrativeTitle" class="form-control" placeholder="Enter narrative title" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="narrativeDescription">Description</label>
+                    <textarea id="narrativeDescription" class="form-control" placeholder="Describe the narrative" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="narrativeCategory">Category</label>
+                    <select id="narrativeCategory" class="form-control">
+                        <option value="Central Bank">Central Bank</option>
+                        <option value="Economic Data">Economic Data</option>
+                        <option value="Geopolitical">Geopolitical</option>
+                        <option value="Market Sentiment">Market Sentiment</option>
+                        <option value="Technical Analysis">Technical Analysis</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="narrativeCurrency">Currency Pair</label>
+                    <input type="text" id="narrativeCurrency" class="form-control" placeholder="e.g., EURUSD" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="narrativeImpact">Impact Level</label>
+                    <select id="narrativeImpact" class="form-control">
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="narrativeThread">Thread</label>
+                    <select id="narrativeThread" class="form-control">
+                        <option value="">Create New Thread</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="newThreadGroup" style="display: none;">
+                    <label for="newThreadName">New Thread Name</label>
+                    <input type="text" id="newThreadName" class="form-control" placeholder="Enter thread name">
+                </div>
+                
+                <button type="submit" class="btn" style="width: 100%;">Add Narrative</button>
+            </form>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="timeline-container">
+                <svg class="timeline-svg" id="timeline"></svg>
+            </div>
+            
+            <!-- Zoom Controls -->
+            <div class="zoom-controls">
+                <button class="btn btn-icon" onclick="zoomIn()">+</button>
+                <button class="btn btn-icon" onclick="zoomOut()">−</button>
+                <button class="btn btn-icon" onclick="resetZoom()">⟲</button>
+            </div>
+            
+            <!-- Connection Tools -->
+            <div class="connection-tools" id="connectionTools">
+                <h3 style="font-size: 0.875rem; margin-bottom: 12px; color: #f1f5f9;">Connection Type</h3>
+                <button class="connection-type selected" data-type="causes">Causes</button>
+                <button class="connection-type" data-type="reinforces">Reinforces</button>
+                <button class="connection-type" data-type="contradicts">Contradicts</button>
+                <button class="connection-type" data-type="related">Related</button>
+                <button class="btn btn-secondary" style="width: 100%; margin-top: 8px;" onclick="cancelConnection()">Cancel</button>
+            </div>
+        </main>
+
+        <!-- Thread Panel -->
+        <div class="thread-panel" id="threadPanel">
+            <!-- Threads will be dynamically added here -->
+        </div>
+    </div>
+
+    <!-- Narrative Detail Modal -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Narrative Details</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Management
+        let narratives = [];
+        let threads = [];
+        let connections = [];
+        let currentZoom = 1;
+        let connectionMode = false;
+        let selectedConnectionType = 'causes';
+        let connectionStart = null;
+        let selectedThread = null;
+
+        // Color palette for threads
+        const threadColors = [
+            '#4f46e5', '#06b6d4', '#10b981', '#f59e0b', 
+            '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'
+        ];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            setupEventListeners();
+            renderTimeline();
+        });
+
+        function initializeApp() {
+            // Load data from localStorage or initialize with empty arrays
+            const savedData = localStorage.getItem('narrativeTrackerData');
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                narratives = data.narratives || [];
+                threads = data.threads || [];
+                connections = data.connections || [];
+            }
+            
+            updateThreadSelect();
+            renderThreadPanel();
+        }
+
+        function setupEventListeners() {
+            // Form submission
+            document.getElementById('narrativeForm').addEventListener('submit', handleFormSubmit);
+            
+            // Thread selection change
+            document.getElementById('narrativeThread').addEventListener('change', handleThreadChange);
+            
+            // Connection type selection
+            document.querySelectorAll('.connection-type').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.connection-type').forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedConnectionType = this.dataset.type;
+                });
+            });
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('narrativeTitle').value;
+            const description = document.getElementById('narrativeDescription').value;
+            const category = document.getElementById('narrativeCategory').value;
+            const currency = document.getElementById('narrativeCurrency').value;
+            const impact = document.getElementById('narrativeImpact').value;
+            const threadId = document.getElementById('narrativeThread').value;
+            
+            // Create or get thread
+            let targetThreadId = threadId;
+            if (!threadId) {
+                const newThreadName = document.getElementById('newThreadName').value || `Thread ${threads.length + 1}`;
+                const newThread = {
+                    id: `thread-${Date.now()}`,
+                    name: newThreadName,
+                    color: threadColors[threads.length % threadColors.length],
+                    narrativeIds: []
+                };
+                threads.push(newThread);
+                targetThreadId = newThread.id;
+            }
+            
+            // Create narrative
+            const narrative = {
+                id: `narrative-${Date.now()}`,
+                title,
+                description,
+                category,
+                currency,
+                impact,
+                threadId: targetThreadId,
+                timestamp: new Date().toISOString(),
+                x: 0, // Will be calculated in timeline rendering
+                y: 0  // Will be calculated in timeline rendering
+            };
+            
+            narratives.push(narrative);
+            
+            // Add narrative to thread
+            const thread = threads.find(t => t.id === targetThreadId);
+            if (thread) {
+                thread.narrativeIds.push(narrative.id);
+            }
+            
+            // Save and update UI
+            saveData();
+            updateThreadSelect();
+            renderThreadPanel();
+            renderTimeline();
+            
+            // Reset form
+            document.getElementById('narrativeForm').reset();
+            document.getElementById('newThreadGroup').style.display = 'none';
+        }
+
+        function handleThreadChange(e) {
+            const newThreadGroup = document.getElementById('newThreadGroup');
+            if (e.target.value === '') {
+                newThreadGroup.style.display = 'block';
+            } else {
+                newThreadGroup.style.display = 'none';
+            }
+        }
+
+        function updateThreadSelect() {
+            const select = document.getElementById('narrativeThread');
+            select.innerHTML = '<option value="">Create New Thread</option>';
+            
+            threads.forEach(thread => {
+                const option = document.createElement('option');
+                option.value = thread.id;
+                option.textContent = thread.name;
+                select.appendChild(option);
+            });
+        }
+
+        function renderThreadPanel() {
+            const panel = document.getElementById('threadPanel');
+            panel.innerHTML = '';
+            
+            threads.forEach(thread => {
+                const threadEl = document.createElement('div');
+                threadEl.className = 'thread-item';
+                if (thread.id === selectedThread) {
+                    threadEl.classList.add('active');
+                }
+                
+                threadEl.innerHTML = `
+                    <div class="thread-color" style="background: ${thread.color}"></div>
+                    <div class="thread-name">${thread.name}</div>
+                    <div class="thread-count">${thread.narrativeIds.length} narratives</div>
+                `;
+                
+                threadEl.addEventListener('click', () => selectThread(thread.id));
+                panel.appendChild(threadEl);
+            });
+        }
+
+        function selectThread(threadId) {
+            selectedThread = selectedThread === threadId ? null : threadId;
+            renderThreadPanel();
+            renderTimeline();
+        }
+
+        function renderTimeline() {
+            const svg = d3.select('#timeline');
+            const container = svg.node().getBoundingClientRect();
+            
+            // Clear existing content
+            svg.selectAll('*').remove();
+            
+            if (narratives.length === 0) {
+                svg.append('text')
+                    .attr('x', container.width / 2)
+                    .attr('y', container.height / 2)
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', '#94a3b8')
+                    .attr('font-size', '16px')
+                    .text('No narratives yet. Create your first narrative to get started.');
+                return;
+            }
+            
+            // Filter narratives by selected thread
+            const filteredNarratives = selectedThread 
+                ? narratives.filter(n => n.threadId === selectedThread)
+                : narratives;
+            
+            if (filteredNarratives.length === 0) {
+                svg.append('text')
+                    .attr('x', container.width / 2)
+                    .attr('y', container.height / 2)
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', '#94a3b8')
+                    .attr('font-size', '16px')
+                    .text('No narratives in this thread.');
+                return;
+            }
+            
+            // Calculate time range
+            const timestamps = filteredNarratives.map(n => new Date(n.timestamp));
+            const minTime = d3.min(timestamps);
+            const maxTime = d3.max(timestamps);
+            const timeRange = maxTime - minTime || 1;
+            
+            // Add padding to time range
+            const paddedMin = new Date(minTime.getTime() - timeRange * 0.1);
+            const paddedMax = new Date(maxTime.getTime() + timeRange * 0.1);
+            
+            // Create scales
+            const xScale = d3.scaleTime()
+                .domain([paddedMin, paddedMax])
+                .range([50, container.width - 50]);
+            
+            const yScale = d3.scaleLinear()
+                .domain([0, threads.length + 1])
+                .range([50, container.height - 50]);
+            
+            // Create zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.5, 5])
+                .on('zoom', function(event) {
+                    currentZoom = event.transform.k;
+                    const newXScale = event.transform.rescaleX(xScale);
+                    const newYScale = event.transform.rescaleY(yScale);
+                    
+                    // Update axes
+                    xAxisGroup.call(xAxis.scale(newXScale));
+                    
+                    // Update narratives
+                    svg.selectAll('.narrative-node')
+                        .attr('transform', d => `translate(${newXScale(new Date(d.timestamp))}, ${newYScale(d.threadY)})`);
+                    
+                    // Update connections
+                    svg.selectAll('.connection-line')
+                        .attr('x1', d => newXScale(new Date(d.fromNarrative.timestamp)))
+                        .attr('y1', d => newYScale(d.fromNarrative.threadY))
+                        .attr('x2', d => newXScale(new Date(d.toNarrative.timestamp)))
+                        .attr('y2', d => newYScale(d.toNarrative.threadY));
+                });
+            
+            svg.call(zoom);
+            
+            // Draw grid
+            svg.append('g')
+                .attr('class', 'grid')
+                .selectAll('line.vertical')
+                .data(xScale.ticks())
+                .enter()
+                .append('line')
+                .attr('class', 'timeline-grid')
+                .attr('x1', d => xScale(d))
+                .attr('x2', d => xScale(d))
+                .attr('y1', 0)
+                .attr('y2', container.height);
+            
+            // Draw main timeline axis
+            const xAxis = d3.axisBottom(xScale)
+                .tickFormat(d3.timeFormat('%m/%d %H:%M'));
+            
+            const xAxisGroup = svg.append('g')
+                .attr('class', 'x-axis')
+                .attr('transform', `translate(0, ${container.height - 30})`)
+                .call(xAxis);
+            
+            xAxisGroup.selectAll('text')
+                .style('fill', '#94a3b8')
+                .style('font-size', '12px');
+            
+            xAxisGroup.selectAll('line, path')
+                .style('stroke', '#475569');
+            
+            // Draw thread lines
+            const threadGroups = d3.group(filteredNarratives, d => d.threadId);
+            let threadY = 1;
+            
+            threadGroups.forEach((narrativesInThread, threadId) => {
+                const thread = threads.find(t => t.id === threadId);
+                if (!thread) return;
+                
+                // Set thread Y position for narratives
+                narrativesInThread.forEach(n => {
+                    n.threadY = threadY;
+                });
+                
+                // Draw thread background line
+                const threadNarratives = narrativesInThread.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                if (threadNarratives.length > 1) {
+                    const lineData = threadNarratives.map(n => ({
+                        x: xScale(new Date(n.timestamp)),
+                        y: yScale(threadY)
+                    }));
+                    
+                    const lineGenerator = d3.line()
+                        .x(d => d.x)
+                        .y(d => d.y)
+                        .curve(d3.curveMonotoneX);
+                    
+                    svg.append('path')
+                        .datum(lineData)
+                        .attr('class', 'narrative-thread')
+                        .attr('d', lineGenerator)
+                        .style('stroke', thread.color);
+                }
+                
+                threadY++;
+            });
+            
+            // Draw connections
+            connections.forEach(conn => {
+                const fromNarrative = narratives.find(n => n.id === conn.from);
+                const toNarrative = narratives.find(n => n.id === conn.to);
+                
+                if (fromNarrative && toNarrative && 
+                    (!selectedThread || fromNarrative.threadId === selectedThread)) {
+                    
+                    conn.fromNarrative = fromNarrative;
+                    conn.toNarrative = toNarrative;
+                    
+                    const connectionColor = {
+                        'causes': '#ef4444',
+                        'reinforces': '#10b981',
+                        'contradicts': '#f59e0b',
+                        'related': '#06b6d4'
+                    }[conn.type] || '#64748b';
+                    
+                    svg.append('line')
+                        .datum(conn)
+                        .attr('class', 'connection-line')
+                        .attr('x1', xScale(new Date(fromNarrative.timestamp)))
+                        .attr('y1', yScale(fromNarrative.threadY))
+                        .attr('x2', xScale(new Date(toNarrative.timestamp)))
+                        .attr('y2', yScale(toNarrative.threadY))
+                        .style('stroke', connectionColor)
+                        .style('stroke-width', '2');
+                }
+            });
+            
+            // Draw narrative nodes
+            const nodes = svg.selectAll('.narrative-node')
+                .data(filteredNarratives)
+                .enter()
+                .append('g')
+                .attr('class', 'narrative-node')
+                .attr('transform', d => `translate(${xScale(new Date(d.timestamp))}, ${yScale(d.threadY)})`);
+            
+            // Node circles
+            nodes.append('circle')
+                .attr('r', 8)
+                .attr('fill', d => {
+                    const thread = threads.find(t => t.id === d.threadId);
+                    return thread ? thread.color : '#4f46e5';
+                })
+                .attr('stroke', '#1e293b')
+                .attr('stroke-width', 2)
+                .on('click', function(event, d) {
+                    if (connectionMode) {
+                        handleConnectionClick(d);
+                    } else {
+                        showNarrativeDetails(d);
+                    }
+                })
+                .on('mouseover', function(event, d) {
+                    d3.select(this).attr('r', 10);
+                    
+                    // Show tooltip
+                    const tooltip = svg.append('g')
+                        .attr('class', 'tooltip')
+                        .attr('transform', `translate(${xScale(new Date(d.timestamp))}, ${yScale(d.threadY) - 20})`);
+                    
+                    const text = tooltip.append('text')
+                        .attr('text-anchor', 'middle')
+                        .attr('fill', '#f1f5f9')
+                        .attr('font-size', '12px')
+                        .attr('font-weight', '500')
+                        .text(d.title);
+                    
+                    const bbox = text.node().getBBox();
+                    tooltip.insert('rect', 'text')
+                        .attr('x', bbox.x - 4)
+                        .attr('y', bbox.y - 2)
+                        .attr('width', bbox.width + 8)
+                        .attr('height', bbox.height + 4)
+                        .attr('fill', '#1e293b')
+                        .attr('stroke', '#475569')
+                        .attr('rx', 4);
+                })
+                .on('mouseout', function() {
+                    d3.select(this).attr('r', 8);
+                    svg.selectAll('.tooltip').remove();
+                });
+            
+            // Impact indicators
+            nodes.append('circle')
+                .attr('r', 3)
+                .attr('cx', 6)
+                .attr('cy', -6)
+                .attr('fill', d => {
+                    const impactColors = {
+                        'high': '#ef4444',
+                        'medium': '#f59e0b',
+                        'low': '#10b981'
+                    };
+                    return impactColors[d.impact] || '#64748b';
+                });
+        }
+
+        function showNarrativeDetails(narrative) {
+            const modal = document.getElementById('detailModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            
+            const thread = threads.find(t => t.id === narrative.threadId);
+            
+            modalTitle.textContent = narrative.title;
+            modalBody.innerHTML = `
+                <div class="detail-item">
+                    <div class="detail-label">Description</div>
+                    <div class="detail-value">${narrative.description}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Category</div>
+                    <div class="detail-value">
+                        <span class="category-badge">${narrative.category}</span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Currency Pair</div>
+                    <div class="detail-value">${narrative.currency}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Impact Level</div>
+                    <div class="detail-value">
+                        <span class="impact-indicator impact-${narrative.impact}">${narrative.impact.toUpperCase()}</span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Thread</div>
+                    <div class="detail-value">${thread ? thread.name : 'Unknown'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Timestamp</div>
+                    <div class="detail-value">${new Date(narrative.timestamp).toLocaleString()}</div>
+                </div>
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="deleteNarrative('${narrative.id}')">Delete</button>
+                    <button class="btn" onclick="closeModal()">Close</button>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        function deleteNarrative(narrativeId) {
+            if (confirm('Are you sure you want to delete this narrative?')) {
+                // Remove narrative
+                narratives = narratives.filter(n => n.id !== narrativeId);
+                
+                // Remove from thread
+                threads.forEach(thread => {
+                    thread.narrativeIds = thread.narrativeIds.filter(id => id !== narrativeId);
+                });
+                
+                // Remove related connections
+                connections = connections.filter(c => c.from !== narrativeId && c.to !== narrativeId);
+                
+                saveData();
+                renderTimeline();
+                renderThreadPanel();
+                closeModal();
+            }
+        }
+
+        function toggleConnectionMode() {
+            connectionMode = !connectionMode;
+            const connectionTools = document.getElementById('connectionTools');
+            const connectionModeText = document.getElementById('connectionModeText');
+            
+            if (connectionMode) {
+                connectionTools.classList.add('active');
+                connectionModeText.textContent = 'Exit Connect';
+                document.body.style.cursor = 'crosshair';
+            } else {
+                connectionTools.classList.remove('active');
+                connectionModeText.textContent = 'Connect Mode';
+                document.body.style.cursor = 'default';
+                connectionStart = null;
+            }
+        }
+
+        function handleConnectionClick(narrative) {
+            if (!connectionStart) {
+                connectionStart = narrative;
+                // Visual feedback for selection
+                d3.selectAll('.narrative-node circle')
+                    .filter(d => d.id === narrative.id)
+                    .attr('stroke', '#f59e0b')
+                    .attr('stroke-width', 3);
+            } else {
+                if (connectionStart.id !== narrative.id) {
+                    // Create connection
+                    const connection = {
+                        id: `conn-${Date.now()}`,
+                        from: connectionStart.id,
+                        to: narrative.id,
+                        type: selectedConnectionType,
+                        description: `${selectedConnectionType} relationship`
+                    };
+                    connections.push(connection);
+                    saveData();
+                    renderTimeline();
+                }
+                
+                // Reset selection
+                d3.selectAll('.narrative-node circle')
+                    .attr('stroke', '#1e293b')
+                    .attr('stroke-width', 2);
+                
+                connectionStart = null;
+            }
+        }
+
+        function cancelConnection() {
+            d3.selectAll('.narrative-node circle')
+                .attr('stroke', '#1e293b')
+                .attr('stroke-width', 2);
+            connectionStart = null;
+        }
+
+        function zoomIn() {
+            const svg = d3.select('#timeline');
+            svg.transition().call(d3.zoom().scaleBy, 1.3);
+        }
+
+        function zoomOut() {
+            const svg = d3.select('#timeline');
+            svg.transition().call(d3.zoom().scaleBy, 0.7);
+        }
+
+        function resetZoom() {
+            const svg = d3.select('#timeline');
+            svg.transition().call(d3.zoom().transform, d3.zoomIdentity);
+        }
+
+        function resetView() {
+            selectedThread = null;
+            renderThreadPanel();
+            renderTimeline();
+            resetZoom();
+        }
+
+        function addSampleNarratives() {
+            const sampleData = {
+                threads: [
+                    {
+                        id: 'thread-fed',
+                        name: 'Federal Reserve Policy',
+                        color: '#4f46e5',
+                        narrativeIds: []
+                    },
+                    {
+                        id: 'thread-inflation',
+                        name: 'Inflation Data',
+                        color: '#ef4444',
+                        narrativeIds: []
+                    },
+                    {
+                        id: 'thread-geopolitical',
+                        name: 'Geopolitical Events',
+                        color: '#f59e0b',
+                        narrativeIds: []
+                    }
+                ],
+                narratives: [
+                    {
+                        id: 'narrative-1',
+                        title: 'Fed Signals Hawkish Stance',
+                        description: 'Federal Reserve officials indicate potential rate hikes in upcoming meetings due to persistent inflation concerns.',
+                        category: 'Central Bank',
+                        currency: 'USD',
+                        impact: 'high',
+                        threadId: 'thread-fed',
+                        timestamp: new Date(Date.now() - 86400000 * 3).toISOString() // 3 days ago
+                    },
+                    {
+                        id: 'narrative-2',
+                        title: 'CPI Exceeds Expectations',
+                        description: 'Consumer Price Index comes in at 3.7% vs expected 3.5%, showing inflation remains stubborn.',
+                        category: 'Economic Data',
+                        currency: 'USD',
+                        impact: 'high',
+                        threadId: 'thread-inflation',
+                        timestamp: new Date(Date.now() - 86400000 * 2).toISOString() // 2 days ago
+                    },
+                    {
+                        id: 'narrative-3',
+                        title: 'Fed Chair Confirms Rate Hike Probability',
+                        description: 'Fed Chair Powell confirms that rate hikes are likely if inflation data continues to show persistence.',
+                        category: 'Central Bank',
+                        currency: 'USD',
+                        impact: 'high',
+                        threadId: 'thread-fed',
+                        timestamp: new Date(Date.now() - 86400000 * 1.5).toISOString() // 1.5 days ago
+                    },
+                    {
+                        id: 'narrative-4',
+                        title: 'Geopolitical Tensions Rise',
+                        description: 'Escalating tensions in Eastern Europe drive risk-off sentiment, benefiting USD as safe haven.',
+                        category: 'Geopolitical',
+                        currency: 'EURUSD',
+                        impact: 'medium',
+                        threadId: 'thread-geopolitical',
+                        timestamp: new Date(Date.now() - 86400000).toISOString() // 1 day ago
+                    },
+                    {
+                        id: 'narrative-5',
+                        title: 'Technical Breakout Confirmed',
+                        description: 'EURUSD breaks below key support level, confirming bearish technical setup.',
+                        category: 'Technical Analysis',
+                        currency: 'EURUSD',
+                        impact: 'medium',
+                        threadId: 'thread-geopolitical',
+                        timestamp: new Date(Date.now() - 86400000 * 0.5).toISOString() // 0.5 days ago
+                    }
+                ],
+                connections: [
+                    {
+                        id: 'conn-1',
+                        from: 'narrative-2',
+                        to: 'narrative-3',
+                        type: 'causes',
+                        description: 'High CPI data causes Fed hawkish response'
+                    },
+                    {
+                        id: 'conn-2',
+                        from: 'narrative-1',
+                        to: 'narrative-3',
+                        type: 'reinforces',
+                        description: 'Fed signals reinforce final rate decision'
+                    },
+                    {
+                        id: 'conn-3',
+                        from: 'narrative-4',
+                        to: 'narrative-5',
+                        type: 'causes',
+                        description: 'Geopolitical tensions trigger technical breakout'
+                    }
+                ]
+            };
+            
+            // Update thread narrative IDs
+            sampleData.threads.forEach(thread => {
+                thread.narrativeIds = sampleData.narratives
+                    .filter(n => n.threadId === thread.id)
+                    .map(n => n.id);
+            });
+            
+            // Add to existing data
+            threads = [...threads, ...sampleData.threads];
+            narratives = [...narratives, ...sampleData.narratives];
+            connections = [...connections, ...sampleData.connections];
+            
+            saveData();
+            updateThreadSelect();
+            renderThreadPanel();
+            renderTimeline();
+        }
+
+        function saveData() {
+            const data = {
+                narratives,
+                threads,
+                connections
+            };
+            localStorage.setItem('narrativeTrackerData', JSON.stringify(data));
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

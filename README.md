@@ -32,6 +32,7 @@ This project includes detailed documentation for a deeper understanding of its d
 -   **[Design Intent](./specs/NeuroSense%20FX_design%20intent.txt):** The core human-centric design philosophy and foundational principles.
 -   **[Build Plan](./specs/Ground-Up%20Build%20Plan%20(Performant%20&%20Simple).txt):** The original technical specifications for the application.
 -   **[Local Development Guide](./README_LOCAL_DEV.md):** Comprehensive guide for setting up and running the project locally with troubleshooting tips.
+-   **[AI Chat Persistence](./README_AI_CHAT_PERSISTENCE.md):** Guide for persistent AI chat history in VS Code Dev Containers using localhost backup.
 
 ## 🚀 Front-End Quick Start
 
@@ -76,3 +77,7 @@ This project provides a comprehensive set of commands for setup, development, an
 > **Note**: The `cleanup_dev_env.sh` script mentioned in some documentation has been consolidated into `setup_project.sh --clean` and is no longer a separate file. Use `./setup_project.sh --clean` for a complete environment reset.
 
 For detailed instructions on local development, please see [Local Development Guide](./README_LOCAL_DEV.md).
+
+## 🔄 Dev Container Support
+
+This project supports VS Code Dev Containers for consistent development environments with **automated AI chat persistence**. Your chat history for Cline, Roo, and Kilo Code will automatically survive container rebuilds using the localhost backup solution. See [AI Chat Persistence](./README_AI_CHAT_PERSISTENCE.md) for details.
