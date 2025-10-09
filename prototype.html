@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroSense FX - Floating Interface Prototype</title>
+    <link rel="stylesheet" href="prototype-styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Full Screen Canvas Area -->
+        <div class="canvas-area" id="canvasArea">
+            <div class="workspace-grid" id="workspaceGrid">
+                <!-- Canvas Container 1 -->
+                <div class="canvas-container" data-canvas-id="canvas-1">
+                    <div class="canvas-header">
+                        <span class="canvas-title">EURUSD</span>
+                        <div class="canvas-controls">
+                            <button class="btn btn-icon btn-small" onclick="toggleCanvasSettings('canvas-1')">
+                                <svg class="icon" viewBox="0 0 24 24">
+                                    <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.65-.07-.97l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.488.488 0 0 0 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.97c0 .33.03.65.07.97l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.13-.22.07-.49-.12-.64l-2.11-1.65Z"/>
+                                </svg>
+                            </button>
+                            <button class="btn btn-icon btn-small" onclick="closeCanvas('canvas-1')">×</button>
+                        </div>
+                    </div>
+                    <div class="canvas-visualization">
+                        <canvas width="220" height="120" id="viz-canvas-1"></canvas>
+                    </div>
+                </div>
+
+                <!-- Canvas Container 2 -->
+                <div class="canvas-container" data-canvas-id="canvas-2">
+                    <div class="canvas-header">
+                        <span class="canvas-title">GBPUSD</span>
+                        <div class="canvas-controls">
+                            <button class="btn btn-icon btn-small" onclick="toggleCanvasSettings('canvas-2')">
+                                <svg class="icon" viewBox="0 0 24 24">
+                                    <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.65-.07-.97l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.488.488 0 0 0 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.97c0 .33.03.65.07.97l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.13-.22.07-.49-.12-.64l-2.11-1.65Z"/>
+                                </svg>
+                            </button>
+                            <button class="btn btn-icon btn-small" onclick="closeCanvas('canvas-2')">×</button>
+                        </div>
+                    </div>
+                    <div class="canvas-visualization">
+                        <canvas width="220" height="120" id="viz-canvas-2"></canvas>
+                    </div>
+                </div>
+
+                <!-- Canvas Container 3 -->
+                <div class="canvas-container" data-canvas-id="canvas-3">
+                    <div class="canvas-header">
+                        <span class="canvas-title">USDJPY</span>
+                        <div class="canvas-controls">
+                            <button class="btn btn-icon btn-small" onclick="toggleCanvasSettings('canvas-3')">
+                                <svg class="icon" viewBox="0 0 24 24">
+                                    <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.65-.07-.97l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.488.488 0 0 0 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.97c0 .33.03.65.07.97l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.13-.22.07-.49-.12-.64l-2.11-1.65Z"/>
+                                </svg>
+                            </button>
+                            <button class="btn btn-icon btn-small" onclick="closeCanvas('canvas-3')">×</button>
+                        </div>
+                    </div>
+                    <div class="canvas-visualization">
+                        <canvas width="220" height="120" id="viz-canvas-3"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating UI Elements -->
+        
+        <!-- Connection Status Indicator -->
+        <div class="floating-indicator" id="connectionStatus" style="top: 20px; left: 20px;">
+            <div class="indicator-light connected"></div>
+            <span class="indicator-text">Connected</span>
+        </div>
+
+        <!-- Floating Connection Icon -->
+        <div class="floating-icon" id="connectionIcon" style="top: 20px; left: 80px;" data-panel="connection">
+            <button class="icon-btn" onclick="toggleFloatingPanel('connection')" title="Connection">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Floating Settings Icon -->
+        <div class="floating-icon" id="settingsIcon" style="top: 20px; left: 130px;" data-panel="settings">
+            <button class="icon-btn" onclick="toggleFloatingPanel('settings')" title="Settings">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.65-.07-.97l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.488.488 0 0 0 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.97c0 .33.03.65.07.97l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.13-.22.07-.49-.12-.64l-2.11-1.65Z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Floating Add Symbol Icon -->
+        <div class="floating-icon" id="addSymbolIcon" style="top: 20px; left: 180px;" data-panel="addSymbol">
+            <button class="icon-btn" onclick="toggleFloatingPanel('addSymbol')" title="Add Symbol">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Floating Workspace Icon -->
+        <div class="floating-icon" id="workspaceIcon" style="top: 20px; left: 230px;" data-panel="workspace">
+            <button class="icon-btn" onclick="toggleFloatingPanel('workspace')" title="Workspace">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Floating Panels (initially hidden) -->
+        
+        <!-- Connection Panel -->
+        <div class="floating-panel" id="connectionPanel" style="display: none;">
+            <div class="panel-header">
+                <h3>Connection</h3>
+                <button class="btn btn-icon btn-small" onclick="toggleFloatingPanel('connection')">×</button>
+            </div>
+            <div class="panel-content">
+                <div class="connection-form">
+                    <div class="form-group">
+                        <label for="connectionType">Connection Type</label>
+                        <select id="connectionType" class="form-control">
+                            <option value="live">Live Data</option>
+                            <option value="simulation" selected>Simulation</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="symbol">Symbol</label>
+                        <input type="text" id="symbol" class="form-control" value="EURUSD" placeholder="Enter symbol">
+                    </div>
+                    <button class="btn btn-primary" onclick="connectToSymbol()">Connect</button>
+                </div>
+                
+                <div class="service-status">
+                    <h3>Service Status</h3>
+                    <div class="status-item">
+                        <span class="status-indicator connected"></span>
+                        <span>WebSocket Server</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-indicator connected"></span>
+                        <span>cTrader API</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-indicator warning"></span>
+                        <span>Data Processor</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="floating-panel" id="settingsPanel" style="display: none;">
+            <div class="panel-header">
+                <h3>Visualization Settings</h3>
+                <button class="btn btn-icon btn-small" onclick="toggleFloatingPanel('settings')">×</button>
+            </div>
+            <div class="panel-content">
+                <div class="settings-tabs">
+                    <button class="tab-btn active" onclick="switchTab('indicators')">Indicators</button>
+                    <button class="tab-btn" onclick="switchTab('appearance')">Appearance</button>
+                    <button class="tab-btn" onclick="switchTab('performance')">Performance</button>
+                </div>
+
+                <div class="tab-content active" id="indicators-tab">
+                    <div class="indicator-group">
+                        <h3>Price Float</h3>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" checked> Enable
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Width</label>
+                            <input type="range" min="50" max="150" value="100" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Color</label>
+                            <input type="color" value="#a78bfa" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="indicator-group">
+                        <h3>Volatility Orb</h3>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" checked> Enable
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Base Width</label>
+                            <input type="range" min="100" max="300" value="200" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Color Mode</label>
+                            <select class="form-control">
+                                <option>Directional</option>
+                                <option>Intensity Spectrum</option>
+                                <option>Single Hue</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="performance-tab">
+                    <div class="performance-stats">
+                        <div class="stat-item">
+                            <span>FPS:</span>
+                            <span class="stat-value">60</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Memory:</span>
+                            <span class="stat-value">45MB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Symbol Panel -->
+        <div class="floating-panel" id="addSymbolPanel" style="display: none;">
+            <div class="panel-header">
+                <h3>Add Symbol</h3>
+                <button class="btn btn-icon btn-small" onclick="toggleFloatingPanel('addSymbol')">×</button>
+            </div>
+            <div class="panel-content">
+                <div class="form-group">
+                    <label for="newSymbol">Symbol</label>
+                    <input type="text" id="newSymbol" class="form-control" placeholder="e.g., EURUSD">
+                </div>
+                <button class="btn btn-primary" onclick="addSymbolFromFloatingPanel()">Add</button>
+            </div>
+        </div>
+
+        <!-- Workspace Panel -->
+        <div class="floating-panel" id="workspacePanel" style="display: none;">
+            <div class="panel-header">
+                <h3>Workspace</h3>
+                <button class="btn btn-icon btn-small" onclick="toggleFloatingPanel('workspace')">×</button>
+            </div>
+            <div class="panel-content">
+                <div class="workspace-info">
+                    <p>Current: <strong>Default Workspace</strong></p>
+                    <p>Canvases: <strong id="canvasCount">3</strong></p>
+                </div>
+                <div class="workspace-actions">
+                    <button class="btn btn-secondary" onclick="saveWorkspace()">Save</button>
+                    <button class="btn btn-secondary" onclick="loadWorkspace()">Load</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Canvas Controls -->
+        <div class="floating-controls" id="canvasControls" style="bottom: 20px; right: 20px;">
+            <button class="btn btn-icon btn-floating" onclick="addCanvas()" title="Add Canvas">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+            </button>
+            <button class="btn btn-icon btn-floating" onclick="toggleGrid()" title="Toggle Grid">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/>
+                </svg>
+            </button>
+            <button class="btn btn-icon btn-floating" onclick="saveWorkspace()" title="Save Workspace">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Quick Add Symbol Modal -->
+        <div class="quick-add-modal" id="quickAddModal">
+            <input type="text" placeholder="Symbol (e.g., EURUSD)" id="quickSymbolInput" class="quick-input">
+            <button class="btn btn-primary btn-quick" onclick="addSymbolFromModal()">Add</button>
+        </div>
+
+        <!-- Workspace Management Modal -->
+        <div class="modal" id="workspaceModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Workspace Management</h2>
+                    <button class="btn btn-icon" onclick="closeWorkspaceModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="workspace-list">
+                        <div class="workspace-item active">
+                            <div class="workspace-info">
+                                <h3>Default Workspace</h3>
+                                <p>3 canvases • Last modified: 2 hours ago</p>
+                            </div>
+                            <div class="workspace-actions">
+                                <button class="btn btn-small">Load</button>
+                                <button class="btn btn-small btn-secondary">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="workspace-actions">
+                        <button class="btn btn-primary" onclick="createNewWorkspace()">Create New Workspace</button>
+                        <button class="btn btn-secondary" onclick="importWorkspace()">Import Workspace</button>
+                        <button class="btn btn-secondary" onclick="exportWorkspace()">Export Current</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="prototype-script.js"></script>
+</body>
+</html>
