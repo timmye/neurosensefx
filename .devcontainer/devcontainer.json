@@ -15,7 +15,7 @@
     }
   },
   "forwardPorts": [5173, 8080],
-  "postCreateCommand": "./setup_project.sh",
+  "postCreateCommand": "./setup_project.sh && ./scripts/setup_serena.sh",
   // Removed automatic service startup - start services manually with: ./run.sh start
   // "postStartCommand": "./run.sh start-background",
   // "postAttachCommand": "./run.sh wait-for-services",

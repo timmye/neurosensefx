@@ -1,6 +1,12 @@
 # NeuroSense FX - Active Context
 
 ## Current Work Focus
+**Serena MCP Server Installation & Testing - COMPLETED ✅**
+Successfully installed, configured, and tested the Serena MCP server for semantic code analysis and editing capabilities. The server provides powerful symbol navigation, semantic editing, memory management, and project analysis tools specifically configured for the NeuroSense FX codebase. UVX-based installation with project-specific configuration at `.serena/project.yml` and IDE-assistant context for VSCode integration. **MCP server is now fully functional and connected via Cline**.
+
+**DevContainer Automatic Serena Initialization - COMPLETED ✅**
+Fixed DevContainer configuration to automatically set up Serena MCP server during container creation. Updated Dockerfile to properly install UV for the node user and integrated Serena setup into devcontainer.json postCreateCommand. Serena now initializes automatically during dev container rebuilds.
+
 **BrowserTools MCP Server Installation - COMPLETED ✅**
 Successfully installed and configured the BrowserTools MCP server for comprehensive browser analysis during intensive frontend rewrites. The server is now available as "github.com/AgentDeskAI/browser-tools-mcp" and provides powerful browser debugging capabilities including screenshots, network monitoring, console logs, and accessibility audits. Integrated into the main run.sh startup sequence for foolproof always-available operation.
 

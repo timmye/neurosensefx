@@ -259,10 +259,32 @@ node server.js        # Backend server (port 8080)
   - Fetches current documentation for any library
   - Essential for maintaining accurate API references
   
+- **Serena MCP Server**: Semantic code analysis and editing toolkit
+  - **Installation**: UVX-based installation in DevContainer
+  - **Configuration**: Project-specific YAML at `.serena/project.yml`
+  - **Context**: IDE-assistant mode for VSCode integration
+  - **Available Tools**: 
+    - Symbol navigation (`find_symbol`, `find_references`, `find_definitions`)
+    - Semantic editing (`edit_symbol`, `replace_symbol_body`)
+    - Memory management (`write_memory`, `read_memory`, `list_memories`)
+    - Project management (`activate_project`, `get_current_config`)
+    - File operations (`list_dir`, `find_file`, `search_for_pattern`)
+  - **Language Support**: JavaScript/TypeScript with TypeScript Language Server
+  - **Web Dashboard**: Available at `http://127.0.0.1:24282/dashboard/index.html`
+  - **Setup Script**: `./scripts/setup_serena.sh` for automated installation
+  
 - **Web Search Prime MCP Server**: Web search capabilities
   - Configurable search parameters (count, recency, content size)
   - Location filtering ("cn" Chinese region default, "us" available)
   - Manual location specification recommended for US region results
   - Tool: `webSearchPrime` with full parameter control
+
+### Serena MCP Configuration
+- **Project Configuration**: `.serena/project.yml` with NeuroSense FX specific settings
+- **Language**: JavaScript (auto-detected, with TypeScript support)
+- **Key Directories**: Configured for `src/components/viz`, `src/stores`, `src/workers`, `services/tick-backend`, `libs/cTrader-Layer`, `memory-bank`
+- **Performance Context**: Aware of 60fps target, 20 display limit, 500MB memory constraint
+- **Architecture Understanding**: Configured for two-server pattern (Vite/5173 + Node/8080)
+- **Security**: Shell command execution disabled for safety
 
 This technical context provides comprehensive information about the two-server architecture, technologies, constraints, and MCP integration that guide development decisions.

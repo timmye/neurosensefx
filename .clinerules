@@ -213,3 +213,53 @@ Frontend Server (5173) ←→ Backend Server (8080) ←→ cTrader API
 ```
 
 This architecture clarification ensures consistent understanding and prevents confusion in all future development work.
+
+## MCP Servers Integration
+
+The project has several MCP servers integrated for enhanced capabilities:
+
+### Serena MCP Server ✅ PRIMARY TOOL
+- **Purpose**: Semantic code analysis and editing toolkit
+- **Status**: Fully installed and configured with all 25 tools auto-approved
+- **Capabilities**: 
+  - Symbol navigation and analysis
+  - Semantic code editing
+  - File operations and search
+  - Memory management for project knowledge
+  - Project configuration and onboarding
+  - Thinking tools for task management
+- **Usage**: Available as `serena` server with immediate access to all tools
+- **Integration**: Configured for NeuroSense FX with IDE-assistant context
+- **Key Benefits**: Understands two-server architecture, performance constraints, and codebase structure
+
+### BrowserTools MCP Server
+- **Purpose**: Browser analysis, screenshots, network monitoring, accessibility audits
+- **Usage**: Available as `github.com/AgentDeskAI/browser-tools-mcp`
+
+### Context7 MCP Server
+- **Purpose**: Up-to-date library documentation and code examples
+- **Usage**: Available as `github.com/upstash/context7-mcp`
+
+### Web Search Prime MCP Server
+- **Purpose**: Web search capabilities with configurable parameters
+- **Usage**: Available as `web-search-prime`
+
+## LLM Usage Guidelines
+
+### Serena MCP Server Usage
+When working with this project, prioritize Serena MCP server for:
+1. **Code Analysis**: Use `get_symbols_overview`, `find_symbol`, `find_referencing_symbols`
+2. **Navigation**: Use `list_dir`, `find_file`, `search_for_pattern`
+3. **Semantic Editing**: Use `replace_symbol_body`, `insert_after_symbol`, `insert_before_symbol`
+4. **Knowledge Management**: Use `write_memory`, `read_memory`, `list_memories`
+5. **Project Understanding**: Use `get_current_config`, `onboarding`, thinking tools
+
+### Best Practices
+1. **Start with Serena**: Use Serena tools first for code understanding and navigation
+2. **Leverage Memory**: Store important insights in Serena memory for persistence
+3. **Use Thinking Tools**: Apply thinking tools for complex task management
+4. **Semantic over Text**: Prefer Serena's semantic editing over text replacements
+5. **Context Awareness**: Serena understands NeuroSense FX architecture and constraints
+
+### Tool Availability
+All MCP servers are immediately available without permission delays. Serena provides the most comprehensive toolkit for NeuroSense FX development work.
