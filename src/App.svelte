@@ -1,145 +1,358 @@
 <script>
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
-  import Container from './components/viz/Container.svelte';
-  import ConfigPanel from './components/ConfigPanel.svelte';
-  import MultiSymbolADR from './components/viz/MultiSymbolADR.svelte'; // Import the new component
+  import FloatingCanvas from './components/FloatingCanvas.svelte';
+  import CanvasContextMenu from './components/CanvasContextMenu.svelte';
+  import FloatingSymbolPalette from './components/FloatingSymbolPalette.svelte';
+  import FloatingDebugPanel from './components/FloatingDebugPanel.svelte';
+  import FloatingSystemPanel from './components/FloatingSystemPanel.svelte';
+  import FloatingMultiSymbolADR from './components/FloatingMultiSymbolADR.svelte';
   import { symbolStore } from './data/symbolStore.js';
-  import { dataSourceMode, wsStatus } from './data/wsClient.js';
-  import { selectedSymbol } from './stores/uiState.js';
+  import { dataSourceMode, wsStatus, subscribe } from './data/wsClient.js';
+  import { workspaceState, workspaceActions, createCanvasData } from './stores/workspaceState.js';
+  import { uiState, uiActions } from './stores/uiState.js';
+  import { registryActions } from './stores/canvasRegistry.js';
+  import { createWorkspaceEventManager } from './utils/WorkspaceEventManager.js';
+  import { defaultConfig } from './stores/configStore.js';
 
   let symbols = {};
+  let workspaceElement;
+  let eventManager;
+  let showContextMenu = false;
+  let contextMenuCanvasId = null;
+  let contextMenuPosition = { x: 0, y: 0 };
+  let contextMenuConfig = defaultConfig;
+
 
   const unsubSymbolStore = symbolStore.subscribe(value => {
     symbols = value;
-    const symbolKeys = Object.keys(value);
-    if (!$selectedSymbol || !value[$selectedSymbol]) {
-        selectedSymbol.set(symbolKeys[0] || null);
-    }
+  });
+
+  // Subscribe to workspace state
+  const unsubWorkspaceState = workspaceState.subscribe(state => {
+    // Handle workspace state changes
+  });
+
+  // Subscribe to UI state for context menu
+  const unsubUIState = uiState.subscribe(state => {
+    showContextMenu = state.contextMenuOpen;
+    contextMenuPosition = state.menuPosition;
+    contextMenuCanvasId = state.activeCanvas;
   });
 
   onMount(() => {
-    return () => unsubSymbolStore();
+    // Initialize workspace event manager
+    if (workspaceElement) {
+      eventManager = createWorkspaceEventManager(workspaceElement);
+    }
+
+    return () => {
+      unsubSymbolStore();
+      unsubWorkspaceState();
+      unsubUIState();
+      if (eventManager) {
+        eventManager.destroy();
+      }
+    };
   });
 
   function handleDataSourceChange(event) {
     dataSourceMode.set(event.detail.mode);
-    selectedSymbol.set(null);
   }
 
+  function handleCanvasContextMenu(event) {
+    const { canvasId, position } = event.detail;
+    contextMenuCanvasId = canvasId;
+    contextMenuPosition = position;
+    
+    // Get canvas config
+    const canvasData = $workspaceState.canvases.get(canvasId);
+    if (canvasData && canvasData.config) {
+      contextMenuConfig = canvasData.config;
+    }
+    
+    uiActions.showContextMenu(position, canvasId);
+  }
+
+  function handleCanvasClose(event) {
+    const { canvasId } = event.detail;
+    workspaceActions.removeCanvas(canvasId);
+    registryActions.unregisterCanvas(canvasId);
+  }
+
+  function handleCanvasConfigChange(event) {
+    const { canvasId, ...configChanges } = event.detail;
+    workspaceActions.updateCanvas(canvasId, { config: { ...contextMenuConfig, ...configChanges } });
+  }
+
+  function handleCanvasConfigReset(event) {
+    const { canvasId, config } = event.detail;
+    workspaceActions.updateCanvas(canvasId, { config });
+  }
+
+  function handleContextMenuClose() {
+    uiActions.hideContextMenu();
+  }
+
+  function handleCanvasDragStart(event) {
+    const { canvasId, offset } = event.detail;
+    workspaceActions.startDrag(canvasId, offset);
+  }
+
+  function handleCanvasDragMove(event) {
+    const { canvasId, position } = event.detail;
+    workspaceActions.updateDragPosition(position);
+  }
+
+  function handleCanvasDragEnd(event) {
+    const { canvasId, position } = event.detail;
+    workspaceActions.updateCanvas(canvasId, { position });
+    workspaceActions.endDrag();
+  }
+
+  function handleCanvasHover(event) {
+    const { canvasId, isHovering } = event.detail;
+    if (isHovering) {
+      uiActions.setCanvasHovered(canvasId);
+    } else {
+      uiActions.clearCanvasHovered(canvasId);
+    }
+  }
+
+
+  function addFloatingCanvas(symbol = null, position = null) {
+    console.log('🔍 DEBUG: addFloatingCanvas called', { symbol, position });
+    
+    const selectedSymbol = symbol || Object.keys(symbols)[0] || 'EURUSD';
+    const canvasPosition = position || {
+      x: 100 + Math.random() * 200,
+      y: 100 + Math.random() * 100
+    };
+    
+    console.log('🔍 DEBUG: Canvas data', { selectedSymbol, canvasPosition, symbolsAvailable: Object.keys(symbols) });
+    
+    // Create canvas data
+    const canvasData = createCanvasData(selectedSymbol, canvasPosition);
+    
+    // Get symbol config and state from symbolStore
+    const symbolStoreValue = $symbolStore;
+    const symbolData = symbolStoreValue[selectedSymbol];
+    
+    if (symbolData) {
+      canvasData.config = { ...symbolData.config };
+      canvasData.state = { ...symbolData.state };
+      console.log('🔍 DEBUG: Using existing symbol data', { config: canvasData.config, state: canvasData.state });
+    } else {
+      canvasData.config = { ...defaultConfig };
+      canvasData.state = { ready: false };
+      console.log('🔍 DEBUG: Using default config', { config: canvasData.config, state: canvasData.state });
+      
+      // If symbol doesn't exist in symbolStore, we need to subscribe to it
+      if ($dataSourceMode === 'live') {
+        subscribe(selectedSymbol);
+      } else if ($dataSourceMode === 'simulated') {
+        // For simulation, we need to ensure the symbol exists
+        if (selectedSymbol !== 'SIM-EURUSD') {
+          console.log('🔍 DEBUG: Non-simulation symbol selected, switching to simulation mode');
+          dataSourceMode.set('simulated');
+        }
+      }
+    }
+    
+    console.log('🔍 DEBUG: Created canvas data', canvasData);
+    
+    // Register and add canvas
+    registryActions.registerCanvas(canvasData.id, {
+      symbol: selectedSymbol,
+      type: 'floating'
+    });
+    
+    console.log('🔍 DEBUG: Canvas registered, adding to workspace');
+    workspaceActions.addCanvas(canvasData);
+    
+    // Update canvas data when symbolStore updates
+    const unsubSymbolStore = symbolStore.subscribe(value => {
+      const updatedSymbolData = value[selectedSymbol];
+      if (updatedSymbolData && updatedSymbolData.state && updatedSymbolData.config) {
+        workspaceActions.updateCanvas(canvasData.id, {
+          config: { ...updatedSymbolData.config },
+          state: { ...updatedSymbolData.state }
+        });
+      }
+    });
+    
+    // Store unsubscribe function for cleanup
+    canvasData.unsubSymbolStore = unsubSymbolStore;
+    
+    // Verify it was added
+    setTimeout(() => {
+      console.log('🔍 DEBUG: Workspace state after addition', {
+        canvasCount: $workspaceState.canvases.size,
+        canvases: Array.from($workspaceState.canvases.keys())
+      });
+    }, 100);
+  }
+
+
+  function clearWorkspace() {
+    workspaceActions.clearWorkspace();
+    registryActions.clearRegistry();
+  }
+
+  // Keyboard shortcuts
+  function handleKeyDown(event) {
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+    
+  }
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 <main>
   <div class="main-container">
     
-    <!-- New Multi-Symbol ADR Panel -->
-    {#if Object.keys(symbols).length > 0}
-      <div class="adr-panel-container">
-        <div class="symbol-header">ADR Overview</div>
-        <MultiSymbolADR />
-      </div>
-    {/if}
-
+    <!-- Floating Workspace Container -->
     <div class="viz-area">
-      {#if Object.keys(symbols).length === 0}
-        <div class="placeholder">
-          <h2>Welcome to NeuroSense FX</h2>
-          {#if $dataSourceMode === 'live'}
-            {#if $wsStatus === 'disconnected'}
-              <p>Select "Live Data" in the panel to connect.</p>
-            {:else if $wsStatus === 'ws-connecting' || $wsStatus === 'ws-open'}
-              <p>Connecting to backend...</p>
-            {:else if $wsStatus === 'ready'}
-              <p>Connection successful. Select a symbol in the panel to subscribe.</p>
-            {:else if $wsStatus === 'error'}
-              <p class="error">Connection Error. Check the console for details.</p>
-            {/if}
-          {:else}
-            <p>Simulation is running. Select a symbol in the panel to configure it.</p>
-          {/if}
-        </div>
-      {:else}
-        <div class="viz-grid">
-          {#each Object.entries(symbols) as [symbol, data] (symbol)}
-            <div class="viz-wrapper" class:selected={symbol === $selectedSymbol} on:click={() => selectedSymbol.set(symbol)}>
-              <div class="symbol-header">{symbol}</div>
-              {#if data.ready}
-                <Container
-                  config={data.config}
-                  state={data.state}
-                />
-              {:else}
-                <div class="placeholder">
-                  <p>Initializing {symbol}...</p>
-                </div>
-              {/if}
-            </div>
+      <div
+        bind:this={workspaceElement}
+        class="workspace-container"
+        class:show-grid={$workspaceState.showGrid}
+      >
+        <!-- Floating Canvases Layer -->
+        <div class="floating-canvases-layer">
+          {#each Array.from($workspaceState.canvases.values()) as canvas (canvas.id)}
+            <FloatingCanvas
+              id={canvas.id}
+              symbol={canvas.symbol}
+              config={canvas.config}
+              state={canvas.state}
+              position={canvas.position}
+              on:contextMenu={handleCanvasContextMenu}
+              on:close={handleCanvasClose}
+              on:configChange={handleCanvasConfigChange}
+              on:configReset={handleCanvasConfigReset}
+              on:dragStart={handleCanvasDragStart}
+              on:dragMove={handleCanvasDragMove}
+              on:dragEnd={handleCanvasDragEnd}
+              on:hover={handleCanvasHover}
+            />
           {/each}
         </div>
-      {/if}
-    </div>
-    <div class="config-panel-container">
-      <ConfigPanel
-        config={symbols[$selectedSymbol]?.config}
-        state={symbols[$selectedSymbol]?.state} 
-        on:dataSourceChange={handleDataSourceChange}
-      />
+        
+        <!-- Empty State for Workspace -->
+        {#if $workspaceState.canvases.size === 0}
+          <div class="workspace-empty-state">
+            <!-- Empty state with no text or buttons -->
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
+  
+  <!-- Global Context Menu -->
+  {#if showContextMenu && contextMenuCanvasId}
+    <CanvasContextMenu
+      position={contextMenuPosition}
+      canvasId={contextMenuCanvasId}
+      config={contextMenuConfig}
+      on:configChange={handleCanvasConfigChange}
+      on:configReset={handleCanvasConfigReset}
+      on:close={handleContextMenuClose}
+    />
+  {/if}
+  
+  <!-- Floating Symbol Palette -->
+  <FloatingSymbolPalette on:canvasCreated={addFloatingCanvas} />
+  
+  <!-- Floating Debug Panel -->
+  <FloatingDebugPanel on:close={() => uiActions.hideFloatingDebugPanel()} />
+  
+  <!-- Floating System Panel -->
+  <FloatingSystemPanel on:dataSourceChange={handleDataSourceChange} />
+  
+  <!-- Floating Multi-Symbol ADR Panel -->
+  <FloatingMultiSymbolADR on:close={() => uiActions.hideFloatingADRPanel()} />
 </main>
 
 <style>
   :global(body) {
     background-color: #111827;
   }
-  .viz-wrapper {
-    border: 2px solid transparent;
-    border-radius: 8px;
-    padding: 5px;
-    transition: border-color 0.2s;
-  }
-  .viz-wrapper.selected {
-    border-color: #4f46e5;
-  }
-  .symbol-header {
-    text-align: center;
-    font-weight: bold;
-    color: #9ca3af;
-    margin-bottom: 5px;
-  }
+  
+  
   .main-container {
     display: flex;
     height: 100vh;
+    position: relative;
   }
-  /* Style for the new ADR panel */
-  .adr-panel-container {
-    width: 150px; /* Canvas is 120px wide */
-    flex-shrink: 0;
-    padding: 20px 10px;
-    border-right: 1px solid #374151;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
+  
   .viz-area {
-    flex-grow: 1;
-    padding: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow-x: auto;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
   }
-  .viz-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
+  
+  /* Workspace Container for Floating Canvases */
+  .workspace-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #111827;
+    background-image:
+      radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 20%, rgba(239, 68, 68, 0.1) 0%, transparent 50%);
+    z-index: 10;
   }
-  .config-panel-container {
-    width: 350px;
-    flex-shrink: 0;
-    overflow-y: auto;
-    border-left: 1px solid #374151;
+  
+  .workspace-container.show-grid {
+    background-image: 
+      radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 20%, rgba(239, 68, 68, 0.1) 0%, transparent 50%),
+      linear-gradient(rgba(55, 65, 81, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(55, 65, 81, 0.1) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 20px 20px, 20px 20px;
   }
+  
+  .floating-canvases-layer {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  .workspace-empty-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #6b7280;
+    max-width: 300px;
+    min-width: 100px;
+    min-height: 50px;
+  }
+  
+  .primary-btn {
+    background: #4f46e5;
+    color: white;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+  }
+  
+  .primary-btn:hover {
+    background: #6366f1;
+  }
+  
+  
   .placeholder {
     color: #6b7280;
     text-align: center;
@@ -148,6 +361,7 @@
     justify-content: center;
     align-items: center;
   }
+  
   .error {
     color: #ef4444;
   }

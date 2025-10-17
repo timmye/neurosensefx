@@ -65,7 +65,6 @@ This project provides a comprehensive set of commands for setup, development, an
 
 ### 📦 npm Scripts
 - `npm start` - Alias for `./run.sh start`
-- `npm run dev` - Start development server directly
 - `npm run build` - Create production build
 - `npm run preview` - Preview production build
 - `npm run lint` - Run code linter

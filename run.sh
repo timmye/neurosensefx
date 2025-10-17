@@ -11,8 +11,6 @@ BACKEND_DIR="services/tick-backend"
 BACKEND_LOG="backend.log"
 BACKEND_PID_FILE="backend.pid"
 FRONTEND_PID_FILE="frontend.pid"
-BROWSER_TOOLS_PID_FILE="browser-tools.pid"
-BROWSER_TOOLS_LOG="browser-tools.log"
 
 # Container-aware timing configuration
 if [ -f "/.dockerenv" ] || [ -n "$CONTAINER_MODE" ]; then
@@ -98,18 +96,6 @@ check_frontend_health() {
     return 1
 }
 
-check_browser_tools_health() {
-    # BrowserTools server runs on port 3025
-    local response=$(curl -s -m 5 http://localhost:3025 2>/dev/null || echo "")
-    if echo "$response" | grep -q "Browser Tools Server\|Aggregator listening"; then
-        return 0
-    fi
-    # Also check if process is running
-    if is_running "$BROWSER_TOOLS_PID_FILE"; then
-        return 0
-    fi
-    return 1
-}
 
 # Generic service wait function with polling
 wait_for_service() {
@@ -274,94 +260,7 @@ start_frontend() {
     fi
 }
 
-# Start BrowserTools server
-start_browser_tools() {
-    if is_running "$BROWSER_TOOLS_PID_FILE"; then
-        log "BrowserTools server is already running (PID: $(cat $BROWSER_TOOLS_PID_FILE))"
-        return 0
-    fi
-    
-    log "Starting BrowserTools server for frontend development support..."
-    
-    # Check if npx is available
-    if ! command -v npx >/dev/null 2>&1; then
-        log_error "npx is not available. Cannot start BrowserTools server."
-        return 1
-    fi
-    
-    # Start BrowserTools server in background with logging
-    nohup npx @agentdeskai/browser-tools-server@latest > "$BROWSER_TOOLS_LOG" 2>&1 &
-    local browser_tools_pid=$!
-    
-    # Save PID
-    echo $browser_tools_pid > "$BROWSER_TOOLS_PID_FILE"
-    
-    # Initial wait for BrowserTools server to start
-    log "Waiting 5 seconds for BrowserTools server to initialize..."
-    sleep 5
-    
-    # Check if process is still running
-    if kill -0 $browser_tools_pid 2>/dev/null; then
-        log "BrowserTools server process started (PID: $browser_tools_pid), verifying health..."
-        
-        # Wait for BrowserTools server to be healthy
-        if wait_for_service "BrowserTools" "check_browser_tools_health" 15 5; then
-            log "BrowserTools server started successfully (PID: $browser_tools_pid)"
-            log "BrowserTools logs: $BROWSER_TOOLS_LOG"
-            log "BrowserTools server available at: http://localhost:3025"
-            log "MCP tools are now available for Cline to use"
-            return 0
-        else
-            log_warn "BrowserTools server process running but health check failed"
-            # Show recent log entries for debugging
-            if [[ -f "$BROWSER_TOOLS_LOG" ]]; then
-                log_warn "Recent BrowserTools logs:"
-                tail -n 5 "$BROWSER_TOOLS_LOG" | sed 's/^/  /'
-            fi
-            
-            log_error "BrowserTools server not responding after all attempts"
-            kill $browser_tools_pid 2>/dev/null || true
-            rm -f "$BROWSER_TOOLS_PID_FILE"
-            return 1
-        fi
-    else
-        log_error "Failed to start BrowserTools server - process exited immediately"
-        # Check recent log entries for errors
-        if [[ -f "$BROWSER_TOOLS_LOG" ]]; then
-            log_error "Recent BrowserTools logs:"
-            tail -n 10 "$BROWSER_TOOLS_LOG" | sed 's/^/  /'
-        fi
-        rm -f "$BROWSER_TOOLS_PID_FILE"
-        return 1
-    fi
-}
 
-# Stop BrowserTools server
-stop_browser_tools() {
-    if [[ -f "$BROWSER_TOOLS_PID_FILE" ]]; then
-        local pid=$(cat "$BROWSER_TOOLS_PID_FILE")
-        log "Stopping BrowserTools server (PID: $pid)..."
-        if kill $pid 2>/dev/null; then
-            # Wait for graceful shutdown
-            local count=0
-            while kill -0 $pid 2>/dev/null && [ $count -lt 10 ]; do
-                sleep 1
-                count=$((count + 1))
-            done
-            # Force kill if still running
-            if kill -0 $pid 2>/dev/null; then
-                kill -9 $pid 2>/dev/null || true
-            fi
-            rm -f "$BROWSER_TOOLS_PID_FILE"
-            log "BrowserTools server stopped successfully"
-        else
-            log_warn "BrowserTools server process not found, cleaning up PID file"
-            rm -f "$BROWSER_TOOLS_PID_FILE"
-        fi
-    else
-        log "BrowserTools server is not running"
-    fi
-}
 
 # Stop backend service
 stop_backend() {
@@ -433,11 +332,6 @@ status() {
         log "Frontend: ${RED}STOPPED${NC}"
     fi
     
-    if is_running "$BROWSER_TOOLS_PID_FILE"; then
-        log "BrowserTools: ${GREEN}RUNNING${NC} (PID: $(cat $BROWSER_TOOLS_PID_FILE))"
-    else
-        log "BrowserTools: ${RED}STOPPED${NC}"
-    fi
     
     log "=== Port Status ==="
     if command -v curl >/dev/null 2>&1; then
@@ -453,11 +347,6 @@ status() {
             log "Port 5173 (Frontend): ${RED}NOT RESPONDING${NC}"
         fi
         
-        if check_browser_tools_health; then
-            log "Port 3025 (BrowserTools): ${GREEN}RESPONDING${NC}"
-        else
-            log "Port 3025 (BrowserTools): ${RED}NOT RESPONDING${NC}"
-        fi
     else
         log "curl not available, skipping port check"
     fi
@@ -473,44 +362,56 @@ status() {
 # View logs
 logs() {
     local service=${1:-"all"}
+    local follow=${2:-"true"}
     
     case $service in
         "backend")
             if [[ -f "$BACKEND_LOG" ]]; then
-                log "Showing backend logs (Ctrl+C to exit):"
-                tail -f "$BACKEND_LOG"
+                log "Showing backend logs${follow:+ (Ctrl+C to exit)}:"
+                if [ "$follow" = "true" ]; then
+                    tail -f "$BACKEND_LOG"
+                else
+                    tail -n 50 "$BACKEND_LOG"
+                fi
             else
                 log "Backend log file not found: $BACKEND_LOG"
             fi
             ;;
         "frontend")
             if [[ -f "frontend.log" ]]; then
-                log "Showing frontend logs (Ctrl+C to exit):"
-                tail -f "frontend.log"
+                log "Showing frontend logs${follow:+ (Ctrl+C to exit)}:"
+                if [ "$follow" = "true" ]; then
+                    tail -f "frontend.log"
+                else
+                    tail -n 50 "frontend.log"
+                fi
             else
                 log "Frontend log file not found: frontend.log"
             fi
             ;;
-        "browser-tools")
-            if [[ -f "$BROWSER_TOOLS_LOG" ]]; then
-                log "Showing BrowserTools logs (Ctrl+C to exit):"
-                tail -f "$BROWSER_TOOLS_LOG"
-            else
-                log "BrowserTools log file not found: $BROWSER_TOOLS_LOG"
-            fi
-            ;;
         "all"|*)
-            log "Showing all logs (Ctrl+C to exit):"
-            if [[ -f "$BACKEND_LOG" ]] && [[ -f "frontend.log" ]] && [[ -f "$BROWSER_TOOLS_LOG" ]]; then
-                tail -f "$BACKEND_LOG" "frontend.log" "$BROWSER_TOOLS_LOG"
-            elif [[ -f "$BACKEND_LOG" ]] && [[ -f "frontend.log" ]]; then
-                tail -f "$BACKEND_LOG" "frontend.log"
+            log "Showing all logs${follow:+ (Ctrl+C to exit)}:"
+            if [[ -f "$BACKEND_LOG" ]] && [[ -f "frontend.log" ]]; then
+                if [ "$follow" = "true" ]; then
+                    tail -f "$BACKEND_LOG" "frontend.log"
+                else
+                    log "=== Backend Logs (last 50 lines) ==="
+                    tail -n 50 "$BACKEND_LOG"
+                    log "=== Frontend Logs (last 50 lines) ==="
+                    tail -n 50 "frontend.log"
+                fi
             elif [[ -f "$BACKEND_LOG" ]]; then
-                tail -f "$BACKEND_LOG"
+                if [ "$follow" = "true" ]; then
+                    tail -f "$BACKEND_LOG"
+                else
+                    tail -n 50 "$BACKEND_LOG"
+                fi
             elif [[ -f "frontend.log" ]]; then
-                tail -f "frontend.log"
-            elif [[ -f "$BROWSER_TOOLS_LOG" ]]; then
-                tail -f "$BROWSER_TOOLS_LOG"
+                if [ "$follow" = "true" ]; then
+                    tail -f "frontend.log"
+                else
+                    tail -n 50 "frontend.log"
+                fi
             else
                 log "No log files found"
             fi
@@ -541,15 +442,12 @@ cleanup() {
     pkill -f "vite" 2>/dev/null || true
     pkill -f "npm.*dev" 2>/dev/null || true
     
-    # Kill BrowserTools processes
-    pkill -f "browser-tools-server" 2>/dev/null || true
-    pkill -f "@agentdeskai/browser-tools-server" 2>/dev/null || true
     
     # Wait a moment for processes to terminate
     sleep 2
     
     # Remove PID files
-    rm -f "$BACKEND_PID_FILE" "$FRONTEND_PID_FILE" "$BROWSER_TOOLS_PID_FILE"
+    rm -f "$BACKEND_PID_FILE" "$FRONTEND_PID_FILE"
     
     log "Cleanup complete"
 }
@@ -569,12 +467,10 @@ start() {
     fi
     
     # Start services
-    if start_backend && start_frontend && start_browser_tools; then
+    if start_backend && start_frontend; then
         log "=== All Services Started Successfully ==="
         log "Frontend: http://localhost:5173"
         log "Backend WebSocket: ws://localhost:8080"
-        log "BrowserTools Server: http://localhost:3025"
-        log "MCP Tools: Available for Cline to use"
         log "Use './run.sh logs' to view service logs"
         log "Use './run.sh status' to check service health"
     else
@@ -587,7 +483,6 @@ start() {
 # Stop all services
 stop() {
     log "=== Stopping All Services ==="
-    stop_browser_tools
     stop_frontend  # Stop frontend first (may depend on backend)
     stop_backend
     log "=== All Services Stopped ==="
@@ -598,26 +493,24 @@ usage() {
     echo "Usage: $0 {start|start-background|wait-for-services|stop|status|logs|cleanup}"
     echo
     echo "Commands:"
-    echo "  start             - Start all services with health checks (backend, frontend, BrowserTools)"
+    echo "  start             - Start all services with health checks (backend, frontend)"
     echo "  start-background  - Start services in background (for DevContainer postStartCommand)"
     echo "  wait-for-services - Wait for services to be ready (for DevContainer postAttachCommand)"
     echo "  stop              - Stop all services"
     echo "  status            - Check service status"
-    echo "  logs              - View service logs (use: logs backend|frontend|browser-tools|all)"
+    echo "  logs              - View service logs (use: logs backend|frontend|all [recent])"
     echo "  cleanup           - Clean up old processes"
     echo
     echo "Examples:"
     echo "  $0 start                  # Start all services with health checks"
     echo "  $0 start-background       # Start services in background (DevContainer)"
     echo "  $0 wait-for-services      # Wait for services to be ready"
-    echo "  $0 logs browser-tools     # View BrowserTools logs"
     echo "  $0 status                 # Check service status"
+    echo "  $0 logs frontend recent   # Show recent frontend logs (no follow)"
     echo
     echo "Services:"
     echo "  - Backend (Node.js WebSocket server): Port 8080"
     echo "  - Frontend (Vite development server): Port 5173"
-    echo "  - BrowserTools (MCP server for browser analysis): Port 3025"
-    echo "  - MCP Tools: Available for Cline when BrowserTools is running"
     echo
     echo "Environment Detection:"
     echo "  Container mode: Extended timeouts for devcontainer startup"
@@ -702,7 +595,11 @@ case "${1:-}" in
         status
         ;;
     "logs")
-        logs "${2:-all}"
+        if [ "${3:-}" = "recent" ]; then
+            logs "${2:-all}" "false"
+        else
+            logs "${2:-all}" "true"
+        fi
         ;;
     "cleanup")
         cleanup

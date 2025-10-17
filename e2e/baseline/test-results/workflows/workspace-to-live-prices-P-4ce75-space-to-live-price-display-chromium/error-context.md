@@ -1,0 +1,98 @@
+# Page snapshot
+
+```yaml
+- main [ref=e3]:
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]: ⋮⋮
+      - generic [ref=e12]: Symbol Palette
+      - generic [ref=e13]:
+        - button "−" [ref=e14] [cursor=pointer]
+        - button "×" [ref=e15] [cursor=pointer]
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e19]: "Select Symbol:"
+        - generic [ref=e21]:
+          - combobox "Search for a symbol..." [ref=e22] [cursor=pointer]
+          - button "Open search" [ref=e23] [cursor=pointer]: 🔍
+      - generic [ref=e25]:
+        - text: "Will create canvas for:"
+        - strong [ref=e26]: SIM-EURUSD
+      - button "Create Canvas" [ref=e28] [cursor=pointer]
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - heading "System Status" [level=4] [ref=e31]
+          - generic [ref=e32]:
+            - generic [ref=e33]: "Data Source:"
+            - generic [ref=e34]: simulated
+            - generic [ref=e35]: "Connection:"
+            - generic [ref=e36]: disconnected
+            - generic [ref=e37]: "Active Symbols:"
+            - generic [ref=e38]: "1"
+        - generic [ref=e39]:
+          - heading "Recent Symbols" [level=4] [ref=e40]
+          - button "SIM-EURUSD" [ref=e42] [cursor=pointer]
+  - generic [ref=e43]:
+    - generic [ref=e44]:
+      - generic [ref=e45]: ⋮⋮
+      - generic [ref=e46]: Debug Info
+      - generic [ref=e47]:
+        - button "−" [ref=e48] [cursor=pointer]
+        - button "×" [ref=e49] [cursor=pointer]
+    - generic:
+      - generic [ref=e50]:
+        - generic [ref=e51]: "Symbol Selection:"
+        - generic [ref=e52]: Use FloatingSymbolPalette
+      - generic [ref=e53]:
+        - paragraph [ref=e54]: No debug data available.
+        - paragraph [ref=e55]: Select a symbol with active data to see debug information.
+      - generic [ref=e56]:
+        - heading "System Status" [level=4] [ref=e57]
+        - generic [ref=e58]:
+          - generic [ref=e59]: "Active Symbols:"
+          - generic [ref=e60]: "1"
+          - generic [ref=e61]: "Selected:"
+          - generic [ref=e62]: Use FloatingSymbolPalette
+  - generic [ref=e63]:
+    - generic [ref=e64]:
+      - generic [ref=e65]: ⋮⋮
+      - generic [ref=e66]: System Controls
+      - generic [ref=e67]:
+        - button "−" [ref=e68] [cursor=pointer]
+        - button "×" [ref=e69] [cursor=pointer]
+    - generic [ref=e70]:
+      - generic [ref=e71]:
+        - heading "Data Source" [level=4] [ref=e72]
+        - combobox [ref=e74]:
+          - option "Simulated Data" [selected]
+          - option "Live Data (cTrader)"
+      - generic [ref=e75]:
+        - heading "System Status" [level=4] [ref=e76]
+        - generic [ref=e77]:
+          - generic [ref=e78]: "Active Symbols:"
+          - generic [ref=e79]: "1"
+          - generic [ref=e80]: "Data Source:"
+          - generic [ref=e81]: simulated
+          - generic [ref=e82]: "Connection:"
+          - generic [ref=e83]: disconnected
+      - generic [ref=e84]:
+        - heading "Quick Actions" [level=4] [ref=e85]
+        - generic [ref=e86]:
+          - button "📊 Symbol Palette" [ref=e87] [cursor=pointer]
+          - generic [ref=e88]: Use Symbol Palette to subscribe to symbols and create canvases
+          - button "🐛 Debug Panel" [ref=e89] [cursor=pointer]
+  - generic [ref=e90]:
+    - generic [ref=e91]:
+      - generic [ref=e92]: ⋮⋮
+      - generic [ref=e93]: ADR Overview
+      - generic [ref=e94]:
+        - button "−" [ref=e95] [cursor=pointer]
+        - button "×" [ref=e96] [cursor=pointer]
+    - generic [ref=e101]:
+      - heading "Active Symbols" [level=4] [ref=e102]
+      - generic [ref=e103]:
+        - generic [ref=e104]: "Total:"
+        - generic [ref=e105]: "1"
+        - generic [ref=e106]: "With Data:"
+        - generic [ref=e107]: "1"
+```

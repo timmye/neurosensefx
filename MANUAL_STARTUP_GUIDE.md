@@ -13,9 +13,11 @@ The DevContainer no longer starts services automatically. You must start them ma
 ### Start Services Individually
 ```bash
 # Frontend Server (Vite) - Port 5173
+./run.sh start       # Recommended: starts both services
+# OR for frontend only:
 npm run dev
 
-# Backend Server (Node.js WebSocket) - Port 8080  
+# Backend Server (Node.js WebSocket) - Port 8080
 node services/tick-backend/server.js
 ```
 

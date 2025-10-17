@@ -8,10 +8,20 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "start": "./run.sh start",
+    "start": "./run.sh start, starts front and backend server",
     "stop": "./run.sh stop",
     "status": "./run.sh status",
-    "logs": "./run.sh logs"
+    "logs": "./run.sh logs",
+    "test": "npm run test:baseline",
+    "test:baseline": "bash scripts/test-baseline.sh",
+    "test:baseline:monitor": "node scripts/monitor-baseline.cjs",
+    "test:component": "playwright test e2e/add-display-menu/ --config=e2e/add-display-menu/add-display-menu.config.ts",
+    "test:full": "playwright test",
+    "test:e2e": "playwright test",
+    "test:add-display-menu": "playwright test e2e/add-display-menu/ --config=e2e/add-display-menu/add-display-menu.config.ts",
+    "test:add-display-menu:ui": "playwright test e2e/add-display-menu/ --config=e2e/add-display-menu/add-display-menu.config.ts --ui",
+    "test:add-display-menu:debug": "playwright test e2e/add-display-menu/ --config=e2e/add-display-menu/add-display-menu.config.ts --debug",
+    "test:add-display-menu:codegen": "playwright codegen --config=e2e/add-display-menu/add-display-menu.config.ts"
   },
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
@@ -21,10 +31,13 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.1",
+    "@types/node": "^24.7.2",
     "eslint": "^8.56.0",
     "eslint-plugin-svelte": "^2.35.1",
     "prettier": "^3.1.1",
     "vite": "^5.4.19"
   }
 }
+

@@ -74,7 +74,7 @@ If you encounter issues with dependencies:
 If the frontend server fails to start:
 1. Ensure all dependencies are installed (`npm install`)
 2. Check that the `node_modules/.bin/vite` file exists
-3. Try running `npm run dev` directly
+3. Try running `./run.sh start` directly
 
 ### Backend Connection Issues
 If the frontend cannot connect to the backend:

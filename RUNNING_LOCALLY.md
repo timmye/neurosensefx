@@ -72,6 +72,8 @@ npm start
 
 **Terminal 2 - Frontend:**
 ```bash
+./run.sh start    # Recommended: starts both frontend and backend
+# OR for frontend only:
 npm run dev
 ```
 
@@ -119,7 +121,8 @@ lsof -ti:5173 | xargs kill -9
 
 ```bash
 # Frontend only
-npm run dev          # Start dev server
+./run.sh start       # Start all services (recommended)
+npm run dev          # Start frontend only
 npm run build        # Build for production
 npm run preview      # Preview production build
 

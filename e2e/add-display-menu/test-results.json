@@ -1,0 +1,508 @@
+{
+  "config": {
+    "configFile": "/workspaces/c/e2e/add-display-menu/add-display-menu.config.ts",
+    "rootDir": "/workspaces/c/e2e/add-display-menu",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 5
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ],
+      [
+        "junit",
+        {
+          "outputFile": "test-results.xml"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/workspaces/c/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 5
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/workspaces/c/e2e/add-display-menu",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspaces/c/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 5
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/workspaces/c/e2e/add-display-menu",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspaces/c/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 5
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/workspaces/c/e2e/add-display-menu",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspaces/c/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 5
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "/workspaces/c/e2e/add-display-menu",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspaces/c/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 5
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "/workspaces/c/e2e/add-display-menu",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.0",
+    "workers": 12,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:5173",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "symbol-selection.spec.ts",
+      "file": "symbol-selection.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AddDisplayMenu Symbol Selection",
+          "file": "symbol-selection.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display available symbols",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30064,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded while running \"beforeEach\" hook.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded while running \"beforeEach\" hook.\u001b[39m\n    at /workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts:8:8",
+                        "location": {
+                          "file": "/workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts",
+                          "column": 8,
+                          "line": 8
+                        },
+                        "snippet": "   6 |   test.describe.configure({ mode: 'parallel' });\n   7 |\n>  8 |   test.beforeEach(async ({ canvasPage, mockSymbolData }) => {\n     |        ^\n   9 |     // Ensure we're on the main page and canvas is ready\n  10 |     await canvasPage.waitForSelector('#floating-canvas', { state: 'visible' });\n  11 |   });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts",
+                            "column": 8,
+                            "line": 8
+                          },
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded while running \"beforeEach\" hook.\u001b[39m\n\n   6 |   test.describe.configure({ mode: 'parallel' });\n   7 |\n>  8 |   test.beforeEach(async ({ canvasPage, mockSymbolData }) => {\n     |        ^\n   9 |     // Ensure we're on the main page and canvas is ready\n  10 |     await canvasPage.waitForSelector('#floating-canvas', { state: 'visible' });\n  11 |   });\n    at /workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts:8:8"
+                        },
+                        {
+                          "message": "Error: browserContext.newPage: Test timeout of 30000ms exceeded."
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-16T00:58:17.702Z",
+                      "annotations": [],
+                      "attachments": [],
+                      "errorLocation": {
+                        "file": "/workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts",
+                        "column": 8,
+                        "line": 8
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "04a74acd0118ef6f0427-9fdef0a799cc068daab6",
+              "file": "symbol-selection.spec.ts",
+              "line": 29,
+              "column": 3
+            },
+            {
+              "title": "should display available symbols",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 11395,
+                      "error": {
+                        "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#floating-canvas') to be visible\u001b[22m\n",
+                        "stack": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#floating-canvas') to be visible\u001b[22m\n\n    at Object.canvasPage (/workspaces/c/e2e/add-display-menu/fixtures.ts:52:16)",
+                        "location": {
+                          "file": "/workspaces/c/e2e/add-display-menu/fixtures.ts",
+                          "column": 16,
+                          "line": 52
+                        },
+                        "snippet": "   at fixtures.ts:52\n\n  50 |   canvasPage: async ({ page }, use: (page: Page) => void) => {\n  51 |     await page.goto('/');\n> 52 |     await page.waitForSelector('#floating-canvas', { timeout: 10000 });\n     |                ^\n  53 |     await page.waitForLoadState('networkidle');\n  54 |     await use(page);\n  55 |   },"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/workspaces/c/e2e/add-display-menu/fixtures.ts",
+                            "column": 16,
+                            "line": 52
+                          },
+                          "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#floating-canvas') to be visible\u001b[22m\n\n\n   at fixtures.ts:52\n\n  50 |   canvasPage: async ({ page }, use: (page: Page) => void) => {\n  51 |     await page.goto('/');\n> 52 |     await page.waitForSelector('#floating-canvas', { timeout: 10000 });\n     |                ^\n  53 |     await page.waitForLoadState('networkidle');\n  54 |     await use(page);\n  55 |   },\n    at Object.canvasPage (/workspaces/c/e2e/add-display-menu/fixtures.ts:52:16)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-16T00:58:16.642Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/workspaces/c/test-results/symbol-selection-AddDispla-ab70d-d-display-available-symbols-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/workspaces/c/test-results/symbol-selection-AddDispla-ab70d-d-display-available-symbols-firefox/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/workspaces/c/test-results/symbol-selection-AddDispla-ab70d-d-display-available-symbols-firefox/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/workspaces/c/e2e/add-display-menu/fixtures.ts",
+                        "column": 16,
+                        "line": 52
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "04a74acd0118ef6f0427-7bebbcf0fd49076bd5dc",
+              "file": "symbol-selection.spec.ts",
+              "line": 29,
+              "column": 3
+            },
+            {
+              "title": "should display available symbols",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 11509,
+                      "error": {
+                        "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#floating-canvas') to be visible\u001b[22m\n",
+                        "stack": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#floating-canvas') to be visible\u001b[22m\n\n    at Object.canvasPage (/workspaces/c/e2e/add-display-menu/fixtures.ts:52:16)",
+                        "location": {
+                          "file": "/workspaces/c/e2e/add-display-menu/fixtures.ts",
+                          "column": 16,
+                          "line": 52
+                        },
+                        "snippet": "   at fixtures.ts:52\n\n  50 |   canvasPage: async ({ page }, use: (page: Page) => void) => {\n  51 |     await page.goto('/');\n> 52 |     await page.waitForSelector('#floating-canvas', { timeout: 10000 });\n     |                ^\n  53 |     await page.waitForLoadState('networkidle');\n  54 |     await use(page);\n  55 |   },"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/workspaces/c/e2e/add-display-menu/fixtures.ts",
+                            "column": 16,
+                            "line": 52
+                          },
+                          "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#floating-canvas') to be visible\u001b[22m\n\n\n   at fixtures.ts:52\n\n  50 |   canvasPage: async ({ page }, use: (page: Page) => void) => {\n  51 |     await page.goto('/');\n> 52 |     await page.waitForSelector('#floating-canvas', { timeout: 10000 });\n     |                ^\n  53 |     await page.waitForLoadState('networkidle');\n  54 |     await use(page);\n  55 |   },\n    at Object.canvasPage (/workspaces/c/e2e/add-display-menu/fixtures.ts:52:16)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-16T00:58:16.645Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/workspaces/c/test-results/symbol-selection-AddDispla-ab70d-d-display-available-symbols-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/workspaces/c/test-results/symbol-selection-AddDispla-ab70d-d-display-available-symbols-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/workspaces/c/test-results/symbol-selection-AddDispla-ab70d-d-display-available-symbols-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/workspaces/c/e2e/add-display-menu/fixtures.ts",
+                        "column": 16,
+                        "line": 52
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "04a74acd0118ef6f0427-a70446dfd1f11fda11f2",
+              "file": "symbol-selection.spec.ts",
+              "line": 29,
+              "column": 3
+            },
+            {
+              "title": "should display available symbols",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "timedOut",
+                      "duration": 30053,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded while running \"beforeEach\" hook.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded while running \"beforeEach\" hook.\u001b[39m\n    at /workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts:8:8",
+                        "location": {
+                          "file": "/workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts",
+                          "column": 8,
+                          "line": 8
+                        },
+                        "snippet": "   6 |   test.describe.configure({ mode: 'parallel' });\n   7 |\n>  8 |   test.beforeEach(async ({ canvasPage, mockSymbolData }) => {\n     |        ^\n   9 |     // Ensure we're on the main page and canvas is ready\n  10 |     await canvasPage.waitForSelector('#floating-canvas', { state: 'visible' });\n  11 |   });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts",
+                            "column": 8,
+                            "line": 8
+                          },
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded while running \"beforeEach\" hook.\u001b[39m\n\n   6 |   test.describe.configure({ mode: 'parallel' });\n   7 |\n>  8 |   test.beforeEach(async ({ canvasPage, mockSymbolData }) => {\n     |        ^\n   9 |     // Ensure we're on the main page and canvas is ready\n  10 |     await canvasPage.waitForSelector('#floating-canvas', { state: 'visible' });\n  11 |   });\n    at /workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts:8:8"
+                        },
+                        {
+                          "message": "Error: browserContext.newPage: Test timeout of 30000ms exceeded."
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-16T00:58:19.254Z",
+                      "annotations": [],
+                      "attachments": [],
+                      "errorLocation": {
+                        "file": "/workspaces/c/e2e/add-display-menu/symbol-selection.spec.ts",
+                        "column": 8,
+                        "line": 8
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "04a74acd0118ef6f0427-ad8c5837bab7cbc30529",
+              "file": "symbol-selection.spec.ts",
+              "line": 29,
+              "column": 3
+            },
+            {
+              "title": "should display available symbols",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 11410,
+                      "error": {
+                        "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#floating-canvas') to be visible\u001b[22m\n",
+                        "stack": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#floating-canvas') to be visible\u001b[22m\n\n    at Object.canvasPage (/workspaces/c/e2e/add-display-menu/fixtures.ts:52:16)",
+                        "location": {
+                          "file": "/workspaces/c/e2e/add-display-menu/fixtures.ts",
+                          "column": 16,
+                          "line": 52
+                        },
+                        "snippet": "   at fixtures.ts:52\n\n  50 |   canvasPage: async ({ page }, use: (page: Page) => void) => {\n  51 |     await page.goto('/');\n> 52 |     await page.waitForSelector('#floating-canvas', { timeout: 10000 });\n     |                ^\n  53 |     await page.waitForLoadState('networkidle');\n  54 |     await use(page);\n  55 |   },"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/workspaces/c/e2e/add-display-menu/fixtures.ts",
+                            "column": 16,
+                            "line": 52
+                          },
+                          "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#floating-canvas') to be visible\u001b[22m\n\n\n   at fixtures.ts:52\n\n  50 |   canvasPage: async ({ page }, use: (page: Page) => void) => {\n  51 |     await page.goto('/');\n> 52 |     await page.waitForSelector('#floating-canvas', { timeout: 10000 });\n     |                ^\n  53 |     await page.waitForLoadState('networkidle');\n  54 |     await use(page);\n  55 |   },\n    at Object.canvasPage (/workspaces/c/e2e/add-display-menu/fixtures.ts:52:16)"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-16T00:58:16.643Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/workspaces/c/test-results/symbol-selection-AddDispla-ab70d-d-display-available-symbols-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/workspaces/c/test-results/symbol-selection-AddDispla-ab70d-d-display-available-symbols-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/workspaces/c/test-results/symbol-selection-AddDispla-ab70d-d-display-available-symbols-Mobile-Safari/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/workspaces/c/e2e/add-display-menu/fixtures.ts",
+                        "column": 16,
+                        "line": 52
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "04a74acd0118ef6f0427-78967b23cd3c276e867a",
+              "file": "symbol-selection.spec.ts",
+              "line": 29,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-10-16T00:58:13.235Z",
+    "duration": 36281.135,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 5,
+    "flaky": 0
+  }
+}

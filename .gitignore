@@ -158,3 +158,10 @@ config/
 # Backend log files
 backend.log
 frontend.log
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

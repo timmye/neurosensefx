@@ -31,7 +31,6 @@ Technical foundation that enables the workflows and interactions without comprom
 - **Decision Fatigue**: 200+ controls visible simultaneously, creating overwhelming choice complexity
 
 #### **Professional Trading Scenarios Impacted**
-1. **Volatility Spike Response**: Trader notices volatility increasing → looks right → finds controls → adjusts → looks back → missed price action
 2. **Multi-Pair Analysis**: Switching between EUR/USD and GBP/USD requires mental re-calibration for each control adjustment
 3. **Session Transitions**: London to New York session requires manual re-configuration of multiple display settings
 
@@ -146,7 +145,7 @@ Based on the parameter analysis, controls naturally group into:
 
 ##### **Workflow 1: Display Creation & Positioning**
 1. Right-click empty workspace → "Add Display" menu appears
-2. Select symbol from dropdown → New canvas appears at cursor position
+2. Select symbol from dropdown → New canvas appears at cursor position with live data displayed
 3. Right-click canvas → Complete control menu appears instantly
 4. Adjust settings → See immediate visual feedback
 5. Drag canvas to preferred position → Spatial memory established
@@ -155,13 +154,13 @@ Based on the parameter analysis, controls naturally group into:
 1. Hover over canvas → Visual highlight shows active area
 2. Right-click anywhere on canvas → Context menu with ALL controls
 3. Navigate to section (Price Float, Market Profile, Volatility, etc.)
-4. Make adjustment → Immediate visual feedback
+4. Make adjustment → Immediate visual feedback with live data
 5. Click elsewhere → Menu disappears, workspace clean
 
 ##### **Workflow 3: Multi-Display Management**
 1. Create multiple displays using workflow 1
 2. Arrange canvases in preferred spatial pattern
-3. Each canvas maintains independent settings
+3. Each canvas maintains independent settings with live data
 4. Right-click any canvas for its specific controls
 5. Drag to reorganize workspace as needed
 

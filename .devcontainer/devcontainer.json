@@ -1,7 +1,9 @@
 {
   "name": "NeuroSense FX Development",
-  "build": {
-    "dockerfile": "Dockerfile"
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/schlich/devcontainer-features/playwright:0": {}
   },
   "customizations": {
     "vscode": {
@@ -10,14 +12,23 @@
         "dbaeumer.vscode-eslint",
         "RooVeterinaryInc.roo-cline",
         "kilocode.kilo-code",
-        "saoudrizwan.claude-dev"
+        "saoudrizwan.claude-dev",
+        "ms-playwright.playwright"
       ]
     }
   },
-  "forwardPorts": [5173, 8080],
-  "postCreateCommand": "./setup_project.sh && ./scripts/setup_serena.sh",
-  // Removed automatic service startup - start services manually with: ./run.sh start
-  // "postStartCommand": "./run.sh start-background",
-  // "postAttachCommand": "./run.sh wait-for-services",
-  "remoteUser": "node"
+  "runArgs": [
+    "--cap-add=SYS_PTRACE",
+    "--security-opt",
+    "seccomp=unconfined",
+    "--ipc=host"
+  ],
+  "remoteUser": "node",
+  "mcpServers": {
+    "playwright-mcp": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp"]
+    }
+  },
+  "postCreateCommand": "npm install && npx playwright install --with-deps && npm install -g @playwright/mcp && ./scripts/robust_mcp_setup.sh"
 }

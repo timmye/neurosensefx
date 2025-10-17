@@ -67,18 +67,24 @@
   }
 
   function handleSymbolSelect(symbol, shouldSubscribe = false) {
+    console.log('🔍 DEBUG: FXSymbolSelector handleSymbolSelect called', { symbol, shouldSubscribe });
     selectedSymbol = symbol;
     searchQuery = '';
     isOpen = false;
     highlightedIndex = -1;
+    console.log('🔍 DEBUG: FXSymbolSelector dispatching select event', { symbol, shouldSubscribe });
     dispatch('select', { symbol, shouldSubscribe });
+    console.log('🔍 DEBUG: FXSymbolSelector select event dispatched');
   }
 
   function handleKeyDown(event) {
+    console.log('🔍 DEBUG: FXSymbolSelector handleKeyDown called', { key: event.key, disabled, searchQuery, filteredSymbolsLength: filteredSymbols.length });
+    
     if (disabled) return;
 
     switch (event.key) {
       case 'ArrowDown':
+        console.log('🔍 DEBUG: FXSymbolSelector ArrowDown pressed');
         event.preventDefault();
         if (filteredSymbols.length === 0) break;
         
@@ -104,6 +110,7 @@
         break;
 
       case 'ArrowUp':
+        console.log('🔍 DEBUG: FXSymbolSelector ArrowUp pressed');
         event.preventDefault();
         if (filteredSymbols.length === 0) break;
         
@@ -127,15 +134,21 @@
         break;
 
       case 'Enter':
+        console.log('🔍 DEBUG: FXSymbolSelector Enter pressed', { highlightedIndex, filteredSymbolsLength: filteredSymbols.length });
         event.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < filteredSymbols.length) {
+          console.log('🔍 DEBUG: FXSymbolSelector calling handleSymbolSelect with highlighted symbol');
           handleSymbolSelect(filteredSymbols[highlightedIndex], true); // Trigger subscription
         } else if (filteredSymbols.length > 0) {
+          console.log('🔍 DEBUG: FXSymbolSelector calling handleSymbolSelect with first symbol');
           handleSymbolSelect(filteredSymbols[0], true); // Trigger subscription
+        } else {
+          console.log('🔍 DEBUG: FXSymbolSelector no symbols to select');
         }
         break;
 
       case 'Escape':
+        console.log('🔍 DEBUG: FXSymbolSelector Escape pressed');
         event.preventDefault();
         isOpen = false;
         searchQuery = '';
@@ -143,6 +156,7 @@
         break;
 
       case 'Tab':
+        console.log('🔍 DEBUG: FXSymbolSelector Tab pressed');
         // Allow tab navigation, close dropdown
         isOpen = false;
         break;

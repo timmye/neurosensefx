@@ -2,9 +2,14 @@ import { writable } from 'svelte/store';
 import { VisualizationConfigSchema } from '../data/schema.js';
 
 // NOTE: This object is the single source of truth for all default visual settings.
-// Any property that is controlled by `ConfigPanel.svelte` MUST have a corresponding
+// Any property that is controlled by the UI components MUST have a corresponding
 // default value defined here. This ensures that all UI controls are properly initialized
 // and prevents "hanging" settings where the UI doesn't reflect the actual state.
+//
+// Visual settings are controlled by:
+// - CanvasContextMenu (right-click on canvas) - all 85+ visualization parameters
+// - System settings are controlled by FloatingSystemPanel
+// - Debug information is displayed in FloatingDebugPanel
 const rawDefaults = {
     // Layout & Meter
     visualizationsContentWidth: 300,

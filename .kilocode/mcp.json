@@ -1,0 +1,94 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "resolve-library-id",
+        "get-library-docs"
+      ]
+    },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant",
+        "--project",
+        "/workspaces/c"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "list_dir",
+        "find_file",
+        "search_for_pattern",
+        "find_symbol",
+        "find_referencing_symbols",
+        "replace_symbol_body",
+        "insert_after_symbol",
+        "insert_before_symbol",
+        "write_memory",
+        "read_memory",
+        "list_memories",
+        "delete_memory",
+        "check_onboarding_performed",
+        "onboarding",
+        "think_about_collected_information",
+        "think_about_task_adherence",
+        "think_about_whether_you_are_done",
+        "get_symbols_overview"
+      ],
+      "alwaysAllow": [
+        "think_about_task_adherence",
+        "think_about_whether_you_are_done",
+        "think_about_collected_information",
+        "onboarding",
+        "check_onboarding_performed",
+        "delete_memory",
+        "list_memories",
+        "read_memory",
+        "write_memory",
+        "rename_symbol",
+        "insert_after_symbol",
+        "insert_before_symbol",
+        "replace_symbol_body",
+        "find_referencing_symbols",
+        "find_symbol",
+        "get_symbols_overview",
+        "search_for_pattern",
+        "list_dir"
+      ]
+    },
+    "web-search-prime": {
+      "type": "sse",
+      "url": "https://api.z.ai/api/mcp/web_search_prime/sse?Authorization=be8a9b89da7440d8863dce8129e04e9b.gYXC9igd6VQHZyGj",
+      "autoApprove": [
+        "webSearchPrime"
+      ],
+      "alwaysAllow": [
+        "webSearchPrime"
+      ]
+    },
+    "sequentialthinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "sequentialthinking"
+      ],
+      "alwaysAllow": [
+        "sequentialthinking"
+      ]
+    }
+  }
+}

@@ -9,7 +9,7 @@ Serena is a powerful coding agent toolkit providing semantic retrieval and editi
 - VSCode with DevContainer extension
 - Docker running locally
 - NeuroSense FX project cloned
-- Current MCP servers already configured (browser-tools-mcp, context7-mcp, web-search-prime)
+- Current MCP servers already configured (context7-mcp, web-search-prime)
 
 ## Installation Options
 
