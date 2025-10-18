@@ -3,17 +3,23 @@
   import { symbolStore } from '../data/symbolStore.js';
   import { drawMultiSymbolADR } from '../lib/viz/multiSymbolADR.js';
   import { uiActions } from '../stores/uiState.js';
-  import FloatingPanel from './shared/FloatingPanel.svelte';
+  import InteractWrapper from './shared/InteractWrapper.svelte';
+  import InfoGrid from './shared/InfoGrid.svelte';
+  import SectionHeader from './shared/SectionHeader.svelte';
+  import { getZIndex } from '../constants/zIndex.js';
+  import { createLogger } from '../utils/debugLogger.js';
   
   const dispatch = createEventDispatcher();
+  const logger = createLogger('FloatingMultiSymbolADR');
   
   // Component state
-  let adrPosition = { x: 100, y: 100 };
+  let adrPosition = { x: 20, y: 20 }; // Top left position
   let isMinimized = false;
   let canvasElement;
   let ctx;
   let symbols = [];
   let symbolsToRender = [];
+  let interactWrapperRef;
   
   // Canvas dimensions
   const width = 120;
@@ -67,7 +73,7 @@
       canvasElement.style.height = `${height}px`;
       ctx.scale(dpr, dpr);
       
-      if (IS_DEBUG) console.log('FloatingMultiSymbolADR: Component mounted and canvas initialized.');
+      logger.debug('Component mounted and canvas initialized');
       
       // Initial draw
       drawMultiSymbolADR(ctx, { width, height }, symbolsToRender);
@@ -79,17 +85,64 @@
   });
   
   function handleClose() {
+    logger.debug('ADR panel closed');
     uiActions.hideFloatingADRPanel();
+    dispatch('close');
+  }
+  
+  function handlePositionChange(event) {
+    adrPosition = event.detail.position;
+    logger.debug('Position changed', { position: adrPosition });
+  }
+  
+  function handleMinimize() {
+    isMinimized = !isMinimized;
+    if (interactWrapperRef) {
+      interactWrapperRef.setMinimized(isMinimized);
+    }
+    logger.debug('Minimize toggled', { isMinimized });
+    dispatch('minimizeChange', { isMinimized });
   }
 </script>
 
-<FloatingPanel
-  title="ADR Overview"
-  panelId="adr-panel"
+<InteractWrapper
+  bind:this={interactWrapperRef}
   position={adrPosition}
-  on:close={handleClose}
-  defaultMinimized={false}
+  defaultPosition={adrPosition}
+  positionKey="floating-adr-panel-position"
+  on:positionChange={handlePositionChange}
+  isDraggable={true}
+  isResizable={false}
+  inertia={true}
+  boundaryPadding={10}
 >
+  <div class="draggable-panel {isMinimized ? 'minimized' : ''}" style="z-index: {getZIndex('ADR_PANEL')};">
+    <!-- Panel Header -->
+    <div class="panel-header">
+      <div class="drag-indicator">⋮⋮</div>
+      <div class="panel-title">ADR Overview</div>
+      <div class="panel-controls">
+        <button
+          class="control-btn minimize-btn"
+          on:click={handleMinimize}
+          title={isMinimized ? "Expand" : "Minimize"}
+        >
+          {isMinimized ? '□' : '−'}
+        </button>
+        
+        <button
+          class="control-btn close-btn"
+          on:click={handleClose}
+          title="Close"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+    
+    <!-- Panel Content -->
+    {#if !isMinimized}
+      <div class="panel-content">
   <div class="adr-content">
     <div class="adr-canvas-container">
       <canvas bind:this={canvasElement}></canvas>
@@ -97,21 +150,101 @@
     
     <div class="adr-info">
       <div class="info-section">
-        <h4>Active Symbols</h4>
-        <div class="info-grid">
-          <span>Total:</span>
-          <span>{symbols.length}</span>
-          <span>With Data:</span>
-          <span>{symbolsToRender.length}</span>
-        </div>
+        <SectionHeader title="Active Symbols" />
+        <InfoGrid
+          data={[
+            { label: "Total:", value: symbols.length },
+            { label: "With Data:", value: symbolsToRender.length }
+          ]}
+        />
       </div>
     </div>
   </div>
-</FloatingPanel>
+      </div>
+    {/if}
+  </div>
+</InteractWrapper>
 
 <style>
-  .adr-content {
-    /* No additional styles needed, using FloatingPanel styles */
+  .draggable-panel {
+    position: relative;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    min-width: 200px;
+    max-width: 320px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transition: box-shadow 0.2s ease;
+    pointer-events: auto;
+    z-index: inherit; /* Use the z-index from the style attribute */
+  }
+  
+  .draggable-panel.minimized {
+    min-width: 200px;
+    max-width: 200px;
+  }
+  
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #374151;
+    border-bottom: 1px solid #4b5563;
+    border-radius: 8px 8px 0 0;
+    cursor: grab;
+    user-select: none;
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .drag-indicator {
+    color: #9ca3af;
+    font-size: 12px;
+    margin-right: 8px;
+  }
+  
+  .panel-title {
+    color: #d1d5db;
+    font-size: 12px;
+    font-weight: 600;
+    flex: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .panel-controls {
+    display: flex;
+    gap: 4px;
+  }
+  
+  .control-btn {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+  }
+  
+  .control-btn:hover {
+    background: rgba(156, 163, 175, 0.1);
+    color: #d1d5db;
+  }
+  
+  .panel-content {
+    padding: 12px;
   }
   
   .adr-canvas-container {
@@ -124,6 +257,7 @@
     display: block;
     background-color: #0a0a0a;
     border-radius: 4px;
+    pointer-events: none;
   }
   
   .adr-info {
@@ -136,33 +270,5 @@
   
   .info-section:last-child {
     margin-bottom: 0;
-  }
-  
-  .info-section h4 {
-    margin: 0 0 8px 0;
-    color: #d1d5db;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid #374151;
-    padding-bottom: 4px;
-  }
-  
-  .info-grid {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 4px 8px;
-    font-size: 11px;
-  }
-  
-  .info-grid span:nth-child(odd) {
-    color: #9ca3af;
-    font-weight: 500;
-  }
-  
-  .info-grid span:nth-child(even) {
-    color: #e5e7eb;
-    text-align: right;
   }
 </style>

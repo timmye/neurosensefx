@@ -34,6 +34,7 @@
 ### Shared Libraries
 - **cTrader Layer**: @reiryoku/ctrader-layer (TypeScript API wrapper)
 - **Protocol Buffers**: OpenAPI message definitions for cTrader
+- **interact.js**: JavaScript library for drag and drop, resize and multi-touch gestures with inertia and snapping
 
 ## Development Environment Setup
 
@@ -42,9 +43,18 @@
 neurosense-fx/
 ├── src/                    # Frontend source code
 │   ├── components/         # Svelte components
+│   │   ├── shared/         # Shared UI components
+│   │   │   └── InteractWrapper.svelte  # Unified drag functionality
+│   ├── constants/          # Application constants
+│   │   └── zIndex.js        # Z-index hierarchy for floating elements
+│   ├── composables/        # Reusable Svelte composables
+│   │   └── useDraggable.js  # Custom drag functionality
 │   ├── data/              # Data handling and stores
+│   │   └── ConnectionManager.js  # Centralized data flow management
 │   ├── lib/               # Utility libraries
 │   ├── stores/            # Svelte stores
+│   ├── utils/             # Utility functions
+│   │   └── positionPersistence.js  # Unified position persistence utilities
 │   └── workers/           # Web Workers
 ├── services/
 │   └── tick-backend/       # Backend Node.js service
@@ -320,6 +330,7 @@ const wsServer = new WebSocketServer(port, session);
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
     "d3": "^7.9.0",
+    "interactjs": "^1.10.17",
     "svelte": "^4.2.7",
     "zod": "^3.22.4"
   },
@@ -390,3 +401,57 @@ const wsServer = new WebSocketServer(port, session);
 - **Baseline Tests**: `npm run test:baseline` for continuous validation
 
 This technical context provides comprehensive information about the two-server architecture, reactive rendering system, testing infrastructure, technologies, constraints, and MCP integration that guide development decisions.
+
+## Recent Technical Enhancements (2025-10-18)
+
+### Frontend Layering Structure
+- **Z-Index Hierarchy Standardization**: Implemented standardized z-index hierarchy in `src/constants/zIndex.js`
+  - BACKGROUND: 1 (Workspace container)
+  - FLOATING_BASE: 1000 (Base for floating panels layer)
+  - SYMBOL_PALETTE: 1001 (FloatingSymbolPalette)
+  - DEBUG_PANEL: 1002 (FloatingDebugPanel)
+  - SYSTEM_PANEL: 1003 (FloatingSystemPanel)
+  - ADR_PANEL: 1004 (FloatingMultiSymbolADR)
+  - FLOATING_CANVAS_BASE: 2000 (Base for floating canvases)
+  - DRAGGING: 9999 (Any element being dragged)
+  - CONTEXT_MENU: 10000 (CanvasContextMenu - always on top)
+
+### Floating Panel Implementation with Interact.js
+- **InteractWrapper Component**: Core component providing unified drag functionality
+  - Uses interact.js library for robust drag operations
+  - Implements viewport boundary checking with automatic adjustment
+  - Provides position persistence via PositionPersistence utilities
+  - Handles both mouse and touch events
+  - Supports inertia and snap configuration support
+- **PositionPersistence Utilities**: Unified position persistence utilities
+  - Provides consistent localStorage-based persistence
+  - Handles both position and state persistence
+  - Includes methods for clearing and retrieving all saved positions
+
+### Event Handling Architecture
+- **WorkspaceEventManager**: Centralized event delegation with single listeners for multiple elements
+- **InteractWrapper Integration**: Unified drag functionality using interact.js library
+- **useDraggable Composable**: Custom drag implementation for components not using InteractWrapper
+- **Event Flow Documentation**: Complete documentation of event handling patterns and flows
+
+### Connection Management Architecture
+- **ConnectionManager Class**: Centralized data flow management
+  - Canvas subscription management (tracks which canvases are subscribed to which symbols)
+  - Symbol data caching (caches symbol data to avoid duplicate requests)
+  - Connection monitoring (monitors WebSocket status and handles reconnections)
+  - Data source mode switching (handles switching between live and simulated data)
+
+### Symbol Selection Implementation
+- **FXSymbolSelector Component**: Advanced symbol selection with fuzzy search
+  - Fuzzy matching implementation for symbol search
+  - Full keyboard support with arrow keys and shortcuts
+  - Visual feedback with matching character highlighting and subscription status
+  - Debounced search implementation for performance optimization
+  - Full ARIA support for screen readers
+
+### New Dependencies
+- **interactjs**: Added for unified drag functionality across all floating panels
+  - Version: ^1.10.17
+  - Purpose: Provides robust drag and drop, resize and multi-touch gestures with inertia and snapping
+
+These technical enhancements provide a solid foundation for the floating workspace interface with consistent behavior, efficient event handling, and professional user experience. The implementation of standardized z-index hierarchy, unified drag functionality, and enhanced connection management significantly improves the maintainability and user experience of the application.

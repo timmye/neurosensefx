@@ -29,6 +29,8 @@ export function useDraggable(options = {}) {
   let dragOffset = { x: 0, y: 0 };
   let element;
   let dragHandle;
+  let dragStartPos = { x: 0, y: 0 };
+  let hasMoved = false;
 
   // Load saved position from localStorage
   const loadSavedState = () => {
@@ -94,13 +96,19 @@ export function useDraggable(options = {}) {
 
   // Handle drag start
   const handleDragStart = (event) => {
-    isDragging = true;
+    // Don't start dragging if the target is a button
+    if (event.target.tagName === 'BUTTON') {
+      return;
+    }
     
     const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
     const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
     
+    dragStartPos.x = clientX;
+    dragStartPos.y = clientY;
     dragOffset.x = clientX - position.x;
     dragOffset.y = clientY - position.y;
+    hasMoved = false;
     
     // Add global event listeners
     document.addEventListener('mousemove', handleDragMove);
@@ -108,15 +116,25 @@ export function useDraggable(options = {}) {
     document.addEventListener('touchmove', handleDragMove);
     document.addEventListener('touchend', handleDragEnd);
     
-    event.preventDefault();
+    // Don't prevent default here to allow click events on buttons
   };
 
   // Handle drag move
   const handleDragMove = (event) => {
-    if (!isDragging) return;
-    
     const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
     const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
+    
+    // Check if the user has moved enough to consider it a drag
+    const moveThreshold = 5; // pixels
+    const deltaX = Math.abs(clientX - dragStartPos.x);
+    const deltaY = Math.abs(clientY - dragStartPos.y);
+    
+    if (!hasMoved && (deltaX > moveThreshold || deltaY > moveThreshold)) {
+      hasMoved = true;
+      isDragging = true;
+    }
+    
+    if (!isDragging) return;
     
     position.x = clientX - dragOffset.x;
     position.y = clientY - dragOffset.y;
@@ -128,6 +146,7 @@ export function useDraggable(options = {}) {
   // Handle drag end
   const handleDragEnd = () => {
     isDragging = false;
+    hasMoved = false;
     
     // Save final position
     savePosition();
@@ -163,7 +182,13 @@ export function useDraggable(options = {}) {
   // Initialize on mount
   onMount(() => {
     loadSavedState();
-    ensureInViewport();
+    console.log(`🔍 DEBUG: ${positionKey} initial position`, position);
+    
+    // Ensure element is measured before adjusting viewport
+    setTimeout(() => {
+      ensureInViewport();
+      console.log(`🔍 DEBUG: ${positionKey} after ensureInViewport`, position);
+    }, 0);
     
     // Add keyboard listener
     window.addEventListener('keydown', handleKeyDown);

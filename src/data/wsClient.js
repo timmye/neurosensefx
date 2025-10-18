@@ -24,68 +24,50 @@ const WS_URL = (() => {
 })();
 
 export function connect() {
-    console.log('[MP_DEBUG | wsClient] Attempting to connect to WebSocket.');
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-         console.log('[MP_DEBUG | wsClient] WebSocket already open or connecting. Aborting connect.');
         return;
     }
     
     stopSimulation();
     wsStatus.set('ws-connecting');
-     console.log('[MP_DEBUG | wsClient] Setting wsStatus to ws-connecting.');
     try {
         ws = new WebSocket(WS_URL);
         ws.onopen = () => {
-             console.log('[MP_DEBUG | wsClient] WebSocket opened.');
             startConnectionMonitor();
         };
         ws.onmessage = (event) => {
             const rawData = JSON.parse(event.data);
-            // FIX: Log the stringified object to see the full data structure.
-            if (rawData.type === 'symbolDataPackage') {
-                console.log('[MP_DEBUG | wsClient] Received symbolDataPackage raw data string:', JSON.stringify(rawData, null, 2));
-            } else {
-                 // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
-                 console.log(`[DEBUG_TRACE | wsClient] Received message from WebSocket:`, JSON.stringify(rawData));
-            }
             handleSocketMessage(rawData);
         };
         ws.onclose = (event) => {
-             console.log('[MP_DEBUG | wsClient] WebSocket closed:', event.code, event.reason);
             stopConnectionMonitor();
             ws = null;
             if (get(wsStatus) !== 'error') wsStatus.set('disconnected');
-             console.log('[MP_DEBUG | wsClient] Setting wsStatus to disconnected.');
             availableSymbols.set([]);
         };
         ws.onerror = (err) => {
-            console.error('[MP_DEBUG | wsClient] WebSocket Error:', err);
+            console.error('[wsClient] WebSocket Error:', err);
             stopConnectionMonitor();
             if (ws) ws.close(); // Ensure close is called on error
-             wsStatus.set('error'); // Set status to error on connection failure
-             console.log('[MP_DEBUG | wsClient] Setting wsStatus to error.');
+            wsStatus.set('error'); // Set status to error on connection failure
         };
     } catch (e) {
-        console.error('[MP_DEBUG | wsClient] Failed to create WebSocket:', e);
+        console.error('[wsClient] Failed to create WebSocket:', e);
         ws = null;
-         wsStatus.set('error'); // Set status to error on creation failure
-          console.log('[MP_DEBUG | wsClient] Setting wsStatus to error.');
+        wsStatus.set('error'); // Set status to error on creation failure
     }
 }
 
 function startConnectionMonitor() {
-     console.log('[MP_DEBUG | wsClient] Starting connection monitor.');
     stopConnectionMonitor();
     connectionMonitorInterval = setInterval(() => {
         if (!ws) {
-             console.log('[MP_DEBUG | wsClient] Connection monitor detected no WebSocket.');
             stopConnectionMonitor();
         }
     }, 2000);
 }
 
 function stopConnectionMonitor() {
-     console.log('[MP_DEBUG | wsClient] Stopping connection monitor.');
     if (connectionMonitorInterval) {
         clearInterval(connectionMonitorInterval);
         connectionMonitorInterval = null;
@@ -93,49 +75,44 @@ function stopConnectionMonitor() {
 }
 
 function handleSocketMessage(data) {
-    // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
-    console.log(`[DEBUG_TRACE | wsClient] Received message from WebSocket:`, JSON.stringify(data));
-
+    console.log(`[WSCLIENT_DEBUG] Received message:`, data);
+    
     if (data.type === 'symbolDataPackage') {
+        console.log(`[WSCLIENT_DEBUG] Processing symbolDataPackage for ${data.symbol}`);
         const packageResult = SymbolDataPackageSchema.safeParse(data);
         if (packageResult.success) {
-            console.log(`[MP_TRACE | wsClient] Received package with ${packageResult.data.initialMarketProfile.length} profile entries.`, packageResult.data);
             handleDataPackage(packageResult.data);
         } else {
-            console.error('[MP_DEBUG | wsClient] Invalid symbol data package:', packageResult.error);
+            console.error('[wsClient] Invalid symbol data package:', packageResult.error);
         }
     } else if (data.type === 'status' || data.type === 'ready') {
          const status = data.type === 'ready' ? 'connected' : data.status;
          wsStatus.set(status);
-          console.log('[MP_DEBUG | wsClient] Setting wsStatus to:', status);
          if(status === 'connected'){
              availableSymbols.set(data.availableSymbols || []);
-              console.log('[MP_DEBUG | wsClient] Available symbols set:', data.availableSymbols);
          }
     } else if (data.type === 'tick') {
+        console.log(`[WSCLIENT_DEBUG] Processing tick for ${data.symbol}`);
         const tickResult = TickSchema.safeParse(data);
         if (tickResult.success) {
-             // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
-             console.log(`[DEBUG_TRACE | wsClient] Dispatching tick to store/worker:`, JSON.stringify(tickResult.data));
             symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
         } else {
-            console.error('[MP_DEBUG | wsClient] Invalid tick data received:', tickResult.error);
+            console.error('[wsClient] Invalid tick data received:', tickResult.error);
         }
     }
 }
 
 function handleDataPackage(data) {
-     console.log('[MP_DEBUG | wsClient] Handling data package for symbol:', data.symbol, data);
+    console.log(`[WSCLIENT_DEBUG] handleDataPackage called for ${data.symbol}`);
     symbolStore.createNewSymbol(data.symbol, data);
     subscriptions.update(subs => {
-         console.log('[MP_DEBUG | wsClient] Adding subscription for symbol:', data.symbol);
         subs.add(data.symbol);
         return subs;
     });
+    console.log(`[WSCLIENT_DEBUG] Symbol ${data.symbol} added to subscriptions`);
 }
 
 export function disconnect() {
-    console.log('[MP_DEBUG | wsClient] Disconnecting WebSocket.');
     stopSimulation();
     if (ws) {
         ws.onclose = null; // Prevent triggering onclose logic during manual disconnect
@@ -143,21 +120,18 @@ export function disconnect() {
         ws = null;
     }
     wsStatus.set('disconnected');
-     console.log('[MP_DEBUG | wsClient] Setting wsStatus to disconnected.');
     availableSymbols.set([]);
     subscriptions.set(new Set());
-     console.log('[MP_DEBUG | wsClient] Clearing symbolStore and subscriptions.');
     symbolStore.clear();
 }
 
 function startSimulation() {
-    console.log('[MP_DEBUG | wsClient] Starting simulation.');
     disconnect(); // Ensure clean state before starting simulation
     const symbol = 'SIM-EURUSD';
     const midPoint = 1.25500;
     const adr = 0.00850;
 
-    // Add some mock market profile data for simulation debugging
+    // Add some mock market profile data for simulation
      const mockInitialMarketProfile = [];
      // Example: Add a few mock bars
      for(let i = 0; i < 100; i++) {
@@ -172,7 +146,6 @@ function startSimulation() {
              volume: Math.floor(Math.random() * 1000)
          });
      }
-     console.log('[MP_DEBUG | wsClient] Generated mockInitialMarketProfile for simulation:', mockInitialMarketProfile);
 
     const mockDataPackage = {
         symbol,
@@ -189,7 +162,6 @@ function startSimulation() {
 
     symbolStore.createNewSymbol(symbol, mockDataPackage);
     subscriptions.set(new Set([symbol]));
-     console.log('[MP_DEBUG | wsClient] Created new symbol and subscription for simulation.');
 
     let currentPrice = midPoint;
     
@@ -251,7 +223,6 @@ function startSimulation() {
 }
 
 function stopSimulation() {
-     console.log('[MP_DEBUG | wsClient] Stopping simulation.');
     if (simulationInterval) {
         cancelAnimationFrame(simulationInterval);
         simulationInterval = null;
@@ -259,23 +230,25 @@ function stopSimulation() {
 }
 
 export function subscribe(symbol) {
-    console.log('[MP_DEBUG | wsClient] Subscribe called for symbol:', symbol);
+    console.log(`[WSCLIENT_DEBUG] subscribe called for symbol: ${symbol}`);
+    console.log(`[WSCLIENT_DEBUG] dataSourceMode: ${get(dataSourceMode)}, wsStatus: ${get(wsStatus)}, ws exists: ${!!ws}`);
+    
     if (get(dataSourceMode) === 'live' && get(wsStatus) === 'connected' && ws) {
         const adrLookbackDays = 14;
-         console.log('[MP_DEBUG | wsClient] Sending get_symbol_data_package request for symbol:', symbol);
-        ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays }));
+        const message = JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays });
+        console.log(`[WSCLIENT_DEBUG] Sending message: ${message}`);
+        ws.send(message);
+    } else {
+        console.log(`[WSCLIENT_DEBUG] Cannot subscribe - conditions not met`);
     }
 }
 
 export function unsubscribe(symbol) {
-    console.log('[MP_DEBUG | wsClient] Unsubscribe called for symbol:', symbol);
     if (get(dataSourceMode) === 'live' && ws) {
-         console.log('[MP_DEBUG | wsClient] Sending unsubscribe request for symbol:', symbol);
         ws.send(JSON.stringify({ type: 'unsubscribe', symbols: [symbol] }));
     }
     symbolStore.removeSymbol(symbol);
     subscriptions.update(subs => {
-         console.log('[MP_DEBUG | wsClient] Removing subscription for symbol:', symbol);
         subs.delete(symbol);
         return subs;
     });
@@ -283,7 +256,6 @@ export function unsubscribe(symbol) {
 
 export function initializeWsClient() {
     dataSourceMode.subscribe(mode => {
-        console.log('[MP_DEBUG | wsClient] dataSourceMode changed to:', mode);
         symbolStore.clear();
         subscriptions.set(new Set());
         if (mode === 'simulated') {

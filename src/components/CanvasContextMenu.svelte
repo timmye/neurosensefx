@@ -5,6 +5,7 @@
   import { searchParameters } from './CanvasContextMenu/utils/searchUtils.js';
   import { highlightMatch } from '../utils/fuzzySearch.js';
   import { createShortcutHandler, defaultShortcuts } from './CanvasContextMenu/utils/keyboardShortcuts.js';
+  import { getZIndex } from '../constants/zIndex.js';
   
   // Import tab components
   import QuickActionsTab from './CanvasContextMenu/tabs/QuickActionsTab.svelte';
@@ -279,10 +280,10 @@
   }
 }} />
 
-<div 
+<div
   bind:this={menuElement}
   class="context-menu enhanced"
-  style="left: {adjustedPosition.x}px; top: {adjustedPosition.y}px; max-height: {menuMaxHeight};"
+  style="left: {adjustedPosition.x}px; top: {adjustedPosition.y}px; max-height: {menuMaxHeight}; z-index: {getZIndex('CONTEXT_MENU')};"
   on:click|stopPropagation
 >
   <!-- Menu Header -->
@@ -400,7 +401,6 @@
     max-width: 700px;
     max-height: 70vh;
     overflow: hidden;
-    z-index: 10000;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     animation: menuAppear 0.15s ease-out;
     display: flex;

@@ -14,6 +14,10 @@
   import { registryActions } from './stores/canvasRegistry.js';
   import { createWorkspaceEventManager } from './utils/WorkspaceEventManager.js';
   import { defaultConfig } from './stores/configStore.js';
+  import { connectionManager } from './data/ConnectionManager.js';
+  
+  // Import test runner for development
+  import './utils/testRunner.js';
 
   let symbols = {};
   let workspaceElement;
@@ -76,6 +80,11 @@
 
   function handleCanvasClose(event) {
     const { canvasId } = event.detail;
+    
+    // Unsubscribe from ConnectionManager
+    connectionManager.unsubscribeCanvas(canvasId);
+    
+    // Remove from workspace
     workspaceActions.removeCanvas(canvasId);
     registryActions.unregisterCanvas(canvasId);
   }
@@ -120,77 +129,61 @@
   }
 
 
-  function addFloatingCanvas(symbol = null, position = null) {
-    console.log('🔍 DEBUG: addFloatingCanvas called', { symbol, position });
+  async function addFloatingCanvas(symbol = null, position = null) {
+    // Validate input parameters
+    if (symbol && typeof symbol !== 'string') {
+      throw new Error(`Symbol must be a string, received ${typeof symbol}: ${JSON.stringify(symbol)}`);
+    }
     
-    const selectedSymbol = symbol || Object.keys(symbols)[0] || 'EURUSD';
+    // Use provided symbol or default to first available symbol
+    const selectedSymbol = symbol || Object.keys(symbols)[0] || 'SIM-EURUSD';
     const canvasPosition = position || {
       x: 100 + Math.random() * 200,
       y: 100 + Math.random() * 100
     };
     
-    console.log('🔍 DEBUG: Canvas data', { selectedSymbol, canvasPosition, symbolsAvailable: Object.keys(symbols) });
-    
-    // Create canvas data
-    const canvasData = createCanvasData(selectedSymbol, canvasPosition);
-    
-    // Get symbol config and state from symbolStore
-    const symbolStoreValue = $symbolStore;
-    const symbolData = symbolStoreValue[selectedSymbol];
-    
-    if (symbolData) {
-      canvasData.config = { ...symbolData.config };
-      canvasData.state = { ...symbolData.state };
-      console.log('🔍 DEBUG: Using existing symbol data', { config: canvasData.config, state: canvasData.state });
-    } else {
-      canvasData.config = { ...defaultConfig };
-      canvasData.state = { ready: false };
-      console.log('🔍 DEBUG: Using default config', { config: canvasData.config, state: canvasData.state });
+    try {
+      // Create canvas data with safe defaults
+      const canvasData = createCanvasData(selectedSymbol, canvasPosition);
       
-      // If symbol doesn't exist in symbolStore, we need to subscribe to it
-      if ($dataSourceMode === 'live') {
-        subscribe(selectedSymbol);
-      } else if ($dataSourceMode === 'simulated') {
-        // For simulation, we need to ensure the symbol exists
-        if (selectedSymbol !== 'SIM-EURUSD') {
-          console.log('🔍 DEBUG: Non-simulation symbol selected, switching to simulation mode');
-          dataSourceMode.set('simulated');
-        }
+      // Subscribe canvas to symbol through ConnectionManager
+      const symbolData = await connectionManager.subscribeCanvas(canvasData.id, selectedSymbol);
+      
+      if (symbolData && symbolData.config && symbolData.state) {
+        canvasData.config = { ...symbolData.config };
+        canvasData.state = { ...symbolData.state };
+      } else {
+        // Use safe defaults
+        canvasData.config = { ...defaultConfig };
+        canvasData.state = {
+          ready: false,
+          currentPrice: 0,
+          projectedAdrHigh: 0,
+          projectedAdrLow: 0,
+          visualHigh: 0,
+          visualLow: 0,
+          volatility: 0
+        };
       }
-    }
-    
-    console.log('🔍 DEBUG: Created canvas data', canvasData);
-    
-    // Register and add canvas
-    registryActions.registerCanvas(canvasData.id, {
-      symbol: selectedSymbol,
-      type: 'floating'
-    });
-    
-    console.log('🔍 DEBUG: Canvas registered, adding to workspace');
-    workspaceActions.addCanvas(canvasData);
-    
-    // Update canvas data when symbolStore updates
-    const unsubSymbolStore = symbolStore.subscribe(value => {
-      const updatedSymbolData = value[selectedSymbol];
-      if (updatedSymbolData && updatedSymbolData.state && updatedSymbolData.config) {
-        workspaceActions.updateCanvas(canvasData.id, {
-          config: { ...updatedSymbolData.config },
-          state: { ...updatedSymbolData.state }
-        });
-      }
-    });
-    
-    // Store unsubscribe function for cleanup
-    canvasData.unsubSymbolStore = unsubSymbolStore;
-    
-    // Verify it was added
-    setTimeout(() => {
-      console.log('🔍 DEBUG: Workspace state after addition', {
-        canvasCount: $workspaceState.canvases.size,
-        canvases: Array.from($workspaceState.canvases.keys())
+      
+      // Register and add canvas
+      registryActions.registerCanvas(canvasData.id, {
+        symbol: selectedSymbol,
+        type: 'floating'
       });
-    }, 100);
+      
+      workspaceActions.addCanvas(canvasData);
+      
+      // Set up cleanup for canvas destruction
+      canvasData.unsubSymbolStore = () => {
+        connectionManager.unsubscribeCanvas(canvasData.id);
+      };
+      
+      return canvasData;
+    } catch (error) {
+      console.error('Failed to create canvas', { symbol: selectedSymbol, error });
+      throw error;
+    }
   }
 
 
@@ -209,36 +202,14 @@
 <svelte:window on:keydown={handleKeyDown} />
 
 <main>
+  <!-- Background Layer -->
   <div class="main-container">
-    
-    <!-- Floating Workspace Container -->
     <div class="viz-area">
       <div
         bind:this={workspaceElement}
         class="workspace-container"
         class:show-grid={$workspaceState.showGrid}
       >
-        <!-- Floating Canvases Layer -->
-        <div class="floating-canvases-layer">
-          {#each Array.from($workspaceState.canvases.values()) as canvas (canvas.id)}
-            <FloatingCanvas
-              id={canvas.id}
-              symbol={canvas.symbol}
-              config={canvas.config}
-              state={canvas.state}
-              position={canvas.position}
-              on:contextMenu={handleCanvasContextMenu}
-              on:close={handleCanvasClose}
-              on:configChange={handleCanvasConfigChange}
-              on:configReset={handleCanvasConfigReset}
-              on:dragStart={handleCanvasDragStart}
-              on:dragMove={handleCanvasDragMove}
-              on:dragEnd={handleCanvasDragEnd}
-              on:hover={handleCanvasHover}
-            />
-          {/each}
-        </div>
-        
         <!-- Empty State for Workspace -->
         {#if $workspaceState.canvases.size === 0}
           <div class="workspace-empty-state">
@@ -249,29 +220,68 @@
     </div>
   </div>
   
-  <!-- Global Context Menu -->
-  {#if showContextMenu && contextMenuCanvasId}
-    <CanvasContextMenu
-      position={contextMenuPosition}
-      canvasId={contextMenuCanvasId}
-      config={contextMenuConfig}
-      on:configChange={handleCanvasConfigChange}
-      on:configReset={handleCanvasConfigReset}
-      on:close={handleContextMenuClose}
+  <!-- Floating Panels Layer -->
+  <div class="floating-panels-layer">
+    <!-- Floating Canvases -->
+    <div class="floating-canvases-layer">
+      {#each Array.from($workspaceState.canvases.values()) as canvas (canvas.id)}
+        <FloatingCanvas
+          id={canvas.id}
+          symbol={canvas.symbol}
+          config={canvas.config}
+          state={canvas.state}
+          position={canvas.position}
+          on:contextMenu={handleCanvasContextMenu}
+          on:close={handleCanvasClose}
+          on:configChange={handleCanvasConfigChange}
+          on:configReset={handleCanvasConfigReset}
+          on:dragStart={handleCanvasDragStart}
+          on:dragMove={handleCanvasDragMove}
+          on:dragEnd={handleCanvasDragEnd}
+          on:hover={handleCanvasHover}
+        />
+      {/each}
+    </div>
+    
+    <!-- Floating Symbol Palette -->
+    <FloatingSymbolPalette
+      on:canvasCreated={async (event) => {
+        // Always use the ConnectionManager to create the canvas
+        try {
+          await addFloatingCanvas(event.detail.symbol, event.detail.position);
+        } catch (error) {
+          console.error('Failed to create canvas from palette', error);
+        }
+      }}
     />
-  {/if}
-  
-  <!-- Floating Symbol Palette -->
-  <FloatingSymbolPalette on:canvasCreated={addFloatingCanvas} />
-  
-  <!-- Floating Debug Panel -->
-  <FloatingDebugPanel on:close={() => uiActions.hideFloatingDebugPanel()} />
-  
-  <!-- Floating System Panel -->
-  <FloatingSystemPanel on:dataSourceChange={handleDataSourceChange} />
-  
-  <!-- Floating Multi-Symbol ADR Panel -->
-  <FloatingMultiSymbolADR on:close={() => uiActions.hideFloatingADRPanel()} />
+    
+    <!-- Floating Debug Panel -->
+    <FloatingDebugPanel
+      on:close={() => uiActions.hideFloatingDebugPanel()}
+    />
+    
+    <!-- Floating System Panel -->
+    <FloatingSystemPanel
+      on:dataSourceChange={handleDataSourceChange}
+    />
+    
+    <!-- Floating Multi Symbol ADR -->
+    <FloatingMultiSymbolADR
+      on:close={() => uiActions.hideFloatingADRPanel()}
+    />
+    
+    <!-- Global Context Menu -->
+    {#if showContextMenu && contextMenuCanvasId}
+      <CanvasContextMenu
+        position={contextMenuPosition}
+        canvasId={contextMenuCanvasId}
+        config={contextMenuConfig}
+        on:configChange={handleCanvasConfigChange}
+        on:configReset={handleCanvasConfigReset}
+        on:close={handleContextMenuClose}
+      />
+    {/if}
+  </div>
 </main>
 
 <style>
@@ -292,7 +302,7 @@
     overflow: hidden;
   }
   
-  /* Workspace Container for Floating Canvases */
+  /* Workspace Container for Background */
   .workspace-container {
     position: absolute;
     top: 0;
@@ -304,17 +314,33 @@
       radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.1) 0%, transparent 50%),
       radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
       radial-gradient(circle at 40% 20%, rgba(239, 68, 68, 0.1) 0%, transparent 50%);
-    z-index: 10;
+    z-index: 1; /* Reduced from 10 to ensure it's in the background */
   }
   
   .workspace-container.show-grid {
-    background-image: 
+    background-image:
       radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.1) 0%, transparent 50%),
       radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
       radial-gradient(circle at 40% 20%, rgba(239, 68, 68, 0.1) 0%, transparent 50%),
       linear-gradient(rgba(55, 65, 81, 0.1) 1px, transparent 1px),
       linear-gradient(90deg, rgba(55, 65, 81, 0.1) 1px, transparent 1px);
     background-size: 100% 100%, 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+  }
+  
+  /* Floating Panels Layer - Contains all floating elements */
+  .floating-panels-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  
+  /* Allow pointer events for floating elements */
+  .floating-panels-layer > * {
+    pointer-events: auto;
   }
   
   .floating-canvases-layer {

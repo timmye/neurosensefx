@@ -9,7 +9,8 @@ function formatPrice(price, digits) {
     if (price === undefined || price === null || isNaN(price)) return null;
 
     // Use toFixed to ensure the price has the correct number of decimal places, preventing floating point issues.
-    const priceStr = price.toFixed(digits);
+    const safeDigits = digits || 5;
+    const priceStr = (price !== undefined && price !== null && !isNaN(price)) ? price.toFixed(safeDigits) : 'N/A';
     const parts = priceStr.split('.');
     const integerPart = parts[0];
     const decimalPart = parts[1] || '';

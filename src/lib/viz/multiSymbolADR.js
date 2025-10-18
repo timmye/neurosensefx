@@ -74,8 +74,9 @@ export function drawMultiSymbolADR(ctx, dimensions, symbols) {
     ctx.stroke();
 
     ctx.textAlign = 'left';
+    const adrPercent = symbol.adrPercentage || 0;
     ctx.fillText(
-      `${symbol.symbolName} (${symbol.adrPercentage.toFixed(2)}%)`,
+      `${symbol.symbolName} (${adrPercent.toFixed(2)}%)`,
       centerX + lineLength + 10,
       y + 4
     );

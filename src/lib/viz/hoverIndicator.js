@@ -50,7 +50,8 @@ export function drawHoverIndicator(ctx, config, state, y, hoverState) {
         ctx.stroke();
 
         // Draw the price label
-        const labelText = hoverPrice.toFixed(state.digits);
+        const safeDigits = state && state.digits ? state.digits : 5;
+        const labelText = (hoverPrice !== undefined && hoverPrice !== null && !isNaN(hoverPrice)) ? hoverPrice.toFixed(safeDigits) : 'N/A';
         const labelFontSize = 10; // config.hoverLabelFontSize || 10; // Use config, fallback to 10 - TO BE ADDED TO CONFIG
         const labelPadding = 5; // Padding around the label
         const labelOffsetFromLine = 10; // Distance from the line

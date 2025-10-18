@@ -48,6 +48,57 @@ async function globalSetup(config: FullConfig) {
   // Wait a moment for cleanup to complete
   await new Promise(resolve => setTimeout(resolve, 2000));
   
+  // Initialize test state isolation utilities
+  console.log('Initializing test state isolation utilities...');
+  try {
+    // Launch a browser to set up test environment
+    const browser = await chromium.launch();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    // Navigate to the application
+    await page.goto('http://localhost:5173');
+    
+    // Wait for application to load
+    await page.waitForSelector('.workspace-container', { timeout: 10000 });
+    
+    // Set up global test state isolation
+    await page.evaluate(() => {
+      // Extend window interface for test utilities
+      (window as any).testCleanup = () => {
+        // Clear workspace state
+        if ((window as any).workspaceActions && (window as any).workspaceActions.clearWorkspace) {
+          (window as any).workspaceActions.clearWorkspace();
+        }
+        
+        // Reset symbol store to default state
+        if ((window as any).symbolStore && (window as any).symbolStore.set) {
+          (window as any).symbolStore.set({});
+        }
+        
+        // Reset UI state
+        if ((window as any).uiActions && (window as any).uiActions.hideAllPanels) {
+          (window as any).uiActions.hideAllPanels();
+        }
+        
+        // Clear any test-specific event listeners
+        window.dispatchEvent(new CustomEvent('clearTestState'));
+      };
+      
+      // Store test utilities for use in tests
+      (window as any).testUtils = {
+        cleanup: (window as any).testCleanup,
+        resetState: (window as any).testCleanup
+      };
+    });
+    
+    await context.close();
+    await browser.close();
+    console.log('✓ Test state isolation utilities initialized');
+  } catch (error) {
+    console.log('⚠ Could not initialize test utilities (will be initialized in tests):', (error as Error).message);
+  }
+  
   console.log('✅ Global setup completed');
   console.log('Ready to run workflow-based baseline tests\n');
 }

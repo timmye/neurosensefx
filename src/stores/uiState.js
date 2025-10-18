@@ -21,13 +21,15 @@ const initialUIState = {
   contextMenuOpen: false,
   menuPosition: { x: 0, y: 0 },
   floatingSymbolPaletteOpen: true,    // Changed from false
-  floatingSymbolPalettePosition: { x: 20, y: 20 }, // Strategic position
+  floatingSymbolPalettePosition: { x: 400, y: 20 }, // Top center
   floatingDebugPanelOpen: true,       // Changed from false
-  floatingDebugPanelPosition: { x: 680, y: 20 }, // Strategic position
+  floatingDebugPanelPosition: { x: 680, y: 200 }, // Middle right
   floatingSystemPanelOpen: true,      // Changed from false
-  floatingSystemPanelPosition: { x: 350, y: 20 }, // Strategic position
+  floatingSystemPanelPosition: { x: 680, y: 20 }, // Top right
   floatingADRPanelOpen: true,         // Changed from false
-  floatingADRPanelPosition: { x: 20, y: 400 }, // Strategic position
+  floatingADRPanelPosition: { x: 20, y: 20 }, // Top left
+  addDisplayMenuOpen: false,
+  addDisplayMenuPosition: { x: 0, y: 0 },
   keyboardShortcuts: {
     enabled: true,
     helpVisible: false
@@ -266,6 +268,30 @@ export const uiActions = {
   },
 
   /**
+   * Show add display menu
+   */
+  showAddDisplayMenu(position) {
+    uiState.update(state => ({
+      ...state,
+      addDisplayMenuOpen: true,
+      addDisplayMenuPosition: position,
+      // Close context menu
+      contextMenuOpen: false
+    }));
+  },
+
+  /**
+   * Hide add display menu
+   */
+  hideAddDisplayMenu() {
+    uiState.update(state => ({
+      ...state,
+      addDisplayMenuOpen: false,
+      addDisplayMenuPosition: { x: 0, y: 0 }
+    }));
+  },
+
+  /**
    * Toggle keyboard shortcuts help
    */
   toggleKeyboardHelp() {
@@ -296,6 +322,26 @@ export const uiActions = {
    */
   reset() {
     uiState.set(initialUIState);
+  },
+  
+  /**
+   * Set the hovered canvas
+   */
+  setCanvasHovered(canvasId) {
+    uiState.update(state => ({
+      ...state,
+      hoveredCanvas: canvasId
+    }));
+  },
+  
+  /**
+   * Clear canvas hover state
+   */
+  clearCanvasHovered() {
+    uiState.update(state => ({
+      ...state,
+      hoveredCanvas: null
+    }));
   }
 };
 

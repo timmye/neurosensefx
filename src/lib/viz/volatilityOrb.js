@@ -36,8 +36,9 @@ export function drawVolatilityOrb(ctx, config, state, width, height) {
     let baseColor;
     if (volatilityColorMode === 'directional') {
         baseColor = lastTickDirection === 'up' ? '59, 130, 246' : '239, 68, 68'; // Blue or Red
-    } else if (volatilityColorMode === 'directional') {
-        const intensityFactor = Math.min(1, volatilityIntensity * 1.5);
+    } else if (volatilityColorMode === 'gradient') {
+        const safeIntensity = volatilityIntensity || 0;
+        const intensityFactor = Math.min(1, safeIntensity * 1.5);
         const red = 79 + (239 - 79) * intensityFactor;
         const green = 70 - (70 - 68) * intensityFactor;
         const blue = 229 - (229 - 68) * intensityFactor;

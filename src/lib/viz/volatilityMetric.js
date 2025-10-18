@@ -12,8 +12,10 @@ export function drawVolatilityMetric(ctx, config, state, width, height) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  const volatilityText = `Volatility: ${volatility.toFixed(4)}`;
-  const intensityText = `Intensity: ${(volatilityIntensity * 100).toFixed(2)}%`;
+  const safeVolatility = volatility || 0;
+  const safeIntensity = volatilityIntensity || 0;
+  const volatilityText = `Volatility: ${safeVolatility.toFixed(4)}`;
+  const intensityText = `Intensity: ${(safeIntensity * 100).toFixed(2)}%`;
 
   ctx.fillText(volatilityText, 10, height - 35);
   ctx.fillText(intensityText, 10, height - 20);

@@ -8,7 +8,7 @@
   export let panelId = 'floating-panel';
   export let showMinimize = true;
   export let showClose = true;
-  export let zIndex = 1000;
+  export let zIndex = 100;
   export let onClose = null;
   export let onMinimizeChange = null;
   export let onPositionChange = null;
@@ -46,16 +46,17 @@
   }
 </script>
 
-<div 
+<div
   bind:this={draggable.element}
-  class={draggable.getPanelClasses()}
-  style={draggable.getPanelStyles()}
+  class="draggable-panel {draggable.isMinimized ? 'minimized' : ''} {draggable.isDragging ? 'dragging' : ''}"
+  style="position: fixed; left: {draggable.position.x}px; top: {draggable.position.y}px; z-index: {zIndex};"
   data-panel-id={panelId}
 >
   <!-- Drag Handle -->
-  <div 
+  <div
     bind:this={draggable.dragHandle}
-    class={draggable.getDragHandleClasses()}
+    class="drag-handle {draggable.isDragging ? 'grabbing' : ''}"
+    style="position: relative; z-index: {zIndex + 1};"
     on:mousedown={draggable.handleDragStart}
     on:touchstart={draggable.handleDragStart}
   >
@@ -102,6 +103,7 @@
     max-width: 320px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     transition: box-shadow 0.2s ease;
+    pointer-events: auto;
   }
   
   .draggable-panel.dragging {
@@ -124,6 +126,9 @@
     border-radius: 8px 8px 0 0;
     cursor: grab;
     user-select: none;
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
   }
   
   .drag-handle.grabbing {
@@ -164,6 +169,9 @@
     justify-content: center;
     border-radius: 4px;
     transition: background-color 0.2s ease;
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
   }
   
   .control-btn:hover {

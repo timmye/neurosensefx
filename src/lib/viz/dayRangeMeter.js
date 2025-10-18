@@ -88,7 +88,8 @@ export function drawDayRangeMeter(ctx, config, state, y) {
   }
 
   if (showAdrRangeIndicatorLabel) {
-    const labelText = `ADR: ±${(maxAdrPercentage * 100).toFixed(0)}%`;
+    const maxAdrValue = maxAdrPercentage || 0;
+    const labelText = `ADR: ±${(maxAdrValue * 100).toFixed(0)}%`;
     const metrics = ctx.measureText(labelText);
     const textWidth = metrics.width;
     const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
@@ -162,7 +163,14 @@ export function drawDayRangeMeter(ctx, config, state, y) {
       ctx.fillText(labelText, textX, textY);
   };
 
-  const formatPrice = (price) => price?.toFixed(digits) || 'N/A';
+  const formatPrice = (price) => {
+    try {
+      return (price !== undefined && price !== null && !isNaN(price)) ? price.toFixed(digits) : 'N/A';
+    } catch (error) {
+      console.error('Error formatting price:', { price, digits, error });
+      return 'N/A';
+    }
+  };
 
   drawMarkerAndLabel(todaysHigh, `H ${formatPrice(todaysHigh)}`, '#F59E0B', ohlLabelSide, 'ohl');
   drawMarkerAndLabel(todaysLow, `L ${formatPrice(todaysLow)}`, '#F59E0B', ohlLabelSide, 'ohl');
@@ -190,8 +198,8 @@ export function drawDayRangeMeter(ctx, config, state, y) {
  const lowPercentage = ((todaysLow - state.midPrice) / adrRange) * 100;
 
  // Format labels with sign and percentage
- const highLabel = `${highPercentage >= 0 ? '+' : ''}${highPercentage.toFixed(0)}%`;
- const lowLabel = `${lowPercentage >= 0 ? '+' : ''}${lowPercentage.toFixed(0)}%`;
+ const highLabel = `${highPercentage >= 0 ? '+' : ''}${(highPercentage || 0).toFixed(0)}%`;
+ const lowLabel = `${lowPercentage >= 0 ? '+' : ''}${(lowPercentage || 0).toFixed(0)}%`;
 
  // Draw labels at the actual todaysHigh and todaysLow price levels
  drawMarkerAndLabel(todaysHigh, highLabel, '#3B82F6', pHighLowLabelSide, 'pHighLow');

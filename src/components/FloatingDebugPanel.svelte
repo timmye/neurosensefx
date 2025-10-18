@@ -1,31 +1,60 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { symbolStore } from '../data/symbolStore.js';
+  import { availableSymbols } from '../data/wsClient.js';
   import { uiActions } from '../stores/uiState.js';
-  import FloatingPanel from './shared/FloatingPanel.svelte';
+  import InteractWrapper from './shared/InteractWrapper.svelte';
+  import InfoGrid from './shared/InfoGrid.svelte';
+  import SectionHeader from './shared/SectionHeader.svelte';
+  import { getZIndex } from '../constants/zIndex.js';
+  import { createLogger } from '../utils/debugLogger.js';
   
+  const logger = createLogger('FloatingDebugPanel');
   const dispatch = createEventDispatcher();
   
   // Component state
-  let debugPosition = { x: 500, y: 100 };
+  let debugPosition = { x: 680, y: 200 }; // Middle right position
   let isMinimized = false;
   let symbols = [];
+  let available = [];
   let currentSymbolData = null;
+  let interactWrapperRef;
   
-  // Subscribe to symbol store
+  // Subscribe to symbol store (active subscriptions)
   const unsubSymbolStore = symbolStore.subscribe(value => {
     symbols = Object.keys(value);
-    // No longer tracking selected symbol as it's been removed
+  });
+  
+  // Subscribe to available symbols store
+  const unsubAvailableSymbols = availableSymbols.subscribe(value => {
+    available = value;
   });
   
   // No longer subscribing to selected symbol as it's been removed
   
   onDestroy(() => {
     unsubSymbolStore();
+    unsubAvailableSymbols();
   });
   
   function handleClose() {
+    logger.debug('Debug panel closed');
     uiActions.hideFloatingDebugPanel();
+    dispatch('close');
+  }
+  
+  function handlePositionChange(event) {
+    debugPosition = event.detail.position;
+    logger.debug('Position changed', { position: debugPosition });
+  }
+  
+  function handleMinimize() {
+    isMinimized = !isMinimized;
+    if (interactWrapperRef) {
+      interactWrapperRef.setMinimized(isMinimized);
+    }
+    logger.debug('Minimize toggled', { isMinimized });
+    dispatch('minimizeChange', { isMinimized });
   }
   
   // Get current state for display
@@ -34,13 +63,44 @@
   $: hasData = state && Object.keys(state).length > 0;
 </script>
 
-<FloatingPanel
-  title="Debug Info"
-  panelId="debug-panel"
+<InteractWrapper
+  bind:this={interactWrapperRef}
   position={debugPosition}
-  on:close={handleClose}
-  defaultMinimized={false}
+  defaultPosition={debugPosition}
+  positionKey="floating-debug-panel-position"
+  on:positionChange={handlePositionChange}
+  isDraggable={true}
+  isResizable={false}
+  inertia={true}
+  boundaryPadding={10}
 >
+  <div class="draggable-panel {isMinimized ? 'minimized' : ''}" style="z-index: {getZIndex('DEBUG_PANEL')};">
+    <!-- Panel Header -->
+    <div class="panel-header">
+      <div class="drag-indicator">⋮⋮</div>
+      <div class="panel-title">Debug Info</div>
+      <div class="panel-controls">
+        <button
+          class="control-btn minimize-btn"
+          on:click={handleMinimize}
+          title={isMinimized ? "Expand" : "Minimize"}
+        >
+          {isMinimized ? '□' : '−'}
+        </button>
+        
+        <button
+          class="control-btn close-btn"
+          on:click={handleClose}
+          title="Close"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+    
+    <!-- Panel Content -->
+    {#if !isMinimized}
+      <div class="panel-content">
   <div class="debug-content">
     <div class="debug-symbol-header">
       <span class="symbol-label">Symbol Selection:</span>
@@ -49,41 +109,37 @@
     
     {#if hasData}
       <div class="debug-section">
-        <h4>Market Profile</h4>
-        <div class="info-grid">
-          <span>Profile Levels:</span>
-          <span>{state.marketProfile?.levels?.length || 0}</span>
-          <span>Profile Ticks:</span>
-          <span>{state.marketProfile?.tickCount || 0}</span>
-        </div>
+        <SectionHeader title="Market Profile" />
+        <InfoGrid
+          data={[
+            { label: "Profile Levels:", value: state.marketProfile?.levels?.length || 0 },
+            { label: "Profile Ticks:", value: state.marketProfile?.tickCount || 0 }
+          ]}
+        />
       </div>
       
       <div class="debug-section">
-        <h4>Price Range</h4>
-        <div class="info-grid">
-          <span>ADR High:</span>
-          <span>{state.projectedAdrHigh?.toFixed(5) || 'N/A'}</span>
-          <span>ADR Low:</span>
-          <span>{state.projectedAdrLow?.toFixed(5) || 'N/A'}</span>
-          <span>Visual High:</span>
-          <span>{state.visualHigh?.toFixed(5) || 'N/A'}</span>
-          <span>Visual Low:</span>
-          <span>{state.visualLow?.toFixed(5) || 'N/A'}</span>
-        </div>
+        <SectionHeader title="Price Range" />
+        <InfoGrid
+          data={[
+            { label: "ADR High:", value: (state?.projectedAdrHigh !== undefined && state?.projectedAdrHigh !== null) ? state.projectedAdrHigh.toFixed(5) : 'N/A' },
+            { label: "ADR Low:", value: (state?.projectedAdrLow !== undefined && state?.projectedAdrLow !== null) ? state.projectedAdrLow.toFixed(5) : 'N/A' },
+            { label: "Visual High:", value: (state?.visualHigh !== undefined && state?.visualHigh !== null) ? state.visualHigh.toFixed(5) : 'N/A' },
+            { label: "Visual Low:", value: (state?.visualLow !== undefined && state?.visualLow !== null) ? state.visualLow.toFixed(5) : 'N/A' }
+          ]}
+        />
       </div>
       
       <div class="debug-section">
-        <h4>Current State</h4>
-        <div class="info-grid">
-          <span>Current Price:</span>
-          <span>{state.currentPrice?.toFixed(digits) || 'N/A'}</span>
-          <span>Digits:</span>
-          <span>{state.digits || 'N/A'}</span>
-          <span>Tick Direction:</span>
-          <span>{state.lastTickDirection || 'N/A'}</span>
-          <span>Volatility:</span>
-          <span>{state.volatility?.toFixed(4) || 'N/A'}</span>
-        </div>
+        <SectionHeader title="Current State" />
+        <InfoGrid
+          data={[
+            { label: "Current Price:", value: (state?.currentPrice !== undefined && state?.currentPrice !== null) ? state.currentPrice.toFixed(digits) : 'N/A' },
+            { label: "Digits:", value: state.digits || 'N/A' },
+            { label: "Tick Direction:", value: state.lastTickDirection || 'N/A' },
+            { label: "Volatility:", value: (state?.volatility !== undefined && state?.volatility !== null) ? state.volatility.toFixed(4) : 'N/A' }
+          ]}
+        />
       </div>
     {:else}
       <div class="no-data">
@@ -93,25 +149,105 @@
     {/if}
     
     <div class="debug-section">
-      <h4>System Status</h4>
-      <div class="info-grid">
-        <span>Active Symbols:</span>
-        <span>{symbols.length}</span>
-        <span>Selected:</span>
-        <span>Use FloatingSymbolPalette</span>
-      </div>
+      <SectionHeader title="System Status" />
+      <InfoGrid
+        data={[
+          { label: "Active Subscriptions:", value: symbols.length },
+          { label: "Available Symbols:", value: available.length },
+          { label: "Selected:", value: "Use FloatingSymbolPalette" }
+        ]}
+      />
     </div>
   </div>
-</FloatingPanel>
+      </div>
+    {/if}
+  </div>
+</InteractWrapper>
 
 <style>
-  .debug-content {
-    pointer-events: none;
-    font-family: monospace;
+  .draggable-panel {
+    position: relative;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    min-width: 200px;
+    max-width: 320px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transition: box-shadow 0.2s ease;
+    pointer-events: auto;
+    z-index: inherit; /* Use the z-index from the style attribute */
   }
   
-  .debug-content * {
+  .draggable-panel.minimized {
+    min-width: 200px;
+    max-width: 200px;
+  }
+  
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #374151;
+    border-bottom: 1px solid #4b5563;
+    border-radius: 8px 8px 0 0;
+    cursor: grab;
+    user-select: none;
     pointer-events: auto;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .drag-indicator {
+    color: #9ca3af;
+    font-size: 12px;
+    margin-right: 8px;
+  }
+  
+  .panel-title {
+    color: #d1d5db;
+    font-size: 12px;
+    font-weight: 600;
+    flex: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .panel-controls {
+    display: flex;
+    gap: 4px;
+  }
+  
+  .control-btn {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+  }
+  
+  .control-btn:hover {
+    background: rgba(156, 163, 175, 0.1);
+    color: #d1d5db;
+  }
+  
+  .panel-content {
+    padding: 12px;
+  }
+  
+  .debug-content {
+    font-family: monospace;
   }
   
   .debug-symbol-header {
@@ -143,34 +279,6 @@
   
   .debug-section:last-child {
     margin-bottom: 0;
-  }
-  
-  .debug-section h4 {
-    margin: 0 0 8px 0;
-    color: #d1d5db;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid #374151;
-    padding-bottom: 4px;
-  }
-  
-  .info-grid {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 4px 8px;
-    font-size: 11px;
-  }
-  
-  .info-grid span:nth-child(odd) {
-    color: #9ca3af;
-    font-weight: 500;
-  }
-  
-  .info-grid span:nth-child(even) {
-    color: #e5e7eb;
-    text-align: right;
   }
   
   .no-data {

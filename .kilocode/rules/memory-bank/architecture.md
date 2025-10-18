@@ -289,10 +289,14 @@ export const activeCanvas = derived(
 - Decoupled components from data sources
 - Efficient reactivity with minimal overhead
 
-### 7. Centralized Event Management Pattern
-**Purpose**: Efficient event handling for multiple floating elements
+### 7. Comprehensive Event Handling Architecture
+**Purpose**: Sophisticated event management for floating workspace with centralized delegation, composables, and reactive state management
 
-**Implementation**:
+**Reference**: See [`memory-bank/event-handling-architecture.md`](memory-bank/event-handling-architecture.md) for complete documentation
+
+**Core Components**:
+
+#### WorkspaceEventManager.js - Centralized Event Delegation
 ```javascript
 // src/utils/WorkspaceEventManager.js
 export class WorkspaceEventManager {
@@ -309,14 +313,142 @@ export class WorkspaceEventManager {
     // Document-level listeners for drag operations
     document.addEventListener('mousemove', this.handleMouseMove.bind(this));
     document.addEventListener('mouseup', this.handleMouseUp.bind(this));
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', this.handleKeyDown.bind(this));
   }
 }
 ```
 
+#### InteractWrapper.svelte - Unified Drag with Interact.js
+**Purpose**: Standardized drag functionality using interact.js library for all floating panels
+
+**Implementation**:
+```javascript
+// src/components/shared/InteractWrapper.svelte
+import interact from 'interactjs';
+import { PositionPersistence } from '../../utils/positionPersistence.js';
+
+// Initialize interact.js
+const initializeInteract = () => {
+  interactInstance = interact(element);
+  
+  // Configure draggable
+  interactInstance.draggable({
+    inertia: inertia ? {
+      resistance: 10,
+      minSpeed: 200,
+      endSpeed: 100
+    } : false,
+    
+    // Event listeners
+    onstart: (event) => {
+      isDragging = true;
+      dispatch('dragStart', { event, position });
+    },
+    
+    onmove: (event) => {
+      const boundedPosition = ensureInBounds({ x, y });
+      savePosition(boundedPosition);
+      dispatch('dragMove', { event, position: boundedPosition });
+    },
+    
+    onend: (event) => {
+      isDragging = false;
+      dispatch('dragEnd', { event, position: finalPosition });
+    }
+  });
+};
+```
+
+#### useDraggable.js - Composable for Custom Drag Implementation
+**Purpose**: Custom drag implementation for components not using InteractWrapper
+
+```javascript
+// src/composables/useDraggable.js
+export function useDraggable(options = {}) {
+  // State management
+  let position = { ...defaultPosition };
+  let isDragging = false;
+  let isMinimized = defaultMinimized;
+  
+  // Event handlers with viewport boundary checking
+  const handleDragStart = (event) => {
+    isDragging = true;
+    // Calculate offset and add global listeners
+  };
+  
+  const handleDragMove = (event) => {
+    if (!isDragging) return;
+    // Update position with boundary checking
+  };
+  
+  // Return reactive state and handlers
+  return {
+    position, isDragging, isMinimized,
+    handleDragStart, handleMinimize, handleClose
+  };
+}
+```
+
+#### Three-Store Pattern for State Management
+- **workspaceState.js**: Canvas management, drag state, active canvas tracking
+- **uiState.js**: UI interaction state, context menu visibility, panel visibility
+- **canvasRegistry.js**: Canvas metadata, Z-index management, symbol-to-canvas mapping
+
+**Event Flow Architecture**:
+1. **Canvas Interactions**: Right-click → context menu, Mousedown → drag operations
+2. **Floating Panel Events**: Drag with InteractWrapper/useDraggable, state changes with localStorage persistence
+3. **Reactive Rendering**: Svelte reactive statements trigger renders only on state changes
+
 **Benefits**:
-- Single event listener for multiple elements
-- Efficient handling of dynamic content
-- Consistent event flow across the application
+- Single event listener for multiple elements through delegation
+- Consistent drag behavior across all floating components
+- Efficient state management with specialized stores
+- Proper cleanup and resource management
+- Viewport boundary checking and position persistence
+- Keyboard shortcuts for power users
+- Performance optimized for 20+ displays
+
+### 8. Environment-Based Debug Logging Pattern
+**Purpose**: Provide structured logging that adapts to development and production environments
+
+**Implementation**:
+```javascript
+// src/utils/debugLogger.js
+// Check if we're in development mode
+const DEBUG = import.meta.env.DEV;
+
+/**
+ * Logs debug messages only in development mode
+ */
+export function debugLog(tag, message, data = null) {
+  if (!DEBUG) return;
+  
+  if (data) {
+    console.log(`🔍 DEBUG: ${tag} ${message}`, data);
+  } else {
+    console.log(`🔍 DEBUG: ${tag} ${message}`);
+  }
+}
+
+/**
+ * Creates a logger with a predefined tag
+ */
+export function createLogger(tag) {
+  return {
+    debug: (message, data) => debugLog(tag, message, data),
+    warn: (message, data) => warnLog(tag, message, data),
+    error: (message, data) => errorLog(tag, message, data)
+  };
+}
+```
+
+**Benefits**:
+- Zero console output in production
+- Structured logging with component-specific tags
+- Consistent log formatting across the application
+- Easy identification of log sources
 
 ## Data Flow Architecture
 
@@ -472,12 +604,25 @@ src/
 │   │       ├── searchUtils.js
 │   │       ├── keyboardShortcuts.js
 │   │       └── parameterValidation.js
+│   ├── shared/                  # Shared UI components
+│   │   ├── InteractWrapper.svelte    # Unified drag functionality with interact.js
+│   │   ├── FloatingPanel.svelte      # Base component for floating panels
+│   │   ├── InfoGrid.svelte          # Grid-based information display
+│   │   ├── StatusDisplay.svelte     # Status indicator component
+│   │   └── SectionHeader.svelte     # Section header component
+│   ├── FXSymbolSelector.svelte      # Advanced symbol selection with fuzzy search
 │   └── viz/                     # Visualization components
 │       └── Container.svelte     # Main visualization container
 ├── data/                   # Data handling and stores
-│   ├── symbolStore.js           # Symbol data management
-│   ├── schema.js                # Data validation schemas
-│   └── wsClient.js              # WebSocket client
+│   ├── ConnectionManager.js        # Centralized data flow management
+│   ├── symbolStore.js               # Symbol data management
+│   ├── schema.js                    # Data validation schemas
+│   ├── fuzzyMatch.js                # Fuzzy search implementation
+│   └── wsClient.js                  # WebSocket client
+├── constants/              # Application constants
+│   └── zIndex.js                    # Z-index hierarchy for floating elements
+├── composables/           # Reusable Svelte composables
+│   └── useDraggable.js              # Custom drag functionality
 ├── lib/                    # Utility libraries
 │   ├── d3-utils.js              # D3.js utilities
 │   └── viz/                     # Visualization libraries
@@ -487,6 +632,8 @@ src/
 │   ├── canvasRegistry.js        # Canvas tracking
 │   └── configStore.js           # Configuration state
 ├── utils/                  # Utility functions
+│   ├── debugLogger.js           # Environment-based debug logging
+│   ├── positionPersistence.js   # Unified position persistence utilities
 │   └── WorkspaceEventManager.js # Event delegation system
 └── workers/                # Web Workers
     └── dataProcessor.js         # Data processing worker
@@ -538,6 +685,124 @@ run.sh                     # Unified service management
 ├── start-background        # Start in background (DevContainer)
 └── wait-for-services       # Wait for services to be ready
 ```
+
+## Shared UI Components Architecture
+
+### InfoGrid Component
+**Purpose**: Display structured information in a grid layout
+
+**Implementation**:
+```javascript
+// src/components/shared/InfoGrid.svelte
+export let data = [];           // Array of { label, value } objects
+export let columns = 2;         // Number of columns (default: 2)
+export let fontSize = '11px';   // Font size for text
+export let gap = '4px 8px';     // Gap between grid items
+```
+
+**Features**:
+- Responsive grid layout with configurable columns
+- Automatic value formatting for different data types
+- Graceful handling of missing or null values
+- Customizable styling through CSS variables
+
+### StatusDisplay Component
+**Purpose**: Show status indicators with visual feedback
+
+**Implementation**:
+```javascript
+// src/components/shared/StatusDisplay.svelte
+export let status = 'unknown';  // Status value (connected, disconnected, etc.)
+export let text = '';           // Optional custom text
+export let showIndicator = true; // Show/hide status indicator
+export let size = 'medium';     // Size variation (small, medium, large)
+```
+
+**Features**:
+- Color-coded status indicators (green for connected, red for error, etc.)
+- Multiple size variations for different UI contexts
+- Default text based on status value
+- Configurable visibility of indicator
+
+### SectionHeader Component
+**Purpose**: Consistent section headings throughout the application
+
+**Implementation**:
+```javascript
+// src/components/shared/SectionHeader.svelte
+export let title = '';              // Header text
+export let level = 4;               // Heading level (h1-h6)
+export let showBorder = true;       // Show/hide bottom border
+export let uppercase = true;        // Uppercase text
+export let letterSpacing = '0.5px';  // Letter spacing
+export let fontSize = '11px';       // Font size
+export let fontWeight = '600';      // Font weight
+```
+
+**Features**:
+- Configurable heading levels (h1-h6) with appropriate default styling
+- Optional bottom border for visual separation
+- Customizable typography properties
+- Uppercase option for section headers
+
+## Debug Logging Architecture
+
+### Environment-Based Logging System
+**Purpose**: Provide structured debugging that adapts to development and production environments
+
+**Core Functions**:
+```javascript
+// src/utils/debugLogger.js
+
+// Development-only logging
+debugLog(tag, message, data);
+
+// Environment-agnostic warnings
+warnLog(tag, message, data);
+
+// Environment-agnostic errors
+errorLog(tag, message, data);
+
+// Component-specific logger
+const logger = createLogger('ComponentName');
+logger.debug('Message', data);
+```
+
+**Features**:
+- Zero console output in production environment
+- Component-specific tagging for easy log filtering
+- Structured logging with consistent formatting
+- Visual indicators (🔍 for debug, ⚠️ for warnings, ❌ for errors)
+
+## Optimization Recommendations
+
+### Code Quality Improvements (Phase 1 - COMPLETED ✅)
+1. **Debug Logging Implementation**
+   - Created environment-based debug logging utility
+   - Implemented structured logging with component tags
+   - Removed debug console.log statements from production code
+
+2. **Shared UI Components**
+   - Implemented InfoGrid for consistent data display
+   - Created StatusDisplay for status indicators
+   - Built SectionHeader for consistent headings
+   - Enhanced code maintainability through component reuse
+
+### Performance Enhancements (Phase 2 - RECOMMENDED)
+1. **Event Handling Optimization**
+   - Extend event delegation patterns for complex interactions
+   - Optimize useDraggable composable for better performance
+   - Implement enhanced cleanup patterns
+
+2. **Memory Management Improvements**
+   - Add memory usage monitoring for development
+   - Implement enhanced cleanup for destroyed components
+   - Optimize data structures for large workspaces
+
+3. **Rendering Optimization**
+   - Implement selective rendering for off-screen canvases
+   - Add viewport-based rendering optimizations
+   - Optimize frame rate with multiple displays
 
 ## Security Architecture
 
@@ -607,4 +872,64 @@ npm run test:full                 # All tests, < 10min
 - **Environment Variables**: Configuration via environment
 - **Service Management**: Production deployment scripts
 
-This architecture provides the foundation for NeuroSense FX's high-performance, human-centric financial data visualization system with comprehensive testing infrastructure and unified service management.
+This architecture provides the foundation for NeuroSense FX's high-performance, human-centric financial data visualization system with comprehensive testing infrastructure, unified service management, shared UI components, environment-based debug logging, and standardized floating panel implementation using Interact.js.
+
+### Frontend Layering Structure (2025-10-18)
+
+#### Z-Index Hierarchy Standardization
+The application implements a standardized z-index hierarchy for consistent layering of floating elements:
+
+```javascript
+// src/constants/zIndex.js
+export const Z_INDEX_LEVELS = {
+  BACKGROUND: 1,              // Workspace container
+  FLOATING_BASE: 1000,        // Base for floating panels layer
+  SYMBOL_PALETTE: 1001,       // FloatingSymbolPalette
+  DEBUG_PANEL: 1002,          // FloatingDebugPanel
+  SYSTEM_PANEL: 1003,         // FloatingSystemPanel
+  ADR_PANEL: 1004,            // FloatingMultiSymbolADR
+  FLOATING_CANVAS_BASE: 2000, // Base for floating canvases
+  DRAGGING: 9999,             // Any element being dragged
+  CONTEXT_MENU: 10000         // CanvasContextMenu (always on top)
+};
+```
+
+#### Floating Panel Implementation with Interact.js
+All floating panels use the InteractWrapper component for consistent drag behavior:
+
+1. **InteractWrapper.svelte**: Core component providing unified drag functionality
+   - Uses interact.js library for robust drag operations
+   - Implements viewport boundary checking
+   - Provides position persistence via PositionPersistence utilities
+   - Handles both mouse and touch events
+   - Supports inertia and snap configurations
+
+2. **PositionPersistence.js**: Unified position persistence utilities
+   - Provides consistent localStorage-based persistence
+   - Handles both position and state persistence
+   - Includes methods for clearing and retrieving all saved positions
+
+3. **Z-Index Management**: Standardized z-index hierarchy ensures proper layering
+   - Floating panels use z-index values 1001-1004
+   - Canvases use z-index values starting at 2000
+   - Dragging elements use z-index 9999
+   - Context menus always use z-index 10000
+
+#### Connection Management Architecture
+The ConnectionManager class provides centralized data flow management:
+
+1. **Canvas Subscription Management**: Tracks which canvases are subscribed to which symbols
+2. **Symbol Data Caching**: Caches symbol data to avoid duplicate requests
+3. **Connection Monitoring**: Monitors WebSocket status and handles reconnections
+4. **Data Source Mode Switching**: Handles switching between live and simulated data
+
+#### Symbol Selection Implementation
+The FXSymbolSelector component provides advanced symbol selection:
+
+1. **Fuzzy Search**: Implements fuzzy matching for symbol search
+2. **Keyboard Navigation**: Full keyboard support with arrow keys and shortcuts
+3. **Visual Feedback**: Highlights matching characters and shows subscription status
+4. **Debounced Search**: Implements debounced search for performance
+5. **Accessibility**: Full ARIA support for screen readers
+
+This comprehensive frontend architecture provides a solid foundation for the floating workspace interface with consistent behavior, efficient event handling, and professional user experience.

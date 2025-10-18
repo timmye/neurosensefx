@@ -4,14 +4,35 @@
 import { test, expect, TEST_SYMBOLS, WAIT_TIMES, SELECTORS } from '../fixtures/workflowFixtures.js';
 
 test.describe('Primary Trader Workflow: Workspace to Live Prices', () => {
-  test('should create complete workflow from empty workspace to live price display', async ({ 
-    workflowPage, 
-    waitForFloatingPanels, 
-    selectSymbol, 
+  test('should create complete workflow from empty workspace to live price display', async ({
+    workflowPage,
+    waitForFloatingPanels,
+    selectSymbol,
     createCanvas,
-    validateLogs 
+    validateLogs
   }) => {
     console.log('\n=== Starting Workflow: Empty Workspace → Symbol Selection → Canvas Creation → Live Prices ===');
+    
+    // Ensure clean test state with proper cleanup
+    await workflowPage.evaluate(() => {
+      // Clear workspace state
+      if (window.workspaceActions && window.workspaceActions.clearWorkspace) {
+        window.workspaceActions.clearWorkspace();
+      }
+      
+      // Reset symbol store to default state
+      if (window.symbolStore && window.symbolStore.set) {
+        window.symbolStore.set({});
+      }
+      
+      // Reset UI state
+      if (window.uiActions && window.uiActions.hideAllPanels) {
+        window.uiActions.hideAllPanels();
+      }
+    });
+    
+    // Wait for cleanup to complete
+    await workflowPage.waitForTimeout(500);
     
     // Step 1: Verify empty workspace
     console.log('Step 1: Verifying empty workspace...');
@@ -134,13 +155,34 @@ test.describe('Primary Trader Workflow: Workspace to Live Prices', () => {
     console.log('✅ Workflow completed successfully');
   });
 
-  test('should handle symbol selection and canvas creation with different symbols', async ({ 
-    workflowPage, 
-    waitForFloatingPanels, 
+  test('should handle symbol selection and canvas creation with different symbols', async ({
+    workflowPage,
+    waitForFloatingPanels,
     createCanvas,
-    validateLogs 
+    validateLogs
   }) => {
     console.log('\n=== Testing Multiple Symbol Support ===');
+    
+    // Ensure clean test state with proper cleanup
+    await workflowPage.evaluate(() => {
+      // Clear workspace state
+      if (window.workspaceActions && window.workspaceActions.clearWorkspace) {
+        window.workspaceActions.clearWorkspace();
+      }
+      
+      // Reset symbol store to default state
+      if (window.symbolStore && window.symbolStore.set) {
+        window.symbolStore.set({});
+      }
+      
+      // Reset UI state
+      if (window.uiActions && window.uiActions.hideAllPanels) {
+        window.uiActions.hideAllPanels();
+      }
+    });
+    
+    // Wait for cleanup to complete
+    await workflowPage.waitForTimeout(500);
     
     // Wait for panels
     await waitForFloatingPanels();

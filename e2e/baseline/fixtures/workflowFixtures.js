@@ -83,6 +83,10 @@ export const test = base.extend({
   // Utility to create canvas from palette
   createCanvas: async ({ page }, use) => {
     const createCanvasFromPalette = async (symbol = null) => {
+      // Get initial canvas count
+      const initialCanvases = page.locator('.floating-canvas');
+      const initialCount = await initialCanvases.count();
+      
       // Select symbol if provided
       if (symbol) {
         const selectSymbol = async (s) => {
@@ -104,11 +108,17 @@ export const test = base.extend({
       // Wait for canvas to be created
       await page.waitForTimeout(1000);
       
-      // Verify canvas exists
-      const canvases = page.locator('.floating-canvas');
-      await expect(canvases).toHaveCount(1);
+      // Verify canvas count increased by 1
+      const finalCanvases = page.locator('.floating-canvas');
+      const finalCount = await finalCanvases.count();
+      const expectedCount = initialCount + 1;
       
-      return canvases.first();
+      // Strict assertion - tests should have predictable state
+      if (finalCount !== expectedCount) {
+        throw new Error(`Expected ${expectedCount} canvases, got ${finalCount}. Check test isolation and cleanup.`);
+      }
+      
+      return finalCanvases.last();
     };
     
     await use(createCanvasFromPalette);

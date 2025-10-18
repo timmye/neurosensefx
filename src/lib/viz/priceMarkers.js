@@ -23,7 +23,8 @@ export function drawPriceMarkers(ctx, config, state, y, markers) {
     ctx.setLineDash([]);
 
     // Draw the price label for the marker
-    const labelText = marker.price.toFixed(state.digits);
+    const safeDigits = state && state.digits ? state.digits : 5;
+    const labelText = (marker.price !== undefined && marker.price !== null && !isNaN(marker.price)) ? marker.price.toFixed(safeDigits) : 'N/A';
     const labelFontSize = 10;
     const labelPadding = 5;
 

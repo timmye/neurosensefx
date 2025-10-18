@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { fuzzyMatch, getMatchInfo } from '../data/fuzzyMatch.js';
+  import { createLogger } from '../utils/debugLogger.js';
 
   export let availableSymbols = [];
   export let selectedSymbol = null;
@@ -9,6 +10,7 @@
   export let disabled = false;
 
   const dispatch = createEventDispatcher();
+  const logger = createLogger('FXSymbolSelector');
 
   // Component state
   let searchQuery = '';
@@ -67,24 +69,24 @@
   }
 
   function handleSymbolSelect(symbol, shouldSubscribe = false) {
-    console.log('🔍 DEBUG: FXSymbolSelector handleSymbolSelect called', { symbol, shouldSubscribe });
+    logger.debug('handleSymbolSelect called', { symbol, shouldSubscribe });
     selectedSymbol = symbol;
     searchQuery = '';
     isOpen = false;
     highlightedIndex = -1;
-    console.log('🔍 DEBUG: FXSymbolSelector dispatching select event', { symbol, shouldSubscribe });
+    logger.debug('dispatching select event', { symbol, shouldSubscribe });
     dispatch('select', { symbol, shouldSubscribe });
-    console.log('🔍 DEBUG: FXSymbolSelector select event dispatched');
+    logger.debug('select event dispatched');
   }
 
   function handleKeyDown(event) {
-    console.log('🔍 DEBUG: FXSymbolSelector handleKeyDown called', { key: event.key, disabled, searchQuery, filteredSymbolsLength: filteredSymbols.length });
+    logger.debug('handleKeyDown called', { key: event.key, disabled, searchQuery, filteredSymbolsLength: filteredSymbols.length });
     
     if (disabled) return;
 
     switch (event.key) {
       case 'ArrowDown':
-        console.log('🔍 DEBUG: FXSymbolSelector ArrowDown pressed');
+        logger.debug('ArrowDown pressed');
         event.preventDefault();
         if (filteredSymbols.length === 0) break;
         
@@ -110,7 +112,7 @@
         break;
 
       case 'ArrowUp':
-        console.log('🔍 DEBUG: FXSymbolSelector ArrowUp pressed');
+        logger.debug('ArrowUp pressed');
         event.preventDefault();
         if (filteredSymbols.length === 0) break;
         
@@ -134,21 +136,21 @@
         break;
 
       case 'Enter':
-        console.log('🔍 DEBUG: FXSymbolSelector Enter pressed', { highlightedIndex, filteredSymbolsLength: filteredSymbols.length });
+        logger.debug('Enter pressed', { highlightedIndex, filteredSymbolsLength: filteredSymbols.length });
         event.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < filteredSymbols.length) {
-          console.log('🔍 DEBUG: FXSymbolSelector calling handleSymbolSelect with highlighted symbol');
-          handleSymbolSelect(filteredSymbols[highlightedIndex], true); // Trigger subscription
+          logger.debug('calling handleSymbolSelect with highlighted symbol');
+          handleSymbolSelect(filteredSymbols[highlightedIndex], true); // Trigger subscription and canvas creation
         } else if (filteredSymbols.length > 0) {
-          console.log('🔍 DEBUG: FXSymbolSelector calling handleSymbolSelect with first symbol');
-          handleSymbolSelect(filteredSymbols[0], true); // Trigger subscription
+          logger.debug('calling handleSymbolSelect with first symbol');
+          handleSymbolSelect(filteredSymbols[0], true); // Trigger subscription and canvas creation
         } else {
-          console.log('🔍 DEBUG: FXSymbolSelector no symbols to select');
+          logger.debug('no symbols to select');
         }
         break;
 
       case 'Escape':
-        console.log('🔍 DEBUG: FXSymbolSelector Escape pressed');
+        logger.debug('Escape pressed');
         event.preventDefault();
         isOpen = false;
         searchQuery = '';
@@ -156,7 +158,7 @@
         break;
 
       case 'Tab':
-        console.log('🔍 DEBUG: FXSymbolSelector Tab pressed');
+        logger.debug('Tab pressed');
         // Allow tab navigation, close dropdown
         isOpen = false;
         break;

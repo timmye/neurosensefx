@@ -1,0 +1,127 @@
+# Page snapshot
+
+```yaml
+- main [ref=e3]:
+  - generic [ref=e7]:
+    - generic [ref=e9]:
+      - generic [ref=e11]: SIM-EURUSD
+      - button "×" [ref=e12] [cursor=pointer]
+    - generic [ref=e17]:
+      - generic [ref=e19]: SIM-EURUSD
+      - button "×" [ref=e20] [cursor=pointer]
+    - generic [ref=e25]:
+      - generic [ref=e27]: SIM-EURUSD
+      - button "×" [ref=e28] [cursor=pointer]
+    - generic [ref=e33]:
+      - generic [ref=e35]: SIM-EURUSD
+      - button "×" [ref=e36] [cursor=pointer]
+  - generic [ref=e40]:
+    - generic [ref=e41]:
+      - generic [ref=e42]: ⋮⋮
+      - generic [ref=e43]: Symbol Palette
+      - generic [ref=e44]:
+        - button "−" [ref=e45] [cursor=pointer]
+        - button "×" [ref=e46] [cursor=pointer]
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]: "Select Symbol:"
+        - generic [ref=e52]:
+          - combobox "Search for a symbol..." [ref=e53] [cursor=pointer]
+          - button "Open search" [ref=e54] [cursor=pointer]: 🔍
+      - generic [ref=e56]:
+        - text: "Will create canvas for:"
+        - strong [ref=e57]: SIM-EURUSD
+      - button "Create Canvas" [active] [ref=e59] [cursor=pointer]
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - heading "System Status" [level=4] [ref=e62]
+          - generic [ref=e63]:
+            - generic [ref=e64]: "Data Source:"
+            - generic [ref=e65]: simulated
+            - generic [ref=e66]: "Connection:"
+            - generic [ref=e67]: disconnected
+            - generic [ref=e68]: "Active Symbols:"
+            - generic [ref=e69]: "1"
+        - generic [ref=e70]:
+          - heading "Recent Symbols" [level=4] [ref=e71]
+          - button "SIM-EURUSD" [ref=e73] [cursor=pointer]
+  - generic [ref=e74]:
+    - generic [ref=e75]:
+      - generic [ref=e76]: ⋮⋮
+      - generic [ref=e77]: Debug Info
+      - generic [ref=e78]:
+        - button "−" [ref=e79] [cursor=pointer]
+        - button "×" [ref=e80] [cursor=pointer]
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - generic [ref=e84]: "Symbol Selection:"
+        - generic [ref=e85]: Use FloatingSymbolPalette
+      - generic [ref=e86]:
+        - paragraph [ref=e87]: No debug data available.
+        - paragraph [ref=e88]: Select a symbol with active data to see debug information.
+      - generic [ref=e89]:
+        - heading "System Status" [level=4] [ref=e90]
+        - generic [ref=e91]:
+          - generic [ref=e92]: "Active Symbols:"
+          - generic [ref=e93]: "1"
+          - generic [ref=e94]: "Selected:"
+          - generic [ref=e95]: Use FloatingSymbolPalette
+  - generic [ref=e96]:
+    - generic [ref=e97]:
+      - generic [ref=e98]: ⋮⋮
+      - generic [ref=e99]: System Controls
+      - generic [ref=e100]:
+        - button "−" [ref=e101] [cursor=pointer]
+        - button "×" [ref=e102] [cursor=pointer]
+    - generic [ref=e104]:
+      - generic [ref=e105]:
+        - heading "Data Source" [level=4] [ref=e106]
+        - combobox [ref=e108]:
+          - option "Simulated Data" [selected]
+          - option "Live Data (cTrader)"
+      - generic [ref=e109]:
+        - heading "System Status" [level=4] [ref=e110]
+        - generic [ref=e111]:
+          - generic [ref=e112]: "Active Symbols:"
+          - generic [ref=e113]: "1"
+          - generic [ref=e114]: "Data Source:"
+          - generic [ref=e115]: simulated
+          - generic [ref=e116]: "Connection:"
+          - generic [ref=e117]: disconnected
+      - generic [ref=e118]:
+        - heading "Quick Actions" [level=4] [ref=e119]
+        - generic [ref=e120]:
+          - button "📊 Symbol Palette" [ref=e121] [cursor=pointer]
+          - generic [ref=e122]: Use Symbol Palette to subscribe to symbols and create canvases
+          - button "🐛 Debug Panel" [ref=e123] [cursor=pointer]
+  - generic [ref=e124]:
+    - generic [ref=e125]:
+      - generic [ref=e126]: ⋮⋮
+      - generic [ref=e127]: ADR Overview
+      - generic [ref=e128]:
+        - button "−" [ref=e129] [cursor=pointer]
+        - button "×" [ref=e130] [cursor=pointer]
+    - generic [ref=e135]:
+      - heading "Active Symbols" [level=4] [ref=e136]
+      - generic [ref=e137]:
+        - generic [ref=e138]: "Total:"
+        - generic [ref=e139]: "1"
+        - generic [ref=e140]: "With Data:"
+        - generic [ref=e141]: "1"
+  - generic [ref=e143]:
+    - generic [ref=e144]:
+      - generic [ref=e145]: ⋮⋮
+      - generic [ref=e146]: Interact.js Test
+      - generic [ref=e147]:
+        - button "−" [ref=e148] [cursor=pointer]
+        - button "×" [ref=e149] [cursor=pointer]
+    - generic [ref=e150]:
+      - generic [ref=e151]:
+        - heading "InteractWrapper Test Panel" [level=4] [ref=e152]
+        - paragraph [ref=e153]: "Panel ID: interact-test"
+        - paragraph [ref=e154]: "Position: (500, 300)"
+        - paragraph [ref=e155]: "Minimized: No"
+      - generic [ref=e156]:
+        - button "Reset Position" [ref=e157] [cursor=pointer]
+        - button "Show Position" [ref=e158] [cursor=pointer]
+```

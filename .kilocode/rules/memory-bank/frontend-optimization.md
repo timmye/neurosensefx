@@ -13,13 +13,19 @@ This document captures the optimization work performed on the NeuroSense FX fron
 - **Benefits**: Single source of truth for search functionality, configurable options
 
 ### 2. Drag & Drop Composable
-- **Created**: `src/composables/useDraggable.js` - Reusable drag functionality
+- **Created**: `src/composables/useDraggable.js` - Unified drag functionality for all floating components
 - **Consolidated**: Identical drag logic from all floating panels:
   - FloatingSymbolPalette.svelte
   - FloatingDebugPanel.svelte
   - FloatingSystemPanel.svelte
   - FloatingMultiSymbolADR.svelte
-- **Features**: Viewport boundary checking, position persistence, touch/mouse handling
+- **Features**:
+  - Viewport boundary checking with automatic adjustment
+  - Position persistence via localStorage
+  - Touch and mouse event handling
+  - Minimize state management
+  - Proper cleanup on component destroy
+- **Reference**: Part of the comprehensive event handling architecture documented in [`memory-bank/event-handling-architecture.md`](memory-bank/event-handling-architecture.md)
 
 ### 3. Floating Panel Base Component
 - **Created**: `src/components/shared/FloatingPanel.svelte` - Base component for all floating panels
@@ -67,6 +73,8 @@ This document captures the optimization work performed on the NeuroSense FX fron
 2. Simplify uiState.js with generic panel management functions
 3. Consolidate ADR visualization components
 4. Remove unused CSS selectors and debug code
+5. Extend event delegation patterns for complex interactions (Phase 3)
+6. Optimize useDraggable composable for better performance (Phase 3)
 
 ## Testing Status
 - Fixed critical errors preventing application from loading

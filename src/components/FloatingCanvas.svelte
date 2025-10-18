@@ -4,6 +4,13 @@
   import { workspaceState, activeCanvas, isDragging } from '../stores/workspaceState.js';
   import { uiState, isCanvasActive, isCanvasHovered } from '../stores/uiState.js';
   import { registryActions } from '../stores/canvasRegistry.js';
+  import InteractWrapper from './shared/InteractWrapper.svelte';
+  import { getCanvasZIndex, getDraggingZIndex } from '../constants/zIndex.js';
+  import { createLogger } from '../utils/debugLogger.js';
+  import { symbolStore } from '../data/symbolStore.js';
+  
+  const logger = createLogger('FloatingCanvas');
+  const dispatch = createEventDispatcher();
   
   export let id;
   export let symbol;
@@ -11,12 +18,11 @@
   export let state;
   export let position = { x: 100, y: 100 };
   
-  const dispatch = createEventDispatcher();
-  
   let localPosition = { ...position };
-  let isLocalDragging = false;
   let canvasElement;
-  let zIndex = 1;
+  let interactWrapperRef;
+  let zIndex = getCanvasZIndex(0);
+  let unsubSymbolStore;
 
   // Subscribe to store changes
   $: isActive = isCanvasActive(id);
@@ -32,16 +38,39 @@
       }
     }
 
-  // Update z-index from registry
+  // Update z-index from registry and subscribe to symbol data updates
   onMount(() => {
     const updateZIndex = () => {
       zIndex = registryActions.getCanvasZIndex(id);
+      if (interactWrapperRef) {
+        // Update the z-index style on the wrapper
+          const wrapperElement = interactWrapperRef.getElement();
+        if (wrapperElement) {
+          wrapperElement.style.zIndex = zIndex;
+        }
+      }
     };
+    
+    // Subscribe to symbol data updates
+    unsubSymbolStore = symbolStore.subscribe(symbols => {
+      const symbolData = symbols[symbol];
+      console.log(`[CANVAS_DEBUG] SymbolStore update for canvas ${id}, symbol ${symbol}:`, symbolData);
+      if (symbolData && symbolData.config && symbolData.state) {
+        // Update local config and state when symbol data changes
+        config = { ...symbolData.config };
+        state = { ...symbolData.state };
+        console.log(`[CANVAS_DEBUG] Canvas ${id} updated with config:`, config, 'state:', state);
+        logger.debug('Canvas data updated from symbolStore', { canvasId: id, symbol });
+      }
+    });
     
     const unsubscribe = workspaceState.subscribe(updateZIndex);
     updateZIndex();
     
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubSymbolStore();
+    };
   });
 
   function handleRightClick(event) {
@@ -57,31 +86,6 @@
     });
   }
 
-  let dragOffset = { x: 0, y: 0 };
-  
-  function handleMouseDown(event) {
-    if (event.button !== 0) return; // Only left-click
-    
-    // Mark as active
-    registryActions.markCanvasActive(id);
-    
-    // Start drag if not on interactive elements
-    if (!event.target.closest('button, input, select, .context-menu')) {
-      isLocalDragging = true;
-      
-      const rect = canvasElement.getBoundingClientRect();
-      dragOffset = {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
-      };
-      
-      dispatch('dragStart', {
-        canvasId: id,
-        offset: dragOffset
-      });
-    }
-  }
-
   function handleMouseEnter() {
     dispatch('hover', { canvasId: id, isHovering: true });
   }
@@ -91,6 +95,7 @@
   }
 
   function handleClose() {
+    logger.debug('Canvas closed', { canvasId: id });
     dispatch('close', { canvasId: id });
   }
 
@@ -101,98 +106,117 @@
     });
   }
 
+  function handlePositionChange(event) {
+    localPosition = event.detail.position;
+    logger.debug('Position changed', { canvasId: id, position: localPosition });
+    dispatch('dragMove', {
+      canvasId: id,
+      position: localPosition
+    });
+  }
 
-  // Global mouse events for dragging
-  onMount(() => {
-    const handleMouseMove = (event) => {
-      if (isLocalDragging) {
-        // Use the stored offset from dragStart
-        const newPosition = {
-          x: event.clientX - dragOffset.x,
-          y: event.clientY - dragOffset.y
-        };
-        
-        localPosition = newPosition;
-        dispatch('dragMove', {
-          canvasId: id,
-          position: newPosition
-        });
+  function handleDragStart(event) {
+    logger.debug('Drag start', { canvasId: id });
+    registryActions.markCanvasActive(id);
+    
+    // Update z-index to dragging state
+    zIndex = getDraggingZIndex();
+    if (interactWrapperRef) {
+      const wrapperElement = interactWrapperRef.getElement();
+      if (wrapperElement) {
+        wrapperElement.style.zIndex = zIndex;
       }
-    };
+    }
     
-    const handleMouseUp = () => {
-      if (isLocalDragging) {
-        isLocalDragging = false;
-        dispatch('dragEnd', {
-          canvasId: id,
-          position: localPosition
-        });
-      }
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  });
+    dispatch('dragStart', {
+      canvasId: id,
+      position: localPosition
+    });
+  }
 
+  function handleDragEnd(event) {
+    logger.debug('Drag end', { canvasId: id, position: event.detail.position });
+    
+    // Restore normal z-index
+    zIndex = registryActions.getCanvasZIndex(id);
+    if (interactWrapperRef) {
+      const wrapperElement = interactWrapperRef.getElement();
+      if (wrapperElement) {
+        wrapperElement.style.zIndex = zIndex;
+      }
+    }
+    
+    dispatch('dragEnd', {
+      canvasId: id,
+      position: event.detail.position
+    });
+  }
 </script>
 
-<div 
-  bind:this={canvasElement}
-  class="floating-canvas"
-  class:active={isActive}
-  class:hovered={isHovered}
-  class:dragging={isLocalDragging || isGlobalDragging}
-  style="transform: translate({localPosition.x}px, {localPosition.y}px); z-index: {zIndex};"
-  on:contextmenu={handleRightClick}
-  on:mousedown={handleMouseDown}
-  on:mouseenter={handleMouseEnter}
-  on:mouseleave={handleMouseLeave}
-  data-canvas-id={id}
+<InteractWrapper
+  bind:this={interactWrapperRef}
+  position={localPosition}
+  defaultPosition={position}
+  positionKey={`floating-canvas-${id}-position`}
+  on:positionChange={handlePositionChange}
+  on:dragStart={handleDragStart}
+  on:dragEnd={handleDragEnd}
+  isDraggable={true}
+  isResizable={false}
+  inertia={true}
+  boundaryPadding={10}
 >
-  <!-- Canvas Header -->
-  <div class="canvas-header">
-    <div class="symbol-info">
-      <span class="symbol-label">{symbol}</span>
-      {#if isActive}
-        <div class="active-indicator"></div>
+  <div
+    bind:this={canvasElement}
+    class="floating-canvas"
+    class:active={isActive}
+    class:hovered={isHovered}
+    style="z-index: {zIndex};"
+    on:contextmenu={handleRightClick}
+    on:mouseenter={handleMouseEnter}
+    on:mouseleave={handleMouseLeave}
+    data-canvas-id={id}
+  >
+    <!-- Canvas Header -->
+    <div class="canvas-header">
+      <div class="symbol-info">
+        <span class="symbol-label">{symbol}</span>
+        {#if isActive}
+          <div class="active-indicator"></div>
+        {/if}
+      </div>
+      <button
+        class="close-btn"
+        on:click={handleClose}
+        title="Close canvas"
+      >
+        ×
+      </button>
+    </div>
+    
+    <!-- Visualization Container -->
+    <div class="canvas-content">
+      {#if config && state}
+        <Container
+          {config}
+          {state}
+          on:markerAdd={(event) => dispatch('markerAdd', { canvasId: id, ...event.detail })}
+          on:markerRemove={(event) => dispatch('markerRemove', { canvasId: id, ...event.detail })}
+        />
+      {:else}
+        <div class="loading-placeholder">
+          <div class="loading-spinner"></div>
+          <p>Initializing {symbol}...</p>
+        </div>
       {/if}
     </div>
-    <button 
-      class="close-btn" 
-      on:click={handleClose}
-      title="Close canvas"
-    >
-      ×
-    </button>
+    
   </div>
-  
-  <!-- Visualization Container -->
-  <div class="canvas-content">
-    {#if config && state}
-      <Container 
-        {config} 
-        {state}
-        on:markerAdd={(event) => dispatch('markerAdd', { canvasId: id, ...event.detail })}
-        on:markerRemove={(event) => dispatch('markerRemove', { canvasId: id, ...event.detail })}
-      />
-    {:else}
-      <div class="loading-placeholder">
-        <div class="loading-spinner"></div>
-        <p>Initializing {symbol}...</p>
-      </div>
-    {/if}
-  </div>
-  
-</div>
+</InteractWrapper>
 
 <style>
   .floating-canvas {
-    position: absolute;
+    position: relative;
     background: #1f2937;
     border: 2px solid #374151;
     border-radius: 8px;
@@ -200,7 +224,7 @@
     user-select: none;
     min-width: 250px;
     min-height: 150px;
-    transition: transform 0.1s ease-out, border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
   
@@ -214,14 +238,6 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   }
   
-  .floating-canvas.dragging {
-    cursor: grabbing;
-    transition: none;
-    transform: translate(var(--drag-x), var(--drag-y)) scale(1.02);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-  }
-  
   .canvas-header {
     display: flex;
     justify-content: space-between;
@@ -230,6 +246,7 @@
     background: #374151;
     border-radius: 6px 6px 0 0;
     border-bottom: 1px solid #4b5563;
+    cursor: grab;
   }
   
   .symbol-info {
@@ -307,5 +324,4 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
-  
 </style>

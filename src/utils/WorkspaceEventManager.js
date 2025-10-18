@@ -249,10 +249,9 @@ export class WorkspaceEventManager {
    * Get currently active canvas ID
    */
   getActiveSheet() {
-    let activeId = null;
-    workspaceActions.subscribe = workspaceActions.subscribe || (() => {});
     // This is a simplified version - in practice you'd subscribe to the store
-    return activeId;
+    // For now, return null as this method isn't currently used
+    return null;
   }
 
   /**
