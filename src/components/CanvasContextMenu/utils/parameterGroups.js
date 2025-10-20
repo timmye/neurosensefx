@@ -1,4 +1,4 @@
-import { defaultConfig } from '../../../stores/configStore.js';
+import { defaultConfig } from '../../../data/symbolStore.js';
 
 /**
  * Parameter groups for the CanvasContextMenu component

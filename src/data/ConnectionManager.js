@@ -18,6 +18,9 @@ export const connectionState = writable({
   retryCount: 0
 });
 
+// Reactive store for canvas data updates
+export const canvasDataStore = writable(new Map()); // canvasId -> symbolData
+
 class ConnectionManager {
   constructor() {
     // Track which canvases are subscribed to which symbols
@@ -32,6 +35,9 @@ class ConnectionManager {
     
     // Initialize connection monitoring
     this.initializeConnectionMonitoring();
+    
+    // Initialize real-time symbol updates
+    this.initializeSymbolUpdates();
   }
   
   /**
@@ -62,6 +68,9 @@ class ConnectionManager {
       ...state,
       activeSubscriptions: new Set(this.symbolCanvases.keys())
     }));
+    
+    // Update canvas data store for reactive updates
+    this.updateCanvasDataStore(canvasId, symbolData);
     
     return symbolData;
   }
@@ -145,6 +154,10 @@ class ConnectionManager {
         const data = await this.waitForSymbolData(symbol);
         console.log(`[CONNECTION_DEBUG] Received symbol data for ${symbol}:`, data);
         this.symbolDataCache.set(symbol, data);
+        
+        // Update all canvases subscribed to this symbol
+        this.updateCanvasesForSymbol(symbol, data);
+        
         return data;
       } else {
         console.log(`[CONNECTION_DEBUG] Simulated mode detected for ${symbol}`);
@@ -183,9 +196,15 @@ class ConnectionManager {
       
       const unsubscribe = symbolStore.subscribe(symbols => {
         const data = symbols[symbol];
-        if (data && data.state && data.config) {
+        console.log(`[CONNECTION_DEBUG] waitForSymbolData checking ${symbol}:`, {
+          data: data,
+          ready: data?.ready,
+          state: data?.state
+        });
+        if (data && data.ready) {
           clearTimeout(timeout);
           unsubscribe();
+          console.log(`[CONNECTION_DEBUG] waitForSymbolData resolving for ${symbol}`);
           resolve(data);
         }
       });
@@ -215,6 +234,32 @@ class ConnectionManager {
       unsubscribeWsStatus();
       unsubscribeDataSourceMode();
     };
+  }
+  
+  /**
+   * Initialize real-time symbol updates
+   */
+  initializeSymbolUpdates() {
+    // Subscribe to symbolStore for real-time updates
+    this.symbolStoreUnsubscribe = symbolStore.subscribe(symbols => {
+      // Check each symbol we're tracking for updates
+      this.symbolCanvases.forEach((canvasIds, symbol) => {
+        const symbolData = symbols[symbol];
+        if (symbolData && symbolData.ready) {
+          // Update cache with latest data
+          const cachedData = this.symbolDataCache.get(symbol);
+          if (!cachedData || 
+              JSON.stringify(cachedData.state) !== JSON.stringify(symbolData.state)) {
+            
+            console.log(`[CONNECTION_DEBUG] Real-time update for ${symbol}`, symbolData.state);
+            this.symbolDataCache.set(symbol, symbolData);
+            
+            // Update all canvases subscribed to this symbol
+            this.updateCanvasesForSymbol(symbol, symbolData);
+          }
+        }
+      });
+    });
   }
   
   /**
@@ -265,6 +310,28 @@ class ConnectionManager {
   }
   
   /**
+   * Get cached symbol data for a canvas
+   * @param {string} canvasId - Canvas ID
+   * @returns {Object|null} - Symbol data or null
+   */
+  getCanvasData(canvasId) {
+    const symbol = this.getSymbolForCanvas(canvasId);
+    if (!symbol) return null;
+    
+    return this.symbolDataCache.get(symbol) || null;
+  }
+  
+  /**
+   * Check if a canvas is ready
+   * @param {string} canvasId - Canvas ID
+   * @returns {boolean} - True if canvas data is ready
+   */
+  isCanvasReady(canvasId) {
+    const data = this.getCanvasData(canvasId);
+    return data?.ready || false;
+  }
+  
+  /**
    * Wait for WebSocket connection to be established
    * @returns {Promise<void>}
    */
@@ -289,6 +356,31 @@ class ConnectionManager {
   }
   
   /**
+   * Update canvas data store for reactive updates
+   * @param {string} canvasId - Canvas ID
+   * @param {Object} symbolData - Symbol data
+   */
+  updateCanvasDataStore(canvasId, symbolData) {
+    canvasDataStore.update(store => {
+      const newStore = new Map(store);
+      newStore.set(canvasId, symbolData);
+      return newStore;
+    });
+  }
+  
+  /**
+   * Update all canvases subscribed to a symbol
+   * @param {string} symbol - Symbol that was updated
+   * @param {Object} symbolData - New symbol data
+   */
+  updateCanvasesForSymbol(symbol, symbolData) {
+    const canvasIds = this.getCanvasesForSymbol(symbol);
+    canvasIds.forEach(canvasId => {
+      this.updateCanvasDataStore(canvasId, symbolData);
+    });
+  }
+  
+  /**
    * Clear all subscriptions and cache
    */
   clearAll() {
@@ -303,6 +395,8 @@ class ConnectionManager {
       ...state,
       activeSubscriptions: new Set()
     }));
+    
+    canvasDataStore.set(new Map());
   }
 }
 

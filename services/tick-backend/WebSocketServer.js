@@ -84,7 +84,19 @@ class WebSocketServer {
             
             console.log(`[E2E_TRACE | WebSocketServer] Sending package with ${dataPackage.initialMarketProfile.length} profile entries.`);
             
-            this.sendToClient(ws, { type: 'symbolDataPackage', ...dataPackage });
+            this.sendToClient(ws, { 
+                type: 'symbolDataPackage',
+                symbol: dataPackage.symbol,
+                digits: dataPackage.digits,
+                adr: dataPackage.adr,
+                todaysOpen: dataPackage.todaysOpen,
+                todaysHigh: dataPackage.todaysHigh,
+                todaysLow: dataPackage.todaysLow,
+                projectedAdrHigh: dataPackage.projectedAdrHigh,
+                projectedAdrLow: dataPackage.projectedAdrLow,
+                initialPrice: dataPackage.initialPrice,
+                initialMarketProfile: dataPackage.initialMarketProfile || []
+            });
 
             const clientSubs = this.clientSubscriptions.get(ws);
             if (clientSubs && !clientSubs.has(symbolName)) {

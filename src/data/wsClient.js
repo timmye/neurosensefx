@@ -3,7 +3,7 @@ import { symbolStore, defaultConfig } from './symbolStore';
 import { TickSchema, SymbolDataPackageSchema } from './schema.js';
 
 export const wsStatus = writable('disconnected');
-export const dataSourceMode = writable('simulated');
+export const dataSourceMode = writable('live');
 export const availableSymbols = writable([]);
 export const subscriptions = writable(new Set());
 
@@ -29,10 +29,12 @@ export function connect() {
     }
     
     stopSimulation();
+    console.log(`[WSCLIENT_DEBUG] Connecting to WebSocket at: ${WS_URL}`);
     wsStatus.set('ws-connecting');
     try {
         ws = new WebSocket(WS_URL);
         ws.onopen = () => {
+            console.log(`[WSCLIENT_DEBUG] WebSocket connected successfully`);
             startConnectionMonitor();
         };
         ws.onmessage = (event) => {
@@ -40,6 +42,7 @@ export function connect() {
             handleSocketMessage(rawData);
         };
         ws.onclose = (event) => {
+            console.log(`[WSCLIENT_DEBUG] WebSocket closed, code: ${event.code}, reason: ${event.reason}`);
             stopConnectionMonitor();
             ws = null;
             if (get(wsStatus) !== 'error') wsStatus.set('disconnected');
@@ -87,8 +90,10 @@ function handleSocketMessage(data) {
         }
     } else if (data.type === 'status' || data.type === 'ready') {
          const status = data.type === 'ready' ? 'connected' : data.status;
+         console.log(`[WSCLIENT_DEBUG] Setting status to: ${status}`);
          wsStatus.set(status);
          if(status === 'connected'){
+             console.log(`[WSCLIENT_DEBUG] Setting available symbols to:`, data.availableSymbols);
              availableSymbols.set(data.availableSymbols || []);
          }
     } else if (data.type === 'tick') {

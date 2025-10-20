@@ -30,6 +30,7 @@ export function drawMarketProfile(ctx, config, state, y) {
   const { 
     centralAxisXPosition,
     visualizationsContentWidth, 
+    meterHeight,
     marketProfileWidthRatio,
     marketProfileView,
     marketProfileOutline,

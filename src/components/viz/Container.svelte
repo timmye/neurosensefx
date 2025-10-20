@@ -10,9 +10,11 @@
   import { drawVolatilityMetric } from '../../lib/viz/volatilityMetric.js';
   import { drawHoverIndicator } from '../../lib/viz/hoverIndicator.js';
   import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js'; // Import drawPriceMarkers
-  import { hoverState } from '../../stores/uiState.js';
-
   import { markerStore } from '../../stores/markerStore.js'; // Import markerStore
+  import { writable } from 'svelte/store';
+
+  // Local hover state (replaces uiState.hoverState)
+  const hoverState = writable(null);
   export let config;
   export let state;
 

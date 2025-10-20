@@ -2,7 +2,6 @@
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { dataSourceMode, wsStatus } from '../data/wsClient.js';
   import { symbolStore } from '../data/symbolStore.js';
-  import { uiActions } from '../stores/uiState.js';
   import InteractWrapper from './shared/InteractWrapper.svelte';
   import InfoGrid from './shared/InfoGrid.svelte';
   import SectionHeader from './shared/SectionHeader.svelte';
@@ -30,7 +29,6 @@
   
   function handleClose() {
     logger.debug('System panel closed');
-    uiActions.hideFloatingSystemPanel();
     dispatch('close');
   }
   
@@ -144,7 +142,7 @@
       <div class="action-buttons">
         <button
           class="action-btn"
-          on:click={() => uiActions.toggleFloatingSymbolPalette()}
+          on:click={() => dispatch('toggleSymbolPalette')}
         >
           📊 Symbol Palette
         </button>
@@ -153,7 +151,7 @@
         </div>
         <button
           class="action-btn"
-          on:click={() => uiActions.toggleFloatingDebugPanel()}
+          on:click={() => dispatch('toggleDebugPanel')}
         >
           🐛 Debug Panel
         </button>

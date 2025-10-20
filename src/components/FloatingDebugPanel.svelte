@@ -2,7 +2,6 @@
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { symbolStore } from '../data/symbolStore.js';
   import { availableSymbols } from '../data/wsClient.js';
-  import { uiActions } from '../stores/uiState.js';
   import InteractWrapper from './shared/InteractWrapper.svelte';
   import InfoGrid from './shared/InfoGrid.svelte';
   import SectionHeader from './shared/SectionHeader.svelte';
@@ -39,7 +38,6 @@
   
   function handleClose() {
     logger.debug('Debug panel closed');
-    uiActions.hideFloatingDebugPanel();
     dispatch('close');
   }
   
