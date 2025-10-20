@@ -275,4 +275,12 @@ export function initializeWsClient() {
             connect();
         }
     });
+    
+    // Trigger initial connection since subscription doesn't fire for initial value
+    const currentMode = get(dataSourceMode);
+    if (currentMode === 'live') {
+        connect();
+    } else if (currentMode === 'simulated') {
+        startSimulation();
+    }
 }
