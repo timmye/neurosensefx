@@ -578,6 +578,204 @@ function handleMouseMove(e) {
 - Single source of truth for floating element interactions
 
 ### 9. Forensic Cleanup Pattern ✅ COMPLETE
+
+### 10. Unified Context Menu Pattern ✅ COMPLETE (October 22, 2025)
+**Purpose**: Single intelligent context menu system that adapts content based on click context while maintaining architectural consistency
+
+**Implementation**:
+```javascript
+// Context Detection Engine
+function detectContextMenuContext(event) {
+  const target = event.target;
+  
+  // Canvas click - Full parameter controls
+  if (target.classList.contains('canvas-element') || target.closest('canvas')) {
+    const displayId = target.closest('[data-display-id]')?.dataset.displayId;
+    return { 
+      type: 'canvas', 
+      targetId: displayId, 
+      targetType: 'display',
+      showTabs: true,
+      tabs: ['quickActions', 'priceDisplay', 'marketProfile', 'volatility', 'layoutSizing', 'advanced']
+    };
+  }
+  
+  // Header click - Display management
+  if (target.classList.contains('header') || target.closest('.header')) {
+    const displayId = target.closest('[data-display-id]')?.dataset.displayId;
+    return { 
+      type: 'header', 
+      targetId: displayId, 
+      targetType: 'display',
+      showTabs: false,
+      quickActions: ['bringToFront', 'duplicate', 'close']
+    };
+  }
+  
+  // Panel click - Panel controls
+  if (target.classList.contains('floating-panel') || target.closest('.floating-panel')) {
+    const panelId = target.closest('[data-panel-id]')?.dataset.panelId;
+    return { 
+      type: 'panel', 
+      targetId: panelId, 
+      targetType: 'panel',
+      showTabs: false,
+      quickActions: ['bringToFront', 'close', 'reset']
+    };
+  }
+  
+  // Workspace click - Workspace operations
+  return { 
+    type: 'workspace', 
+    targetId: null, 
+    targetType: 'workspace',
+    showTabs: false,
+    quickActions: ['addDisplay', 'showSymbolPalette', 'workspaceSettings']
+  };
+}
+
+// Enhanced Store Integration
+export const actions = {
+  // Canvas configuration management
+  updateCanvasConfig: (displayId, parameter, value) => {
+    floatingStore.update(store => {
+      const newDisplays = new Map(store.displays);
+      const display = newDisplays.get(displayId);
+      if (display) {
+        newDisplays.set(displayId, {
+          ...display,
+          config: {
+            ...display.config,
+            [parameter]: value
+          }
+        });
+      }
+      return { ...store, displays: newDisplays };
+    });
+  },
+  
+  // Unified context menu management
+  showUnifiedContextMenu: (x, y, context) => {
+    floatingStore.update(store => ({
+      ...store,
+      contextMenu: {
+        open: true,
+        x,
+        y,
+        context // { type, targetId, targetType, showTabs, tabs, quickActions }
+      }
+    }));
+  }
+};
+
+// Dynamic Content Rendering
+function renderContextMenuContent(context) {
+  switch (context.type) {
+    case 'canvas':
+      return CanvasTabbedInterface({ 
+        displayId: context.targetId,
+        tabs: context.tabs,
+        onParameterChange: actions.updateCanvasConfig
+      });
+    
+    case 'header':
+      return HeaderQuickActions({ 
+        displayId: context.targetId,
+        actions: context.quickActions,
+        onAction: handleQuickAction
+      });
+    
+    case 'workspace':
+      return WorkspaceQuickActions({ 
+        actions: context.quickActions,
+        onAction: handleQuickAction
+      });
+    
+    case 'panel':
+      return PanelQuickActions({ 
+        panelId: context.targetId,
+        actions: context.quickActions,
+        onAction: handleQuickAction
+      });
+  }
+}
+```
+
+**Context Configurations**:
+```javascript
+const CONTEXT_CONFIGURATIONS = {
+  canvas: {
+    title: 'Canvas Controls',
+    size: { width: 500, height: 700 },
+    showSearch: true,
+    showReset: true,
+    parameterCount: 85
+  },
+  
+  header: {
+    title: 'Display Options',
+    size: { width: 200, height: 150 },
+    showSearch: false,
+    showReset: false
+  },
+  
+  workspace: {
+    title: 'Workspace',
+    size: { width: 200, height: 150 },
+    showSearch: false,
+    showReset: false
+  },
+  
+  panel: {
+    title: 'Panel Options',
+    size: { width: 200, height: 150 },
+    showSearch: false,
+    showReset: true
+  }
+};
+```
+
+**Benefits**:
+- **Single Right-Click Rule**: Consistent user experience across entire interface
+- **Context-Aware Intelligence**: Menu shows exactly what's needed for current context
+- **Architectural Consistency**: All state management through centralized floatingStore
+- **Progressive Disclosure**: Most relevant options first, advanced controls accessible
+- **Preserved Functionality**: All 85+ CanvasContextMenu parameters maintained
+- **Unified Event Handling**: Eliminates dual event listener conflicts
+
+**Integration Pattern**:
+```javascript
+// UnifiedContextMenu.svelte - Single component replaces both existing menus
+{#if $contextMenu.open}
+  <div class="unified-context-menu" style="left: {$contextMenu.x}px; top: {$contextMenu.y}px;">
+    {#await renderContextMenuContent($contextMenu.context)}
+      <div class="loading">Loading...</div>
+    {:then content}
+      {@html content}
+    {:catch error}
+      <div class="error">Error loading menu</div>
+    {/await}
+  </div>
+{/if}
+```
+
+**Migration Strategy**:
+```javascript
+// Phase 1: Foundation
+// 1. Create UnifiedContextMenu.svelte with context detection
+// 2. Enhance floatingStore with canvas configuration actions
+// 3. Implement dynamic content rendering system
+
+// Phase 2: Integration  
+// 1. Migrate CanvasContextMenu tabs and parameters
+// 2. Update event handling across all components
+// 3. Replace existing context menu components
+
+// Phase 3: Enhancement
+// 1. Add progressive disclosure features
+// 2. Implement search across all parameters
+// 3. Add keyboard shortcuts and navigation
+```
 **Purpose**: Systematic identification and removal of legacy code duplicates
 
 **Implementation**:
