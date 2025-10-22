@@ -1,8 +1,10 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { floatingStore, actions } from '../stores/floatingStore.js';
+  import { floatingStore, actions, geometryActions, GEOMETRY } from '../stores/floatingStore.js';
   import { connectionManager, canvasDataStore } from '../data/ConnectionManager.js';
   import { scaleLinear } from 'd3-scale';
+  import { writable } from 'svelte/store';
+  import { markerStore } from '../stores/markerStore.js';
   
   // Import drawing functions
   import { drawMarketProfile } from '../lib/viz/marketProfile.js';
@@ -13,9 +15,8 @@
   import { drawVolatilityMetric } from '../lib/viz/volatilityMetric.js';
   import { drawPriceMarkers } from '../lib/viz/priceMarkers.js';
   import { drawHoverIndicator } from '../lib/viz/hoverIndicator.js';
-  import { markerStore } from '../stores/markerStore.js';
-  import { writable } from 'svelte/store';
   
+  // Component props
   export let id;
   export let symbol;
   export let position = { x: 100, y: 100 };
@@ -26,11 +27,19 @@
   let ctx;
   let dpr = 1;
   
-  // Hover and marker state
-  const hoverState = writable(null);
-  let markers = [];
+  // WORKING CleanFloatingElement state - COMPLETE IMPLEMENTATION
+  let isDragging = false;
+  let isResizing = false;
+  let resizeHandle = null;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let elementStartX = 0;
+  let elementStartY = 0;
+  let resizeStartWidth = 0;
+  let resizeStartHeight = 0;
+  let isHovered = false;
   
-  // Component state variables
+  // Production canvas and data state
   let canvasData = {};
   let config = {};
   let state = {};
@@ -38,31 +47,31 @@
   let display = null;
   let isActive = false;
   let currentZIndex = 1;
+  let showResizeHandles = false;
   
-  // Store subscriptions - use only canvasDataStore (FIX)
+  // Hover and marker state
+  const hoverState = writable(null);
+  let markers = [];
+  
+  // WORKING: Use fixed container dimensions like CleanFloatingElement
+  const CONTAINER_WIDTH = 240;  // Fixed width like CleanFloatingElement
+  const CONTAINER_HEIGHT = 160; // Fixed height like CleanFloatingElement
+  const MIN_WIDTH = 240;
+  const MIN_HEIGHT = 160;
+  
+  $: displayPosition = display?.position || position;
+  $: displaySize = { width: CONTAINER_WIDTH, height: CONTAINER_HEIGHT };
+  
+  // Store subscriptions
   $: if ($canvasDataStore) {
     canvasData = $canvasDataStore.get(id) || {};
     config = canvasData.config || {};
     state = canvasData.state || {};
     isReady = canvasData?.ready || false;
     
-    // For display management, use floatingStore for UI state only
     display = $floatingStore.displays?.get(id);
     isActive = display?.isActive || false;
     currentZIndex = display?.zIndex || 1;
-    
-    // Debug reactive dependencies
-    console.log(`[REACTIVE_DEBUG] Dependencies updated for ${symbol}:`, {
-      canvasData: !!canvasData,
-      config: !!config,
-      state: !!state,
-      isReady,
-      canvasDataKeys: Object.keys(canvasData),
-      stateKeys: Object.keys(state),
-      configKeys: Object.keys(config),
-      display: !!display,
-      isActive
-    });
   }
   
   // Update markers from store
@@ -70,15 +79,375 @@
     markers = $markerStore;
   }
   
-  // Canvas setup
+  // WORKING: All functions from CleanFloatingElement - no changes
+  
+  function getAllFloatingElements() {
+    return Array.from(document.querySelectorAll('.enhanced-floating'))
+      .filter(el => el !== element)
+      .map(el => ({
+        element: el,
+        x: parseInt(el.style.left) || 0,
+        y: parseInt(el.style.top) || 0,
+        width: el.offsetWidth,
+        height: el.offsetHeight
+      }));
+  }
+  
+  function checkCollision(newX, newY, newWidth = displaySize.width, newHeight = displaySize.height) {
+    const workspaceSettings = $floatingStore.workspaceSettings || {};
+    if (!workspaceSettings.collisionDetectionEnabled) return { canMove: true };
+    
+    const others = getAllFloatingElements();
+    
+    for (const other of others) {
+      const otherBounds = {
+        left: other.x,
+        right: other.x + other.width,
+        top: other.y,
+        bottom: other.y + other.height
+      };
+      
+      const newBounds = {
+        left: newX,
+        right: newX + newWidth,
+        top: newY,
+        bottom: newY + newHeight
+      };
+      
+      if (newBounds.left < otherBounds.right &&
+          newBounds.right > otherBounds.left &&
+          newBounds.top < otherBounds.bottom &&
+          newBounds.bottom > otherBounds.top) {
+        
+        const currentBounds = {
+          left: displayPosition.x,
+          right: displayPosition.x + displaySize.width,
+          top: displayPosition.y,
+          bottom: displayPosition.y + displaySize.height
+        };
+        
+        const positions = [
+          { x: otherBounds.left - newWidth, y: newY },
+          { x: otherBounds.right, y: newY },
+          { x: newX, y: otherBounds.top - newHeight },
+          { x: newX, y: otherBounds.bottom }
+        ];
+        
+        let bestPosition = null;
+        let minDistance = Infinity;
+        
+        for (const pos of positions) {
+          const distance = Math.sqrt(
+            Math.pow(pos.x - currentBounds.left, 2) + 
+            Math.pow(pos.y - currentBounds.top, 2)
+          );
+          
+          if (distance < minDistance) {
+            minDistance = distance;
+            bestPosition = pos;
+          }
+        }
+        
+        return { 
+          canMove: false, 
+          collision: other,
+          suggestedPosition: bestPosition
+        };
+      }
+    }
+    
+    return { canMove: true };
+  }
+  
+  function snapToGrid(value) {
+    const workspaceSettings = $floatingStore.workspaceSettings || {};
+    if (!workspaceSettings.gridSnapEnabled) return value;
+    
+    const gridSize = workspaceSettings.gridSize || 20;
+    const threshold = gridSize / 2;
+    
+    const offset = value % gridSize;
+    const shouldSnap = offset < threshold || offset > (gridSize - threshold);
+    
+    return shouldSnap ? Math.round(value / gridSize) * gridSize : value;
+  }
+  
+  function handleMouseDown(e) {
+    if (e.button !== 0) return;
+    
+    if (e.target.classList.contains('resize-handle')) {
+      return;
+    }
+    
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    elementStartX = displayPosition.x;
+    elementStartY = displayPosition.y;
+    
+    element.style.cursor = 'grabbing';
+    element.style.zIndex = 1000;
+    
+    const rect = element.getBoundingClientRect();
+    const offset = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+    
+    actions.startDrag('display', id, offset);
+    actions.setActiveDisplay(id);
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    e.preventDefault();
+  }
+  
+  function handleMouseMove(e) {
+    if (isDragging) {
+      const deltaX = e.clientX - dragStartX;
+      const deltaY = e.clientY - dragStartY;
+      
+      let newX = elementStartX + deltaX;
+      let newY = elementStartY + deltaY;
+      
+      newX = snapToGrid(newX);
+      newY = snapToGrid(newY);
+      
+      const collision = checkCollision(newX, newY);
+      if (collision.canMove) {
+        position = { x: newX, y: newY };
+        element.style.left = `${newX}px`;
+        element.style.top = `${newY}px`;
+        
+        actions.updateDrag({ x: newX, y: newY });
+      } else if (collision.suggestedPosition) {
+        const snappedX = snapToGrid(collision.suggestedPosition.x);
+        const snappedY = snapToGrid(collision.suggestedPosition.y);
+        
+        position = { x: snappedX, y: snappedY };
+        element.style.left = `${snappedX}px`;
+        element.style.top = `${snappedY}px`;
+        
+        actions.updateDrag({ x: snappedX, y: snappedY });
+      }
+    } else if (isResizing) {
+      const deltaX = e.clientX - dragStartX;
+      const deltaY = e.clientY - dragStartY;
+      
+      let newWidth = resizeStartWidth;
+      let newHeight = resizeStartHeight;
+      let newX = elementStartX;
+      let newY = elementStartY;
+      
+      switch (resizeHandle) {
+        case 'se':
+          newWidth = Math.max(MIN_WIDTH, resizeStartWidth + deltaX);
+          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight + deltaY);
+          break;
+        case 'sw':
+          newWidth = Math.max(MIN_WIDTH, resizeStartWidth - deltaX);
+          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight + deltaY);
+          if (newWidth > MIN_WIDTH) {
+            newX = elementStartX + (resizeStartWidth - newWidth);
+          }
+          break;
+        case 'ne':
+          newWidth = Math.max(MIN_WIDTH, resizeStartWidth + deltaX);
+          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight - deltaY);
+          if (newHeight > MIN_HEIGHT) {
+            newY = elementStartY + (resizeStartHeight - newHeight);
+          }
+          break;
+        case 'nw':
+          newWidth = Math.max(MIN_WIDTH, resizeStartWidth - deltaX);
+          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight - deltaY);
+          if (newWidth > MIN_WIDTH) {
+            newX = elementStartX + (resizeStartWidth - newWidth);
+          }
+          if (newHeight > MIN_HEIGHT) {
+            newY = elementStartY + (resizeStartHeight - newHeight);
+          }
+          break;
+        case 'n':
+          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight - deltaY);
+          if (newHeight > MIN_HEIGHT) {
+            newY = elementStartY + (resizeStartHeight - newHeight);
+          }
+          break;
+        case 's':
+          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight + deltaY);
+          break;
+        case 'e':
+          newWidth = Math.max(MIN_WIDTH, resizeStartWidth + deltaX);
+          break;
+        case 'w':
+          newWidth = Math.max(MIN_WIDTH, resizeStartWidth - deltaX);
+          if (newWidth > MIN_WIDTH) {
+            newX = elementStartX + (resizeStartWidth - newWidth);
+          }
+          break;
+      }
+      
+      newX = snapToGrid(newX);
+      newY = snapToGrid(newY);
+      newWidth = snapToGrid(newWidth);
+      newHeight = snapToGrid(newHeight);
+      
+      const collision = checkCollision(newX, newY, newWidth, newHeight);
+      if (collision.canMove) {
+        position = { x: newX, y: newY };
+        element.style.left = `${newX}px`;
+        element.style.top = `${newY}px`;
+        element.style.width = `${newWidth}px`;
+        element.style.height = `${newHeight}px`;
+        
+        actions.resizeDisplay(id, newWidth, newHeight);
+        actions.updateDrag({ x: newX, y: newY });
+      } else {
+        const touchingOnly = checkIfOnlyTouching(collision.collision, newX, newY, newWidth, newHeight);
+        if (touchingOnly) {
+          position = { x: newX, y: newY };
+          element.style.left = `${newX}px`;
+          element.style.top = `${newY}px`;
+          element.style.width = `${newWidth}px`;
+          element.style.height = `${newHeight}px`;
+          
+          actions.resizeDisplay(id, newWidth, newHeight);
+          actions.updateDrag({ x: newX, y: newY });
+        }
+      }
+    }
+  }
+  
+  function handleMouseUp() {
+    isDragging = false;
+    isResizing = false;
+    resizeHandle = null;
+    
+    element.style.cursor = 'grab';
+    element.style.zIndex = '';
+    
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    
+    actions.endDrag();
+  }
+  
+  function handleResizeStart(e, handle) {
+    isResizing = true;
+    resizeHandle = handle;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    elementStartX = displayPosition.x;
+    elementStartY = displayPosition.y;
+    resizeStartWidth = displaySize.width;
+    resizeStartHeight = displaySize.height;
+    
+    element.style.cursor = `${handle}-resize`;
+    element.style.zIndex = 1000;
+    
+    actions.startResize(id, handle, displayPosition, displaySize, { x: e.clientX, y: e.clientY });
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  
+  function checkIfOnlyTouching(other, newX, newY, newWidth, newHeight) {
+    const otherBounds = {
+      left: other.x,
+      right: other.x + other.width,
+      top: other.y,
+      bottom: other.y + other.height
+    };
+    
+    const newBounds = {
+      left: newX,
+      right: newX + newWidth,
+      top: newY,
+      bottom: newY + newHeight
+    };
+    
+    const tolerance = 1;
+    
+    const touchingLeft = Math.abs(newBounds.right - otherBounds.left) <= tolerance;
+    const touchingRight = Math.abs(newBounds.left - otherBounds.right) <= tolerance;
+    const touchingTop = Math.abs(newBounds.bottom - otherBounds.top) <= tolerance;
+    const touchingBottom = Math.abs(newBounds.top - otherBounds.bottom) <= tolerance;
+    
+    const horizontalTouch = touchingLeft || touchingRight;
+    const verticalTouch = touchingTop || touchingBottom;
+    
+    const horizontalOverlap = newBounds.left < otherBounds.right && newBounds.right > otherBounds.left;
+    const verticalOverlap = newBounds.top < otherBounds.bottom && newBounds.bottom > otherBounds.top;
+    
+    return (horizontalTouch && !verticalOverlap) || (verticalTouch && !horizontalOverlap);
+  }
+  
+  // Production event handlers
+  function handleContextMenu(e) {
+    e.preventDefault();
+    actions.showContextMenu(e.clientX, e.clientY, id, 'display');
+    actions.setActiveDisplay(id);
+  }
+  
+  function handleClose() {
+    actions.removeDisplay(id);
+  }
+  
+  // Canvas mouse event handlers
+  let yScale;
+  $: if (state && config && state.visualLow && state.visualHigh) {
+    yScale = scaleLinear()
+      .domain([state.visualLow, state.visualHigh])
+      .range([config.meterHeight, 0]);
+  }
+  
+  function handleCanvasMouseMove(event) {
+    if (!yScale) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const cssY = event.clientY - rect.top;
+    const calculatedPrice = yScale.invert(cssY);
+    
+    hoverState.set({ y: cssY, price: calculatedPrice });
+  }
+  
+  function handleCanvasMouseLeave() {
+    hoverState.set(null);
+  }
+  
+  function handleCanvasClick(event) {
+    if (!yScale) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const cssY = event.clientY - rect.top;
+    
+    const hitThreshold = 5;
+    
+    const clickedMarker = markers.find(marker => {
+      const markerY = yScale(marker.price);
+      return Math.abs(cssY - markerY) < hitThreshold;
+    });
+    
+    if (clickedMarker) {
+      markerStore.remove(clickedMarker.id);
+    } else {
+      const clickedPrice = yScale.invert(cssY);
+      markerStore.add(clickedPrice);
+    }
+  }
+  
+  // Canvas setup and rendering
   onMount(() => {
-    // Start render loop when canvas becomes available
     const checkCanvas = setInterval(() => {
       if (canvas && !ctx) {
         ctx = canvas.getContext('2d');
         dpr = window.devicePixelRatio || 1;
         
-        // Initialize canvas
         updateCanvasSize();
         
         clearInterval(checkCanvas);
@@ -90,7 +459,6 @@
     };
   });
   
-  // Update canvas size when config changes (but only when dimensions actually change)
   $: if (canvas && config && ctx && config.visualizationsContentWidth && config.meterHeight) {
     const currentWidth = canvas.width;
     const currentHeight = canvas.height;
@@ -112,110 +480,15 @@
     ctx.scale(dpr, dpr);
   }
   
-  // Direct event handlers
-  function handleContextMenu(e) {
-    e.preventDefault();
-    actions.showContextMenu(e.clientX, e.clientY, id, 'display');
-    actions.setActiveDisplay(id);
-  }
-  
-  function handleMouseDown(e) {
-    if (e.button !== 0) return; // Left click only
-    
-    const rect = element.getBoundingClientRect();
-    const offset = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
-    
-    actions.startDrag('display', id, offset);
-    actions.setActiveDisplay(id);
-    
-    // Global mouse events for dragging
-    document.addEventListener('mousemove', handleGlobalMouseMove);
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-  }
-  
-  function handleGlobalMouseMove(e) {
-    const newPosition = {
-      x: e.clientX - $floatingStore.draggedItem.offset.x,
-      y: e.clientY - $floatingStore.draggedItem.offset.y
-    };
-    
-    // Simple bounds checking
-    newPosition.x = Math.max(0, Math.min(newPosition.x, window.innerWidth - 250));
-    newPosition.y = Math.max(0, Math.min(newPosition.y, window.innerHeight - 150));
-    
-    actions.updateDrag(newPosition);
-  }
-  
-  function handleGlobalMouseUp() {
-    actions.endDrag();
-    document.removeEventListener('mousemove', handleGlobalMouseMove);
-    document.removeEventListener('mouseup', handleGlobalMouseUp);
-  }
-  
-  function handleClose() {
-    actions.removeDisplay(id);
-  }
-  
-  // Canvas mouse event handlers
-  function handleMouseMove(event) {
-    if (!yScale) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const cssY = event.clientY - rect.top;
-    const calculatedPrice = yScale.invert(cssY);
-    
-    hoverState.set({ y: cssY, price: calculatedPrice });
-  }
-  
-  function handleMouseLeave() {
-    hoverState.set(null);
-  }
-  
-  function handleClick(event) {
-    if (!yScale) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const cssY = event.clientY - rect.top;
-    
-    // Hit detection threshold in CSS pixels
-    const hitThreshold = 5;
-    
-    // Check if clicking on an existing marker
-    const clickedMarker = markers.find(marker => {
-      const markerY = yScale(marker.price);
-      return Math.abs(cssY - markerY) < hitThreshold;
-    });
-    
-    if (clickedMarker) {
-      markerStore.remove(clickedMarker.id);
-    } else {
-      // Add a new marker
-      const clickedPrice = yScale.invert(cssY);
-      markerStore.add(clickedPrice);
-    }
-  }
-  
   // Canvas rendering
-  let yScale;
-  $: if (state && config && state.visualLow && state.visualHigh) {
-    yScale = scaleLinear()
-      .domain([state.visualLow, state.visualHigh])
-      .range([config.meterHeight, 0]);
-  }
-  
   let renderFrame;
   let lastRenderTime = 0;
   
   function render(timestamp = 0) {
     if (!ctx || !state || !config || !yScale) {
-      // Skipping render - missing required dependencies
       return;
     }
     
-    // Throttle renders to 60fps
     if (timestamp - lastRenderTime < 16) {
       renderFrame = requestAnimationFrame(render);
       return;
@@ -224,15 +497,11 @@
     
     const { visualizationsContentWidth, meterHeight } = config;
     
-    // Clear and draw background
     ctx.clearRect(0, 0, visualizationsContentWidth, meterHeight);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
     
-    // Drawing visualizations
-    
     try {
-      // Core visualizations (in correct order from legacy)
       drawMarketProfile(ctx, config, state, yScale);
       drawDayRangeMeter(ctx, config, state, yScale);
       drawVolatilityOrb(ctx, config, state, visualizationsContentWidth, meterHeight);
@@ -240,7 +509,6 @@
       drawPriceDisplay(ctx, config, state, yScale, visualizationsContentWidth);
       drawVolatilityMetric(ctx, config, state, visualizationsContentWidth, meterHeight);
       
-      // Interactive elements (on top)
       drawPriceMarkers(ctx, config, state, yScale, markers);
       drawHoverIndicator(ctx, config, state, yScale, $hoverState);
     } catch (error) {
@@ -250,35 +518,18 @@
     renderFrame = requestAnimationFrame(render);
   }
   
-  // Start render only when everything is ready
   $: if (ctx && state && config && isReady && yScale) {
-    console.log(`[RENDER_START] Starting render for ${symbol}:`, {
-      ctx: !!ctx,
-      state: !!state,
-      config: !!config,
-      isReady,
-      yScale: !!yScale,
-      stateKeys: Object.keys(state),
-      configKeys: Object.keys(config)
-    });
     if (renderFrame) {
       cancelAnimationFrame(renderFrame);
     }
     render();
-  } else {
-    console.log(`[RENDER_WAITING] Not ready for ${symbol}:`, {
-      ctx: !!ctx,
-      state: !!state,
-      config: !!config,
-      isReady,
-      yScale: !!yScale
-    });
   }
   
-  // Cleanup global listeners
+  $: showResizeHandles = isHovered || isResizing;
+  
   onDestroy(() => {
-    document.removeEventListener('mousemove', handleGlobalMouseMove);
-    document.removeEventListener('mouseup', handleGlobalMouseUp);
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
     if (renderFrame) {
       cancelAnimationFrame(renderFrame);
     }
@@ -287,15 +538,18 @@
 
 <div 
   bind:this={element}
-  class="floating-display"
+  class="enhanced-floating"
+  class:hovered={isHovered}
   class:active={isActive}
-  style="left: {display?.position.x || position.x}px; top: {display?.position.y || position.y}px; z-index: {currentZIndex};"
+  style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: {displaySize.width}px; height: {displaySize.height}px; z-index: {currentZIndex};"
   on:contextmenu={handleContextMenu}
   on:mousedown={handleMouseDown}
+  on:mouseenter={() => isHovered = true}
+  on:mouseleave={() => isHovered = false}
   data-display-id={id}
 >
   <!-- Header -->
-  <div class="header">
+  <div class="header" on:mousedown={handleMouseDown}>
     <div class="symbol-info">
       <span class="symbol">{symbol}</span>
       {#if isActive}
@@ -310,9 +564,9 @@
     {#if isReady}
       <canvas 
         bind:this={canvas}
-        on:mousemove={handleMouseMove}
-        on:mouseleave={handleMouseLeave}
-        on:click={handleClick}
+        on:mousemove={handleCanvasMouseMove}
+        on:mouseleave={handleCanvasMouseLeave}
+        on:click={handleCanvasClick}
       ></canvas>
     {:else}
       <div class="loading">
@@ -321,23 +575,40 @@
       </div>
     {/if}
   </div>
+  
+  <!-- WORKING Resize Handles from CleanFloatingElement -->
+  {#if showResizeHandles}
+    <div class="resize-handle nw" on:mousedown={(e) => handleResizeStart(e, 'nw')}></div>
+    <div class="resize-handle ne" on:mousedown={(e) => handleResizeStart(e, 'ne')}></div>
+    <div class="resize-handle se" on:mousedown={(e) => handleResizeStart(e, 'se')}></div>
+    <div class="resize-handle sw" on:mousedown={(e) => handleResizeStart(e, 'sw')}></div>
+    
+    <div class="resize-handle n" on:mousedown={(e) => handleResizeStart(e, 'n')}></div>
+    <div class="resize-handle s" on:mousedown={(e) => handleResizeStart(e, 's')}></div>
+    <div class="resize-handle e" on:mousedown={(e) => handleResizeStart(e, 'e')}></div>
+    <div class="resize-handle w" on:mousedown={(e) => handleResizeStart(e, 'w')}></div>
+  {/if}
 </div>
 
 <style>
-  .floating-display {
+  /* WORKING: Exact CSS from CleanFloatingElement */
+  .enhanced-floating {
     position: fixed;
     background: #1f2937;
     border: 2px solid #374151;
     border-radius: 8px;
     cursor: grab;
     user-select: none;
-    min-width: 250px;
-    min-height: 150px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
   
-  .floating-display.active {
+  .enhanced-floating:hovered {
+    border-color: #4f46e5;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+  
+  .enhanced-floating.active {
     border-color: #4f46e5;
     box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
   }
@@ -350,6 +621,7 @@
     background: #374151;
     border-bottom: 1px solid #4b5563;
     cursor: grab;
+    border-radius: 6px 6px 0 0;
   }
   
   .symbol-info {
@@ -402,6 +674,9 @@
     padding: 8px;
     background: #111827;
     border-radius: 0 0 6px 6px;
+    height: calc(100% - 41px);
+    overflow: hidden;
+    box-sizing: border-box;
   }
   
   canvas {
@@ -416,7 +691,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 120px;
+    height: 100%;
     color: #6b7280;
     gap: 8px;
   }
@@ -433,5 +708,92 @@
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+  }
+  
+  /* WORKING: Exact resize handle CSS from CleanFloatingElement */
+  .resize-handle {
+    position: absolute;
+    background: #4f46e5;
+    border: 1px solid #6366f1;
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .enhanced-floating:hovered .resize-handle,
+  .resize-handle:hover {
+    opacity: 1;
+  }
+  
+  .resize-handle:hover {
+    background: #6366f1;
+  }
+  
+  .resize-handle.nw {
+    top: -4px;
+    left: -4px;
+    width: 8px;
+    height: 8px;
+    cursor: nw-resize;
+  }
+  
+  .resize-handle.ne {
+    top: -4px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    cursor: ne-resize;
+  }
+  
+  .resize-handle.se {
+    bottom: -4px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    cursor: se-resize;
+  }
+  
+  .resize-handle.sw {
+    bottom: -4px;
+    left: -4px;
+    width: 8px;
+    height: 8px;
+    cursor: sw-resize;
+  }
+  
+  .resize-handle.n {
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    cursor: n-resize;
+  }
+  
+  .resize-handle.s {
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    cursor: s-resize;
+  }
+  
+  .resize-handle.e {
+    top: 50%;
+    right: -4px;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    cursor: e-resize;
+  }
+  
+  .resize-handle.w {
+    top: 50%;
+    left: -4px;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    cursor: w-resize;
   }
 </style>
