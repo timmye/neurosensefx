@@ -27,16 +27,9 @@
   let ctx;
   let dpr = 1;
   
-  // WORKING CleanFloatingElement state - COMPLETE IMPLEMENTATION
-  let isDragging = false;
+  // Store-based state - REMOVED local drag variables for full store migration
   let isResizing = false;
   let resizeHandle = null;
-  let dragStartX = 0;
-  let dragStartY = 0;
-  let elementStartX = 0;
-  let elementStartY = 0;
-  let resizeStartWidth = 0;
-  let resizeStartHeight = 0;
   let isHovered = false;
   
   // Production canvas and data state
@@ -53,14 +46,12 @@
   const hoverState = writable(null);
   let markers = [];
   
-  // WORKING: Use fixed container dimensions like CleanFloatingElement
-  const CONTAINER_WIDTH = 240;  // Fixed width like CleanFloatingElement
-  const CONTAINER_HEIGHT = 160; // Fixed height like CleanFloatingElement
-  const MIN_WIDTH = 240;
-  const MIN_HEIGHT = 160;
-  
+  // Store-derived position and size
   $: displayPosition = display?.position || position;
-  $: displaySize = { width: CONTAINER_WIDTH, height: CONTAINER_HEIGHT };
+  $: displaySize = { 
+    width: display?.config?.visualizationsContentWidth || 240, 
+    height: (display?.config?.meterHeight || 120) + 40 // Add header height
+  };
   
   // Store subscriptions
   $: if ($canvasDataStore) {
@@ -179,15 +170,7 @@
       return;
     }
     
-    isDragging = true;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    elementStartX = displayPosition.x;
-    elementStartY = displayPosition.y;
-    
-    element.style.cursor = 'grabbing';
-    element.style.zIndex = 1000;
-    
+    // ✅ STORE ACTION: Use central store for dragging - no local state
     const rect = element.getBoundingClientRect();
     const offset = {
       x: e.clientX - rect.left,
@@ -204,149 +187,72 @@
   }
   
   function handleMouseMove(e) {
-    if (isDragging) {
-      const deltaX = e.clientX - dragStartX;
-      const deltaY = e.clientY - dragStartY;
+    // ✅ STORE ACTION: Let store handle all interactions - no local calculations
+    if ($floatingStore.draggedItem?.type === 'display' && $floatingStore.draggedItem?.id === id) {
+      // Store manages drag state and calculations
+      const rect = element.getBoundingClientRect();
+      let newX = e.clientX - $floatingStore.draggedItem.offset.x;
+      let newY = e.clientY - $floatingStore.draggedItem.offset.y;
       
-      let newX = elementStartX + deltaX;
-      let newY = elementStartY + deltaY;
-      
-      newX = snapToGrid(newX);
-      newY = snapToGrid(newY);
-      
-      const collision = checkCollision(newX, newY);
-      if (collision.canMove) {
-        position = { x: newX, y: newY };
-        element.style.left = `${newX}px`;
-        element.style.top = `${newY}px`;
-        
-        actions.updateDrag({ x: newX, y: newY });
-      } else if (collision.suggestedPosition) {
-        const snappedX = snapToGrid(collision.suggestedPosition.x);
-        const snappedY = snapToGrid(collision.suggestedPosition.y);
-        
-        position = { x: snappedX, y: snappedY };
-        element.style.left = `${snappedX}px`;
-        element.style.top = `${snappedY}px`;
-        
-        actions.updateDrag({ x: snappedX, y: snappedY });
-      }
-    } else if (isResizing) {
-      const deltaX = e.clientX - dragStartX;
-      const deltaY = e.clientY - dragStartY;
-      
-      let newWidth = resizeStartWidth;
-      let newHeight = resizeStartHeight;
-      let newX = elementStartX;
-      let newY = elementStartY;
-      
-      switch (resizeHandle) {
-        case 'se':
-          newWidth = Math.max(MIN_WIDTH, resizeStartWidth + deltaX);
-          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight + deltaY);
-          break;
-        case 'sw':
-          newWidth = Math.max(MIN_WIDTH, resizeStartWidth - deltaX);
-          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight + deltaY);
-          if (newWidth > MIN_WIDTH) {
-            newX = elementStartX + (resizeStartWidth - newWidth);
-          }
-          break;
-        case 'ne':
-          newWidth = Math.max(MIN_WIDTH, resizeStartWidth + deltaX);
-          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight - deltaY);
-          if (newHeight > MIN_HEIGHT) {
-            newY = elementStartY + (resizeStartHeight - newHeight);
-          }
-          break;
-        case 'nw':
-          newWidth = Math.max(MIN_WIDTH, resizeStartWidth - deltaX);
-          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight - deltaY);
-          if (newWidth > MIN_WIDTH) {
-            newX = elementStartX + (resizeStartWidth - newWidth);
-          }
-          if (newHeight > MIN_HEIGHT) {
-            newY = elementStartY + (resizeStartHeight - newHeight);
-          }
-          break;
-        case 'n':
-          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight - deltaY);
-          if (newHeight > MIN_HEIGHT) {
-            newY = elementStartY + (resizeStartHeight - newHeight);
-          }
-          break;
-        case 's':
-          newHeight = Math.max(MIN_HEIGHT, resizeStartHeight + deltaY);
-          break;
-        case 'e':
-          newWidth = Math.max(MIN_WIDTH, resizeStartWidth + deltaX);
-          break;
-        case 'w':
-          newWidth = Math.max(MIN_WIDTH, resizeStartWidth - deltaX);
-          if (newWidth > MIN_WIDTH) {
-            newX = elementStartX + (resizeStartWidth - newWidth);
-          }
-          break;
+      // ✅ ENABLED: Apply grid snapping if enabled in workspace settings
+      const workspaceSettings = $floatingStore.workspaceSettings || {};
+      if (workspaceSettings.gridSnapEnabled) {
+        const gridSize = workspaceSettings.gridSize || 20;
+        newX = Math.round(newX / gridSize) * gridSize;
+        newY = Math.round(newY / gridSize) * gridSize;
       }
       
-      newX = snapToGrid(newX);
-      newY = snapToGrid(newY);
-      newWidth = snapToGrid(newWidth);
-      newHeight = snapToGrid(newHeight);
+      // ✅ ENABLED: Apply viewport boundary constraints
+      const displaySize = {
+        width: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width,
+        height: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height
+      };
+      const constrainedPosition = GEOMETRY.TRANSFORMS.constrainToViewport(
+        { x: newX, y: newY }, 
+        displaySize
+      );
       
-      const collision = checkCollision(newX, newY, newWidth, newHeight);
-      if (collision.canMove) {
-        position = { x: newX, y: newY };
-        element.style.left = `${newX}px`;
-        element.style.top = `${newY}px`;
-        element.style.width = `${newWidth}px`;
-        element.style.height = `${newHeight}px`;
-        
-        actions.resizeDisplay(id, newWidth, newHeight);
-        actions.updateDrag({ x: newX, y: newY });
-      } else {
-        const touchingOnly = checkIfOnlyTouching(collision.collision, newX, newY, newWidth, newHeight);
-        if (touchingOnly) {
-          position = { x: newX, y: newY };
-          element.style.left = `${newX}px`;
-          element.style.top = `${newY}px`;
-          element.style.width = `${newWidth}px`;
-          element.style.height = `${newHeight}px`;
-          
-          actions.resizeDisplay(id, newWidth, newHeight);
-          actions.updateDrag({ x: newX, y: newY });
+      // ✅ ENABLED: Check collision detection if enabled
+      if (workspaceSettings.collisionDetectionEnabled) {
+        const collision = checkCollision(constrainedPosition.x, constrainedPosition.y);
+        if (collision.canMove) {
+          actions.updateDrag({ x: constrainedPosition.x, y: constrainedPosition.y });
+        } else if (collision.suggestedPosition) {
+          // Apply grid snapping to suggested position
+          let suggestedX = collision.suggestedPosition.x;
+          let suggestedY = collision.suggestedPosition.y;
+          if (workspaceSettings.gridSnapEnabled) {
+            const gridSize = workspaceSettings.gridSize || 20;
+            suggestedX = Math.round(suggestedX / gridSize) * gridSize;
+            suggestedY = Math.round(suggestedY / gridSize) * gridSize;
+          }
+          actions.updateDrag({ x: suggestedX, y: suggestedY });
         }
+      } else {
+        // No collision detection - just apply constrained position
+        actions.updateDrag({ x: constrainedPosition.x, y: constrainedPosition.y });
       }
+    } else if ($floatingStore.resizeState?.isResizing && $floatingStore.resizeState?.displayId === id) {
+      // ✅ STORE ACTION: Already working - store manages resize
+      const mousePos = { x: e.clientX, y: e.clientY };
+      actions.updateResize(mousePos);
     }
   }
   
   function handleMouseUp() {
-    isDragging = false;
-    isResizing = false;
-    resizeHandle = null;
-    
-    element.style.cursor = 'grab';
-    element.style.zIndex = '';
+    // ✅ STORE ACTION: Use store end actions - no local state management
+    actions.endDrag();
+    actions.endResize();
     
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-    
-    actions.endDrag();
   }
   
   function handleResizeStart(e, handle) {
     isResizing = true;
     resizeHandle = handle;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    elementStartX = displayPosition.x;
-    elementStartY = displayPosition.y;
-    resizeStartWidth = displaySize.width;
-    resizeStartHeight = displaySize.height;
     
-    element.style.cursor = `${handle}-resize`;
-    element.style.zIndex = 1000;
-    
+    // ✅ STORE ACTION: Use store action for resize start - no local state
     actions.startResize(id, handle, displayPosition, displaySize, { x: e.clientX, y: e.clientY });
     
     document.addEventListener('mousemove', handleMouseMove);
