@@ -1,5 +1,6 @@
 <script>
-  import { floatingStore, actions, panels } from '../stores/floatingStore.js';
+  import { onMount, onDestroy } from 'svelte';
+  import { floatingStore, actions, panels, icons } from '../stores/floatingStore.js';
   
   export let id;
   export let type;
@@ -10,12 +11,17 @@
   
   // Local state
   let element;
+  let isAnimating = false;
   
   // Store subscriptions
   $: panel = $panels.get(id);
   $: isActive = panel?.isActive || false;
   $: isVisible = panel?.isVisible !== false;
   $: currentZIndex = panel?.zIndex || 1000;
+  
+  // Check if this panel is linked to an expanded icon
+  $: linkedIcon = Array.from($icons.values()).find(icon => icon.panelId === id && icon.isExpanded);
+  $: isExpanded = linkedIcon?.isExpanded || false;
   
   // Direct event handlers
   function handleMouseDown(e) {
@@ -58,16 +64,27 @@
     actions.removePanel(id);
   }
   
+  function handleCollapse() {
+    // Find linked icon and collapse it
+    const icon = Array.from($icons.values()).find(icon => icon.panelId === id);
+    if (icon) {
+      actions.collapseIcon(icon.id);
+    } else {
+      // Fallback: just hide the panel
+      floatingStore.update(store => {
+        const newPanels = new Map(store.panels);
+        const panel = newPanels.get(id);
+        if (panel) {
+          newPanels.set(id, { ...panel, isVisible: false });
+        }
+        return { ...store, panels: newPanels };
+      });
+    }
+  }
+  
   function handleMinimize() {
-    // Toggle visibility
-    floatingStore.update(store => {
-      const newPanels = new Map(store.panels);
-      const panel = newPanels.get(id);
-      if (panel) {
-        newPanels.set(id, { ...panel, isVisible: !panel.isVisible });
-      }
-      return { ...store, panels: newPanels };
-    });
+    // Legacy minimize - just collapse to icon
+    handleCollapse();
   }
 </script>
 

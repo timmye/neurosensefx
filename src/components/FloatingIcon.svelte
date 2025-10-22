@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
-  import { floatingStore, actions, icons } from '../stores/floatingStore.js';
+  import { floatingStore, actions, icons, GEOMETRY } from '../stores/floatingStore.js';
   
   export let id;
   export let type = 'default';
@@ -67,9 +67,13 @@
       y: e.clientY - dragOffset.y
     };
     
-    // Keep icon within viewport bounds
-    newPosition.x = Math.max(0, Math.min(newPosition.x, window.innerWidth - 48));
-    newPosition.y = Math.max(0, Math.min(newPosition.y, window.innerHeight - 48));
+    // Use GEOMETRY for viewport constraints
+    const constrainedPosition = GEOMETRY.TRANSFORMS.constrainToViewport(
+      newPosition, 
+      GEOMETRY.COMPONENTS.SymbolPalette.icon.defaultSize
+    );
+    newPosition.x = constrainedPosition.x;
+    newPosition.y = constrainedPosition.y;
     
     actions.updateDrag(newPosition);
   }
@@ -190,8 +194,8 @@
 <style>
   .floating-icon {
     position: fixed;
-    width: 48px;
-    height: 48px;
+    width: var(--icon-size, 48px);
+    height: var(--icon-size, 48px);
     background: #1f2937;
     border: 2px solid #4b5563;
     border-radius: 12px;
