@@ -5,7 +5,7 @@
   import { connectionManager } from './data/ConnectionManager.js';
   import FloatingDisplay from './components/FloatingDisplay.svelte';
   import FloatingIcon from './components/FloatingIcon.svelte';
-  import ContextMenu from './components/ContextMenu.svelte';
+  import UnifiedContextMenu from './components/UnifiedContextMenu.svelte';
   import SymbolPalette from './components/SymbolPalette.svelte';
   
   // Store subscriptions
@@ -51,10 +51,19 @@
       e.preventDefault();
       const symbols = Object.keys($symbolStore);
       if (symbols.length > 0) {
-        actions.addDisplay(symbols[0], {
+        const displayId = actions.addDisplay(symbols[0], {
           x: 100 + Math.random() * 200,
           y: 100 + Math.random() * 100
         });
+        
+        // Subscribe to data after a tick to ensure display is created
+        setTimeout(async () => {
+          try {
+            await connectionManager.subscribeCanvas(displayId, symbols[0]);
+          } catch (error) {
+            console.error('Failed to subscribe new display to data:', error);
+          }
+        }, 0);
       }
     }
     
@@ -126,6 +135,9 @@
     if (displayList.length === 0 && symbols.length > 0) {
       const displayId = actions.addDisplay(symbols[0], { x: 100, y: 100 });
       
+      // Wait a tick for the display to be fully created in floatingStore
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
       // Subscribe to data
       try {
         await connectionManager.subscribeCanvas(displayId, symbols[0]);
@@ -140,7 +152,15 @@
   function handleWorkspaceContextMenu(e) {
     if (e.target === e.currentTarget) {
       e.preventDefault();
-      actions.showContextMenu(e.clientX, e.clientY, null, 'workspace');
+      
+      // Use unified context menu system
+      const context = {
+        type: 'workspace',
+        targetId: null,
+        targetType: 'workspace'
+      };
+      
+      actions.showUnifiedContextMenu(e.clientX, e.clientY, context);
     }
   }
 </script>
@@ -185,8 +205,8 @@
   <!-- Symbol Palette (Layer 2) -->
   <SymbolPalette bind:this={symbolPaletteRef} />
   
-  <!-- Context Menu (Layer 4) -->
-  <ContextMenu />
+  <!-- Unified Context Menu (Layer 4) -->
+  <UnifiedContextMenu />
 </main>
 
 <style>

@@ -306,11 +306,125 @@ const GEOMETRY = {
   }
 };
 
-// Default configurations - FIXED: Use correct canvas height matching design intent
+// Default configurations - FIXED: Use complete config from symbolStore with all 85+ parameters
 const defaultConfig = {
+  // Layout & Meter
   visualizationsContentWidth: 220,
-  meterHeight: 120, // ✅ FIXED: Canvas height (120px design intent - was 80px)
-  flashIntensity: 0.3
+  meterHeight: 120,
+  centralAxisXPosition: 220,
+  adrRange: 100,
+  adrLookbackDays: 14,
+  adrProximityThreshold: 10,
+  adrPulseColor: '#3B82F6',
+  adrPulseWidthRatio: 1,
+  adrPulseHeight: 2,
+
+  // ADR Range Indicator
+  showAdrRangeIndicatorLines: true,
+  adrRangeIndicatorLinesColor: '#9CA3AF',
+  adrRangeIndicatorLinesThickness: 1,
+  showAdrRangeIndicatorLabel: true,
+  adrRangeIndicatorLabelColor: '#E5E7EB',
+  adrRangeIndicatorLabelShowBackground: true,
+  adrRangeIndicatorLabelBackgroundColor: '#1F2937',
+  adrRangeIndicatorLabelBackgroundOpacity: 0.8,
+  adrLabelType: 'dynamicPercentage',
+  adrRangeIndicatorLabelShowBoxOutline: true,
+  adrRangeIndicatorLabelBoxOutlineColor: '#4B5563',
+  adrRangeIndicatorLabelBoxOutlineOpacity: 1,
+
+  // Labels (PH/PL, OHL)
+  pHighLowLabelSide: 'right',
+  ohlLabelSide: 'right',
+  pHighLowLabelShowBackground: true,
+  pHighLowLabelBackgroundColor: '#1f2937',
+  pHighLowLabelBackgroundOpacity: 0.7,
+  pHighLowLabelShowBoxOutline: false,
+  pHighLowLabelBoxOutlineColor: '#4b5563',
+  pHighLowLabelBoxOutlineOpacity: 1,
+  ohlLabelShowBackground: true,
+  ohlLabelBackgroundColor: '#1f2937',
+  ohlLabelBackgroundOpacity: 0.7,
+  ohlLabelShowBoxOutline: false,
+  ohlLabelBoxOutlineColor: '#4b5563',
+  ohlLabelBoxOutlineOpacity: 1,
+
+  // Price Float & Display
+  priceFloatWidth: 100,
+  priceFloatHeight: 4,
+  priceFloatXOffset: 0,
+  priceFloatUseDirectionalColor: false,
+  priceFloatColor: '#FFFFFF',
+  priceFloatUpColor: '#3b82f6',
+  priceFloatDownColor: '#ef4444',
+  showPriceFloatPulse: false,
+  priceFloatPulseThreshold: 0.5,
+  priceFloatPulseColor: 'rgba(167, 139, 250, 0.8)',
+  priceFloatPulseScale: 1.5,
+  priceFontSize: 65,
+  priceFontWeight: '600',
+  priceHorizontalOffset: 4,
+  priceDisplayPadding: 0,
+  bigFigureFontSizeRatio: 0.7,
+  pipFontSizeRatio: 1.0,
+  pipetteFontSizeRatio: 0.4,
+  showPipetteDigit: true,
+  priceUseStaticColor: false,
+  priceStaticColor: '#d1d5db',
+  priceUpColor: '#3b82f6',
+  priceDownColor: '#ef4444',
+  showPriceBackground: true,
+  priceBackgroundColor: '#111827',
+  priceBackgroundOpacity: 0.5,
+  showPriceBoundingBox: false,
+  priceBoxOutlineColor: '#4b5563',
+  priceBoxOutlineOpacity: 1,
+  
+  // Volatility Orb
+  showVolatilityOrb: true,
+  volatilityColorMode: 'directional',
+  volatilityOrbBaseWidth: 200,
+  volatilityOrbInvertBrightness: false,
+  volatilitySizeMultiplier: 1.5,
+  showVolatilityMetric: true,
+  
+  // Event Highlighting
+  showFlash: false,
+  flashThreshold: 2.0,
+  flashIntensity: 0.3,
+  showOrbFlash: false,
+  orbFlashThreshold: 2.0,
+  orbFlashIntensity: 0.8,
+  
+  // Market Profile
+  showMarketProfile: true,
+  marketProfileView: 'combinedRight',
+  marketProfileUpColor: '#a78bfa',
+  marketProfileDownColor: '#a78bfa',
+  marketProfileOpacity: 0.7,
+  marketProfileOutline: true,
+  marketProfileOutlineShowStroke: true,
+  marketProfileOutlineStrokeWidth: 1,
+  marketProfileOutlineUpColor: '#a78bfa',
+  marketProfileOutlineDownColor: '#a78bfa',
+  marketProfileOutlineOpacity: 1,
+  distributionDepthMode: 'all',
+  distributionPercentage: 50,
+  priceBucketMultiplier: 1,
+  marketProfileWidthRatio: 1,
+  showMaxMarker: true,
+
+  // Price Markers
+  markerLineColor: '#FFFFFF',
+  markerLineThickness: 2,
+
+  // Hover Indicator
+  hoverLabelShowBackground: true,
+  hoverLabelBackgroundColor: '#000000',
+  hoverLabelBackgroundOpacity: 0.7,
+
+  // Simulation
+  frequencyMode: 'normal'
 };
 
 const defaultState = {
@@ -820,6 +934,68 @@ export const actions = {
       ...store,
       contextMenu: { open: false, x: 0, y: 0, targetId: null, targetType: null }
     }));
+  },
+
+  // NEW: Unified context menu operations
+  showUnifiedContextMenu: (x, y, context) => {
+    floatingStore.update(store => ({
+      ...store,
+      contextMenu: {
+        open: true,
+        x,
+        y,
+        context // { type: 'canvas' | 'header' | 'workspace' | 'panel', targetId, targetType }
+      }
+    }));
+  },
+
+  // NEW: Canvas configuration management
+  updateCanvasConfig: (displayId, parameter, value) => {
+    floatingStore.update(store => {
+      const newDisplays = new Map(store.displays);
+      const display = newDisplays.get(displayId);
+      if (display) {
+        newDisplays.set(displayId, {
+          ...display,
+          config: {
+            ...display.config,
+            [parameter]: value
+          }
+        });
+      }
+      return { ...store, displays: newDisplays };
+    });
+  },
+
+  updateMultipleCanvasConfig: (displayId, configUpdates) => {
+    floatingStore.update(store => {
+      const newDisplays = new Map(store.displays);
+      const display = newDisplays.get(displayId);
+      if (display) {
+        newDisplays.set(displayId, {
+          ...display,
+          config: {
+            ...display.config,
+            ...configUpdates
+          }
+        });
+      }
+      return { ...store, displays: newDisplays };
+    });
+  },
+
+  resetCanvasConfig: (displayId) => {
+    floatingStore.update(store => {
+      const newDisplays = new Map(store.displays);
+      const display = newDisplays.get(displayId);
+      if (display) {
+        newDisplays.set(displayId, {
+          ...display,
+          config: { ...defaultConfig }
+        });
+      }
+      return { ...store, displays: newDisplays };
+    });
   },
 
   // Drag operations

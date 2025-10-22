@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { floatingStore, actions, geometryActions, GEOMETRY } from '../stores/floatingStore.js';
-  import { connectionManager, canvasDataStore } from '../data/ConnectionManager.js';
+  import { connectionManager } from '../data/ConnectionManager.js';
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
@@ -46,24 +46,20 @@
   const hoverState = writable(null);
   let markers = [];
   
-  // Store-derived position and size
+  // SIMPLIFIED SOLUTION: Direct store access with no cyclical dependencies
+  $: display = $floatingStore.displays?.get(id);
+  $: config = display?.config || {};
+  $: state = display?.state || {};
+  $: isReady = display?.ready || false;
+  $: isActive = display?.isActive || false;
+  $: currentZIndex = display?.zIndex || 1;
+  
+  // Store-derived position and size (simplified)
   $: displayPosition = display?.position || position;
   $: displaySize = { 
-    width: display?.config?.visualizationsContentWidth || 240, 
-    height: (display?.config?.meterHeight || 120) + 40 // Add header height
+    width: config?.visualizationsContentWidth || 240, 
+    height: (config?.meterHeight || 120) + 40
   };
-  
-  // Store subscriptions
-  $: if ($canvasDataStore) {
-    canvasData = $canvasDataStore.get(id) || {};
-    config = canvasData.config || {};
-    state = canvasData.state || {};
-    isReady = canvasData?.ready || false;
-    
-    display = $floatingStore.displays?.get(id);
-    isActive = display?.isActive || false;
-    currentZIndex = display?.zIndex || 1;
-  }
   
   // Update markers from store
   $: if ($markerStore !== undefined) {
@@ -296,21 +292,27 @@
   // Production event handlers
   function handleContextMenu(e) {
     e.preventDefault();
-    actions.showContextMenu(e.clientX, e.clientY, id, 'display');
     actions.setActiveDisplay(id);
+    
+    // Use unified context menu system
+    const context = {
+      type: e.target.closest('canvas') ? 'canvas' : 
+            e.target.closest('.header') ? 'header' : 'workspace',
+      targetId: id,
+      targetType: 'display'
+    };
+    
+    actions.showUnifiedContextMenu(e.clientX, e.clientY, context);
   }
   
   function handleClose() {
     actions.removeDisplay(id);
   }
   
-  // Canvas mouse event handlers
-  let yScale;
-  $: if (state && config && state.visualLow && state.visualHigh) {
-    yScale = scaleLinear()
-      .domain([state.visualLow, state.visualHigh])
-      .range([config.meterHeight, 0]);
-  }
+  // SIMPLIFIED: Direct yScale calculation without function wrapper
+  $: yScale = state?.visualLow && state?.visualHigh && config?.meterHeight
+    ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([config.meterHeight, 0])
+    : null;
   
   function handleCanvasMouseMove(event) {
     if (!yScale) return;
@@ -348,7 +350,18 @@
   }
   
   // Canvas setup and rendering
-  onMount(() => {
+  onMount(async () => {
+    console.log(`[FLOATING_DISPLAY] Mounting display ${id} for symbol ${symbol}`);
+    
+    // Subscribe to data through ConnectionManager
+    try {
+      console.log(`[FLOATING_DISPLAY] Subscribing to data for ${symbol}`);
+      await connectionManager.subscribeCanvas(id, symbol);
+      console.log(`[FLOATING_DISPLAY] Successfully subscribed to ${symbol}`);
+    } catch (error) {
+      console.error(`[FLOATING_DISPLAY] Failed to subscribe to ${symbol}:`, error);
+    }
+    
     const checkCanvas = setInterval(() => {
       if (canvas && !ctx) {
         ctx = canvas.getContext('2d');
@@ -362,6 +375,9 @@
     
     return () => {
       clearInterval(checkCanvas);
+      // Unsubscribe from data when component is destroyed
+      console.log(`[FLOATING_DISPLAY] Unsubscribing from data for ${symbol}`);
+      connectionManager.unsubscribeCanvas(id);
     };
   });
   
@@ -392,6 +408,16 @@
   
   function render(timestamp = 0) {
     if (!ctx || !state || !config || !yScale) {
+      console.log(`[RENDER_DEBUG] Render blocked:`, {
+        hasCtx: !!ctx,
+        hasState: !!state,
+        hasConfig: !!config,
+        hasYScale: !!yScale,
+        stateKeys: state ? Object.keys(state) : null,
+        configKeys: config ? Object.keys(config) : null,
+        visualLow: state?.visualLow,
+        visualHigh: state?.visualHigh
+      });
       return;
     }
     

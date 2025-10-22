@@ -7,6 +7,7 @@ import { writable, get } from 'svelte/store';
 import { symbolStore } from './symbolStore.js';
 import { dataSourceMode, wsStatus, availableSymbols, subscribe, unsubscribe } from './wsClient.js';
 import { createLogger } from '../utils/debugLogger.js';
+import { floatingStore, actions } from '../stores/floatingStore.js';
 
 const logger = createLogger('ConnectionManager');
 
@@ -18,7 +19,7 @@ export const connectionState = writable({
   retryCount: 0
 });
 
-// Reactive store for canvas data updates
+// Reactive store for canvas data updates - KEEP FOR COMPATIBILITY but migrate to floatingStore
 export const canvasDataStore = writable(new Map()); // canvasId -> symbolData
 
 class ConnectionManager {
@@ -361,11 +362,29 @@ class ConnectionManager {
    * @param {Object} symbolData - Symbol data
    */
   updateCanvasDataStore(canvasId, symbolData) {
+    // Update canvasDataStore for backward compatibility
     canvasDataStore.update(store => {
       const newStore = new Map(store);
       newStore.set(canvasId, symbolData);
       return newStore;
     });
+    
+    // ALSO update floatingStore with symbol data (state only, not config)
+    // This ensures FloatingDisplay can get everything from floatingStore
+    const currentStore = get(floatingStore);
+    const display = currentStore.displays?.get(canvasId);
+    if (display) {
+      // Use the existing floatingStore actions to update the display
+      floatingStore.update(store => {
+        const newDisplays = new Map(store.displays);
+        newDisplays.set(canvasId, {
+          ...display,
+          state: symbolData.state || display.state,
+          ready: symbolData.ready !== undefined ? symbolData.ready : display.ready
+        });
+        return { ...store, displays: newDisplays };
+      });
+    }
   }
   
   /**

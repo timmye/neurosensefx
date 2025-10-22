@@ -1,7 +1,7 @@
 import { defaultConfig } from '../../../data/symbolStore.js';
 
 /**
- * Parameter groups for the CanvasContextMenu component
+ * Parameter groups for the Unified Context Menu
  * Organizes all 85+ visualization parameters into 6 logical tabs
  */
 
