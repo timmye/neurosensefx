@@ -129,18 +129,27 @@ export const priceDisplayGroup = {
     priceFontWeight: ['400', '500', '600', '700', '800', '900']
   },
   ranges: {
-    priceFloatWidth: { min: 50, max: 200, step: 10 },
-    priceFloatHeight: { min: 1, max: 10, step: 1 },
-    priceFloatXOffset: { min: -50, max: 50, step: 5 },
+    priceFloatWidth: { min: 10, max: 80, step: 1 }, // Percentage of canvas width
+    priceFloatHeight: { min: 1, max: 10, step: 0.5 }, // Percentage of canvas height
+    priceFloatXOffset: { min: -25, max: 25, step: 1 }, // Percentage of canvas width
     priceFloatPulseThreshold: { min: 0.1, max: 2.0, step: 0.1 },
     priceFloatPulseScale: { min: 1.0, max: 3.0, step: 0.1 },
-    priceFontSize: { min: 40, max: 80, step: 5 },
-    priceHorizontalOffset: { min: -20, max: 20, step: 2 },
-    priceDisplayPadding: { min: 0, max: 20, step: 2 },
+    priceFontSize: { min: 20, max: 80, step: 2 }, // Percentage of canvas height
+    priceHorizontalOffset: { min: -10, max: 10, step: 1 }, // Percentage of canvas width
+    priceDisplayPadding: { min: 0, max: 10, step: 1 }, // Percentage of canvas dimensions
     bigFigureFontSizeRatio: { min: 0.5, max: 1.0, step: 0.05 },
     pipFontSizeRatio: { min: 0.5, max: 1.5, step: 0.1 },
     pipetteFontSizeRatio: { min: 0.2, max: 0.8, step: 0.05 },
     priceBackgroundOpacity: { min: 0.1, max: 1.0, step: 0.1 }
+  },
+  // NEW: Percentage-based parameter metadata
+  percentageParameters: {
+    priceFloatWidth: { basis: 'canvasWidth', absoluteFallback: 100 },
+    priceFloatHeight: { basis: 'canvasHeight', absoluteFallback: 4 },
+    priceFloatXOffset: { basis: 'canvasWidth', absoluteFallback: 0 },
+    priceFontSize: { basis: 'canvasHeight', absoluteFallback: 65 },
+    priceHorizontalOffset: { basis: 'canvasWidth', absoluteFallback: 4 },
+    priceDisplayPadding: { basis: 'canvasWidth', absoluteFallback: 0 }
   }
 };
 
@@ -295,7 +304,7 @@ export const volatilityGroup = {
     volatilityColorMode: ['single', 'intensity', 'directional']
   },
   ranges: {
-    volatilityOrbBaseWidth: { min: 100, max: 300, step: 10 },
+    volatilityOrbBaseWidth: { min: 30, max: 100, step: 1 }, // Percentage of canvas width
     volatilitySizeMultiplier: { min: 0.5, max: 3.0, step: 0.1 },
     flashThreshold: { min: 0.5, max: 5.0, step: 0.5 },
     flashIntensity: { min: 0.1, max: 1.0, step: 0.1 },
@@ -307,6 +316,10 @@ export const volatilityGroup = {
     adrPulseWidthRatio: { min: 0.5, max: 2.0, step: 0.1 },
     adrPulseHeight: { min: 1, max: 10, step: 1 },
     adrRangeIndicatorLinesThickness: { min: 1, max: 5, step: 0.5 }
+  },
+  // NEW: Percentage-based parameter metadata
+  percentageParameters: {
+    volatilityOrbBaseWidth: { basis: 'canvasWidth', absoluteFallback: 200 }
   }
 };
 
@@ -361,11 +374,17 @@ export const layoutSizingGroup = {
     adrLabelType: ['dynamicPercentage', 'fixedPips', 'absolutePrice']
   },
   ranges: {
-    visualizationsContentWidth: { min: 200, max: 400, step: 10 },
-    meterHeight: { min: 100, max: 200, step: 10 },
-    centralAxisXPosition: { min: 150, max: 300, step: 10 },
+    visualizationsContentWidth: { min: 50, max: 200, step: 5 }, // Percentage of reference width (110-440px)
+    meterHeight: { min: 50, max: 250, step: 5 }, // Percentage of reference height (60-300px)  
+    centralAxisXPosition: { min: 10, max: 90, step: 5 }, // Percentage of reference width (22-198px)
     adrRangeIndicatorLabelBackgroundOpacity: { min: 0.1, max: 1.0, step: 0.1 },
     adrRangeIndicatorLabelBoxOutlineOpacity: { min: 0.1, max: 1.0, step: 0.1 }
+  },
+  // NEW: Percentage-based parameter metadata
+  percentageParameters: {
+    visualizationsContentWidth: { basis: 'canvasWidth', absoluteFallback: 220 },
+    meterHeight: { basis: 'canvasHeight', absoluteFallback: 120 },
+    centralAxisXPosition: { basis: 'canvasWidth', absoluteFallback: 220 }
   }
 };
 
@@ -531,5 +550,83 @@ export const validateParameterCoverage = () => {
     missingParams,
     extraParams,
     isValid: missingParams.length === 0 && extraParams.length === 0
+  };
+};
+
+// NEW: Percentage conversion utilities
+export const toCanvasPixels = (value, basis, canvasWidth, canvasHeight) => {
+  switch (basis) {
+    case 'canvasWidth':
+      return (value / 100) * canvasWidth;
+    case 'canvasHeight':
+      return (value / 100) * canvasHeight;
+    default:
+      return value; // Absolute value fallback
+  }
+};
+
+export const toCanvasPercentage = (absoluteValue, basis, originalCanvasWidth, originalCanvasHeight) => {
+  switch (basis) {
+    case 'canvasWidth':
+      return (absoluteValue / originalCanvasWidth) * 100;
+    case 'canvasHeight':
+      return (absoluteValue / originalCanvasHeight) * 100;
+    default:
+      return absoluteValue; // Already a percentage or absolute
+  }
+};
+
+// Get percentage parameter metadata
+export const getPercentageParameterMetadata = (parameterName) => {
+  const group = getParameterGroup(parameterName);
+  if (!group || !group.percentageParameters?.[parameterName]) return null;
+  
+  return {
+    parameter: parameterName,
+    basis: group.percentageParameters[parameterName].basis,
+    absoluteFallback: group.percentageParameters[parameterName].absoluteFallback
+  };
+};
+
+// Check if parameter is percentage-based
+export const isPercentageParameter = (parameterName) => {
+  const group = getParameterGroup(parameterName);
+  return group?.percentageParameters?.hasOwnProperty(parameterName) || false;
+};
+
+// Convert config values from absolute to percentages (migration utility)
+export const migrateConfigToPercentages = (oldConfig, originalCanvasWidth = 220, originalCanvasHeight = 120) => {
+  const newConfig = { ...oldConfig };
+  
+  parameterGroups.forEach(group => {
+    if (group.percentageParameters) {
+      Object.entries(group.percentageParameters).forEach(([param, meta]) => {
+        if (oldConfig[param] !== undefined) {
+          newConfig[param] = toCanvasPercentage(
+            oldConfig[param], 
+            meta.basis, 
+            originalCanvasWidth, 
+            originalCanvasHeight
+          );
+        }
+      });
+    }
+  });
+  
+  return newConfig;
+};
+
+// Enhanced getParameterMetadata with percentage info
+export const getParameterMetadataWithPercentage = (parameterName) => {
+  const metadata = getParameterMetadata(parameterName);
+  if (!metadata) return null;
+  
+  const percentageMeta = getPercentageParameterMetadata(parameterName);
+  
+  return {
+    ...metadata,
+    isPercentage: !!percentageMeta,
+    percentageBasis: percentageMeta?.basis,
+    absoluteFallback: percentageMeta?.absoluteFallback
   };
 };

@@ -874,4 +874,322 @@ onDestroy(() => {
 });
 ```
 
-These system patterns provide the architectural foundation for NeuroSense FX's radical floating architecture, ensuring performance, maintainability, and scalability while supporting the complex requirements of professional trading interfaces. The enhanced floating element patterns (7-9) represent the latest innovations in perfect behavior implementation and production integration, achieving 85% clean code ratio with production stability.
+## Container vs Display Architecture Pattern ✅ COMPLETE (October 23, 2025)
+
+### 11. Hierarchical Container-Display Pattern ✅ COMPLETE
+**Purpose**: Clear separation between layout/interaction (Container) and content/rendering (Display) to eliminate circular dependencies
+
+**Architecture Overview**:
+```
+┌─────────────────────────────────────────────────────────┐
+│                    CONTAINER LAYER                      │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │                 Header (40px)                       │ │
+│  │  • Symbol info, close button, drag handle          │ │
+│  ├─────────────────────────────────────────────────────┤ │
+│  │               Content Area                          │ │
+│  │  ┌─────────────────────────────────────────────┐   │ │
+│  │  │            DISPLAY LAYER                    │   │ │
+│  │  │  ┌─────────────────────────────────────┐   │   │ │
+│  │  │  │         Canvas (220×120px)          │   │ │ │
+│  │  │  │  • Market Profile                   │   │ │ │
+│  │  │  │  • Price Float                      │   │ │ │
+│  │  │  │  • Volatility Orb                   │   │ │ │
+│  │  │  │  • Price Display                    │   │ │ │
+│  │  │  └─────────────────────────────────────┘   │ │ │
+│  │  └─────────────────────────────────────────────┘   │ │
+│  └─────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │              Resize Handles (8)                     │ │
+│  │  nw, n, ne, e, se, s, sw, w                        │ │
+│  └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Implementation**:
+```javascript
+// Container Layer - Layout & Interaction
+$: displayPosition = display?.position || position;
+$: displaySize = { 
+  width: Math.min(2000, (config.visualizationsContentWidth / 100) * REFERENCE_CANVAS.width), 
+  height: Math.min(2000, ((config.meterHeight / 100) * REFERENCE_CANVAS.height) + 40)
+};
+
+// Display Layer - Content Rendering
+$: scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
+
+// Canvas resize with safety thresholds
+$: if (canvas && ctx && displaySize) {
+  const currentWidth = canvas.width;
+  const currentHeight = canvas.height;
+  const newWidth = displaySize.width;
+  const newHeight = displaySize.height - 40;
+  
+  // STABILITY: 5px threshold prevents micro-updates
+  const widthDiff = Math.abs(currentWidth - newWidth);
+  const heightDiff = Math.abs(currentHeight - newHeight);
+  
+  if (widthDiff > 5 || heightDiff > 5) {
+    updateCanvasSize(newWidth, newHeight);
+  }
+}
+```
+
+**Separation of Concerns**:
+
+**Container Responsibilities**:
+- **✅ Position Management**: `displayPosition.x`, `displayPosition.y`
+- **✅ Size Management**: `displaySize.width`, `displaySize.height`
+- **✅ User Interaction**: Drag, resize, hover, click events
+- **✅ Visual Styling**: Borders, shadows, headers, resize handles
+- **✅ Layout Constraints**: Minimum/maximum sizes, viewport boundaries
+
+**Display Responsibilities**:
+- **✅ Content Rendering**: All trading visualizations
+- **✅ Data Processing**: Market data visualization
+- **✅ Visual Scaling**: Adapting to container size
+- **✅ Performance**: Optimized rendering pipeline
+- **✅ Canvas Interactions**: Hover indicators, markers, clicks
+
+**Data Flow Chain**:
+```javascript
+USER ACTION → CONTAINER → DISPLAY → VISUALIZATIONS
+     ↓              ↓           ↓             ↓
+Resize handle → Container → Canvas → Scaled rendering
+    drag         resizes     resizes      proportions
+```
+
+### 12. Reference Canvas Pattern ✅ COMPLETE
+**Purpose**: Percentage-based storage with runtime scaling for responsive behavior
+
+**Three-Layer System**:
+
+**Storage Layer (Percentages)**:
+```javascript
+// Store: percentages relative to 220×120px reference canvas
+config.visualizationsContentWidth = 110;  // 110% of 220px = 242px
+config.meterHeight = 100;                 // 100% of 120px = 120px
+config.centralAxisXPosition = 50;         // 50% of 220px = 110px (center)
+```
+
+**Container Layer (Layout)**:
+```javascript
+// Container: direct calculation from config percentages
+displaySize.width = (config.visualizationsContentWidth / 100) * REFERENCE_CANVAS.width;     // 242px
+displaySize.height = ((config.meterHeight / 100) * REFERENCE_CANVAS.height) + 40;             // 160px total
+```
+
+**Display Layer (Rendering)**:
+```javascript
+// Rendering: scaled to actual canvas dimensions
+scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
+// Result: All visualizations scale proportionally to 242×120px canvas
+```
+
+**Scale Function**:
+```javascript
+function scaleToCanvas(config, currentCanvasWidth, currentCanvasHeight) {
+  const scaleX = currentCanvasWidth / REFERENCE_CANVAS.width;
+  const scaleY = currentCanvasHeight / REFERENCE_CANVAS.height;
+  
+  return {
+    // Layout parameters (percentage-based)
+    visualizationsContentWidth: (config.visualizationsContentWidth / 100) * currentCanvasWidth,
+    meterHeight: (config.meterHeight / 100) * currentCanvasHeight,
+    centralAxisXPosition: (config.centralAxisXPosition / 100) * currentCanvasWidth,
+    
+    // Price display parameters (percentage-based)
+    priceFloatWidth: (config.priceFloatWidth / 100) * currentCanvasWidth,
+    priceFloatHeight: (config.priceFloatHeight / 100) * currentCanvasHeight,
+    priceFontSize: (config.priceFontSize / 100) * currentCanvasHeight,
+    
+    // Pass through non-scaled parameters unchanged
+    ...Object.fromEntries(
+      Object.entries(config).filter(([key]) => ![
+        'visualizationsContentWidth', 'meterHeight', 'centralAxisXPosition',
+        'priceFloatWidth', 'priceFloatHeight', 'priceFontSize'
+      ].includes(key))
+    )
+  };
+}
+```
+
+### 13. Reactive Independence Pattern ✅ COMPLETE
+**Purpose**: Eliminate circular dependencies through independent reactive statements
+
+**Circular Dependency Prevention**:
+```javascript
+// ❌ BEFORE (Circular Dependency):
+$: displaySize = { width: scaledConfig.visualizationsContentWidth, ... };
+$: scaledConfig = scaleToCanvas(config, canvasWidth, canvasHeight);
+$: canvasWidth = canvas.width;  // Updated by displaySize
+$: canvasHeight = canvas.height; // Updated by displaySize
+// Result: infinite loop → exponential growth
+
+// ✅ AFTER (Independent Reactive Statements):
+$: displaySize = { 
+  width: (config.visualizationsContentWidth / 100) * REFERENCE_CANVAS.width,
+  height: ((config.meterHeight / 100) * REFERENCE_CANVAS.height) + 40
+}; // Independent of scaledConfig
+
+$: scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
+// Uses container dimensions, not canvas dimensions
+
+// Canvas resize only when displaySize changes significantly
+$: if (canvas && ctx && displaySize) {
+  const widthDiff = Math.abs(canvas.width - displaySize.width);
+  const heightDiff = Math.abs(canvas.height - (displaySize.height - 40));
+  
+  if (widthDiff > 5 || heightDiff > 5) {
+    updateCanvasSize(displaySize.width, displaySize.height - 40);
+  }
+} // Threshold-based, no circular dependency
+```
+
+**Safety Mechanisms**:
+```javascript
+// 1. Reactive Independence: Each statement has unique dependencies
+// 2. Threshold Filtering: Prevents micro-changes from triggering updates
+const widthThreshold = 5; // Minimum 5px change required
+const heightThreshold = 5; // Minimum 5px change required
+
+// 3. Hard Bounds: Absolute limits prevent edge case explosions
+const safeWidth = Math.min(2000, Math.max(100, newWidth));
+const safeHeight = Math.min(2000, Math.max(80, newHeight));
+
+// 4. Debug Logging: Comprehensive logging for troubleshooting
+console.log(`[CANVAS_RESIZE] Size check: current=${currentWidth}x${currentHeight}, new=${newWidth}x${newHeight}, diff=${widthDiff}x${heightDiff}`);
+```
+
+### 14. Resize Handle Pattern ✅ COMPLETE
+**Purpose**: 8-handle resize system with proper coordinate calculations and constraints
+
+**Handle Types and Behaviors**:
+```javascript
+// Corner Handles (resize width + height + position)
+const handleBehaviors = {
+  nw: { // Northwest: Adjust top-left corner
+    widthDelta: -deltaX, heightDelta: -deltaY,
+    positionX: deltaX, positionY: deltaY
+  },
+  ne: { // Northeast: Adjust top-right corner  
+    widthDelta: deltaX, heightDelta: -deltaY,
+    positionY: deltaY
+  },
+  se: { // Southeast: Adjust bottom-right corner
+    widthDelta: deltaX, heightDelta: deltaY,
+    positionChange: false
+  },
+  sw: { // Southwest: Adjust bottom-left corner
+    widthDelta: -deltaX, heightDelta: deltaY,
+    positionX: deltaX
+  },
+  
+  // Edge Handles (resize single dimension + position)
+  n: { heightDelta: -deltaY, positionY: deltaY },      // North: Top edge
+  s: { heightDelta: deltaY, positionChange: false },   // South: Bottom edge
+  e: { widthDelta: deltaX, positionChange: false },    // East: Right edge
+  w: { widthDelta: -deltaX, positionX: deltaX }       // West: Left edge
+};
+```
+
+**Resize Implementation**:
+```javascript
+function handleResize(e, handleType) {
+  const { startSize, startPosition, startMousePos } = resizeState;
+  const deltaX = e.clientX - startMousePos.x;
+  const deltaY = e.clientY - startMousePos.y;
+  
+  const behavior = handleBehaviors[handleType];
+  let newWidth = startSize.width;
+  let newHeight = startSize.height;
+  let newPosition = { ...startPosition };
+  
+  // Apply handle-specific behavior
+  if (behavior.widthDelta) newWidth = Math.max(MIN_WIDTH, startSize.width + behavior.widthDelta);
+  if (behavior.heightDelta) newHeight = Math.max(MIN_HEIGHT, startSize.height + behavior.heightDelta);
+  if (behavior.positionX) newPosition.x = startPosition.x + behavior.positionX;
+  if (behavior.positionY) newPosition.y = startPosition.y + behavior.positionY;
+  
+  // Apply viewport constraints
+  const maxX = window.innerWidth - newWidth;
+  const maxY = window.innerHeight - newHeight;
+  newPosition.x = Math.max(0, Math.min(newPosition.x, maxX));
+  newPosition.y = Math.max(0, Math.min(newPosition.y, maxY));
+  
+  // Update display
+  actions.updateDisplayPosition(id, newPosition);
+  actions.resizeDisplay(id, newWidth, newHeight);
+}
+```
+
+**Minimum Constraints**:
+```javascript
+const MIN_WIDTH = GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width;   // 240px
+const MIN_HEIGHT = GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height;  // 160px
+```
+
+### 15. Stability Assurance Pattern ✅ COMPLETE
+**Purpose**: Multiple safety mechanisms to prevent exponential growth and system instability
+
+**Multi-Layer Protection**:
+```javascript
+// Layer 1: Input Validation
+function validateResizeDimensions(width, height) {
+  return {
+    width: Math.min(2000, Math.max(100, width)),
+    height: Math.min(2000, Math.max(80, height))
+  };
+}
+
+// Layer 2: Change Detection
+function shouldResizeCanvas(currentWidth, currentHeight, newWidth, newHeight) {
+  const widthDiff = Math.abs(currentWidth - newWidth);
+  const heightDiff = Math.abs(currentHeight - newHeight);
+  const threshold = 5; // 5px minimum change
+  
+  return widthDiff > threshold || heightDiff > threshold;
+}
+
+// Layer 3: State Consistency Check
+function validateSystemState() {
+  const displays = $floatingStore.displays;
+  for (const [id, display] of displays) {
+    const { width, height } = display.config;
+    if (width > 500 || height > 500) {
+      console.warn(`[VALIDATION] Display ${id} has unusual dimensions: ${width}x${height}`);
+    }
+  }
+}
+
+// Layer 4: Performance Monitoring
+let resizeCount = 0;
+const MAX_RESIZE_PER_SECOND = 10;
+
+function trackResizeActivity() {
+  resizeCount++;
+  if (resizeCount > MAX_RESIZE_PER_SECOND) {
+    console.warn('[PERFORMANCE] Excessive resize activity detected');
+    resizeCount = 0;
+  }
+}
+```
+
+**Debug Logging System**:
+```javascript
+const DEBUG_LOGGING = {
+  canvasResize: true,
+  configUpdates: true,
+  performanceWarnings: true
+};
+
+function debugLog(category, message, data) {
+  if (DEBUG_LOGGING[category]) {
+    console.log(`[${category.toUpperCase()}] ${message}`, data);
+  }
+}
+```
+
+These Container vs Display architecture patterns provide a robust foundation for stable, responsive resize functionality while maintaining clear separation of concerns and preventing circular dependencies. The hierarchical structure ensures that layout interactions (Container) are completely independent from content rendering (Display), allowing for scalable and maintainable code architecture.
+
+These system patterns provide the architectural foundation for NeuroSense FX's radical floating architecture, ensuring performance, maintainability, and scalability while supporting the complex requirements of professional trading interfaces. The enhanced floating element patterns (7-9) represent the latest innovations in perfect behavior implementation and production integration, achieving 85% clean code ratio with production stability. The Container vs Display patterns (11-15) represent the critical breakthrough in resolving exponential canvas growth issues through hierarchical architecture and reactive independence.

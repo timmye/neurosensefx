@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { parameterGroups, getParameterMetadata } from './utils/parameterGroups.js';
+  import { parameterGroups, getParameterMetadata, getParameterMetadataWithPercentage, isPercentageParameter } from './utils/parameterGroups.js';
   import { searchParameters } from './utils/searchUtils.js';
   // Simple highlight function for search results
   function highlightMatch(text, query) {
@@ -326,6 +326,7 @@
                       </div>
                     
                     {:else if metadata.type === 'range'}
+                      {@const percentageMeta = getParameterMetadataWithPercentage(parameter)}
                       <div class="range-input-wrapper">
                         <input 
                           type="range" 
@@ -336,7 +337,12 @@
                           value={config[parameter] || metadata.defaultValue}
                           on:input={(e) => handleParameterChange(parameter, parseFloat(e.target.value))}
                         />
-                        <span class="range-value">{config[parameter] || metadata.defaultValue}</span>
+                        <span class="range-value">
+                          {config[parameter] || metadata.defaultValue}
+                          {#if percentageMeta?.isPercentage}
+                            <span class="percentage-indicator">%</span>
+                          {/if}
+                        </span>
                       </div>
                     
                     {:else if metadata.type === 'select'}
@@ -702,6 +708,15 @@
     color: #d1d5db;
     font-size: 12px;
     font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .percentage-indicator {
+    color: #10b981;
+    font-weight: 600;
+    font-size: 10px;
   }
   
   /* Select Input */

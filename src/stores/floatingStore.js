@@ -308,10 +308,10 @@ const GEOMETRY = {
 
 // Default configurations - FIXED: Use complete config from symbolStore with all 85+ parameters
 const defaultConfig = {
-  // Layout & Meter
-  visualizationsContentWidth: 220,
-  meterHeight: 120,
-  centralAxisXPosition: 220,
+  // Layout & Meter - UPDATED: Canvas-only percentage values
+  visualizationsContentWidth: 100,    // 100% of canvas width
+  meterHeight: 100,                   // 100% of canvas height
+  centralAxisXPosition: 50,           // 50% of canvas width (center)
   adrRange: 100,
   adrLookbackDays: 14,
   adrProximityThreshold: 10,
@@ -349,10 +349,10 @@ const defaultConfig = {
   ohlLabelBoxOutlineColor: '#4b5563',
   ohlLabelBoxOutlineOpacity: 1,
 
-  // Price Float & Display
-  priceFloatWidth: 100,
-  priceFloatHeight: 4,
-  priceFloatXOffset: 0,
+  // Price Float & Display - UPDATED: Canvas-only percentage values
+  priceFloatWidth: 45.5,              // 45.5% of canvas width (100px ÷ 220px)
+  priceFloatHeight: 3.3,              // 3.3% of canvas height (4px ÷ 120px)
+  priceFloatXOffset: 0,               // 0% of canvas width
   priceFloatUseDirectionalColor: false,
   priceFloatColor: '#FFFFFF',
   priceFloatUpColor: '#3b82f6',
@@ -361,10 +361,10 @@ const defaultConfig = {
   priceFloatPulseThreshold: 0.5,
   priceFloatPulseColor: 'rgba(167, 139, 250, 0.8)',
   priceFloatPulseScale: 1.5,
-  priceFontSize: 65,
+  priceFontSize: 54.2,               // 54.2% of canvas height (65px ÷ 120px)
   priceFontWeight: '600',
-  priceHorizontalOffset: 4,
-  priceDisplayPadding: 0,
+  priceHorizontalOffset: 1.8,        // 1.8% of canvas width (4px ÷ 220px)
+  priceDisplayPadding: 0,             // 0% of canvas dimensions
   bigFigureFontSizeRatio: 0.7,
   pipFontSizeRatio: 1.0,
   pipetteFontSizeRatio: 0.4,
@@ -380,10 +380,10 @@ const defaultConfig = {
   priceBoxOutlineColor: '#4b5563',
   priceBoxOutlineOpacity: 1,
   
-  // Volatility Orb
+  // Volatility Orb - UPDATED: Canvas-only percentage values
   showVolatilityOrb: true,
   volatilityColorMode: 'directional',
-  volatilityOrbBaseWidth: 200,
+  volatilityOrbBaseWidth: 90.9,       // 90.9% of canvas width (200px ÷ 220px)
   volatilityOrbInvertBrightness: false,
   volatilitySizeMultiplier: 1.5,
   showVolatilityMetric: true,
@@ -782,11 +782,15 @@ export const actions = {
     const id = `display-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     floatingStore.update(store => {
       const newDisplays = new Map(store.displays);
+      
+      // REFERENCE CANVAS PATTERN: Use percentage-based default config
+      const displayConfig = { ...defaultConfig };
+      
       newDisplays.set(id, {
         id,
         symbol,
         position,
-        config: { ...defaultConfig },
+        config: displayConfig,
         state: { ...defaultState },
         zIndex: store.nextDisplayZIndex++,
         isActive: false,
@@ -1238,12 +1242,23 @@ export const actions = {
       const newDisplays = new Map(store.displays);
       const display = newDisplays.get(id);
       if (display) {
+        // REFERENCE CANVAS PATTERN: Convert absolute pixels to percentages
+        const REFERENCE_CANVAS = { width: 220, height: 120 };
+        
+        // Calculate canvas dimensions (subtract header height for canvas)
+        const canvasHeight = Math.max(120, height - 40);
+        const canvasWidth = width;
+        
+        // Convert to percentages for storage
+        const widthPercentage = (canvasWidth / REFERENCE_CANVAS.width) * 100;
+        const heightPercentage = (canvasHeight / REFERENCE_CANVAS.height) * 100;
+        
         newDisplays.set(id, {
           ...display,
           config: {
             ...display.config,
-            visualizationsContentWidth: width,
-            meterHeight: height
+            visualizationsContentWidth: widthPercentage,
+            meterHeight: heightPercentage
           }
         });
       }
@@ -1346,15 +1361,29 @@ export const actions = {
       const newDisplays = new Map(store.displays);
       const display = newDisplays.get(displayId);
       if (display) {
-        // Update canvas dimensions (subtract header height for canvas)
-        const canvasHeight = Math.max(120, newHeight - 40); // ✅ FIXED: Use correct minimum canvas height
+        // REFERENCE CANVAS PATTERN: Convert absolute pixels back to percentages
+        const REFERENCE_CANVAS = { width: 220, height: 120 };
+        
+        // Calculate canvas dimensions (subtract header height for canvas)
+        const canvasHeight = Math.max(120, newHeight - 40);
+        const canvasWidth = newWidth;
+        
+        // Convert back to percentages for storage
+        const widthPercentage = (canvasWidth / REFERENCE_CANVAS.width) * 100;
+        const heightPercentage = (canvasHeight / REFERENCE_CANVAS.height) * 100;
+        
+        console.log(`[RESIZE_DEBUG] Converting to percentages:`, {
+          canvasWidth, canvasHeight,
+          widthPercentage, heightPercentage
+        });
+        
         newDisplays.set(displayId, {
           ...display,
           position: newPosition,
           config: {
             ...display.config,
-            visualizationsContentWidth: newWidth,
-            meterHeight: canvasHeight
+            visualizationsContentWidth: widthPercentage,
+            meterHeight: heightPercentage
           }
         });
       }
