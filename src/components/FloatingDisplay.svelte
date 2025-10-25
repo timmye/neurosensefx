@@ -56,9 +56,13 @@
   
   // Store-derived position and size (Reference Canvas Pattern)
   $: displayPosition = display?.position || position;
+  
+  // 🔧 CRITICAL FIX: Use proper default container dimensions (240×160px)
+  // This matches GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize (240×160px total)
+  // Canvas will be 220×120px, container will be 240×160px (including 40px header)
   $: displaySize = { 
-    width: Math.min(2000, (config.visualizationsContentWidth / 100) * REFERENCE_CANVAS.width || REFERENCE_CANVAS.width), 
-    height: Math.min(2000, ((config.meterHeight / 100) * REFERENCE_CANVAS.height || REFERENCE_CANVAS.height) + 40) // Header height (40px) + canvas height
+    width: Math.min(2000, config.visualizationsContentWidth || 240), 
+    height: Math.min(2000, (config.meterHeight || 120) + 40) // Canvas height (120px) + header height (40px) = 160px total
   };
   
   // Update markers from store
@@ -183,12 +187,20 @@
   }
   
   function handleMouseMove(e) {
-    // ✅ STORE ACTION: Let store handle all interactions - no local calculations
+    // 🔧 CRITICAL FIX: Debug coordinate transformation pipeline
     if ($floatingStore.draggedItem?.type === 'display' && $floatingStore.draggedItem?.id === id) {
-      // Store manages drag state and calculations
-      const rect = element.getBoundingClientRect();
-      let newX = e.clientX - $floatingStore.draggedItem.offset.x;
-      let newY = e.clientY - $floatingStore.draggedItem.offset.y;
+      // Get raw mouse movement delta
+      const mouseDeltaX = e.movementX || 0;
+      const mouseDeltaY = e.movementY || 0;
+      
+      console.log(`[DRAG_DEBUG] Mouse movement: ${mouseDeltaX}x${mouseDeltaY}px`);
+      
+      // Get current position and apply direct mouse delta for 1:1 scaling
+      const currentPosition = $floatingStore.displays.get(id)?.position || { x: 0, y: 0 };
+      let newX = currentPosition.x + mouseDeltaX;
+      let newY = currentPosition.y + mouseDeltaY;
+      
+      console.log(`[DRAG_DEBUG] New position: ${newX}x${newY}px (from ${currentPosition.x}x${currentPosition.y})`);
       
       // ✅ ENABLED: Apply grid snapping if enabled in workspace settings
       const workspaceSettings = $floatingStore.workspaceSettings || {};
@@ -317,20 +329,28 @@
   let canvasWidth = REFERENCE_CANVAS.width;
   let canvasHeight = REFERENCE_CANVAS.height;
   
-  // REFERENCE CANVAS: Scale configuration from percentages to current canvas pixels
+  // 🔧 CRITICAL FIX: Updated scaleToCanvas to handle config values correctly
+  // The config values are now in their raw form (percentages or absolute pixels)
   function scaleToCanvas(config, currentCanvasWidth, currentCanvasHeight) {
     if (!config) return {};
     
-    const scaleX = currentCanvasWidth / REFERENCE_CANVAS.width;
-    const scaleY = currentCanvasHeight / REFERENCE_CANVAS.height;
+    // 🔧 CRITICAL FIX: Handle both percentage and absolute values
+    // If config.visualizationsContentWidth is a percentage (<= 200), treat as percentage
+    // If it's an absolute pixel value (> 200), use it directly
+    const isContentWidthPercentage = (config.visualizationsContentWidth || 0) <= 200;
+    const isMeterHeightPercentage = (config.meterHeight || 0) <= 200;
     
     return {
-      // Layout parameters (percentage-based)
-      visualizationsContentWidth: (config.visualizationsContentWidth / 100) * currentCanvasWidth,
-      meterHeight: (config.meterHeight / 100) * currentCanvasHeight,
+      // Layout parameters - handle both percentage and absolute values
+      visualizationsContentWidth: isContentWidthPercentage 
+        ? (config.visualizationsContentWidth / 100) * currentCanvasWidth
+        : config.visualizationsContentWidth || currentCanvasWidth,
+      meterHeight: isMeterHeightPercentage
+        ? (config.meterHeight / 100) * currentCanvasHeight
+        : config.meterHeight || currentCanvasHeight,
       centralAxisXPosition: (config.centralAxisXPosition / 100) * currentCanvasWidth,
       
-      // Price display parameters (percentage-based)
+      // Price display parameters (always percentage-based)
       priceFloatWidth: (config.priceFloatWidth / 100) * currentCanvasWidth,
       priceFloatHeight: (config.priceFloatHeight / 100) * currentCanvasHeight,
       priceFloatXOffset: (config.priceFloatXOffset / 100) * currentCanvasWidth,
@@ -338,7 +358,7 @@
       priceHorizontalOffset: (config.priceHorizontalOffset / 100) * currentCanvasWidth,
       priceDisplayPadding: (config.priceDisplayPadding / 100) * currentCanvasWidth,
       
-      // Volatility parameters (percentage-based)
+      // Volatility parameters (always percentage-based)
       volatilityOrbBaseWidth: (config.volatilityOrbBaseWidth / 100) * currentCanvasWidth,
       
       // Pass through non-scaled parameters unchanged
@@ -352,12 +372,37 @@
     };
   }
   
-  // REFERENCE CANVAS: Scaled configuration for rendering - FIXED: Use display container size to break circular dependency
-  $: scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
+  // 🔧 CRITICAL FIX: Debounce scaledConfig during resize to prevent temporary overscaling
+  let resizeDebounceTimer = null;
+  let lastDisplaySize = { width: 0, height: 0 };
   
-  // UNIFIED: Direct yScale calculation
-  $: yScale = state?.visualLow && state?.visualHigh && canvasHeight
-    ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([canvasHeight, 0])
+  $: if (displaySize && (displaySize.width !== lastDisplaySize.width || displaySize.height !== lastDisplaySize.height)) {
+    lastDisplaySize = { ...displaySize };
+    
+    // Clear existing timer
+    if (resizeDebounceTimer) {
+      clearTimeout(resizeDebounceTimer);
+    }
+    
+    // Debounce during resize operations
+    const isResizing = $floatingStore.resizeState?.isResizing;
+    if (isResizing) {
+      // During resize, wait a bit longer to settle
+      resizeDebounceTimer = setTimeout(() => {
+        scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
+      }, 50);
+    } else {
+      // Not resizing, update immediately
+      scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
+    }
+  }
+  
+  // Initialize scaledConfig
+  let scaledConfig = {};
+  
+  // FIXED: Use scaled config height for yScale calculation
+  $: yScale = state?.visualLow && state?.visualHigh && scaledConfig?.meterHeight
+    ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([scaledConfig.meterHeight, 0])
     : null;
   
   // UNIFIED: Use config directly for rendering (no conversion needed)
@@ -398,17 +443,20 @@
     }
   }
   
-  // PURE CANVAS: Initialize canvas with proper default size
+  // 🔧 CRITICAL FIX: Initialize canvas with proper default container dimensions
   onMount(async () => {
     console.log(`[FLOATING_DISPLAY] Mounting display ${id} for symbol ${symbol}`);
     
-    // Initialize canvas immediately with reference size
+    // 🔧 CRITICAL FIX: Use actual default container dimensions (240×160px total, 220×120px canvas)
     if (canvas) {
-      canvas.width = REFERENCE_CANVAS.width;
-      canvas.height = REFERENCE_CANVAS.height;
-      canvasWidth = REFERENCE_CANVAS.width;
-      canvasHeight = REFERENCE_CANVAS.height;
-      console.log(`[CANVAS_INIT] Set initial canvas size: ${REFERENCE_CANVAS.width}x${REFERENCE_CANVAS.height}`);
+      const DEFAULT_CANVAS_WIDTH = 220;  // Canvas width (container width - padding)
+      const DEFAULT_CANVAS_HEIGHT = 120; // Canvas height (container height - header - padding)
+      
+      canvas.width = DEFAULT_CANVAS_WIDTH;
+      canvas.height = DEFAULT_CANVAS_HEIGHT;
+      canvasWidth = DEFAULT_CANVAS_WIDTH;
+      canvasHeight = DEFAULT_CANVAS_HEIGHT;
+      console.log(`[CANVAS_INIT] Set initial canvas size: ${DEFAULT_CANVAS_WIDTH}x${DEFAULT_CANVAS_HEIGHT}`);
     }
     
     // Subscribe to data through ConnectionManager
@@ -425,11 +473,14 @@
         ctx = canvas.getContext('2d');
         dpr = window.devicePixelRatio || 1;
         
-        // Ensure canvas has proper size
+        // 🔧 CRITICAL FIX: Ensure canvas has proper default size
         if (canvas.width === 0 || canvas.height === 0) {
-          canvas.width = REFERENCE_CANVAS.width;
-          canvas.height = REFERENCE_CANVAS.height;
-          console.log(`[CANVAS_FIX] Reset canvas to reference size: ${REFERENCE_CANVAS.width}x${REFERENCE_CANVAS.height}`);
+          const DEFAULT_CANVAS_WIDTH = 220;
+          const DEFAULT_CANVAS_HEIGHT = 120;
+          
+          canvas.width = DEFAULT_CANVAS_WIDTH;
+          canvas.height = DEFAULT_CANVAS_HEIGHT;
+          console.log(`[CANVAS_FIX] Reset canvas to default size: ${DEFAULT_CANVAS_WIDTH}x${DEFAULT_CANVAS_HEIGHT}`);
         }
         
         updateCanvasSize();
@@ -517,12 +568,14 @@
     }
     lastRenderTime = timestamp;
     
+    // 🔧 CRITICAL FIX: Clear entire canvas to prevent trail artifacts
+    // Use full canvas dimensions, not just content dimensions
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     // REFERENCE CANVAS: Use scaled config for rendering
     const { visualizationsContentWidth, meterHeight } = scaledConfig;
-    
-    ctx.clearRect(0, 0, visualizationsContentWidth, meterHeight);
-    ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
     
     try {
       drawMarketProfile(ctx, scaledConfig, state, yScale);
@@ -706,7 +759,8 @@
     display: block;
     background-color: #111827;
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: contain; /* 🔧 CRITICAL FIX: Restore object-fit to maintain proper aspect ratio */
   }
   
   .loading {

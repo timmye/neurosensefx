@@ -120,6 +120,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
   
   const drawMarkerAndLabel = (price, labelText, color = '#D1D5DB', side = 'left', labelType) => {
       const priceY = y(price);
+      // FIXED: Use actual meter height from scaled config for proper bounds checking
       if (priceY === undefined || priceY === null || priceY < -50 || priceY > meterHeight + 50) return;
 
       const showBg = labelType === 'pHighLow' ? pHighLowLabelShowBackground : ohlLabelShowBackground;

@@ -98,6 +98,9 @@ export function drawMarketProfile(ctx, config, state, y) {
   };
 
   const drawAsBars = (yPos, width, color, position) => {
+    // FIXED: Add bounds checking to prevent overflow
+    if (yPos < -barHeight || yPos > meterHeight + barHeight) return;
+    
     ctx.fillStyle = color;
     if (position === 'left') {
       ctx.fillRect(centralAxisXPosition - width, yPos, width, barHeight);

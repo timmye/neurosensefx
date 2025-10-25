@@ -1,4 +1,4 @@
-language: "javascript"
+language: "typescript"
 name: "NeuroSense FX"
 project_root: "/workspaces/c"
 
