@@ -12,6 +12,9 @@
   import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js'; // Import drawPriceMarkers
   import { markerStore } from '../../stores/markerStore.js'; // Import markerStore
   import { writable } from 'svelte/store';
+  
+  // 🔧 UNIFIED SIZING: Import canvas sizing utilities
+  import { createCanvasSizingConfig, configureCanvasContext, CANVAS_CONSTANTS } from '../../utils/canvasSizing.js';
 
   // Local hover state (replaces uiState.hoverState)
   const hoverState = writable(null);
@@ -28,22 +31,53 @@
   let flashOpacity = 0;
   let flashDuration = 300; // ms
   let flashStartTime = 0;
+  
+  // 🔧 UNIFIED SIZING: Canvas sizing configuration
+  let canvasSizingConfig = null;
+  let normalizedConfig = {};
 
   onMount(() => {
     ctx = canvas.getContext('2d');
     dpr = window.devicePixelRatio || 1;
   });
 
-  // This reactive block handles resizing the canvas when config changes
+  // 🔧 UNIFIED SIZING: Use createCanvasSizingConfig for consistent canvas sizing
   $: if (canvas && config) {
-    const { visualizationsContentWidth, meterHeight } = config;
-    canvas.style.height = `${meterHeight}px`;
-    // Remove the explicit setting of canvas width/height here,
-    // rely on the reactive block below that depends on state/config
-    // to set the dimensions consistently before drawing.
-    canvas.width = Math.floor(visualizationsContentWidth * dpr);
-    canvas.height = Math.floor(meterHeight * dpr);
-    ctx?.scale(dpr, dpr);
+    // Create container size from config (treat config values as container dimensions)
+    const containerSize = {
+      width: config.visualizationsContentWidth || CANVAS_CONSTANTS.DEFAULT_CONTAINER.width,
+      height: (config.meterHeight || CANVAS_CONSTANTS.DEFAULT_CONTAINER.height) + 40 // Add header height
+    };
+    
+    // Create unified canvas sizing configuration
+    canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
+      includeHeader: true,
+      padding: 10,
+      headerHeight: 40,
+      respectDpr: true
+    });
+    
+    // Configure canvas with unified sizing
+    configureCanvasContext(ctx, canvasSizingConfig.dimensions);
+    
+    // Set canvas dimensions
+    const { canvas: canvasDims } = canvasSizingConfig.dimensions;
+    canvas.width = canvasDims.width;
+    canvas.height = canvasDims.height;
+    
+    // Update normalized config for rendering
+    normalizedConfig = canvasSizingConfig.config;
+    
+    console.log(`[CONTAINER_SIZING] Unified canvas sizing applied:`, {
+      containerSize,
+      canvasDimensions: canvasSizingConfig.dimensions,
+      normalizedConfig: Object.keys(normalizedConfig).reduce((acc, key) => {
+        if (typeof normalizedConfig[key] === 'number') {
+          acc[key] = normalizedConfig[key];
+        }
+        return acc;
+      }, {})
+    });
   }
 
   // This reactive block triggers a redraw whenever the core data, config, hover state, or marker store changes
@@ -106,27 +140,38 @@
   function draw(currentState, currentConfig) {
     if (!ctx || !currentState || !currentConfig) return;
 
-    const { visualizationsContentWidth, meterHeight } = currentConfig;
+    // 🔧 UNIFIED SIZING: Use normalized config for consistent rendering
+    const { visualizationsContentWidth, meterHeight } = normalizedConfig;
     
     // Initialize/update the y-scale for the current render frame
     y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([meterHeight, 0]);
     
-    ctx.clearRect(0, 0, visualizationsContentWidth, meterHeight);
-    ctx.fillStyle = '#111827'; // Ensure background is always drawn
-    ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
+    // Use canvas sizing config dimensions for clearing
+    if (canvasSizingConfig) {
+      const { canvasArea } = canvasSizingConfig.dimensions;
+      ctx.clearRect(0, 0, canvasArea.width, canvasArea.height);
+      ctx.fillStyle = '#111827'; // Ensure background is always drawn
+      ctx.fillRect(0, 0, canvasArea.width, canvasArea.height);
+    } else {
+      // Fallback to current approach if sizing config not available
+      ctx.clearRect(0, 0, visualizationsContentWidth, meterHeight);
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
+    }
 
     // --- Draw Core Visualizations ---
-    drawMarketProfile(ctx, currentConfig, currentState, y);
-    drawDayRangeMeter(ctx, currentConfig, currentState, y);
-    drawVolatilityOrb(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
-    drawPriceFloat(ctx, currentConfig, currentState, y);
-    drawPriceDisplay(ctx, currentConfig, currentState, y, visualizationsContentWidth);
-    drawVolatilityMetric(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
+    // 🔧 UNIFIED SIZING: Use normalized config for consistent rendering
+    drawMarketProfile(ctx, normalizedConfig, currentState, y);
+    drawDayRangeMeter(ctx, normalizedConfig, currentState, y);
+    drawVolatilityOrb(ctx, normalizedConfig, currentState, visualizationsContentWidth, meterHeight);
+    drawPriceFloat(ctx, normalizedConfig, currentState, y);
+    drawPriceDisplay(ctx, normalizedConfig, currentState, y, visualizationsContentWidth);
+    drawVolatilityMetric(ctx, normalizedConfig, currentState, visualizationsContentWidth, meterHeight);
 
     // --- Draw Price Markers (on top of core visuals, below hover/flash) ---
-    drawPriceMarkers(ctx, currentConfig, currentState, y, markers);
+    drawPriceMarkers(ctx, normalizedConfig, currentState, y, markers);
     // --- Draw Hover Indicator (must be last to be on top) ---
-    drawHoverIndicator(ctx, currentConfig, currentState, y, $hoverState);
+    drawHoverIndicator(ctx, normalizedConfig, currentState, y, $hoverState);
 
     // --- Draw Flash Overlay ---
     if (flashOpacity > 0) {
@@ -137,7 +182,12 @@
       
       if (flashOpacity > 0) {
         ctx.fillStyle = `rgba(200, 200, 220, ${flashOpacity})`;
-        ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
+        if (canvasSizingConfig) {
+          const { canvasArea } = canvasSizingConfig.dimensions;
+          ctx.fillRect(0, 0, canvasArea.width, canvasArea.height);
+        } else {
+          ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
+        }
       }
     }
   }

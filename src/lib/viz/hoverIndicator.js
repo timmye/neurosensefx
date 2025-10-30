@@ -1,4 +1,5 @@
 import { get } from 'svelte/store';
+import { coordinateUtils, boundsUtils } from '../../utils/canvasSizing.js';
 
 /**
  * Helper function to convert hex color string to RGBA string.
@@ -20,8 +21,17 @@ export function drawHoverIndicator(ctx, config, state, y, hoverState) {
         return;
     }
 
+    // 🔧 UNIFIED COORDINATE SYSTEM: Use consistent coordinate transformation
+    // Create a mock canvas dimensions object for coordinate transformation
+    const canvasDimensions = {
+        dpr: window.devicePixelRatio || 1
+    };
+
     ctx.save(); // Save the current canvas state (including transformation)
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset the transformation to 1:1 CSS pixels
+    
+    // 🔧 UNIFIED COORDINATE SYSTEM: Use coordinate utils for consistent transformation
+    const canvasPos = coordinateUtils.cssToCanvas({ x: 0, y: hoverState.y }, canvasDimensions);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformation to 1:1 CSS pixels
 
     try {
         const { visualizationsContentWidth } = config;
@@ -35,9 +45,18 @@ export function drawHoverIndicator(ctx, config, state, y, hoverState) {
             return;
         }
 
-        // Ensure the hover line is within the canvas bounds using meterHeight (CSS pixels)
-        // Note: The hoverState.y is stored as CSS pixels
-        if (hoverY < 0 || hoverY > config.meterHeight) {
+        // 🔧 UNIFIED BOUNDS CHECKING: Use unified bounds checking utilities
+        // Create canvas dimensions for bounds checking
+        const canvasDimensions = {
+            canvasArea: {
+                width: config.visualizationsContentWidth,
+                height: config.meterHeight
+            }
+        };
+        
+        // Ensure hover line is within the canvas bounds
+        if (!boundsUtils.isYInBounds(hoverY, config, canvasDimensions)) {
+            console.log(`[HOVER_INDICATOR] Hover Y out of bounds: ${hoverY} (canvas height: ${config.meterHeight})`);
             return;
         }
 

@@ -16,9 +16,6 @@
   import { drawPriceMarkers } from '../lib/viz/priceMarkers.js';
   import { drawHoverIndicator } from '../lib/viz/hoverIndicator.js';
   
-  // 🔧 UNIFIED SIZING: Import canvas sizing utilities
-  import { createCanvasSizingConfig, configureCanvasContext, configUtils } from '../utils/canvasSizing.js';
-  
   // Component props
   export let id;
   export let symbol;
@@ -60,49 +57,12 @@
   // Store-derived position and size (Reference Canvas Pattern)
   $: displayPosition = display?.position || position;
   
-  // 🔧 UNIFIED SIZING: Canvas sizing configuration for FloatingDisplay
-  let canvasSizingConfig = null;
-  let normalizedConfig = {};
-  
-  // 🔧 UNIFIED SIZING: Use unified canvas sizing for display size
-  $: if (display && config) {
-    // 🔧 FIX: Use proper default container dimensions from GEOMETRY foundation
-    const containerSize = {
-      width: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width,   // 240px default width
-      height: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height  // 160px default height (includes header)
-    };
-    
-    // Create unified canvas sizing configuration
-    canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
-      includeHeader: true,
-      padding: 8,
-      headerHeight: 40,
-      respectDpr: true
-    });
-    
-    // Update normalized config for rendering
-    normalizedConfig = canvasSizingConfig.config;
-    
-    console.log(`[FLOATING_DISPLAY_SIZING] Unified canvas sizing applied:`, {
-      displayId: id,
-      containerSize,
-      canvasDimensions: canvasSizingConfig.dimensions,
-      normalizedConfig: Object.keys(normalizedConfig).reduce((acc, key) => {
-        if (typeof normalizedConfig[key] === 'number') {
-          acc[key] = normalizedConfig[key];
-        }
-        return acc;
-      }, {})
-    });
-  }
-  
-  // 🔧 UNIFIED SIZING: Calculate display size from canvas sizing config
-  $: displaySize = canvasSizingConfig ? {
-    width: canvasSizingConfig.dimensions.container.width,
-    height: canvasSizingConfig.dimensions.container.height
-  } : {
-    width: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width,
-    height: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height
+  // 🔧 CRITICAL FIX: Use proper default container dimensions (240×160px)
+  // This matches GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize (240×160px total)
+  // Canvas will be 220×120px, container will be 240×160px (including 40px header)
+  $: displaySize = { 
+    width: Math.min(2000, config.visualizationsContentWidth || 240), 
+    height: Math.min(2000, (config.meterHeight || 120) + 40) // Canvas height (120px) + header height (40px) = 160px total
   };
   
   // Update markers from store
@@ -369,21 +329,25 @@
   let canvasWidth = REFERENCE_CANVAS.width;
   let canvasHeight = REFERENCE_CANVAS.height;
   
-  // 🔧 UNIFIED CONFIG HANDLING: Use configUtils for clean percentage/absolute detection
+  // 🔧 CRITICAL FIX: Updated scaleToCanvas to handle config values correctly
+  // The config values are now in their raw form (percentages or absolute pixels)
   function scaleToCanvas(config, currentCanvasWidth, currentCanvasHeight) {
     if (!config) return {};
     
-    // 🔧 UNIFIED CONFIG HANDLING: Use configUtils for consistent value detection
-    const normalizedConfig = configUtils.normalizeConfig(config);
+    // 🔧 CRITICAL FIX: Handle both percentage and absolute values
+    // If config.visualizationsContentWidth is a percentage (<= 200), treat as percentage
+    // If it's an absolute pixel value (> 200), use it directly
+    const isContentWidthPercentage = (config.visualizationsContentWidth || 0) <= 200;
+    const isMeterHeightPercentage = (config.meterHeight || 0) <= 200;
     
     return {
       // Layout parameters - handle both percentage and absolute values
-      visualizationsContentWidth: normalizedConfig.visualizationsContentWidth <= 200
-        ? (normalizedConfig.visualizationsContentWidth / 100) * currentCanvasWidth
-        : normalizedConfig.visualizationsContentWidth || currentCanvasWidth,
-      meterHeight: normalizedConfig.meterHeight <= 200
-        ? (normalizedConfig.meterHeight / 100) * currentCanvasHeight
-        : normalizedConfig.meterHeight || currentCanvasHeight,
+      visualizationsContentWidth: isContentWidthPercentage 
+        ? (config.visualizationsContentWidth / 100) * currentCanvasWidth
+        : config.visualizationsContentWidth || currentCanvasWidth,
+      meterHeight: isMeterHeightPercentage
+        ? (config.meterHeight / 100) * currentCanvasHeight
+        : config.meterHeight || currentCanvasHeight,
       centralAxisXPosition: (config.centralAxisXPosition / 100) * currentCanvasWidth,
       
       // Price display parameters (always percentage-based)
@@ -479,22 +443,20 @@
     }
   }
   
-  // 🔧 UNIFIED SIZING: Initialize canvas with unified sizing approach
+  // 🔧 CRITICAL FIX: Initialize canvas with proper default container dimensions
   onMount(async () => {
     console.log(`[FLOATING_DISPLAY] Mounting display ${id} for symbol ${symbol}`);
     
-    // Initialize canvas context
+    // 🔧 CRITICAL FIX: Use actual default container dimensions (240×160px total, 220×120px canvas)
     if (canvas) {
-      ctx = canvas.getContext('2d');
-      dpr = window.devicePixelRatio || 1;
+      const DEFAULT_CANVAS_WIDTH = 220;  // Canvas width (container width - padding)
+      const DEFAULT_CANVAS_HEIGHT = 120; // Canvas height (container height - header - padding)
       
-      // Set default canvas size using reference dimensions
-      canvas.width = REFERENCE_CANVAS.width;
-      canvas.height = REFERENCE_CANVAS.height;
-      canvasWidth = REFERENCE_CANVAS.width;
-      canvasHeight = REFERENCE_CANVAS.height;
-      
-      console.log(`[CANVAS_INIT] Set initial canvas size: ${REFERENCE_CANVAS.width}x${REFERENCE_CANVAS.height}`);
+      canvas.width = DEFAULT_CANVAS_WIDTH;
+      canvas.height = DEFAULT_CANVAS_HEIGHT;
+      canvasWidth = DEFAULT_CANVAS_WIDTH;
+      canvasHeight = DEFAULT_CANVAS_HEIGHT;
+      console.log(`[CANVAS_INIT] Set initial canvas size: ${DEFAULT_CANVAS_WIDTH}x${DEFAULT_CANVAS_HEIGHT}`);
     }
     
     // Subscribe to data through ConnectionManager
@@ -511,12 +473,17 @@
         ctx = canvas.getContext('2d');
         dpr = window.devicePixelRatio || 1;
         
-        // Ensure canvas has proper default size
+        // 🔧 CRITICAL FIX: Ensure canvas has proper default size
         if (canvas.width === 0 || canvas.height === 0) {
-          canvas.width = REFERENCE_CANVAS.width;
-          canvas.height = REFERENCE_CANVAS.height;
-          console.log(`[CANVAS_FIX] Reset canvas to reference size: ${REFERENCE_CANVAS.width}x${REFERENCE_CANVAS.height}`);
+          const DEFAULT_CANVAS_WIDTH = 220;
+          const DEFAULT_CANVAS_HEIGHT = 120;
+          
+          canvas.width = DEFAULT_CANVAS_WIDTH;
+          canvas.height = DEFAULT_CANVAS_HEIGHT;
+          console.log(`[CANVAS_FIX] Reset canvas to default size: ${DEFAULT_CANVAS_WIDTH}x${DEFAULT_CANVAS_HEIGHT}`);
         }
+        
+        updateCanvasSize();
         
         clearInterval(checkCanvas);
       }
@@ -530,212 +497,108 @@
     };
   });
   
-  // 🔧 UNIFIED SIZING: Update canvas using unified sizing config
-  $: if (canvas && ctx && canvasSizingConfig) {
+  // REFERENCE CANVAS: Update canvas when display size changes - FIXED: Use container size, not scaled config
+  $: if (canvas && ctx && displaySize) {
     const currentWidth = canvas.width;
     const currentHeight = canvas.height;
-    const { canvas: newCanvasDims } = canvasSizingConfig.dimensions;
+    const newWidth = displaySize.width;
+    const newHeight = displaySize.height - 40; // Subtract header height
     
     // STABILITY: Add threshold to prevent micro-updates and infinite loops
     const widthThreshold = 5; // Minimum 5px change required
     const heightThreshold = 5; // Minimum 5px change required
-    const widthDiff = Math.abs(currentWidth - newCanvasDims.width);
-    const heightDiff = Math.abs(currentHeight - newCanvasDims.height);
+    const widthDiff = Math.abs(currentWidth - newWidth);
+    const heightDiff = Math.abs(currentHeight - newHeight);
     
-    console.log(`[CANVAS_RESIZE] Unified sizing check: current=${currentWidth}x${currentHeight}, new=${newCanvasDims.width}x${newCanvasDims.height}, diff=${widthDiff}x${heightDiff}`, {
-      canvasSizingConfig,
-      newCanvasDims,
-      thresholds: { widthThreshold, heightThreshold }
-    });
+    console.log(`[CANVAS_RESIZE] Size check: current=${currentWidth}x${currentHeight}, new=${newWidth}x${newHeight}, diff=${widthDiff}x${heightDiff}`);
     
     if (widthDiff > widthThreshold || heightDiff > heightThreshold) {
-      updateCanvasSizeUnified(newCanvasDims.width, newCanvasDims.height);
+      updateCanvasSize(newWidth, newHeight);
     }
   }
   
-  function updateCanvasSizeUnified(newWidth, newHeight) {
+  function updateCanvasSize(newWidth, newHeight) {
     if (!canvas || !ctx) return;
     
-    // 🔧 UNIFIED SIZING: Use canvas sizing configuration for consistent updates
-    if (canvasSizingConfig) {
-      // Configure canvas context with unified sizing
-      configureCanvasContext(ctx, canvasSizingConfig.dimensions);
-      
-      // Update canvas dimensions from unified config
-      const { canvas: canvasDims } = canvasSizingConfig.dimensions;
-      canvas.width = canvasDims.width;
-      canvas.height = canvasDims.height;
-      
-      console.log(`[CANVAS_UPDATE_UNIFIED] Setting canvas size from unified config: ${canvasDims.width}x${canvasDims.height}`, {
-        canvasDimensions: canvasDims,
-        containerDimensions: canvasSizingConfig.dimensions.container,
-        normalizedConfig: canvasSizingConfig.config
-      });
-    } else {
-      // Fallback to manual sizing
-      const safeWidth = Math.min(2000, Math.max(100, newWidth));
-      const safeHeight = Math.min(2000, Math.max(80, newHeight));
-      
-      canvas.width = safeWidth;
-      canvas.height = safeHeight;
-      
-      if (dpr !== 1) {
-        ctx.scale(dpr, dpr);
-      }
+    // SAFETY: Apply reasonable limits to prevent exponential growth
+    const safeWidth = Math.min(2000, Math.max(100, newWidth));
+    const safeHeight = Math.min(2000, Math.max(80, newHeight));
+    
+    console.log(`[CANVAS_UPDATE] Setting canvas size to: ${safeWidth}x${safeHeight}`);
+    
+    // Update canvas dimensions
+    canvas.width = safeWidth;
+    canvas.height = safeHeight;
+    
+    // Update tracking variables
+    canvasWidth = safeWidth;
+    canvasHeight = safeHeight;
+    
+    // Clear and reset context
+    ctx.clearRect(0, 0, safeWidth, safeHeight);
+    
+    // No device pixel ratio scaling for pure canvas dimensions
+    if (dpr !== 1) {
+      ctx.scale(dpr, dpr);
     }
   }
   
-  // 🔧 PERFORMANCE OPTIMIZATION: Add debouncing for reactive rendering
+  // Canvas rendering
   let renderFrame;
   let lastRenderTime = 0;
-  let renderDebounceTimer = null;
-  let lastRenderState = null;
   
   function render(timestamp = 0) {
-    console.log(`[RENDER_PIPELINE] Render function called at timestamp: ${timestamp}`, {
-      hasCtx: !!ctx,
-      hasState: !!state,
-      hasConfig: !!config,
-      hasCanvas: !!canvas,
-      canvasWidth: canvas?.width,
-      canvasHeight: canvas?.height,
-      visualLow: state?.visualLow,
-      visualHigh: state?.visualHigh,
-      scaledConfig: scaledConfig ? Object.keys(scaledConfig) : null
-    });
-
-    if (!ctx || !state || !config || !canvas) {
-      console.log(`[RENDER_PIPELINE] Render blocked - missing fundamentals:`, {
+    if (!ctx || !state || !config || !yScale) {
+      console.log(`[RENDER_DEBUG] Render blocked:`, {
         hasCtx: !!ctx,
         hasState: !!state,
         hasConfig: !!config,
-        hasCanvas: !!canvas
+        hasYScale: !!yScale,
+        stateKeys: state ? Object.keys(state) : null,
+        configKeys: config ? Object.keys(config) : null,
+        visualLow: state?.visualLow,
+        visualHigh: state?.visualHigh
       });
       return;
     }
     
-    // 🔧 STEP 1: TEST BASIC CANVAS FUNCTIONALITY
-    // Draw simple test shapes to verify canvas works
-    console.log(`[RENDER_PIPELINE] Testing basic canvas functionality...`);
+    if (timestamp - lastRenderTime < 16) {
+      renderFrame = requestAnimationFrame(render);
+      return;
+    }
+    lastRenderTime = timestamp;
     
-    // Clear canvas completely
+    // 🔧 CRITICAL FIX: Clear entire canvas to prevent trail artifacts
+    // Use full canvas dimensions, not just content dimensions
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw test rectangle (should be visible)
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(10, 10, 50, 30);
-    console.log(`[RENDER_PIPELINE] Drew test rectangle at (10, 10) with size (50, 30)`);
+    // REFERENCE CANVAS: Use scaled config for rendering
+    const { visualizationsContentWidth, meterHeight } = scaledConfig;
     
-    // Draw test text (should be visible)
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '12px Arial';
-    ctx.fillText('TEST TEXT', 10, 60);
-    console.log(`[RENDER_PIPELINE] Drew test text at (10, 60)`);
-    
-    // 🔧 STEP 2: TEST YSCALE CALCULATION
-    if (state.visualLow && state.visualHigh && scaledConfig?.meterHeight) {
-      const renderYScale = scaleLinear().domain([state.visualLow, state.visualHigh]).range([scaledConfig.meterHeight, 0]);
-      console.log(`[RENDER_PIPELINE] yScale created successfully:`, {
-        domain: [state.visualLow, state.visualHigh],
-        range: [scaledConfig.meterHeight, 0],
-        testValue: state.visualLow,
-        testResult: renderYScale(state.visualLow)
-      });
-      
-      // 🔧 STEP 3: TEST VISUALIZATION FUNCTIONS
-      try {
-        console.log(`[RENDER_PIPELINE] Calling drawMarketProfile...`);
-        drawMarketProfile(ctx, scaledConfig, state, renderYScale);
-        console.log(`[RENDER_PIPELINE] drawMarketProfile completed`);
-        
-        console.log(`[RENDER_PIPELINE] Calling drawDayRangeMeter...`);
-        drawDayRangeMeter(ctx, scaledConfig, state, renderYScale);
-        console.log(`[RENDER_PIPELINE] drawDayRangeMeter completed`);
-        
-        console.log(`[RENDER_PIPELINE] Calling drawPriceFloat...`);
-        drawPriceFloat(ctx, scaledConfig, state, renderYScale);
-        console.log(`[RENDER_PIPELINE] drawPriceFloat completed`);
-        
-        console.log(`[RENDER_PIPELINE] Calling drawPriceDisplay...`);
-        drawPriceDisplay(ctx, scaledConfig, state, renderYScale, scaledConfig.visualizationsContentWidth);
-        console.log(`[RENDER_PIPELINE] drawPriceDisplay completed`);
-        
-        console.log(`[RENDER_PIPELINE] All visualization functions completed successfully`);
-      } catch (error) {
-        console.error(`[RENDER_PIPELINE] Error in visualization functions:`, error);
-      }
-    } else {
-      console.log(`[RENDER_PIPELINE] Cannot create yScale - missing requirements:`, {
-        hasVisualLow: !!state.visualLow,
-        hasVisualHigh: !!state.visualHigh,
-        hasMeterHeight: !!scaledConfig?.meterHeight,
-        visualLow: state?.visualLow,
-        visualHigh: state?.visualHigh,
-        meterHeight: scaledConfig?.meterHeight
-      });
-    }
-    
-    // 🔧 STEP 4: TEST HOVER AND MARKERS
     try {
-      drawPriceMarkers(ctx, scaledConfig, state, null, markers); // Use null yScale for testing
-      console.log(`[RENDER_PIPELINE] drawPriceMarkers completed`);
+      drawMarketProfile(ctx, scaledConfig, state, yScale);
+      drawDayRangeMeter(ctx, scaledConfig, state, yScale);
+      drawVolatilityOrb(ctx, scaledConfig, state, visualizationsContentWidth, meterHeight);
+      drawPriceFloat(ctx, scaledConfig, state, yScale);
+      drawPriceDisplay(ctx, scaledConfig, state, yScale, visualizationsContentWidth);
+      drawVolatilityMetric(ctx, scaledConfig, state, visualizationsContentWidth, meterHeight);
       
-      drawHoverIndicator(ctx, scaledConfig, state, null, $hoverState); // Use null yScale for testing
-      console.log(`[RENDER_PIPELINE] drawHoverIndicator completed`);
+      drawPriceMarkers(ctx, scaledConfig, state, yScale, markers);
+      drawHoverIndicator(ctx, scaledConfig, state, yScale, $hoverState);
     } catch (error) {
-      console.error(`[RENDER_PIPELINE] Error in hover/markers:`, error);
+      console.error(`[RENDER_ERROR] Error drawing visualizations:`, error);
     }
     
-    console.log(`[RENDER_PIPELINE] Render frame completed - should see test rectangle and text`);
+    renderFrame = requestAnimationFrame(render);
   }
   
-  // 🔧 SIMPLIFIED TRIGGER: Remove complex dependencies that block rendering
-  $: if (ctx && state && config) {
-    // Add debug logging to identify exact failure point
-    console.log(`[RENDER_TRIGGER_DEBUG] Render conditions check:`, {
-      hasCtx: !!ctx,
-      hasState: !!state,
-      hasConfig: !!config,
-      hasIsReady: !!isReady,
-      hasYScale: !!yScale,
-      visualLow: state?.visualLow,
-      visualHigh: state?.visualHigh,
-      meterHeight: scaledConfig?.meterHeight,
-      canvasWidth: canvas?.width,
-      canvasHeight: canvas?.height
-    });
-    
-    // 🔧 SIMPLIFIED TRIGGER: Remove isReady and yScale from critical path
-    // They should be true but don't block rendering if data is available
-    if (state.visualLow && state.visualHigh) {
-      // Calculate yScale on-demand if not available
-      const currentYScale = yScale || (
-        scaledConfig?.meterHeight 
-          ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([scaledConfig.meterHeight, 0])
-          : null
-      );
-      
-      if (currentYScale) {
-        if (renderFrame) {
-          cancelAnimationFrame(renderFrame);
-        }
-        
-        // Override yScale for this render call
-        const originalYScale = yScale;
-        yScale = currentYScale;
-        render();
-        yScale = originalYScale;
-      } else {
-        console.log(`[RENDER_DEBUG] Cannot create yScale - missing meterHeight:`, scaledConfig);
-      }
-    } else {
-      console.log(`[RENDER_DEBUG] Cannot render - missing visualLow/visualHigh:`, {
-        visualLow: state?.visualLow,
-        visualHigh: state?.visualHigh
-      });
+  $: if (ctx && state && config && isReady && yScale) {
+    if (renderFrame) {
+      cancelAnimationFrame(renderFrame);
     }
+    render();
   }
   
   $: showResizeHandles = isHovered || isResizing;
@@ -743,16 +606,8 @@
   onDestroy(() => {
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-    
-    // 🔧 PERFORMANCE OPTIMIZATION: Clean up render frame and timers
     if (renderFrame) {
       cancelAnimationFrame(renderFrame);
-    }
-    if (renderDebounceTimer) {
-      clearTimeout(renderDebounceTimer);
-    }
-    if (resizeDebounceTimer) {
-      clearTimeout(resizeDebounceTimer);
     }
   });
 </script>
@@ -808,7 +663,7 @@
     <div class="resize-handle s" on:mousedown={(e) => handleResizeStart(e, 's')}></div>
     <div class="resize-handle e" on:mousedown={(e) => handleResizeStart(e, 'e')}></div>
     <div class="resize-handle w" on:mousedown={(e) => handleResizeStart(e, 'w')}></div>
-    {/if}
+  {/if}
 </div>
 
 <style>
@@ -905,7 +760,7 @@
     background-color: #111827;
     width: 100%;
     height: 100%;
-    /* 🔧 CRITICAL FIX: Remove object-fit to prevent CSS/JS dimension conflicts */
+    object-fit: contain; /* 🔧 CRITICAL FIX: Restore object-fit to maintain proper aspect ratio */
   }
   
   .loading {
