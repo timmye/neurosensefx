@@ -29,12 +29,12 @@ export function connect() {
     }
     
     stopSimulation();
-    console.log(`[WSCLIENT_DEBUG] Connecting to WebSocket at: ${WS_URL}`);
+    // WebSocket connection initiated
     wsStatus.set('ws-connecting');
     try {
         ws = new WebSocket(WS_URL);
         ws.onopen = () => {
-            console.log(`[WSCLIENT_DEBUG] WebSocket connected successfully`);
+        // WebSocket connected
             startConnectionMonitor();
         };
         ws.onmessage = (event) => {
@@ -97,7 +97,7 @@ function handleSocketMessage(data) {
              availableSymbols.set(data.availableSymbols || []);
          }
     } else if (data.type === 'tick') {
-        console.log(`[WSCLIENT_DEBUG] Processing tick for ${data.symbol}`);
+    // Processing tick
         const tickResult = TickSchema.safeParse(data);
         if (tickResult.success) {
             symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);

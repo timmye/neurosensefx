@@ -68,16 +68,7 @@
     // Update normalized config for rendering
     normalizedConfig = canvasSizingConfig.config;
     
-    console.log(`[CONTAINER_SIZING] Unified canvas sizing applied:`, {
-      containerSize,
-      canvasDimensions: canvasSizingConfig.dimensions,
-      normalizedConfig: Object.keys(normalizedConfig).reduce((acc, key) => {
-        if (typeof normalizedConfig[key] === 'number') {
-          acc[key] = normalizedConfig[key];
-        }
-        return acc;
-      }, {})
-    });
+    // Canvas sizing applied
   }
 
   // This reactive block triggers a redraw whenever the core data, config, hover state, or marker store changes
@@ -92,13 +83,12 @@
   }
 
   function handleMouseMove(event) {
-    if (!y) return; // Guard clause: Don't run if the y scale hasn't been initialized yet
+    if (!y) return; // Guard clause: Don't run if y scale hasn't been initialized yet
 
- console.log('handleMouseMove called');
     const rect = canvas.getBoundingClientRect();
     // 1. Calculate mouse Y relative to the element's CSS position
     const cssY = event.clientY - rect.top;
-    // 2. Convert the CSS pixel coordinate back to a price value using the y scale
+    // 2. Convert CSS pixel coordinate back to a price value using the y scale
     const calculatedPrice = y.invert(cssY);
 
     hoverState.set({ y: cssY, price: calculatedPrice }); // Store cssY for drawing, as drawing functions operate in CSS space
@@ -108,7 +98,6 @@
   }
 
   function handleClick(event) {
-    console.log('handleClick called');
     if (!y) return; // Guard against accessing y before it's initialized
 
     const rect = canvas.getBoundingClientRect();
@@ -120,19 +109,14 @@
     // Check if clicking on an existing marker
     const clickedMarker = $markerStore.find(marker => {
       const markerY = y(marker.price); // Convert marker price to Y coordinate
-      console.log('Hit detection: markerY =', markerY, ', cssY =', cssY, ', difference =', Math.abs(cssY - markerY));
       return Math.abs(cssY - markerY) < hitThreshold;
     });
 
-    console.log('Clicked marker result:', clickedMarker);
-
     if (clickedMarker) {
-      console.log('Removing marker:', clickedMarker.id);
       markerStore.remove(clickedMarker.id);
     } else {
       // If not clicking on a marker, add a new one
       const clickedPrice = y.invert(cssY);
-      console.log('Adding marker:', clickedPrice);
       markerStore.add(clickedPrice);      
     }
   }

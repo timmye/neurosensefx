@@ -49,7 +49,7 @@ class ConnectionManager {
    */
   async subscribeCanvas(canvasId, symbol) {
     logger.debug('Subscribing canvas to symbol', { canvasId, symbol });
-    console.log(`[CONNECTION_DEBUG] subscribeCanvas called with canvasId: ${canvasId}, symbol: ${symbol}`);
+    // subscribeCanvas called
     
     // Track the subscription
     this.canvasSubscriptions.set(canvasId, symbol);
@@ -60,9 +60,9 @@ class ConnectionManager {
     this.symbolCanvases.get(symbol).add(canvasId);
     
     // Get or fetch symbol data
-    console.log(`[CONNECTION_DEBUG] Getting symbol data for ${symbol}`);
+    // Getting symbol data
     const symbolData = await this.getSymbolData(symbol);
-    console.log(`[CONNECTION_DEBUG] Received symbol data:`, symbolData);
+    // Symbol data received
     
     // Update connection state
     connectionState.update(state => ({
@@ -252,7 +252,7 @@ class ConnectionManager {
           if (!cachedData || 
               JSON.stringify(cachedData.state) !== JSON.stringify(symbolData.state)) {
             
-            console.log(`[CONNECTION_DEBUG] Real-time update for ${symbol}`, symbolData.state);
+            // Real-time update processed
             this.symbolDataCache.set(symbol, symbolData);
             
             // Update all canvases subscribed to this symbol

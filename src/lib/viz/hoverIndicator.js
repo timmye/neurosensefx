@@ -17,7 +17,7 @@ function hexToRgba(hex, alpha) {
 export function drawHoverIndicator(ctx, config, state, y, hoverState) {
     // Ensure hoverState is active
     if (!hoverState) {
-        console.log('drawHoverIndicator called, hoverState is null or undefined');
+        // hoverState is null
         return;
     }
 
@@ -38,7 +38,7 @@ export function drawHoverIndicator(ctx, config, state, y, hoverState) {
         const { digits } = state;
 
         const hoverY = hoverState.y; // Use hoverY since we are using CSS pixel coordinates
-        console.log('drawHoverIndicator received hoverState:', hoverState);
+        // hoverState received
         const hoverPrice = hoverState.price;
 
         if (hoverY === undefined || hoverPrice === undefined || isNaN(hoverY) || isNaN(hoverPrice)) {

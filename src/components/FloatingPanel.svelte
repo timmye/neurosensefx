@@ -42,9 +42,16 @@
   }
   
   function handleGlobalMouseMove(e) {
+    // ✅ FIX: Check if draggedItem exists and has offset before accessing
+    const draggedItem = $floatingStore.draggedItem;
+    if (!draggedItem || !draggedItem.offset) {
+      console.warn('[FLOATING_PANEL] No valid draggedItem or offset found, skipping move');
+      return;
+    }
+    
     const newPosition = {
-      x: e.clientX - $floatingStore.draggedItem.offset.x,
-      y: e.clientY - $floatingStore.draggedItem.offset.y
+      x: e.clientX - draggedItem.offset.x,
+      y: e.clientY - draggedItem.offset.y
     };
     
     // Simple bounds checking
@@ -56,9 +63,17 @@
   
   function handleGlobalMouseUp() {
     actions.endDrag();
+    // ✅ FIX: Ensure proper cleanup of global event listeners
     document.removeEventListener('mousemove', handleGlobalMouseMove);
     document.removeEventListener('mouseup', handleGlobalMouseUp);
   }
+  
+  // ✅ FIX: Add onDestroy cleanup to prevent memory leaks and event conflicts
+  onDestroy(() => {
+    // Clean up any remaining global event listeners
+    document.removeEventListener('mousemove', handleGlobalMouseMove);
+    document.removeEventListener('mouseup', handleGlobalMouseUp);
+  });
   
   function handleClose() {
     actions.removePanel(id);

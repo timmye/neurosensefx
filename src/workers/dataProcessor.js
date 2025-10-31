@@ -195,7 +195,7 @@ function recalculateVisualRange() {
     state.visualHigh = finalHigh + padding;
     state.visualLow = finalLow - padding;
 
-    console.log(`[WORKER_DEBUG] ADR%: ${currentAdrPercentage.toFixed(2)}, MaxADR%: ${state.maxAdrPercentage.toFixed(2)}, VisualRange: ${state.visualLow.toFixed(5)} - ${state.visualHigh.toFixed(5)}`);
+    // ADR calculation completed
 }
 
 function postStateUpdate() {

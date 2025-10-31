@@ -340,13 +340,13 @@ const defaultConfig = {
   pHighLowLabelBackgroundColor: '#1f2937',
   pHighLowLabelBackgroundOpacity: 0.7,
   pHighLowLabelShowBoxOutline: false,
-  pHighLowLabelBoxOutlineColor: '#4B5563',
+  pHighLowLabelBoxOutlineColor: '#4b5563',
   pHighLowLabelBoxOutlineOpacity: 1,
   ohlLabelShowBackground: true,
   ohlLabelBackgroundColor: '#1f2937',
   ohlLabelBackgroundOpacity: 0.7,
   ohlLabelShowBoxOutline: false,
-  ohlLabelBoxOutlineColor: '#4B5563',
+  ohlLabelBoxOutlineColor: '#4b5563',
   ohlLabelBoxOutlineOpacity: 1,
 
   // Price Float & Display - UPDATED: Canvas-only percentage values
@@ -467,19 +467,33 @@ const initialState = {
     targetType: null // 'display' | 'panel' | 'icon' | 'workspace'
   },
   
+  // Drag state
+  draggedItem: { type: null, id: null, offset: { x: 0, y: 0 } },
+  
   // Canvas workspace settings (NEW) - loaded from localStorage
   workspaceSettings: savedWorkspaceSettings,
   
-  // ✅ CLEANED: Remove redundant interactionState - use InteractionManager instead
+  // NEW: Unified interaction state machine - REPLACES scattered state
+  interactionState: {
+    mode: 'idle', // 'idle', 'dragging', 'resizing'
+    activeDisplayId: null,
+    resizeHandle: null,
+    startData: {
+      mousePosition: { x: 0, y: 0 },
+      displayPosition: { x: 0, y: 0 },
+      displaySize: { width: 0, height: 0 }
+    },
+    constraints: {
+      minSize: { width: 240, height: 160 },
+      maxSize: { width: 800, height: 600 }
+    }
+  },
   
-  // LEGACY COMPATIBILITY: Keep only working state systems
-  draggedItem: null,
-  
-  // Resize state management
+  // Legacy resize state (DEPRECATED - use interactionState instead)
   resizeState: {
     isResizing: false,
     displayId: null,
-    handleType: null,
+    handleType: null, // 'nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'
     startPosition: { x: 0, y: 0 },
     startSize: { width: 0, height: 0 },
     startMousePos: { x: 0, y: 0 }
@@ -833,7 +847,11 @@ export const actions = {
   },
 
   setActiveDisplay: (id) => {
+    console.log(`[STORE_ACTION_DEBUG] setActiveDisplay called:`, { id });
+    
     floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before setActiveDisplay - interactionState:`, store.interactionState);
+      
       const newDisplays = new Map(store.displays);
       
       // Deactivate all displays
@@ -848,12 +866,31 @@ export const actions = {
         display.zIndex = store.nextDisplayZIndex++;
       }
       
-      return { 
+      const updatedStore = { 
         ...store, 
         displays: newDisplays, 
         activeDisplayId: id,
         nextDisplayZIndex: store.nextDisplayZIndex
       };
+      
+      console.log(`[STORE_ACTION_DEBUG] After setActiveDisplay - interactionState:`, updatedStore.interactionState);
+      return updatedStore;
+    });
+    
+    // 🔧 CRITICAL FIX: Also update unified interaction state
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before unified setActiveDisplay update - interactionState:`, store.interactionState);
+      
+      const updatedStore = {
+        ...store,
+        interactionState: {
+          ...store.interactionState,
+          activeDisplayId: id         // ✅ SET THIS
+        }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After unified setActiveDisplay update - interactionState:`, updatedStore.interactionState);
+      return updatedStore;
     });
   },
 
@@ -924,6 +961,184 @@ export const actions = {
         activePanelId: id,
         nextPanelZIndex: store.nextPanelZIndex
       };
+    });
+  },
+
+  // Context menu operations
+  showContextMenu: (x, y, targetId, targetType) => {
+    floatingStore.update(store => ({
+      ...store,
+      contextMenu: { open: true, x, y, targetId, targetType }
+    }));
+  },
+
+  hideContextMenu: () => {
+    floatingStore.update(store => ({
+      ...store,
+      contextMenu: { open: false, x: 0, y: 0, targetId: null, targetType: null }
+    }));
+  },
+
+  // NEW: Unified context menu operations
+  showUnifiedContextMenu: (x, y, context) => {
+    floatingStore.update(store => ({
+      ...store,
+      contextMenu: {
+        open: true,
+        x,
+        y,
+        context // { type: 'canvas' | 'header' | 'workspace' | 'panel', targetId, targetType }
+      }
+    }));
+  },
+
+  // NEW: Canvas configuration management
+  updateCanvasConfig: (displayId, parameter, value) => {
+    floatingStore.update(store => {
+      const newDisplays = new Map(store.displays);
+      const display = newDisplays.get(displayId);
+      if (display) {
+        newDisplays.set(displayId, {
+          ...display,
+          config: {
+            ...display.config,
+            [parameter]: value
+          }
+        });
+      }
+      return { ...store, displays: newDisplays };
+    });
+  },
+
+  updateMultipleCanvasConfig: (displayId, configUpdates) => {
+    floatingStore.update(store => {
+      const newDisplays = new Map(store.displays);
+      const display = newDisplays.get(displayId);
+      if (display) {
+        newDisplays.set(displayId, {
+          ...display,
+          config: {
+            ...display.config,
+            ...configUpdates
+          }
+        });
+      }
+      return { ...store, displays: newDisplays };
+    });
+  },
+
+  resetCanvasConfig: (displayId) => {
+    floatingStore.update(store => {
+      const newDisplays = new Map(store.displays);
+      const display = newDisplays.get(displayId);
+      if (display) {
+        newDisplays.set(displayId, {
+          ...display,
+          config: { ...defaultConfig }
+        });
+      }
+      return { ...store, displays: newDisplays };
+    });
+  },
+
+  // Drag operations
+  startDrag: (type, id, offset) => {
+    console.log(`[STORE_ACTION_DEBUG] startDrag called:`, { type, id, offset });
+    
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before update - interactionState:`, store.interactionState);
+      console.log(`[STORE_ACTION_DEBUG] Before update - draggedItem:`, store.draggedItem);
+      
+      const updatedStore = {
+        ...store,
+        draggedItem: { type, id, offset }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After update - draggedItem:`, updatedStore.draggedItem);
+      return updatedStore;
+    });
+    
+    // 🔧 CRITICAL FIX: Also update unified interaction state
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before unified update - interactionState:`, store.interactionState);
+      
+      const updatedStore = {
+        ...store,
+        interactionState: {
+          ...store.interactionState,
+          mode: 'dragging',           // ✅ SET THIS
+          activeDisplayId: id         // ✅ SET THIS
+        }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After unified update - interactionState:`, updatedStore.interactionState);
+      return updatedStore;
+    });
+  },
+
+  updateDrag: (position) => {
+    floatingStore.update(store => {
+      if (!store || !store.draggedItem || !store.draggedItem.id) return store;
+      
+      const { type, id } = store.draggedItem;
+      
+      if (type === 'display') {
+        const newDisplays = new Map(store.displays);
+        const display = newDisplays.get(id);
+        if (display) {
+          newDisplays.set(id, { ...display, position });
+        }
+        return { ...store, displays: newDisplays };
+      } else if (type === 'panel') {
+        const newPanels = new Map(store.panels);
+        const panel = newPanels.get(id);
+        if (panel) {
+          newPanels.set(id, { ...panel, position });
+        }
+        return { ...store, panels: newPanels };
+      } else if (type === 'icon') {
+        const newIcons = new Map(store.icons);
+        const icon = newIcons.get(id);
+        if (icon) {
+          newIcons.set(id, { ...icon, position });
+        }
+        return { ...store, icons: newIcons };
+      }
+      
+      return store;
+    });
+  },
+
+  endDrag: () => {
+    console.log(`[STORE_ACTION_DEBUG] endDrag called`);
+    
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before endDrag - interactionState:`, store.interactionState);
+      
+      const updatedStore = {
+        ...store,
+        draggedItem: { type: null, id: null, offset: { x: 0, y: 0 } }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After endDrag - draggedItem:`, updatedStore.draggedItem);
+      return updatedStore;
+    });
+    
+    // 🔧 CRITICAL FIX: Also reset unified interaction state
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before unified endDrag update - interactionState:`, store.interactionState);
+      
+      const updatedStore = {
+        ...store,
+        interactionState: {
+          ...store.interactionState,
+          mode: 'idle',              // ✅ RESET THIS
+          activeDisplayId: null         // ✅ RESET THIS
+        }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After unified endDrag update - interactionState:`, updatedStore.interactionState);
+      return updatedStore;
     });
   },
 
@@ -1098,169 +1313,18 @@ export const actions = {
     });
   },
 
-  // Drag operations (LEGACY COMPATIBILITY)
-  startDrag: (type, id, startPosition, startMousePos) => {
-    // startDrag called
-    
+  // Workspace settings operations (NEW)
+  updateWorkspaceSettings: (settings) => {
     floatingStore.update(store => {
-      // Update legacy draggedItem for backward compatibility
-      let draggedItem = null;
-      let activeDisplayId = null;
+      const newSettings = { ...store.workspaceSettings, ...settings };
       
-      if (type === 'display') {
-        const display = store.displays.get(id);
-        if (display) {
-          draggedItem = { type: 'display', id };
-          activeDisplayId = id;
-        }
-      } else if (type === 'panel') {
-        const panel = store.panels.get(id);
-        if (panel) {
-          draggedItem = { type: 'panel', id };
-        }
-      } else if (type === 'icon') {
-        const icon = store.icons.get(id);
-        if (icon) {
-          draggedItem = { type: 'icon', id };
-        }
-      }
+      // Auto-save to localStorage
+      workspaceSettingsAutoSaver.save(newSettings);
       
       return {
         ...store,
-        draggedItem,
-        activeDisplayId,
-        dragState: {
-          isDragging: true,
-          type,
-          id,
-          startPosition,
-          startMousePos
-        }
+        workspaceSettings: newSettings
       };
-    });
-  },
-
-  updateDrag: (position) => {
-    floatingStore.update(store => {
-      if (!store.draggedItem) return store;
-      
-      const { type, id } = store.draggedItem;
-      
-      if (type === 'display') {
-        const newDisplays = new Map(store.displays);
-        const display = newDisplays.get(id);
-        if (display) {
-          newDisplays.set(id, { ...display, position });
-        }
-        return { ...store, displays: newDisplays };
-      } else if (type === 'panel') {
-        const newPanels = new Map(store.panels);
-        const panel = newPanels.get(id);
-        if (panel) {
-          newPanels.set(id, { ...panel, position });
-        }
-        return { ...store, panels: newPanels };
-      } else if (type === 'icon') {
-        const newIcons = new Map(store.icons);
-        const icon = newIcons.get(id);
-        if (icon) {
-          newIcons.set(id, { ...icon, position });
-        }
-        return { ...store, icons: newIcons };
-      }
-      
-      return store;
-    });
-  },
-
-  endDrag: () => {
-    floatingStore.update(store => ({
-      ...store,
-      draggedItem: null,
-      dragState: {
-        isDragging: false,
-        type: null,
-        id: null,
-        startPosition: { x: 0, y: 0 },
-        startMousePos: { x: 0, y: 0 }
-      }
-    }));
-  },
-
-  // Context menu operations
-  showContextMenu: (x, y, targetId, targetType) => {
-    floatingStore.update(store => ({
-      ...store,
-      contextMenu: { open: true, x, y, targetId, targetType }
-    }));
-  },
-
-  hideContextMenu: () => {
-    floatingStore.update(store => ({
-      ...store,
-      contextMenu: { open: false, x: 0, y: 0, targetId: null, targetType: null }
-    }));
-  },
-
-  // NEW: Unified context menu operations
-  showUnifiedContextMenu: (x, y, context) => {
-    floatingStore.update(store => ({
-      ...store,
-      contextMenu: {
-        open: true,
-        x,
-        y,
-        context // { type: 'canvas' | 'header' | 'workspace' | 'panel', targetId, targetType }
-      }
-    }));
-  },
-
-  // NEW: Canvas configuration management
-  updateCanvasConfig: (displayId, parameter, value) => {
-    floatingStore.update(store => {
-      const newDisplays = new Map(store.displays);
-      const display = newDisplays.get(displayId);
-      if (display) {
-        newDisplays.set(displayId, {
-          ...display,
-          config: {
-            ...display.config,
-            [parameter]: value
-          }
-        });
-      }
-      return { ...store, displays: newDisplays };
-    });
-  },
-
-  updateMultipleCanvasConfig: (displayId, configUpdates) => {
-    floatingStore.update(store => {
-      const newDisplays = new Map(store.displays);
-      const display = newDisplays.get(displayId);
-      if (display) {
-        newDisplays.set(displayId, {
-          ...display,
-          config: {
-            ...display.config,
-            ...configUpdates
-          }
-        });
-      }
-      return { ...store, displays: newDisplays };
-    });
-  },
-
-  resetCanvasConfig: (displayId) => {
-    floatingStore.update(store => {
-      const newDisplays = new Map(store.displays);
-      const display = newDisplays.get(displayId);
-      if (display) {
-        newDisplays.set(displayId, {
-          ...display,
-          config: { ...defaultConfig }
-        });
-      }
-      return { ...store, displays: newDisplays };
     });
   },
 
@@ -1296,8 +1360,6 @@ export const actions = {
 
   // Resize state management (NEW)
   startResize: (displayId, handleType, startPosition, startSize, startMousePos) => {
-    // startResize called
-    
     floatingStore.update(store => ({
       ...store,
       resizeState: {
@@ -1327,7 +1389,9 @@ export const actions = {
       const MIN_WIDTH = GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width;   // 240px
       const MIN_HEIGHT = GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height;  // 160px
       
-      // resize calculation
+      console.log(`[RESIZE_DEBUG] ${handleType} resize:`, {
+        startSize, startMousePos, mousePos, deltaX, deltaY
+      });
       
       // Calculate new dimensions based on handle type
       switch (handleType) {
@@ -1367,7 +1431,9 @@ export const actions = {
           break;
       }
       
-      // resize result calculated
+      console.log(`[RESIZE_DEBUG] ${handleType} result:`, {
+        newWidth, newHeight, newPosition
+      });
 
       // ✅ DISABLED: Grid snap completely bypassed for troubleshooting - causes massive jumps
       // if (store.workspaceSettings.gridSnapEnabled) {
@@ -1398,7 +1464,10 @@ export const actions = {
         const widthPercentage = (canvasWidth / REFERENCE_CANVAS.width) * 100;
         const heightPercentage = (canvasHeight / REFERENCE_CANVAS.height) * 100;
         
-        // Convert to percentages for storage
+        console.log(`[RESIZE_DEBUG] Converting to percentages:`, {
+          canvasWidth, canvasHeight,
+          widthPercentage, heightPercentage
+        });
         
         newDisplays.set(displayId, {
           ...display,
@@ -1506,5 +1575,150 @@ export const actions = {
 };
 
 // =============================================================================
-// REMOVED: UNIFIED INTERACTION ACTIONS - USING WORKING STORE ACTIONS ONLY
+// UNIFIED INTERACTION ACTIONS - REPLACES SCATTERED STATE MANAGEMENT
 // =============================================================================
+
+export const interactionActions = {
+  // CSS-First coordinate system utilities
+  coordinateSystem: {
+    // Primary: Everything works in CSS pixels
+    mouseToElement: (event, element) => ({
+      x: event.clientX - element.getBoundingClientRect().left,
+      y: event.clientY - element.getBoundingClientRect().top
+    }),
+    
+    // Only convert at canvas boundary
+    cssToCanvas: (cssPos, canvas) => ({
+      x: cssPos.x * (canvas.width / canvas.offsetWidth),
+      y: cssPos.y * (canvas.height / canvas.offsetHeight)
+    }),
+    
+    // Direct resize calculations
+    calculateNewSize: (startSize, deltaX, deltaY, handle, minSize) => {
+      let newWidth = startSize.width;
+      let newHeight = startSize.height;
+      let newPosition = { ...startSize.position };
+      
+      switch (handle) {
+        case 'e': 
+          newWidth = Math.max(minSize.width, startSize.width + deltaX); 
+          break;
+        case 'w': 
+          newWidth = Math.max(minSize.width, startSize.width - deltaX); 
+          newPosition.x = startSize.position.x + (startSize.width - newWidth); 
+          break;
+        case 's': 
+          newHeight = Math.max(minSize.height, startSize.height + deltaY); 
+          break;
+        case 'n': 
+          newHeight = Math.max(minSize.height, startSize.height - deltaY); 
+          newPosition.y = startSize.position.y + (startSize.height - newHeight); 
+          break;
+        case 'se': 
+          newWidth = Math.max(minSize.width, startSize.width + deltaX);
+          newHeight = Math.max(minSize.height, startSize.height + deltaY);
+          break;
+        case 'sw': 
+          newWidth = Math.max(minSize.width, startSize.width - deltaX);
+          newHeight = Math.max(minSize.height, startSize.height + deltaY);
+          newPosition.x = startSize.position.x + (startSize.width - newWidth);
+          break;
+        case 'ne': 
+          newWidth = Math.max(minSize.width, startSize.width + deltaX);
+          newHeight = Math.max(minSize.height, startSize.height - deltaY);
+          newPosition.y = startSize.position.y + (startSize.height - newHeight);
+          break;
+        case 'nw': 
+          newWidth = Math.max(minSize.width, startSize.width - deltaX);
+          newHeight = Math.max(minSize.height, startSize.height - deltaY);
+          newPosition.x = startSize.position.x + (startSize.width - newWidth);
+          newPosition.y = startSize.position.y + (startSize.height - newHeight);
+          break;
+      }
+      
+      return { size: { width: newWidth, height: newHeight }, position: newPosition };
+    }
+  },
+
+  // Unified interaction state management
+  startInteraction: (interactionData) => {
+    floatingStore.update(store => ({
+      ...store,
+      interactionState: {
+        ...store.interactionState,
+        ...interactionData,
+        mode: interactionData.mode || 'idle'
+      }
+    }));
+  },
+  
+  updateInteraction: (mousePosition) => {
+    floatingStore.update(store => {
+      const { mode, activeDisplayId, resizeHandle, startData, constraints } = store.interactionState;
+      
+      if (mode === 'resizing') {
+        const deltaX = mousePosition.x - startData.mousePosition.x;
+        const deltaY = mousePosition.y - startData.mousePosition.y;
+        
+        const result = interactionActions.coordinateSystem.calculateNewSize(
+          startData.displaySize, deltaX, deltaY, resizeHandle, constraints.minSize
+        );
+        
+        // Apply viewport constraints
+        const constrainedPosition = GEOMETRY.TRANSFORMS.constrainToViewport(result.position, result.size);
+        
+        // Update display directly
+        const newDisplays = new Map(store.displays);
+        const display = newDisplays.get(activeDisplayId);
+        if (display) {
+          newDisplays.set(activeDisplayId, {
+            ...display,
+            size: result.size,
+            position: constrainedPosition
+          });
+        }
+        
+        return { ...store, displays: newDisplays };
+      } else if (mode === 'dragging') {
+        // Handle dragging logic here
+        const deltaX = mousePosition.x - startData.mousePosition.x;
+        const deltaY = mousePosition.y - startData.mousePosition.y;
+        
+        const newPosition = {
+          x: startData.displayPosition.x + deltaX,
+          y: startData.displayPosition.y + deltaY
+        };
+        
+        // Apply viewport constraints
+        const displaySize = startData.displaySize;
+        const constrainedPosition = GEOMETRY.TRANSFORMS.constrainToViewport(newPosition, displaySize);
+        
+        // Update display directly
+        const newDisplays = new Map(store.displays);
+        const display = newDisplays.get(activeDisplayId);
+        if (display) {
+          newDisplays.set(activeDisplayId, {
+            ...display,
+            position: constrainedPosition
+          });
+        }
+        
+        return { ...store, displays: newDisplays };
+      }
+      
+      return store;
+    });
+  },
+  
+  endInteraction: () => {
+    floatingStore.update(store => ({
+      ...store,
+      interactionState: {
+        ...store.interactionState,
+        mode: 'idle',
+        activeDisplayId: null,
+        resizeHandle: null
+      }
+    }));
+  }
+};
