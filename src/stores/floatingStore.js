@@ -473,7 +473,23 @@ const initialState = {
   // Canvas workspace settings (NEW) - loaded from localStorage
   workspaceSettings: savedWorkspaceSettings,
   
-  // Resize state (NEW)
+  // NEW: Unified interaction state machine - REPLACES scattered state
+  interactionState: {
+    mode: 'idle', // 'idle', 'dragging', 'resizing'
+    activeDisplayId: null,
+    resizeHandle: null,
+    startData: {
+      mousePosition: { x: 0, y: 0 },
+      displayPosition: { x: 0, y: 0 },
+      displaySize: { width: 0, height: 0 }
+    },
+    constraints: {
+      minSize: { width: 240, height: 160 },
+      maxSize: { width: 800, height: 600 }
+    }
+  },
+  
+  // Legacy resize state (DEPRECATED - use interactionState instead)
   resizeState: {
     isResizing: false,
     displayId: null,
@@ -831,7 +847,11 @@ export const actions = {
   },
 
   setActiveDisplay: (id) => {
+    console.log(`[STORE_ACTION_DEBUG] setActiveDisplay called:`, { id });
+    
     floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before setActiveDisplay - interactionState:`, store.interactionState);
+      
       const newDisplays = new Map(store.displays);
       
       // Deactivate all displays
@@ -846,12 +866,31 @@ export const actions = {
         display.zIndex = store.nextDisplayZIndex++;
       }
       
-      return { 
+      const updatedStore = { 
         ...store, 
         displays: newDisplays, 
         activeDisplayId: id,
         nextDisplayZIndex: store.nextDisplayZIndex
       };
+      
+      console.log(`[STORE_ACTION_DEBUG] After setActiveDisplay - interactionState:`, updatedStore.interactionState);
+      return updatedStore;
+    });
+    
+    // 🔧 CRITICAL FIX: Also update unified interaction state
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before unified setActiveDisplay update - interactionState:`, store.interactionState);
+      
+      const updatedStore = {
+        ...store,
+        interactionState: {
+          ...store.interactionState,
+          activeDisplayId: id         // ✅ SET THIS
+        }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After unified setActiveDisplay update - interactionState:`, updatedStore.interactionState);
+      return updatedStore;
     });
   },
 
@@ -1004,10 +1043,37 @@ export const actions = {
 
   // Drag operations
   startDrag: (type, id, offset) => {
-    floatingStore.update(store => ({
-      ...store,
-      draggedItem: { type, id, offset }
-    }));
+    console.log(`[STORE_ACTION_DEBUG] startDrag called:`, { type, id, offset });
+    
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before update - interactionState:`, store.interactionState);
+      console.log(`[STORE_ACTION_DEBUG] Before update - draggedItem:`, store.draggedItem);
+      
+      const updatedStore = {
+        ...store,
+        draggedItem: { type, id, offset }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After update - draggedItem:`, updatedStore.draggedItem);
+      return updatedStore;
+    });
+    
+    // 🔧 CRITICAL FIX: Also update unified interaction state
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before unified update - interactionState:`, store.interactionState);
+      
+      const updatedStore = {
+        ...store,
+        interactionState: {
+          ...store.interactionState,
+          mode: 'dragging',           // ✅ SET THIS
+          activeDisplayId: id         // ✅ SET THIS
+        }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After unified update - interactionState:`, updatedStore.interactionState);
+      return updatedStore;
+    });
   },
 
   updateDrag: (position) => {
@@ -1044,10 +1110,36 @@ export const actions = {
   },
 
   endDrag: () => {
-    floatingStore.update(store => ({
-      ...store,
-      draggedItem: { type: null, id: null, offset: { x: 0, y: 0 } }
-    }));
+    console.log(`[STORE_ACTION_DEBUG] endDrag called`);
+    
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before endDrag - interactionState:`, store.interactionState);
+      
+      const updatedStore = {
+        ...store,
+        draggedItem: { type: null, id: null, offset: { x: 0, y: 0 } }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After endDrag - draggedItem:`, updatedStore.draggedItem);
+      return updatedStore;
+    });
+    
+    // 🔧 CRITICAL FIX: Also reset unified interaction state
+    floatingStore.update(store => {
+      console.log(`[STORE_ACTION_DEBUG] Before unified endDrag update - interactionState:`, store.interactionState);
+      
+      const updatedStore = {
+        ...store,
+        interactionState: {
+          ...store.interactionState,
+          mode: 'idle',              // ✅ RESET THIS
+          activeDisplayId: null         // ✅ RESET THIS
+        }
+      };
+      
+      console.log(`[STORE_ACTION_DEBUG] After unified endDrag update - interactionState:`, updatedStore.interactionState);
+      return updatedStore;
+    });
   },
 
   // Icon operations (NEW)
@@ -1479,5 +1571,154 @@ export const actions = {
       // Update component in store
       return updateComponentInStore(store, id, newPosition, newSize);
     });
+  }
+};
+
+// =============================================================================
+// UNIFIED INTERACTION ACTIONS - REPLACES SCATTERED STATE MANAGEMENT
+// =============================================================================
+
+export const interactionActions = {
+  // CSS-First coordinate system utilities
+  coordinateSystem: {
+    // Primary: Everything works in CSS pixels
+    mouseToElement: (event, element) => ({
+      x: event.clientX - element.getBoundingClientRect().left,
+      y: event.clientY - element.getBoundingClientRect().top
+    }),
+    
+    // Only convert at canvas boundary
+    cssToCanvas: (cssPos, canvas) => ({
+      x: cssPos.x * (canvas.width / canvas.offsetWidth),
+      y: cssPos.y * (canvas.height / canvas.offsetHeight)
+    }),
+    
+    // Direct resize calculations
+    calculateNewSize: (startSize, deltaX, deltaY, handle, minSize) => {
+      let newWidth = startSize.width;
+      let newHeight = startSize.height;
+      let newPosition = { ...startSize.position };
+      
+      switch (handle) {
+        case 'e': 
+          newWidth = Math.max(minSize.width, startSize.width + deltaX); 
+          break;
+        case 'w': 
+          newWidth = Math.max(minSize.width, startSize.width - deltaX); 
+          newPosition.x = startSize.position.x + (startSize.width - newWidth); 
+          break;
+        case 's': 
+          newHeight = Math.max(minSize.height, startSize.height + deltaY); 
+          break;
+        case 'n': 
+          newHeight = Math.max(minSize.height, startSize.height - deltaY); 
+          newPosition.y = startSize.position.y + (startSize.height - newHeight); 
+          break;
+        case 'se': 
+          newWidth = Math.max(minSize.width, startSize.width + deltaX);
+          newHeight = Math.max(minSize.height, startSize.height + deltaY);
+          break;
+        case 'sw': 
+          newWidth = Math.max(minSize.width, startSize.width - deltaX);
+          newHeight = Math.max(minSize.height, startSize.height + deltaY);
+          newPosition.x = startSize.position.x + (startSize.width - newWidth);
+          break;
+        case 'ne': 
+          newWidth = Math.max(minSize.width, startSize.width + deltaX);
+          newHeight = Math.max(minSize.height, startSize.height - deltaY);
+          newPosition.y = startSize.position.y + (startSize.height - newHeight);
+          break;
+        case 'nw': 
+          newWidth = Math.max(minSize.width, startSize.width - deltaX);
+          newHeight = Math.max(minSize.height, startSize.height - deltaY);
+          newPosition.x = startSize.position.x + (startSize.width - newWidth);
+          newPosition.y = startSize.position.y + (startSize.height - newHeight);
+          break;
+      }
+      
+      return { size: { width: newWidth, height: newHeight }, position: newPosition };
+    }
+  },
+
+  // Unified interaction state management
+  startInteraction: (interactionData) => {
+    floatingStore.update(store => ({
+      ...store,
+      interactionState: {
+        ...store.interactionState,
+        ...interactionData,
+        mode: interactionData.mode || 'idle'
+      }
+    }));
+  },
+  
+  updateInteraction: (mousePosition) => {
+    floatingStore.update(store => {
+      const { mode, activeDisplayId, resizeHandle, startData, constraints } = store.interactionState;
+      
+      if (mode === 'resizing') {
+        const deltaX = mousePosition.x - startData.mousePosition.x;
+        const deltaY = mousePosition.y - startData.mousePosition.y;
+        
+        const result = interactionActions.coordinateSystem.calculateNewSize(
+          startData.displaySize, deltaX, deltaY, resizeHandle, constraints.minSize
+        );
+        
+        // Apply viewport constraints
+        const constrainedPosition = GEOMETRY.TRANSFORMS.constrainToViewport(result.position, result.size);
+        
+        // Update display directly
+        const newDisplays = new Map(store.displays);
+        const display = newDisplays.get(activeDisplayId);
+        if (display) {
+          newDisplays.set(activeDisplayId, {
+            ...display,
+            size: result.size,
+            position: constrainedPosition
+          });
+        }
+        
+        return { ...store, displays: newDisplays };
+      } else if (mode === 'dragging') {
+        // Handle dragging logic here
+        const deltaX = mousePosition.x - startData.mousePosition.x;
+        const deltaY = mousePosition.y - startData.mousePosition.y;
+        
+        const newPosition = {
+          x: startData.displayPosition.x + deltaX,
+          y: startData.displayPosition.y + deltaY
+        };
+        
+        // Apply viewport constraints
+        const displaySize = startData.displaySize;
+        const constrainedPosition = GEOMETRY.TRANSFORMS.constrainToViewport(newPosition, displaySize);
+        
+        // Update display directly
+        const newDisplays = new Map(store.displays);
+        const display = newDisplays.get(activeDisplayId);
+        if (display) {
+          newDisplays.set(activeDisplayId, {
+            ...display,
+            position: constrainedPosition
+          });
+        }
+        
+        return { ...store, displays: newDisplays };
+      }
+      
+      return store;
+    });
+  },
+  
+  endInteraction: () => {
+    floatingStore.update(store => ({
+      ...store,
+      interactionState: {
+        ...store.interactionState,
+        mode: 'idle',
+        activeDisplayId: null,
+        resizeHandle: null
+      }
+    }));
   }
 };

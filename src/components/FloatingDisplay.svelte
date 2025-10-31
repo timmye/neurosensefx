@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { floatingStore, actions, geometryActions, GEOMETRY } from '../stores/floatingStore.js';
+  import { floatingStore, actions, geometryActions, interactionActions, GEOMETRY } from '../stores/floatingStore.js';
   import { connectionManager } from '../data/ConnectionManager.js';
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
@@ -30,10 +30,23 @@
   let ctx;
   let dpr = 1;
   
-  // Store-based state - REMOVED local drag variables for full store migration
-  let isResizing = false;
-  let resizeHandle = null;
+  // REMOVED: Local interaction state variables - now using unified interactionState
+  // let isResizing = false;
+  // let resizeHandle = null;
+  // let isHovered = false;
+  
+  // 🔧 DEBUG: Add simple hover state tracking for testing
   let isHovered = false;
+  
+  // 🔧 CRITICAL FIX: Add drag state management variables to prevent infinite loops
+  let isDragging = false;
+  let lastMouseTime = 0;
+  let mousemoveListenerExists = false;
+  let mouseupListenerExists = false;
+  
+  // Actual event handlers to prevent memory leaks
+  let actualMouseMoveHandler = null;
+  let actualMouseUpHandler = null;
   
   // Production canvas and data state
   let canvasData = {};
@@ -204,9 +217,26 @@
   }
   
   function handleMouseDown(e) {
+    console.log(`[MOUSE_DOWN] Mouse down on display ${id}`, {
+      target: e.target,
+      targetClass: e.target.className,
+      isResizeHandle: e.target.classList.contains('resize-handle'),
+      button: e.button
+    });
+    
     if (e.button !== 0) return;
     
     if (e.target.classList.contains('resize-handle')) {
+      console.log(`[MOUSE_DOWN] Ignoring resize handle click`);
+      return;
+    }
+    
+    // 🔧 CRITICAL FIX: Only enable dragging if not already dragging
+    if (!isDragging) {
+      isDragging = true;
+      console.log(`[MOUSE_DOWN] Set isDragging = true for display ${id}`);
+    } else {
+      console.log(`[MOUSE_DOWN] Already dragging - ignoring mouse down`);
       return;
     }
     
@@ -217,91 +247,202 @@
       y: e.clientY - rect.top
     };
     
+    console.log(`[MOUSE_DOWN] Starting drag with offset:`, offset);
     actions.startDrag('display', id, offset);
     actions.setActiveDisplay(id);
     
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    // 🔧 CRITICAL FIX: Store actual handlers for proper cleanup
+    actualMouseMoveHandler = handleMouseMove;
+    actualMouseUpHandler = handleMouseUp;
+    mousemoveListenerExists = true;
+    mouseupListenerExists = true;
+    
+    document.addEventListener('mousemove', actualMouseMoveHandler);
+    document.addEventListener('mouseup', actualMouseUpHandler);
+    
+    console.log(`[EVENT_LISTENER_DEBUG] Added mouse event listeners`, { 
+      mousemoveListenerExists, 
+      mouseupListenerExists 
+    });
     
     e.preventDefault();
   }
   
   function handleMouseMove(e) {
-    // 🔧 CRITICAL FIX: Debug coordinate transformation pipeline
-    if ($floatingStore.draggedItem?.type === 'display' && $floatingStore.draggedItem?.id === id) {
-      // Get raw mouse movement delta
-      const mouseDeltaX = e.movementX || 0;
-      const mouseDeltaY = e.movementY || 0;
+    console.log(`[MOUSE_MOVE] Handling mouse move for display ${id}`, {
+      mode: $floatingStore.interactionState.mode,
+      activeDisplayId: $floatingStore.interactionState.activeDisplayId,
+      draggedItem: $floatingStore.draggedItem,
+      resizeState: $floatingStore.resizeState
+    });
+    
+    // 🔧 CRITICAL FIX: Add 16ms throttle to prevent infinite loops
+    const currentTime = Date.now();
+    if (currentTime - lastMouseTime < 16) { // 60fps throttle
+      console.log(`[MOUSE_MOVE_THROTTLE] Throttled mouse move event`);
+      return;
+    }
+    lastMouseTime = currentTime;
+    
+    // Only process if actively dragging this display
+    if (isDragging && $floatingStore.interactionState.activeDisplayId === id) {
+      console.log(`[MOUSE_MOVE_THROTTLE] Processing drag for display ${id}`);
+    } else {
+      console.log(`[MOUSE_MOVE_THROTTLE] Skipping - not dragging this display`);
+      return;
+    }
+    
+    // NEW: Unified interaction system - mode-based delegation
+    const mode = $floatingStore.interactionState.mode;
+    const activeDisplayId = $floatingStore.interactionState.activeDisplayId;
+    
+    if (activeDisplayId === id) {
+      const mousePos = interactionActions.coordinateSystem.mouseToElement(e, element);
+      console.log(`[MOUSE_MOVE] Delegating to interaction system for mode: ${mode}`);
       
-      console.log(`[DRAG_DEBUG] Mouse movement: ${mouseDeltaX}x${mouseDeltaY}px`);
-      
-      // Get current position and apply direct mouse delta for 1:1 scaling
-      const currentPosition = $floatingStore.displays.get(id)?.position || { x: 0, y: 0 };
-      let newX = currentPosition.x + mouseDeltaX;
-      let newY = currentPosition.y + mouseDeltaY;
-      
-      console.log(`[DRAG_DEBUG] New position: ${newX}x${newY}px (from ${currentPosition.x}x${currentPosition.y})`);
-      
-      // ✅ ENABLED: Apply grid snapping if enabled in workspace settings
-      const workspaceSettings = $floatingStore.workspaceSettings || {};
-      if (workspaceSettings.gridSnapEnabled) {
-        const gridSize = workspaceSettings.gridSize || 20;
-        newX = Math.round(newX / gridSize) * gridSize;
-        newY = Math.round(newY / gridSize) * gridSize;
-      }
-      
-      // ✅ ENABLED: Apply viewport boundary constraints
-      const displaySize = {
-        width: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width,
-        height: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height
-      };
-      const constrainedPosition = GEOMETRY.TRANSFORMS.constrainToViewport(
-        { x: newX, y: newY }, 
-        displaySize
-      );
-      
-      // ✅ ENABLED: Check collision detection if enabled
-      if (workspaceSettings.collisionDetectionEnabled) {
-        const collision = checkCollision(constrainedPosition.x, constrainedPosition.y);
-        if (collision.canMove) {
-          actions.updateDrag({ x: constrainedPosition.x, y: constrainedPosition.y });
-        } else if (collision.suggestedPosition) {
-          // Apply grid snapping to suggested position
-          let suggestedX = collision.suggestedPosition.x;
-          let suggestedY = collision.suggestedPosition.y;
-          if (workspaceSettings.gridSnapEnabled) {
-            const gridSize = workspaceSettings.gridSize || 20;
-            suggestedX = Math.round(suggestedX / gridSize) * gridSize;
-            suggestedY = Math.round(suggestedY / gridSize) * gridSize;
+      switch (mode) {
+        case 'dragging':
+          // Delegate to unified interaction system
+          interactionActions.updateInteraction(mousePos);
+          break;
+        case 'resizing':
+          // Delegate to unified interaction system
+          interactionActions.updateInteraction(mousePos);
+          break;
+        default:
+          console.log(`[MOUSE_MOVE] Checking legacy interactions`);
+          // Check legacy draggedItem for backward compatibility
+          if ($floatingStore.draggedItem?.type === 'display' && $floatingStore.draggedItem?.id === id) {
+            console.log(`[MOUSE_MOVE] Using legacy drag system`);
+            // Get raw mouse movement delta
+            const mouseDeltaX = e.movementX || 0;
+            const mouseDeltaY = e.movementY || 0;
+            
+            // Get current position and apply direct mouse delta for 1:1 scaling
+            const currentPosition = $floatingStore.displays.get(id)?.position || { x: 0, y: 0 };
+            let newX = currentPosition.x + mouseDeltaX;
+            let newY = currentPosition.y + mouseDeltaY;
+            
+            // ✅ ENABLED: Apply grid snapping if enabled in workspace settings
+            const workspaceSettings = $floatingStore.workspaceSettings || {};
+            if (workspaceSettings.gridSnapEnabled) {
+              const gridSize = workspaceSettings.gridSize || 20;
+              newX = Math.round(newX / gridSize) * gridSize;
+              newY = Math.round(newY / gridSize) * gridSize;
+            }
+            
+            // ✅ ENABLED: Apply viewport boundary constraints
+            const displaySize = {
+              width: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width,
+              height: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height
+            };
+            const constrainedPosition = GEOMETRY.TRANSFORMS.constrainToViewport(
+              { x: newX, y: newY }, 
+              displaySize
+            );
+            
+            // ✅ ENABLED: Check collision detection if enabled
+            if (workspaceSettings.collisionDetectionEnabled) {
+              const collision = checkCollision(constrainedPosition.x, constrainedPosition.y);
+              if (collision.canMove) {
+                actions.updateDrag({ x: constrainedPosition.x, y: constrainedPosition.y });
+              } else if (collision.suggestedPosition) {
+                // Apply grid snapping to suggested position
+                let suggestedX = collision.suggestedPosition.x;
+                let suggestedY = collision.suggestedPosition.y;
+                if (workspaceSettings.gridSnapEnabled) {
+                  const gridSize = workspaceSettings.gridSize || 20;
+                  suggestedX = Math.round(suggestedX / gridSize) * gridSize;
+                  suggestedY = Math.round(suggestedY / gridSize) * gridSize;
+                }
+                actions.updateDrag({ x: suggestedX, y: suggestedY });
+              }
+            } else {
+              // No collision detection - just apply constrained position
+              actions.updateDrag({ x: constrainedPosition.x, y: constrainedPosition.y });
+            }
+          } else if ($floatingStore.resizeState?.isResizing && $floatingStore.resizeState?.displayId === id) {
+            console.log(`[MOUSE_MOVE] Using legacy resize system`);
+            // ✅ STORE ACTION: Already working - store manages resize
+            const mousePos = { x: e.clientX, y: e.clientY };
+            actions.updateResize(mousePos);
           }
-          actions.updateDrag({ x: suggestedX, y: suggestedY });
-        }
-      } else {
-        // No collision detection - just apply constrained position
-        actions.updateDrag({ x: constrainedPosition.x, y: constrainedPosition.y });
+          break;
       }
-    } else if ($floatingStore.resizeState?.isResizing && $floatingStore.resizeState?.displayId === id) {
-      // ✅ STORE ACTION: Already working - store manages resize
-      const mousePos = { x: e.clientX, y: e.clientY };
-      actions.updateResize(mousePos);
     }
   }
   
   function handleMouseUp() {
-    // ✅ STORE ACTION: Use store end actions - no local state management
+    console.log(`[MOUSE_UP] Mouse up called for display ${id}`, {
+      isDragging,
+      mousemoveListenerExists,
+      mouseupListenerExists
+    });
+    
+    // 🔧 CRITICAL FIX: Reset dragging state
+    isDragging = false;
+    console.log(`[MOUSE_UP] Set isDragging = false for display ${id}`);
+    
+    // NEW: Use unified interaction system
+    interactionActions.endInteraction();
+    
+    // Also update legacy store for backward compatibility
     actions.endDrag();
     actions.endResize();
     
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
+    // 🔧 CRITICAL FIX: Remove ALL listeners to prevent duplicates
+    if (mousemoveListenerExists && actualMouseMoveHandler) {
+      document.removeEventListener('mousemove', actualMouseMoveHandler);
+      mousemoveListenerExists = false;
+      console.log(`[EVENT_LISTENER_DEBUG] Removed mousemove listener`);
+    }
+    
+    if (mouseupListenerExists && actualMouseUpHandler) {
+      document.removeEventListener('mouseup', actualMouseUpHandler);
+      mouseupListenerExists = false;
+      console.log(`[EVENT_LISTENER_DEBUG] Removed mouseup listener`);
+    }
+    
+    // Clear handler references
+    actualMouseMoveHandler = null;
+    actualMouseUpHandler = null;
+    
+    console.log(`[EVENT_LISTENER_DEBUG] Cleanup completed`, { 
+      isDragging, 
+      mousemoveListenerExists, 
+      mouseupListenerExists 
+    });
   }
   
   function handleResizeStart(e, handle) {
-    console.log(`[RESIZE_START] ${handle} handle clicked for display ${id}`);
-    isResizing = true;
-    resizeHandle = handle;
+    console.log(`[RESIZE_START] ${handle} handle clicked for display ${id}`, {
+      event: e,
+      target: e.target,
+      targetClass: e.target.className,
+      button: e.button,
+      mouseClientX: e.clientX,
+      mouseClientY: e.clientY
+    });
     
-    // ✅ STORE ACTION: Use store action for resize start - no local state
+    // NEW: Use unified interaction system
+    const mousePos = interactionActions.coordinateSystem.mouseToElement(e, element);
+    
+    console.log(`[RESIZE_START] Starting interaction system with mousePos:`, mousePos);
+    
+    interactionActions.startInteraction({
+      mode: 'resizing',
+      displayId: id,
+      resizeHandle: handle,
+      startData: {
+        mousePosition: mousePos,
+        displayPosition: displayPosition,
+        displaySize: displaySize
+      }
+    });
+    
+    console.log(`[RESIZE_START] Interaction started successfully`);
+    
+    // Also update legacy store for backward compatibility
     actions.startResize(id, handle, displayPosition, displaySize, { x: e.clientX, y: e.clientY });
     
     document.addEventListener('mousemove', handleMouseMove);
@@ -614,25 +755,25 @@
       return;
     }
     
-    // 🔧 STEP 1: TEST BASIC CANVAS FUNCTIONALITY
-    // Draw simple test shapes to verify canvas works
-    console.log(`[RENDER_PIPELINE] Testing basic canvas functionality...`);
+    // 🔧 STEP 1: CLEAR CANVAS AND PREPARE FOR VISUALIZATIONS
+    console.log(`[RENDER_PIPELINE] Clearing canvas and preparing for visualizations...`);
     
     // Clear canvas completely
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
+    // 🔧 COMMENTED OUT: Test shapes - visualizations are working, remove test artifacts
     // Draw test rectangle (should be visible)
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(10, 10, 50, 30);
-    console.log(`[RENDER_PIPELINE] Drew test rectangle at (10, 10) with size (50, 30)`);
+    // ctx.fillStyle = '#ff0000';
+    // ctx.fillRect(10, 10, 50, 30);
+    // console.log(`[RENDER_PIPELINE] Drew test rectangle at (10, 10) with size (50, 30)`);
     
     // Draw test text (should be visible)
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '12px Arial';
-    ctx.fillText('TEST TEXT', 10, 60);
-    console.log(`[RENDER_PIPELINE] Drew test text at (10, 60)`);
+    // ctx.fillStyle = '#ffffff';
+    // ctx.font = '12px Arial';
+    // ctx.fillText('TEST TEXT', 10, 60);
+    // console.log(`[RENDER_PIPELINE] Drew test text at (10, 60)`);
     
     // 🔧 STEP 2: TEST YSCALE CALCULATION
     if (state.visualLow && state.visualHigh && scaledConfig?.meterHeight) {
@@ -679,16 +820,16 @@
     
     // 🔧 STEP 4: TEST HOVER AND MARKERS
     try {
-      drawPriceMarkers(ctx, scaledConfig, state, null, markers); // Use null yScale for testing
+      drawPriceMarkers(ctx, scaledConfig, state, yScale, markers); // Use proper yScale
       console.log(`[RENDER_PIPELINE] drawPriceMarkers completed`);
       
-      drawHoverIndicator(ctx, scaledConfig, state, null, $hoverState); // Use null yScale for testing
+      drawHoverIndicator(ctx, scaledConfig, state, yScale, $hoverState); // Use proper yScale
       console.log(`[RENDER_PIPELINE] drawHoverIndicator completed`);
     } catch (error) {
       console.error(`[RENDER_PIPELINE] Error in hover/markers:`, error);
     }
     
-    console.log(`[RENDER_PIPELINE] Render frame completed - should see test rectangle and text`);
+    //console.log(`[RENDER_PIPELINE] Render frame completed - should see test rectangle and text`);
   }
   
   // 🔧 SIMPLIFIED TRIGGER: Remove complex dependencies that block rendering
@@ -738,7 +879,23 @@
     }
   }
   
-  $: showResizeHandles = isHovered || isResizing;
+  // 🔧 FIXED: Show resize handles on hover AND during active interaction
+  $: showResizeHandles = $floatingStore.interactionState.mode === 'resizing' || 
+                         $floatingStore.resizeState?.isResizing ||
+                         $floatingStore.interactionState.activeDisplayId === id ||
+                         $floatingStore.resizeState?.displayId === id ||
+                         // 🔧 CRITICAL FIX: Also show handles when hovering (simple hover state)
+                         $floatingStore.interactionState.mode === 'idle' && $floatingStore.interactionState.activeDisplayId === id;
+  
+  // DEBUG: Add resize handle visibility debugging
+  console.log(`[RESIZE_DEBUG] Resize handle visibility check for display ${id}:`, {
+    interactionMode: $floatingStore.interactionState.mode,
+    isResizing: $floatingStore.resizeState?.isResizing,
+    activeDisplayId: $floatingStore.interactionState.activeDisplayId,
+    resizeDisplayId: $floatingStore.resizeState?.displayId,
+    currentDisplayId: id,
+    showResizeHandles
+  });
   
   onDestroy(() => {
     document.removeEventListener('mousemove', handleMouseMove);
@@ -760,13 +917,19 @@
 <div 
   bind:this={element}
   class="enhanced-floating"
-  class:hovered={isHovered}
+  class:hovered={showResizeHandles}
   class:active={isActive}
   style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: {displaySize.width}px; height: {displaySize.height}px; z-index: {currentZIndex};"
   on:contextmenu={handleContextMenu}
   on:mousedown={handleMouseDown}
-  on:mouseenter={() => isHovered = true}
-  on:mouseleave={() => isHovered = false}
+  on:mouseenter={() => {
+    // Hover state is now managed through resize handle visibility logic
+    // No local state needed
+  }}
+  on:mouseleave={() => {
+    // Hover state is now managed through resize handle visibility logic
+    // No local state needed
+  }}
   data-display-id={id}
 >
   <!-- Header -->
