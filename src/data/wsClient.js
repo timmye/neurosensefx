@@ -1,14 +1,12 @@
 import { writable, get } from 'svelte/store';
-import { symbolStore, defaultConfig } from './symbolStore';
+import { symbolStore } from './symbolStore';
 import { TickSchema, SymbolDataPackageSchema } from './schema.js';
 
 export const wsStatus = writable('disconnected');
-export const dataSourceMode = writable('live');
 export const availableSymbols = writable([]);
 export const subscriptions = writable(new Set());
 
 let ws = null;
-let simulationInterval = null;
 let connectionMonitorInterval = null;
 
 const WS_URL = (() => {
@@ -28,7 +26,6 @@ export function connect() {
         return;
     }
     
-    stopSimulation();
     // WebSocket connection initiated
     wsStatus.set('ws-connecting');
     try {
@@ -79,6 +76,7 @@ function stopConnectionMonitor() {
 
 function handleSocketMessage(data) {
     console.log(`[WSCLIENT_DEBUG] Received message:`, data);
+    console.log(`[WSCLIENT_DEBUG] Message type: ${data.type}, symbol: ${data.symbol}`);
     
     if (data.type === 'symbolDataPackage') {
         console.log(`[WSCLIENT_DEBUG] Processing symbolDataPackage for ${data.symbol}`);
@@ -118,7 +116,6 @@ function handleDataPackage(data) {
 }
 
 export function disconnect() {
-    stopSimulation();
     if (ws) {
         ws.onclose = null; // Prevent triggering onclose logic during manual disconnect
         ws.close();
@@ -130,126 +127,22 @@ export function disconnect() {
     symbolStore.clear();
 }
 
-function startSimulation() {
-    disconnect(); // Ensure clean state before starting simulation
-    const symbol = 'SIM-EURUSD';
-    const midPoint = 1.25500;
-    const adr = 0.00850;
-
-    // Add some mock market profile data for simulation
-     const mockInitialMarketProfile = [];
-     // Example: Add a few mock bars
-     for(let i = 0; i < 100; i++) {
-         const open = midPoint + (Math.random() - 0.5) * 0.0005;
-         const close = open + (Math.random() - 0.5) * 0.0005;
-         mockInitialMarketProfile.push({
-             open,
-             close,
-             high: Math.max(open, close) + Math.random() * 0.0001,
-             low: Math.min(open, close) - Math.random() * 0.0001,
-             timestamp: Date.now() - (100 - i) * 60 * 1000, // Go back in time by minutes
-             volume: Math.floor(Math.random() * 1000)
-         });
-     }
-
-    const mockDataPackage = {
-        symbol,
-        digits: 5,
-        adr,
-        todaysOpen: midPoint,
-        todaysHigh: midPoint + 0.00150,
-        todaysLow: midPoint - 0.00250,
-        projectedAdrHigh: midPoint + adr / 2,
-        projectedAdrLow: midPoint - adr / 2,
-        initialPrice: midPoint,
-        initialMarketProfile: mockInitialMarketProfile,
-    };
-
-    symbolStore.createNewSymbol(symbol, mockDataPackage);
-    subscriptions.set(new Set([symbol]));
-
-    let currentPrice = midPoint;
-    
-    const frequencySettings = {
-        calm: { base: 1500, rand: 1000 },
-        normal: { base: 500, rand: 500 },
-        active: { base: 200, rand: 200 },
-        volatile: { base: 50, rand: 50 },
-    };
-    
-    const magnitudeSettings = {
-        calm: { base: 0.000005, rand: 0.00001 },
-        normal: { base: 0.00001, rand: 0.00002 },
-        active: { base: 0.00002, rand: 0.00004 },
-        volatile: { base: 0.00005, rand: 0.00008 },
-    }
-
-    let nextTickTime = 0;
-
-    const simulationLoop = () => {
-        const now = performance.now();
-        if (now < nextTickTime) {
-            simulationInterval = requestAnimationFrame(simulationLoop);
-            return;
-        }
-
-        const symbols = get(symbolStore);
-        const simSymbol = symbols[symbol];
-        
-        const currentFrequencyMode = simSymbol?.config?.frequencyMode || defaultConfig.frequencyMode;
-
-        if (!simSymbol || !simSymbol.config || !frequencySettings[currentFrequencyMode] || !magnitudeSettings[currentFrequencyMode]) {
-            simulationInterval = requestAnimationFrame(simulationLoop);
-            return;
-        }
-
-        const freq = frequencySettings[currentFrequencyMode];
-        const mag = magnitudeSettings[currentFrequencyMode];
-        
-        nextTickTime = now + freq.base + (Math.random() * freq.rand);
-        
-        const direction = Math.random() > 0.5 ? 1 : -1;
-        const priceChange = (mag.base + Math.random() * mag.rand) * direction;
-
-        currentPrice += priceChange;
-        
-        const newTick = {
-            symbol,
-            bid: currentPrice,
-            ask: currentPrice + 0.00012,
-            timestamp: now,
-        };
-        
-        symbolStore.dispatchTick(symbol, newTick);
-        simulationInterval = requestAnimationFrame(simulationLoop);
-    };
-
-    simulationLoop();
-}
-
-function stopSimulation() {
-    if (simulationInterval) {
-        cancelAnimationFrame(simulationInterval);
-        simulationInterval = null;
-    }
-}
-
 export function subscribe(symbol) {
     console.log(`[WSCLIENT_DEBUG] subscribe called for symbol: ${symbol}`);
-    console.log(`[WSCLIENT_DEBUG] dataSourceMode: ${get(dataSourceMode)}, wsStatus: ${get(wsStatus)}, ws exists: ${!!ws}`);
+    console.log(`[WSCLIENT_DEBUG] wsStatus: ${get(wsStatus)}, ws exists: ${!!ws}`);
     
-    if (get(dataSourceMode) === 'live' && get(wsStatus) === 'connected' && ws) {
+    if (get(wsStatus) === 'connected' && ws) {
         const adrLookbackDays = 14;
         const message = JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays });
         console.log(`[WSCLIENT_DEBUG] Sending message: ${message}`);
         ws.send(message);
     } else {
-        console.log(`[WSCLIENT_DEBUG] Cannot subscribe - conditions not met`);
+        console.log(`[WSCLIENT_DEBUG] Cannot subscribe - WebSocket not connected`);
     }
 }
 
 export function unsubscribe(symbol) {
-    if (get(dataSourceMode) === 'live' && ws) {
+    if (ws) {
         ws.send(JSON.stringify({ type: 'unsubscribe', symbols: [symbol] }));
     }
     symbolStore.removeSymbol(symbol);
@@ -260,27 +153,6 @@ export function unsubscribe(symbol) {
 }
 
 export function initializeWsClient() {
-    dataSourceMode.subscribe(mode => {
-        symbolStore.clear();
-        subscriptions.set(new Set());
-        if (mode === 'simulated') {
-            disconnect(); // Ensure disconnect for clean transition
-            startSimulation();
-        } else {
-            // Ensure a clean slate before attempting to connect to live data
-            if (ws && ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CONNECTING) {
-                disconnect();
-            }
-            stopSimulation();
-            connect();
-        }
-    });
-    
-    // Trigger initial connection since subscription doesn't fire for initial value
-    const currentMode = get(dataSourceMode);
-    if (currentMode === 'live') {
-        connect();
-    } else if (currentMode === 'simulated') {
-        startSimulation();
-    }
+    // Initialize live WebSocket connection
+    connect();
 }

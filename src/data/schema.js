@@ -72,6 +72,8 @@ export const PriceFloatPulseEffectSchema = z.object({
 }).nullable();
 
 export const VisualizationStateSchema = z.object({
+  ready: z.boolean().optional().default(true),
+  hasPrice: z.boolean().optional().default(false),
   currentPrice: z.number(),
   midPrice: z.number(),
   lastTickTime: z.number(),

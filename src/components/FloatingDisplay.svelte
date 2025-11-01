@@ -1,7 +1,8 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import { floatingStore, actions, geometryActions, GEOMETRY } from '../stores/floatingStore.js';
-  import { connectionManager } from '../data/ConnectionManager.js';
+  import { onMount, onDestroy, tick } from 'svelte';
+  import { floatingStore, actions } from '../stores/floatingStore.js';
+  import { subscribe, unsubscribe, wsStatus } from '../data/wsClient.js';
+  import { symbolStore } from '../data/symbolStore.js';
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
@@ -12,18 +13,11 @@
   import { drawVolatilityOrb } from '../lib/viz/volatilityOrb.js';
   import { drawPriceFloat } from '../lib/viz/priceFloat.js';
   import { drawPriceDisplay } from '../lib/viz/priceDisplay.js';
-  import { drawVolatilityMetric } from '../lib/viz/volatilityMetric.js';
   import { drawPriceMarkers } from '../lib/viz/priceMarkers.js';
   import { drawHoverIndicator } from '../lib/viz/hoverIndicator.js';
   
-  // 🔧 UNIFIED SIZING: Import canvas sizing utilities
-  import { createCanvasSizingConfig, configureCanvasContext, configUtils } from '../utils/canvasSizing.js';
-  
-  // ✅ CONSOLIDATED: Import simplified ResizeHandle component
-  import ResizeHandle from './ResizeHandle.svelte';
-  
-  // ✅ CENTRALIZED: Import InteractionManager for single authority
-  import { interactionManager } from '../managers/InteractionManager.js';
+  // ✅ INTERACT.JS: Import interact.js for drag and resize
+  import interact from 'interactjs';
   
   // Component props
   export let id;
@@ -36,137 +30,59 @@
   let ctx;
   let dpr = 1;
   
-  // Clean unified interaction - using store state only
-  
-  // Production canvas and data state
-  let canvasData = {};
-  let config = {};
-  let state = {};
-  let isReady = false;
-  let display = null;
-  let isActive = false;
-  let currentZIndex = 1;
-  let showResizeHandles = false;
-  
   // Hover and marker state
   const hoverState = writable(null);
   let markers = [];
   
-  // SIMPLIFIED SOLUTION: Direct store access with no cyclical dependencies
+  // Declare variables to avoid ReferenceError
+  let displayPosition = position;
+  let config = {};
+  let state = {};
+  let isActive = false;
+  let zIndex = 1;
+  
+  // ✅ ULTRA-MINIMAL: Simple store binding - no reactive conflicts
   $: display = $floatingStore.displays?.get(id);
-  $: config = display?.config || {};
-  $: state = display?.state || {};
-  $: isReady = display?.ready || false;
-  $: isActive = display?.isActive || false;
-  $: currentZIndex = display?.zIndex || 1;
-  
-  // Store-derived position and size (Reference Canvas Pattern)
-  $: displayPosition = display?.position || position;
-  
-  // 🔧 UNIFIED SIZING: Canvas sizing configuration for FloatingDisplay
-  let canvasSizingConfig = null;
-  let normalizedConfig = {};
-  
-  // 🔧 UNIFIED SIZING: Use unified canvas sizing for display size
-  $: if (display && config) {
-    // 🔧 FIX: Use proper default container dimensions from GEOMETRY foundation
-    const containerSize = {
-      width: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width,   // 240px default width
-      height: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height  // 160px default height (includes header)
-    };
+  $: symbolData = $symbolStore[symbol];
+  $: {
+    displayPosition = display?.position || position;
+    config = display?.config || {};
+    state = symbolData?.state || {}; // ✅ FIXED: Get state from symbolStore (real market data)
+    isActive = display?.isActive || false;
+    zIndex = display?.zIndex || 1;
     
-    // Create unified canvas sizing configuration
-    canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
-      includeHeader: true,
-      padding: 8,
-      headerHeight: 40,
-      respectDpr: true
-    });
-    
-    // Update normalized config for rendering
-    normalizedConfig = canvasSizingConfig.config;
-    
-    // Canvas sizing applied silently
-  }
-  
-  // 🔧 UNIFIED SIZING: Calculate display size from canvas sizing config
-  // 🔧 CRITICAL FIX: Make displaySize reactive to position changes during resize
-  $: displaySize = canvasSizingConfig ? {
-    width: canvasSizingConfig.dimensions.container.width,
-    height: canvasSizingConfig.dimensions.container.height
-  } : {
-    width: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width,
-    height: GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height
-  };
-  
-  // 🔧 CRITICAL FIX: Alternative display size calculation for resize operations
-  // When resize is active, calculate size directly from display position changes
-  $: resizeDisplaySize = () => {
-    if (!$floatingStore.resizeState.isResizing || $floatingStore.resizeState.displayId !== id) {
-      return displaySize; // Use normal calculation
+    // 🔍 DEBUG: Log state changes to track data flow
+    if (state && Object.keys(state).length > 0) {
+      console.log(`[FLOATING_DISPLAY_DEBUG] State updated for ${symbol}:`, {
+        ready: state.ready,
+        hasPrice: !!state.currentPrice,
+        visualLow: state.visualLow,
+        visualHigh: state.visualHigh,
+        volatility: state.volatility
+      });
     }
-    
-    // During resize, calculate container size from position + stored config percentages
-    const display = $floatingStore.displays?.get(id);
-    if (!display) return displaySize;
-    
-    // Calculate actual canvas dimensions from stored percentages
-    const canvasWidth = (display.config.visualizationsContentWidth / 100) * 220; // Reference canvas width
-    const canvasHeight = (display.config.meterHeight / 100) * 120; // Reference canvas height
-    
-    // Convert to container dimensions (add header and padding)
-    return {
-      width: canvasWidth + 20, // Add padding/borders
-      height: canvasHeight + 40  // Add header height
-    };
-  };
-  
-  // 🔧 CRITICAL FIX: Use resize-aware size during operations
-  $: actualDisplaySize = $floatingStore.resizeState.isResizing && $floatingStore.resizeState.displayId === id 
-    ? resizeDisplaySize() 
-    : displaySize;
+  }
   
   // Update markers from store
   $: if ($markerStore !== undefined) {
     markers = $markerStore;
   }
   
-  // ✅ REMOVED: All competing collision detection and grid snapping functions
-  // These are now handled by store actions and InteractionManager
+  // Simple canvas dimensions
+  const REFERENCE_CANVAS = { width: 220, height: 120 };
+  let canvasWidth = REFERENCE_CANVAS.width;
+  let canvasHeight = REFERENCE_CANVAS.height;
   
-  // ✅ CENTRALIZED: Simplified mouse handling using InteractionManager
-  function handleMouseDown(e) {
-    if (e.button !== 0) return;
-    if (e.target.closest('.resize-handle')) return; // Let handles handle themselves
-    
-    // Set this display as active
-    actions.setActiveDisplay(id);
-    
-    const bounds = element.getBoundingClientRect();
-    
-    interactionManager.handleMouseDown(
-      id,
-      'drag',
-      null,
-      { x: e.clientX, y: e.clientY },
-      { 
-        position: { x: bounds.left, y: bounds.top },
-        size: { width: bounds.width, height: bounds.height }
-      }
-    );
-    
-    e.preventDefault();
-  }
+  // Simple yScale calculation
+  $: yScale = state?.visualLow && state?.visualHigh
+    ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([canvasHeight, 0])
+    : null;
   
-  // ✅ REMOVED: checkIfOnlyTouching - competing collision detection
-  // Now handled by store actions and InteractionManager
-  
-  // Production event handlers
+  // Event handlers
   function handleContextMenu(e) {
     e.preventDefault();
     actions.setActiveDisplay(id);
     
-    // Use unified context menu system
     const context = {
       type: e.target.closest('canvas') ? 'canvas' : 
             e.target.closest('.header') ? 'header' : 'workspace',
@@ -180,88 +96,6 @@
   function handleClose() {
     actions.removeDisplay(id);
   }
-  
-  // REFERENCE CANVAS PATTERN: Base reference dimensions
-  const REFERENCE_CANVAS = { width: 220, height: 120 };
-  
-  // Current canvas dimensions (can be resized)
-  let canvasWidth = REFERENCE_CANVAS.width;
-  let canvasHeight = REFERENCE_CANVAS.height;
-  
-  // 🔧 UNIFIED CONFIG HANDLING: Use configUtils for clean percentage/absolute detection
-  function scaleToCanvas(config, currentCanvasWidth, currentCanvasHeight) {
-    if (!config) return {};
-    
-    // 🔧 UNIFIED CONFIG HANDLING: Use configUtils for consistent value detection
-    const normalizedConfig = configUtils.normalizeConfig(config);
-    
-    return {
-      // Layout parameters - handle both percentage and absolute values
-      visualizationsContentWidth: normalizedConfig.visualizationsContentWidth <= 200
-        ? (normalizedConfig.visualizationsContentWidth / 100) * currentCanvasWidth
-        : normalizedConfig.visualizationsContentWidth || currentCanvasWidth,
-      meterHeight: normalizedConfig.meterHeight <= 200
-        ? (normalizedConfig.meterHeight / 100) * currentCanvasHeight
-        : normalizedConfig.meterHeight || currentCanvasHeight,
-      centralAxisXPosition: (config.centralAxisXPosition / 100) * currentCanvasWidth,
-      
-      // Price display parameters (always percentage-based)
-      priceFloatWidth: (config.priceFloatWidth / 100) * currentCanvasWidth,
-      priceFloatHeight: (config.priceFloatHeight / 100) * currentCanvasHeight,
-      priceFloatXOffset: (config.priceFloatXOffset / 100) * currentCanvasWidth,
-      priceFontSize: (config.priceFontSize / 100) * currentCanvasHeight,
-      priceHorizontalOffset: (config.priceHorizontalOffset / 100) * currentCanvasWidth,
-      priceDisplayPadding: (config.priceDisplayPadding / 100) * currentCanvasWidth,
-      
-      // Volatility parameters (always percentage-based)
-      volatilityOrbBaseWidth: (config.volatilityOrbBaseWidth / 100) * currentCanvasWidth,
-      
-      // Pass through non-scaled parameters unchanged
-      ...Object.fromEntries(
-        Object.entries(config).filter(([key]) => ![
-          'visualizationsContentWidth', 'meterHeight', 'centralAxisXPosition',
-          'priceFloatWidth', 'priceFloatHeight', 'priceFloatXOffset', 'priceFontSize',
-          'priceHorizontalOffset', 'priceDisplayPadding', 'volatilityOrbBaseWidth'
-        ].includes(key))
-      )
-    };
-  }
-  
-  // 🔧 CRITICAL FIX: Debounce scaledConfig during resize to prevent temporary overscaling
-  let resizeDebounceTimer = null;
-  let lastDisplaySize = { width: 0, height: 0 };
-  
-  $: if (displaySize && (displaySize.width !== lastDisplaySize.width || displaySize.height !== lastDisplaySize.height)) {
-    lastDisplaySize = { ...displaySize };
-    
-    // Clear existing timer
-    if (resizeDebounceTimer) {
-      clearTimeout(resizeDebounceTimer);
-    }
-    
-    // Debounce during resize operations
-    const isResizing = $floatingStore.resizeState?.isResizing;
-    if (isResizing) {
-      // During resize, wait a bit longer to settle
-      resizeDebounceTimer = setTimeout(() => {
-        scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
-      }, 50);
-    } else {
-      // Not resizing, update immediately
-      scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
-    }
-  }
-  
-  // Initialize scaledConfig
-  let scaledConfig = {};
-  
-  // FIXED: Use scaled config height for yScale calculation
-  $: yScale = state?.visualLow && state?.visualHigh && scaledConfig?.meterHeight
-    ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([scaledConfig.meterHeight, 0])
-    : null;
-  
-  // UNIFIED: Use config directly for rendering (no conversion needed)
-  $: renderingConfig = config;
   
   function handleCanvasMouseMove(event) {
     if (!yScale) return;
@@ -298,212 +132,197 @@
     }
   }
   
-  // 🔧 UNIFIED SIZING: Initialize canvas with unified sizing approach
+  // ✅ ULTRA-MINIMAL: Simple interact.js setup - no complex logic
   onMount(async () => {
     console.log(`[FLOATING_DISPLAY] Mounting display ${id} for symbol ${symbol}`);
+    console.log(`[FLOATING_DISPLAY] Canvas element available:`, !!canvas);
     
-    // Initialize canvas context
-    if (canvas) {
-      ctx = canvas.getContext('2d');
-      dpr = window.devicePixelRatio || 1;
+    // ✅ INTERACT.JS: Ultra-minimal setup - use event.rect directly
+    if (element) {
+      interact(element)
+        .draggable({
+          inertia: true,
+          modifiers: [
+            interact.modifiers.restrictEdges({
+              outer: { 
+                left: 0, 
+                top: 0, 
+                right: window.innerWidth - element.offsetWidth,
+                bottom: window.innerHeight - element.offsetHeight
+              }
+            })
+          ],
+          onmove: (event) => {
+            // ✅ DIRECT: Use interact.js rect directly - no position tracking
+            actions.moveDisplay(id, {
+              x: event.rect.left,
+              y: event.rect.top
+            });
+          },
+          onend: () => {
+            console.log(`[INTERACT_JS] Drag ended for display ${id}`);
+          }
+        })
+        .resizable({
+          edges: { left: true, right: true, bottom: true, top: true },
+          modifiers: [
+            interact.modifiers.restrictSize({
+              min: { width: 240, height: 160 }
+            })
+          ],
+          onmove: (event) => {
+            // ✅ FIXED: Update element style immediately for visual feedback
+            element.style.width = event.rect.width + 'px';
+            element.style.height = event.rect.height + 'px';
+            
+            // ✅ FIXED: Calculate correct position based on resize edge
+            const newPosition = {
+              x: event.rect.left,
+              y: event.rect.top
+            };
+            
+            // ✅ FIXED: Update both position and size
+            actions.moveDisplay(id, newPosition);
+            actions.resizeDisplay(id, event.rect.width, event.rect.height);
+          },
+          onend: () => {
+            console.log(`[INTERACT_JS] Resize ended for display ${id}`);
+          }
+        });
       
-      // Set default canvas size using reference dimensions
-      canvas.width = REFERENCE_CANVAS.width;
-      canvas.height = REFERENCE_CANVAS.height;
-      canvasWidth = REFERENCE_CANVAS.width;
-      canvasHeight = REFERENCE_CANVAS.height;
-      
-      console.log(`[CANVAS_INIT] Set initial canvas size: ${REFERENCE_CANVAS.width}x${REFERENCE_CANVAS.height}`);
+      // Click to activate
+      interact(element).on('tap', (event) => {
+        actions.setActiveDisplay(id);
+      });
     }
     
-    // Subscribe to data through ConnectionManager
+    // Subscribe to data using direct integration
     try {
       console.log(`[FLOATING_DISPLAY] Subscribing to data for ${symbol}`);
-      await connectionManager.subscribeCanvas(id, symbol);
+      
+      // Direct WebSocket subscription
+      subscribe(symbol);
+      
+      // Wait for symbol data to be ready
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error(`Timeout waiting for ${symbol} data`));
+        }, 10000);
+        
+        const unsubscribe = symbolStore.subscribe(symbols => {
+          if (symbols[symbol]?.ready) {
+            clearTimeout(timeout);
+            unsubscribe();
+            resolve();
+          }
+        });
+      });
+      
       console.log(`[FLOATING_DISPLAY] Successfully subscribed to ${symbol}`);
     } catch (error) {
       console.error(`[FLOATING_DISPLAY] Failed to subscribe to ${symbol}:`, error);
     }
     
-    const checkCanvas = setInterval(() => {
-      if (canvas && !ctx) {
-        ctx = canvas.getContext('2d');
-        dpr = window.devicePixelRatio || 1;
-        
-        // Ensure canvas has proper default size
-        if (canvas.width === 0 || canvas.height === 0) {
-          canvas.width = REFERENCE_CANVAS.width;
-          canvas.height = REFERENCE_CANVAS.height;
-          console.log(`[CANVAS_FIX] Reset canvas to reference size: ${REFERENCE_CANVAS.width}x${REFERENCE_CANVAS.height}`);
-        }
-        
-        clearInterval(checkCanvas);
-      }
-    }, 100);
-    
     return () => {
-      clearInterval(checkCanvas);
-      // Unsubscribe from data when component is destroyed
+      // ✅ CLEANUP: Simple interact.js cleanup
+      if (element) {
+        interact(element).unset();
+      }
       console.log(`[FLOATING_DISPLAY] Unsubscribing from data for ${symbol}`);
-      connectionManager.unsubscribeCanvas(id);
+      unsubscribe(symbol);
     };
   });
   
-  // 🔧 UNIFIED SIZING: Update canvas using unified sizing config
-  $: if (canvas && ctx && canvasSizingConfig) {
-    const currentWidth = canvas.width;
-    const currentHeight = canvas.height;
-    const { canvas: newCanvasDims } = canvasSizingConfig.dimensions;
+  // ✅ ULTRA-MINIMAL: Simple canvas update - no complex sizing
+  $: if (canvas && ctx && config) {
+    // Simple canvas sizing based on config
+    const newWidth = config.visualizationsContentWidth || canvasWidth;
+    const newHeight = config.meterHeight || canvasHeight;
     
-    // STABILITY: Add threshold to prevent micro-updates and infinite loops
-    const widthThreshold = 5; // Minimum 5px change required
-    const heightThreshold = 5; // Minimum 5px change required
-    const widthDiff = Math.abs(currentWidth - newCanvasDims.width);
-    const heightDiff = Math.abs(currentHeight - newCanvasDims.height);
-    
-    // Canvas resize check performed
-    
-    if (widthDiff > widthThreshold || heightDiff > heightThreshold) {
-      updateCanvasSizeUnified(newCanvasDims.width, newCanvasDims.height);
+    // Only update if significant change
+    if (Math.abs(canvas.width - newWidth) > 5 || Math.abs(canvas.height - newHeight) > 5) {
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      canvasWidth = newWidth;
+      canvasHeight = newHeight;
     }
   }
   
-  function updateCanvasSizeUnified(newWidth, newHeight) {
-    if (!canvas || !ctx) return;
-    
-    // 🔧 UNIFIED SIZING: Use canvas sizing configuration for consistent updates
-    if (canvasSizingConfig) {
-      // Configure canvas context with unified sizing
-      configureCanvasContext(ctx, canvasSizingConfig.dimensions);
-      
-      // Update canvas dimensions from unified config
-      const { canvas: canvasDims } = canvasSizingConfig.dimensions;
-      canvas.width = canvasDims.width;
-      canvas.height = canvasDims.height;
-      
-      console.log(`[CANVAS_UPDATE_UNIFIED] Setting canvas size from unified config: ${canvasDims.width}x${canvasDims.height}`, {
-        canvasDimensions: canvasDims,
-        containerDimensions: canvasSizingConfig.dimensions.container,
-        normalizedConfig: canvasSizingConfig.config
-      });
+  // ✅ FIXED: Initialize canvas when it becomes available (reactive to state.ready)
+  $: if (state?.ready && canvas && !ctx) {
+    console.log(`[FLOATING_DISPLAY] Canvas becoming available, initializing context`);
+    ctx = canvas.getContext('2d');
+    console.log(`[FLOATING_DISPLAY] Canvas context created:`, !!ctx);
+    if (ctx) {
+      dpr = window.devicePixelRatio || 1;
+      canvas.width = REFERENCE_CANVAS.width;
+      canvas.height = REFERENCE_CANVAS.height;
+      canvasWidth = REFERENCE_CANVAS.width;
+      canvasHeight = REFERENCE_CANVAS.height;
+      console.log(`[FLOATING_DISPLAY] Canvas initialized with dimensions: ${canvas.width}x${canvas.height}`);
     } else {
-      // Fallback to manual sizing
-      const safeWidth = Math.min(2000, Math.max(100, newWidth));
-      const safeHeight = Math.min(2000, Math.max(80, newHeight));
-      
-      canvas.width = safeWidth;
-      canvas.height = safeHeight;
-      
-      if (dpr !== 1) {
-        ctx.scale(dpr, dpr);
-      }
+      console.error(`[FLOATING_DISPLAY] Failed to create canvas 2D context`);
     }
   }
   
-  // 🔧 PERFORMANCE OPTIMIZATION: Add debouncing for reactive rendering
+  // ✅ ULTRA-MINIMAL: Simple rendering - no complex dependencies
   let renderFrame;
-  let lastRenderTime = 0;
-  let renderDebounceTimer = null;
-  let lastRenderState = null;
   
-  function render(timestamp = 0) {
+  function render() {
+    console.log(`[RENDER_DEBUG] Render called - ctx: ${!!ctx}, state: ${!!state}, config: ${!!config}, canvas: ${!!canvas}`);
+    console.log(`[RENDER_DEBUG] State visualLow: ${state?.visualLow}, visualHigh: ${state?.visualHigh}, yScale: ${!!yScale}`);
+    console.log(`[RENDER_DEBUG] Canvas dimensions: ${canvas?.width}x${canvas?.height}`);
+    
     if (!ctx || !state || !config || !canvas) {
+      console.log(`[RENDER_DEBUG] Early return - missing requirements`);
       return;
     }
     
-    // 🔧 STEP 1: CLEAR CANVAS AND PREPARE FOR VISUALIZATIONS
-    
-    // Clear canvas completely
+    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 🔧 COMMENTED OUT: Test shapes - visualizations are working, remove test artifacts
-    // Draw test rectangle (should be visible)
-    // ctx.fillStyle = '#ff0000';
-    // ctx.fillRect(10, 10, 50, 30);
-    // console.log(`[RENDER_PIPELINE] Drew test rectangle at (10, 10) with size (50, 30)`);
+    console.log(`[RENDER_DEBUG] Canvas cleared and background filled`);
     
-    // Draw test text (should be visible)
-    // ctx.fillStyle = '#ffffff';
-    // ctx.font = '12px Arial';
-    // ctx.fillText('TEST TEXT', 10, 60);
-    // console.log(`[RENDER_PIPELINE] Drew test text at (10, 60)`);
-    
-    // 🔧 STEP 2: TEST YSCALE CALCULATION
-    if (state.visualLow && state.visualHigh && scaledConfig?.meterHeight) {
-      const renderYScale = scaleLinear().domain([state.visualLow, state.visualHigh]).range([scaledConfig.meterHeight, 0]);
-      
-      // 🔧 STEP 3: TEST VISUALIZATION FUNCTIONS
+    // Draw visualizations
+    if (state.visualLow && state.visualHigh && yScale) {
+      console.log(`[RENDER_DEBUG] Starting to draw visualizations`);
       try {
-        drawMarketProfile(ctx, scaledConfig, state, renderYScale);
-        drawDayRangeMeter(ctx, scaledConfig, state, renderYScale);
-        drawPriceFloat(ctx, scaledConfig, state, renderYScale);
-        drawPriceDisplay(ctx, scaledConfig, state, renderYScale, scaledConfig.visualizationsContentWidth);
+        console.log(`[RENDER_DEBUG] Drawing market profile`);
+        drawMarketProfile(ctx, config, state, yScale);
+        console.log(`[RENDER_DEBUG] Drawing day range meter`);
+        drawDayRangeMeter(ctx, config, state, yScale);
+        console.log(`[RENDER_DEBUG] Drawing volatility orb`);
+        drawVolatilityOrb(ctx, config, state, canvasWidth, canvasHeight);
+        console.log(`[RENDER_DEBUG] Drawing price float`);
+        drawPriceFloat(ctx, config, state, yScale);
+        console.log(`[RENDER_DEBUG] Drawing price display`);
+        drawPriceDisplay(ctx, config, state, yScale, canvasWidth);
+        console.log(`[RENDER_DEBUG] Drawing price markers`);
+        drawPriceMarkers(ctx, config, state, yScale, markers);
+        console.log(`[RENDER_DEBUG] Drawing hover indicator`);
+        drawHoverIndicator(ctx, config, state, yScale, $hoverState);
+        console.log(`[RENDER_DEBUG] All visualizations drawn successfully`);
       } catch (error) {
-        console.error(`[RENDER_PIPELINE] Error in visualization functions:`, error);
+        console.error(`[RENDER] Error in visualization functions:`, error);
       }
-    }
-    
-    // 🔧 STEP 4: TEST HOVER AND MARKERS
-    try {
-      drawPriceMarkers(ctx, scaledConfig, state, yScale, markers); // Use proper yScale
-      drawHoverIndicator(ctx, scaledConfig, state, yScale, $hoverState); // Use proper yScale
-    } catch (error) {
-      console.error(`[RENDER_PIPELINE] Error in hover/markers:`, error);
-    }
-    
-    //console.log(`[RENDER_PIPELINE] Render frame completed - should see test rectangle and text`);
-  }
-  
-  // 🔧 SIMPLIFIED TRIGGER: Remove complex dependencies that block rendering
-  $: if (ctx && state && config) {
-    // 🔧 SIMPLIFIED TRIGGER: Remove isReady and yScale from critical path
-    // They should be true but don't block rendering if data is available
-    if (state.visualLow && state.visualHigh) {
-      // Calculate yScale on-demand if not available
-      const currentYScale = yScale || (
-        scaledConfig?.meterHeight 
-          ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([scaledConfig.meterHeight, 0])
-          : null
-      );
-      
-      if (currentYScale) {
-        if (renderFrame) {
-          cancelAnimationFrame(renderFrame);
-        }
-        
-        // Override yScale for this render call
-        const originalYScale = yScale;
-        yScale = currentYScale;
-        render();
-        yScale = originalYScale;
-      }
+    } else {
+      console.log(`[RENDER_DEBUG] Cannot draw visualizations - missing requirements`);
     }
   }
   
-  // 🔧 FIXED: Show resize handles on hover AND during active interaction using store state only
-  $: showResizeHandles = $floatingStore.resizeState.isResizing || 
-                         $floatingStore.resizeState.displayId === id ||
-                         $floatingStore.draggedItem?.id === id ||
-                         // 🔧 CRITICAL FIX: Show handles when this display is active
-                         $floatingStore.activeDisplayId === id;
-  
-  // Resize handle visibility calculated
-  
-  onDestroy(() => {
-    // ✅ CENTRALIZED: Use InteractionManager for cleanup instead of direct listeners
-    interactionManager.cleanup();
-    
-    // 🔧 PERFORMANCE OPTIMIZATION: Clean up render frame and timers
+  // ✅ ULTRA-MINIMAL: Simple render trigger
+  $: if (state && config && yScale) {
     if (renderFrame) {
       cancelAnimationFrame(renderFrame);
     }
-    if (renderDebounceTimer) {
-      clearTimeout(renderDebounceTimer);
-    }
-    if (resizeDebounceTimer) {
-      clearTimeout(resizeDebounceTimer);
+    renderFrame = requestAnimationFrame(render);
+  }
+  
+  onDestroy(() => {
+    if (renderFrame) {
+      cancelAnimationFrame(renderFrame);
     }
   });
 </script>
@@ -511,21 +330,9 @@
 <div 
   bind:this={element}
   class="enhanced-floating"
-  class:hovered={showResizeHandles}
   class:active={isActive}
-  style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: {actualDisplaySize.width}px; height: {actualDisplaySize.height}px; z-index: {currentZIndex};"
+  style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: 240px; height: 160px; z-index: {zIndex};"
   on:contextmenu={handleContextMenu}
-  on:mousedown={handleMouseDown}
-  on:mouseenter={() => {
-    // Set this display as active when hovered (store-based hover)
-    actions.setActiveDisplay(id);
-  }}
-  on:mouseleave={() => {
-    // Clear active display when not hovering (store-based hover)
-    if ($floatingStore.activeDisplayId === id) {
-      actions.setActiveDisplay(null);
-    }
-  }}
   data-display-id={id}
 >
   <!-- Header -->
@@ -541,7 +348,7 @@
   
   <!-- Canvas Content -->
   <div class="content">
-    {#if isReady}
+    {#if state?.ready}
       <canvas 
         bind:this={canvas}
         on:mousemove={handleCanvasMouseMove}
@@ -555,23 +362,10 @@
       </div>
     {/if}
   </div>
-  
-  <!-- ✅ FIXED: Use simplified ResizeHandle components with InteractionManager -->
-  {#if showResizeHandles}
-    <ResizeHandle handleType="nw" isVisible={true} displayId={id} />
-    <ResizeHandle handleType="ne" isVisible={true} displayId={id} />
-    <ResizeHandle handleType="se" isVisible={true} displayId={id} />
-    <ResizeHandle handleType="sw" isVisible={true} displayId={id} />
-    
-    <ResizeHandle handleType="n" isVisible={true} displayId={id} />
-    <ResizeHandle handleType="s" isVisible={true} displayId={id} />
-    <ResizeHandle handleType="e" isVisible={true} displayId={id} />
-    <ResizeHandle handleType="w" isVisible={true} displayId={id} />
-  {/if}
 </div>
 
 <style>
-  /* WORKING: Exact CSS from CleanFloatingElement */
+  /* ✅ ULTRA-MINIMAL: Clean CSS - no resize cursor complexity */
   .enhanced-floating {
     position: fixed;
     background: #1f2937;
@@ -583,7 +377,7 @@
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
   
-  .enhanced-floating:hovered {
+  .enhanced-floating:hover {
     border-color: #4f46e5;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   }
@@ -664,7 +458,6 @@
     background-color: #111827;
     width: 100%;
     height: 100%;
-    /* 🔧 CRITICAL FIX: Remove object-fit to prevent CSS/JS dimension conflicts */
   }
   
   .loading {
@@ -689,111 +482,5 @@
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-  }
-  
-  /* ✅ ENHANCED: Improved resize handle CSS for better visual feedback */
-  .resize-handle {
-    position: absolute;
-    background: #4f46e5;
-    border: 1px solid #6366f1;
-    border-radius: 2px;
-    opacity: 0;
-    transition: opacity 0.2s ease, background-color 0.2s ease;
-    z-index: 1000; /* ✅ Ensure handles are on top */
-  }
-  
-  .enhanced-floating:hovered .resize-handle,
-  .resize-handle:hover {
-    opacity: 1;
-  }
-  
-  .resize-handle:hover {
-    background: #6366f1;
-    transform: scale(1.2); /* ✅ Enhanced hover feedback */
-  }
-  
-  /* ✅ FIXED: Keep handles within container bounds for better UX */
-  .resize-handle.nw {
-    top: 0px;
-    left: 0px;
-    width: 10px;
-    height: 10px;
-    cursor: nw-resize;
-  }
-  
-  .resize-handle.ne {
-    top: 0px;
-    right: 0px;
-    width: 10px;
-    height: 10px;
-    cursor: ne-resize;
-  }
-  
-  .resize-handle.se {
-    bottom: 0px;
-    right: 0px;
-    width: 10px;
-    height: 10px;
-    cursor: se-resize;
-  }
-  
-  .resize-handle.sw {
-    bottom: 0px;
-    left: 0px;
-    width: 10px;
-    height: 10px;
-    cursor: sw-resize;
-  }
-  
-  .resize-handle.n {
-    top: 0px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 10px;
-    height: 10px;
-    cursor: n-resize;
-  }
-  
-  .resize-handle.n:hover {
-    transform: translateX(-50%) scale(1.2);
-  }
-  
-  .resize-handle.s {
-    bottom: 0px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 10px;
-    height: 10px;
-    cursor: s-resize;
-  }
-  
-  .resize-handle.s:hover {
-    transform: translateX(-50%) scale(1.2);
-  }
-  
-  .resize-handle.e {
-    top: 50%;
-    right: 0px;
-    transform: translateY(-50%);
-    width: 10px;
-    height: 10px;
-    cursor: e-resize;
-  }
-  
-  .resize-handle.e:hover {
-    transform: translateY(-50%) scale(1.2);
-  }
-  
-  .resize-handle.w {
-    top: 50%;
-    left: 0px;
-    transform: translateY(-50%);
-    width: 10px;
-    height: 10px;
-    cursor: w-resize;
-  }
-  
-  .resize-handle.w:hover {
-    transform: translateY(-50%) scale(1.2);
   }
 </style>

@@ -219,3 +219,83 @@ Our custom interaction code is like building a custom car engine when Ferrari al
 ---
 
 *Use this document as source of truth during execution. When confusion arises, return to this plan rather than generating additional analysis docs.*
+
+## 🗑️ ADDITIONAL FILES IDENTIFIED FOR REMOVAL
+
+Based on comprehensive audit, following additional files should be removed after interact.js overhaul:
+
+### **Definite Removals (8 files):**
+1. `src/components/shared/FloatingPanelWithInteract.svelte` - Alternative panel implementation using interact.js wrapper
+2. `src/components/shared/InteractWrapper.svelte` - Unnecessary abstraction layer around interact.js
+3. `src/components/shared/InteractTestPanel.svelte` - Test component for interact wrapper
+4. `src/components/CleanFloatingElement.svelte` - Custom drag/resize implementation (200+ lines)
+5. `src/components/FloatingDisplay-simplified.svelte` - Old version with custom interactions + resize handles
+6. `src/components/shared/FloatingPanel.svelte` - Duplicate of main FloatingPanel.svelte using old useDraggable
+7. `src/utils/positionPersistence.js` - Used only by removed wrapper components
+8. `src/stores/floatingStore-simplified.js` - Referenced by FloatingDisplay-simplified.svelte (not found)
+
+### **File Status Analysis:**
+- **CleanFloatingElement.svelte**: ❌ REDUNDANT - Custom interaction system (200+ lines) with collision detection, grid snapping, manual resize handles
+- **shared/FloatingPanel.svelte**: ❌ REDUNDANT - Uses old useDraggable.js composable that no longer exists
+- **positionPersistence.js**: ❌ REDUNDANT - Only used by InteractWrapper and old components
+
+### **Total Code Reduction:**
+- **Removing ~800+ lines** of redundant custom interaction code
+- **Eliminating 8 competing interaction implementations**
+- **Consolidating to single interact.js authority**
+
+**The interact.js overhaul achieves:**
+- ✅ 1000+ lines → ~50 lines (95% code reduction)
+- ✅ Eliminates all competing event systems
+- ✅ Replaces broken resize with working solution
+- ✅ Provides inertia, mobile support, and proven reliability
+
+## 🧹 **POST-OVERHAUL CLEANUP: ULTRA-MINIMAL IMPLEMENTATION**
+
+### **Decision Point: Further Simplification Opportunity**
+After debugging remaining issues, identified significant over-complexity in FloatingDisplay.svelte that was causing bugs:
+
+**Current Problems:**
+- Multiple position tracking systems (`position`, `displayPosition`, `localPosition`) - competing authorities
+- Complex canvas sizing pipeline with multiple scaling functions and reactive cascades
+- Mixed concerns (rendering + interaction + data management) in reactive cycles
+- Over-engineered canvas sizing utilities conflicting with interact.js
+
+**Solution Chosen: Option A - Ultra-Minimal Implementation**
+- Remove all canvas sizing complexity (150+ lines)
+- Remove all position tracking conflicts (50+ lines)  
+- Remove all reactive override cycles (30+ lines)
+- Remove all debounce logic and manual constraints (20+ lines)
+- Replace with simple interact.js event-driven approach (~30 lines total)
+
+**Expected Additional Reduction:**
+- **From**: ~300 lines of complex interaction code
+- **To**: ~30 lines of interact.js integration
+- **Total Reduction**: 90% additional code elimination
+- **Result**: Ultra-reliable, maintainable floating elements
+
+**Implementation Pattern:**
+```javascript
+// Ultra-minimal interact.js setup
+onMount(() => {
+  interact(element)
+    .draggable({
+      onmove: (event) => {
+        actions.moveDisplay(id, {
+          x: event.rect.left,
+          y: event.rect.top
+        });
+      }
+    })
+    .resizable({
+      onmove: (event) => {
+        actions.resizeDisplay(id, event.rect.width, event.rect.height);
+      }
+    });
+});
+
+// Simple store binding - no reactive conflicts
+$: { position, config, state, isActive, zIndex } = display || {};
+```
+
+This eliminates the root causes of drag/resize bugs while achieving maximum simplicity and reliability.

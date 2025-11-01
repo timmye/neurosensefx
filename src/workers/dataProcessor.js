@@ -16,10 +16,12 @@ function convertValue(value, digits) {
 }
 
 self.onmessage = (event) => {
+    console.log('[WORKER_DEBUG] Received message:', event.data);
     const { type, payload } = event.data;
     try {
         switch (type) {
             case 'init':
+                console.log('[WORKER_DEBUG] Initializing with payload:', payload);
                 initialize(payload);
                 break;
             case 'tick':
@@ -28,6 +30,8 @@ self.onmessage = (event) => {
             case 'updateConfig':
                 updateConfig(payload);
                 break;
+            default:
+                console.warn('[WORKER_DEBUG] Unknown message type:', type);
         }
     } catch (error) {
         console.error('[WORKER_DEBUG] FATAL: Uncaught error in onmessage handler:', error);
@@ -40,6 +44,8 @@ function initialize(payload) {
     const initialPrice = convertValue(payload.initialPrice, localDigits);
 
     state = {
+        ready: true,
+        hasPrice: !!initialPrice,
         currentPrice: initialPrice,
         midPrice: convertValue(payload.todaysOpen, localDigits),
         projectedAdrHigh: convertValue(payload.projectedAdrHigh, localDigits),
@@ -199,8 +205,13 @@ function recalculateVisualRange() {
 }
 
 function postStateUpdate() {
+    console.log('[WORKER_DEBUG] Posting state update, state.ready:', state.ready);
+    console.log('[WORKER_DEBUG] State hasPrice:', state.hasPrice);
+    console.log('[WORKER_DEBUG] State sample:', { ready: state.ready, hasPrice: state.hasPrice, currentPrice: state.currentPrice });
+    
     const result = VisualizationStateSchema.safeParse(state);
     if (result.success) {
+        console.log('[WORKER_DEBUG] Schema validation passed, posting message');
         self.postMessage({
             type: 'stateUpdate',
             payload: { newState: result.data }

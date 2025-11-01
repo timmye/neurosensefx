@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { floatingStore, actions, displays, icons, panels } from './stores/floatingStore.js';
   import { symbolStore } from './data/symbolStore.js';
-  import { connectionManager } from './data/ConnectionManager.js';
+  import { subscribe, unsubscribe } from './data/wsClient.js';
   import FloatingDisplay from './components/FloatingDisplay.svelte';
   import FloatingIcon from './components/FloatingIcon.svelte';
   import UnifiedContextMenu from './components/UnifiedContextMenu.svelte';
@@ -59,7 +59,23 @@
         // Subscribe to data after a tick to ensure display is created
         setTimeout(async () => {
           try {
-            await connectionManager.subscribeCanvas(displayId, symbols[0]);
+            // Direct WebSocket subscription
+            subscribe(symbols[0]);
+            
+            // Wait for symbol data to be ready
+            await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                reject(new Error(`Timeout waiting for ${symbols[0]} data`));
+              }, 10000);
+              
+              const unsubscribe = symbolStore.subscribe(symbols => {
+                if (symbols[symbols[0]]?.ready) {
+                  clearTimeout(timeout);
+                  unsubscribe();
+                  resolve();
+                }
+              });
+            });
           } catch (error) {
             console.error('Failed to subscribe new display to data:', error);
           }
@@ -140,7 +156,23 @@
       
       // Subscribe to data
       try {
-        await connectionManager.subscribeCanvas(displayId, symbols[0]);
+        // Direct WebSocket subscription
+        subscribe(symbols[0]);
+        
+        // Wait for symbol data to be ready
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error(`Timeout waiting for ${symbols[0]} data`));
+          }, 10000);
+          
+          const unsubscribe = symbolStore.subscribe(symbols => {
+            if (symbols[symbols[0]]?.ready) {
+              clearTimeout(timeout);
+              unsubscribe();
+              resolve();
+            }
+          });
+        });
       } catch (error) {
         console.error('Failed to subscribe display to data:', error);
       }

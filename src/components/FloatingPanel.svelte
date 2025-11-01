@@ -1,155 +1,143 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { floatingStore, actions, panels, icons } from '../stores/floatingStore.js';
+  import { floatingStore, actions } from '../stores/floatingStore.js';
   
+  // ✅ INTERACT.JS: Import interact.js for drag
+  import interact from 'interactjs';
+  
+  // Component props
   export let id;
   export let type;
   export let position = { x: 50, y: 50 };
   export let config = {};
-  export let alwaysOnTop = true;
-  export let title = '';
+  export let title = type; // Add title prop with fallback to type
   
   // Local state
   let element;
-  let isAnimating = false;
+  let isVisible = true;
+  let panelPosition = position; // Declare panelPosition
+  let isActive = false;
+  let zIndex = 1000;
   
-  // Store subscriptions
-  $: panel = $panels.get(id);
-  $: isActive = panel?.isActive || false;
-  $: isVisible = panel?.isVisible !== false;
-  $: currentZIndex = panel?.zIndex || 1000;
+  // ✅ ULTRA-MINIMAL: Simple store binding
+  $: panel = $floatingStore.panels?.get(id);
+  $: {
+    panelPosition = panel?.position || position;
+    isActive = panel?.isActive || false;
+    zIndex = panel?.zIndex || 1000;
+  }
   
-  // Check if this panel is linked to an expanded icon
-  $: linkedIcon = Array.from($icons.values()).find(icon => icon.panelId === id && icon.isExpanded);
-  $: isExpanded = linkedIcon?.isExpanded || false;
-  
-  // Direct event handlers
-  function handleMouseDown(e) {
-    if (e.button !== 0) return; // Left click only
-    
-    const rect = element.getBoundingClientRect();
-    const offset = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
-    
-    actions.startDrag('panel', id, offset);
+  // Event handlers
+  function handleContextMenu(e) {
+    e.preventDefault();
     actions.setActivePanel(id);
     
-    // Global mouse events for dragging
-    document.addEventListener('mousemove', handleGlobalMouseMove);
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-  }
-  
-  function handleGlobalMouseMove(e) {
-    // ✅ FIX: Check if draggedItem exists and has offset before accessing
-    const draggedItem = $floatingStore.draggedItem;
-    if (!draggedItem || !draggedItem.offset) {
-      console.warn('[FLOATING_PANEL] No valid draggedItem or offset found, skipping move');
-      return;
-    }
-    
-    const newPosition = {
-      x: e.clientX - draggedItem.offset.x,
-      y: e.clientY - draggedItem.offset.y
+    const context = {
+      type: 'panel',
+      targetId: id,
+      targetType: 'panel'
     };
     
-    // Simple bounds checking
-    newPosition.x = Math.max(0, Math.min(newPosition.x, window.innerWidth - 300));
-    newPosition.y = Math.max(0, Math.min(newPosition.y, window.innerHeight - 200));
-    
-    actions.updateDrag(newPosition);
+    actions.showUnifiedContextMenu(e.clientX, e.clientY, context);
   }
-  
-  function handleGlobalMouseUp() {
-    actions.endDrag();
-    // ✅ FIX: Ensure proper cleanup of global event listeners
-    document.removeEventListener('mousemove', handleGlobalMouseMove);
-    document.removeEventListener('mouseup', handleGlobalMouseUp);
-  }
-  
-  // ✅ FIX: Add onDestroy cleanup to prevent memory leaks and event conflicts
-  onDestroy(() => {
-    // Clean up any remaining global event listeners
-    document.removeEventListener('mousemove', handleGlobalMouseMove);
-    document.removeEventListener('mouseup', handleGlobalMouseUp);
-  });
   
   function handleClose() {
     actions.removePanel(id);
   }
   
-  function handleCollapse() {
-    // Find linked icon and collapse it
-    const icon = Array.from($icons.values()).find(icon => icon.panelId === id);
-    if (icon) {
-      actions.collapseIcon(icon.id);
-    } else {
-      // Fallback: just hide the panel
-      floatingStore.update(store => {
-        const newPanels = new Map(store.panels);
-        const panel = newPanels.get(id);
-        if (panel) {
-          newPanels.set(id, { ...panel, isVisible: false });
-        }
-        return { ...store, panels: newPanels };
+  // ✅ ULTRA-MINIMAL: Simple interact.js setup
+  onMount(() => {
+    console.log(`[FLOATING_PANEL] Mounting panel ${id} of type ${type}`);
+    
+    // ✅ INTERACT.JS: Ultra-minimal setup
+    if (element) {
+      interact(element)
+        .draggable({
+          inertia: true,
+          modifiers: [
+            interact.modifiers.restrictEdges({
+              outer: { 
+                left: 0, 
+                top: 0, 
+                right: window.innerWidth - element.offsetWidth,
+                bottom: window.innerHeight - element.offsetHeight
+              }
+            })
+          ],
+          onmove: (event) => {
+            // ✅ DIRECT: Use interact.js rect directly
+            actions.movePanel(id, {
+              x: event.rect.left,
+              y: event.rect.top
+            });
+          },
+          onend: () => {
+            console.log(`[INTERACT_JS] Drag ended for panel ${id}`);
+          }
+        });
+      
+      // Click to activate
+      interact(element).on('tap', (event) => {
+        actions.setActivePanel(id);
       });
     }
-  }
+    
+    return () => {
+      // ✅ CLEANUP: Simple interact.js cleanup
+      if (element) {
+        interact(element).unset();
+      }
+    };
+  });
   
-  function handleMinimize() {
-    // Legacy minimize - just collapse to icon
-    handleCollapse();
+  // Show/hide based on visibility
+  $: if (panel) {
+    isVisible = panel.isVisible !== false;
   }
 </script>
 
 {#if isVisible}
   <div 
     bind:this={element}
-    class="floating-panel"
+    class="enhanced-floating-panel"
     class:active={isActive}
-    class:always-on-top={alwaysOnTop}
-    style="left: {panel?.position.x || position.x}px; top: {panel?.position.y || position.y}px; z-index: {currentZIndex};"
-    on:mousedown={handleMouseDown}
+    style="left: {panelPosition.x}px; top: {panelPosition.y}px; z-index: {zIndex};"
+    on:contextmenu={handleContextMenu}
     data-panel-id={id}
   >
-    <!-- Header -->
     <div class="panel-header">
-      <span class="panel-title">{title || type}</span>
-      <div class="panel-controls">
-        <button class="panel-btn minimize-btn" on:click={handleMinimize}>_</button>
-        <button class="panel-btn close-btn" on:click={handleClose}>×</button>
-      </div>
+      <div class="panel-title">{title}</div>
+      <button class="close-btn" on:click={handleClose}>×</button>
     </div>
     
-    <!-- Content -->
     <div class="panel-content">
-      <slot />
+      <slot></slot>
     </div>
   </div>
 {/if}
 
 <style>
-  .floating-panel {
+  .enhanced-floating-panel {
     position: fixed;
     background: #1f2937;
-    border: 1px solid #4b5563;
-    border-radius: 6px;
-    cursor: move;
+    border: 2px solid #374151;
+    border-radius: 8px;
+    cursor: grab;
     user-select: none;
-    min-width: 280px;
-    min-height: 200px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    min-width: 250px;
+    min-height: 300px;
   }
   
-  .floating-panel.always-on-top {
-    z-index: 1000 !important;
-  }
-  
-  .floating-panel.active {
+  .enhanced-floating-panel:hover {
     border-color: #4f46e5;
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3), 0 8px 32px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+  
+  .enhanced-floating-panel.active {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
   }
   
   .panel-header {
@@ -159,52 +147,41 @@
     padding: 8px 12px;
     background: #374151;
     border-bottom: 1px solid #4b5563;
-    cursor: move;
+    cursor: grab;
     border-radius: 6px 6px 0 0;
   }
   
   .panel-title {
+    font-weight: bold;
     color: #d1d5db;
     font-size: 14px;
-    font-weight: 500;
+    font-family: 'Courier New', monospace;
   }
   
-  .panel-controls {
-    display: flex;
-    gap: 4px;
-  }
-  
-  .panel-btn {
+  .close-btn {
     background: none;
     border: none;
-    color: #9ca3af;
+    color: #ef4444;
     cursor: pointer;
-    font-size: 14px;
-    padding: 2px 6px;
-    width: 20px;
-    height: 20px;
+    font-size: 18px;
+    padding: 0;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 3px;
-    transition: background-color 0.2s ease, color 0.2s ease;
-  }
-  
-  .panel-btn:hover {
-    background: rgba(156, 163, 175, 0.1);
-    color: #d1d5db;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
   }
   
   .close-btn:hover {
     background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
   }
   
   .panel-content {
     padding: 12px;
     background: #111827;
     border-radius: 0 0 6px 6px;
-    overflow: auto;
-    max-height: 400px;
+    min-height: 250px;
   }
 </style>

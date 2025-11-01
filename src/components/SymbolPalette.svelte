@@ -3,8 +3,7 @@
   import { actions, panels, icons } from '../stores/floatingStore.js';
   import FloatingPanel from './FloatingPanel.svelte';
   import { symbolStore } from '../data/symbolStore.js';
-  import { availableSymbols, subscribe } from '../data/wsClient.js';
-  import { connectionManager } from '../data/ConnectionManager.js';
+  import { availableSymbols, subscribe, unsubscribe } from '../data/wsClient.js';
   import { FuzzySearch, debounce } from '../utils/fuzzySearch.js';
   
   let symbols = [];
@@ -179,7 +178,24 @@
     
     // Then subscribe to data
     try {
-      await connectionManager.subscribeCanvas(displayId, symbol);
+      // Direct WebSocket subscription
+      subscribe(symbol);
+      
+      // Wait for symbol data to be ready
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error(`Timeout waiting for ${symbol} data`));
+        }, 10000);
+        
+        const unsubscribe = symbolStore.subscribe(symbols => {
+          if (symbols[symbol]?.ready) {
+            clearTimeout(timeout);
+            unsubscribe();
+            resolve();
+          }
+        });
+      });
+      
       console.log('Successfully subscribed display to data');
       
       // Clear search after successful creation

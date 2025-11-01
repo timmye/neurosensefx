@@ -132,6 +132,9 @@ const { subscribe, set, update } = writable({});
 const workers = new Map();
 
 function createNewSymbol(symbol, dataPackage) {
+    console.log('[SYMBOL_STORE_DEBUG] Creating new symbol:', symbol);
+    console.log('[SYMBOL_STORE_DEBUG] Data package:', dataPackage);
+    
     const packageResult = SymbolDataPackageSchema.safeParse(dataPackage);
     if (!packageResult.success) {
         console.error('[symbolStore] Invalid data package for new symbol:', packageResult.error);
@@ -141,9 +144,11 @@ function createNewSymbol(symbol, dataPackage) {
 
     update(symbols => {
         if (symbols[symbol]) {
+            console.log('[SYMBOL_STORE_DEBUG] Symbol already exists:', symbol);
             return symbols;
         }
 
+        console.log('[SYMBOL_STORE_DEBUG] Creating worker for:', symbol);
         const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
         worker.onmessage = ({ data }) => handleWorkerMessage(symbol, data);
         
@@ -155,6 +160,7 @@ function createNewSymbol(symbol, dataPackage) {
             }
         };
 
+        console.log('[SYMBOL_STORE_DEBUG] Sending init payload:', initPayload);
         worker.postMessage(initPayload);
         workers.set(symbol, worker);
 
@@ -163,16 +169,23 @@ function createNewSymbol(symbol, dataPackage) {
             state: null,
             ready: false 
         };
+        
+        console.log('[SYMBOL_STORE_DEBUG] Symbol created with ready=false:', symbols[symbol]);
         return { ...symbols };
     });
 }
 
 function handleWorkerMessage(symbol, data) {
+    console.log('[SYMBOL_STORE_DEBUG] Worker message for:', symbol, 'type:', data.type);
+    console.log('[SYMBOL_STORE_DEBUG] Worker message payload:', data.payload);
+    
     const { type, payload } = data;
     if (type === 'stateUpdate') {
         update(symbols => {
             const existingSymbol = symbols[symbol];
             if (existingSymbol) {
+                console.log('[SYMBOL_STORE_DEBUG] Updating symbol state, setting ready=true for:', symbol);
+                console.log('[SYMBOL_STORE_DEBUG] New state payload:', payload.newState);
                 return {
                     ...symbols,
                     [symbol]: {
@@ -181,9 +194,13 @@ function handleWorkerMessage(symbol, data) {
                         ready: true
                     }
                 };
+            } else {
+                console.error('[SYMBOL_STORE_DEBUG] Symbol not found for update:', symbol);
             }
             return symbols;
         });
+    } else {
+        console.warn('[SYMBOL_STORE_DEBUG] Unknown worker message type:', type);
     }
 }
 
