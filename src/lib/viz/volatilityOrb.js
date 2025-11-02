@@ -1,63 +1,120 @@
-// Animation state for the orb
-let pulseAngle = 0;
+import { scaleLinear } from 'd3-scale';
 
-export function drawVolatilityOrb(ctx, config, state, width, height) {
-    if (!config.showVolatilityOrb || !state.volatilityIntensity) return;
+// Helper function to convert hex to RGB
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
 
-    const {
-        volatilityOrbBaseWidth,
-        centralAxisXPosition,
-        volatilityColorMode,
-        volatilityOrbInvertBrightness,
-        volatilitySizeMultiplier,
-    } = config;
-    
-    const { volatilityIntensity, lastTickDirection } = state;
+export function drawVolatilityOrb(ctx, config, state, y) {
+  const {
+    visualizationsContentWidth,
+    centralAxisXPosition,
+    adrAxisXPosition,
+    showVolatilityOrb,
+    volatilityColorMode,
+    volatilityOrbBaseWidth,
+    volatilityOrbInvertBrightness,
+    volatilitySizeMultiplier,
+    showVolatilityMetric,
+    priceFloatHeight,
+    priceHorizontalOffset,
+    priceFontSize,
+    priceUseStaticColor,
+    priceStaticColor,
+    priceUpColor,
+    priceDownColor,
+    priceDisplayPadding,
+    priceFloatGlowColor,
+    priceFloatGlowStrength,
+    visualHigh,
+    visualLow,
+    currentPrice,
+    volatility,
+    lastTickDirection,
+  } = config;
 
-    // --- Performant Pulse Animation ---
-    // The pulse "advances" with each data tick, tying the animation directly
-    // to market activity. The speed is proportional to volatility.
-    const pulseSpeed = 0.5 + (volatilityIntensity * 1.5); 
-    pulseAngle += pulseSpeed;
-    if (pulseAngle > Math.PI * 2) {
-        pulseAngle -= Math.PI * 2;
+  if (!showVolatilityOrb || currentPrice === null || currentPrice === undefined) return;
+
+  // NEW: Use configurable ADR axis position with fallback to central axis
+  const axisX = adrAxisXPosition || centralAxisXPosition;
+  const orbRadius = (volatilityOrbBaseWidth / 2) * (volatility / 100) * volatilitySizeMultiplier;
+  const orbY = y(currentPrice);
+
+  // Draw volatility orb
+  ctx.save();
+  
+  let orbColor;
+  if (volatilityColorMode === 'directional') {
+    orbColor = lastTickDirection === 'up' ? priceUpColor : priceDownColor;
+  } else {
+    orbColor = priceStaticColor;
+  }
+
+  // Apply brightness inversion if configured
+  if (volatilityOrbInvertBrightness) {
+    const rgb = hexToRgb(orbColor);
+    if (rgb) {
+      const brightness = (rgb.r + rgb.g + rgb.b) / 3;
+      const factor = brightness > 128 ? 0.5 : 2;
+      orbColor = `rgb(${Math.min(255, rgb.r * factor)}, ${Math.min(255, rgb.g * factor)}, ${Math.min(255, rgb.b * factor)})`;
     }
+  }
 
-    const pulseMagnitude = 1 + (Math.sin(pulseAngle) * 0.08); // 8% size variance
+  // Create gradient for orb
+  const gradient = ctx.createRadialGradient(axisX, orbY, 0, axisX, orbY, orbRadius);
+  gradient.addColorStop(0, orbColor);
+  gradient.addColorStop(0.7, orbColor + '88'); // Add transparency
+  gradient.addColorStop(1, orbColor + '00'); // Fully transparent
 
-    const centerX = centralAxisXPosition;
-    const centerY = height / 2;
+  // Draw orb
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(axisX, orbY, orbRadius, 0, 2 * Math.PI);
+  ctx.fill();
+
+  // Add glow effect
+  ctx.shadowColor = priceFloatGlowColor || orbColor;
+  ctx.shadowBlur = priceFloatGlowStrength || 8;
+  ctx.strokeStyle = orbColor;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ctx.restore();
+
+  // Draw volatility metric if enabled
+  if (showVolatilityMetric) {
+    ctx.save();
+    ctx.font = `${priceFontSize}px Arial`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
     
-    const baseRadius = volatilityOrbBaseWidth * volatilitySizeMultiplier * volatilityIntensity;
-    const radius = baseRadius * pulseMagnitude;
-
-    if (radius <= 0) return;
-
-    let baseColor;
-    if (volatilityColorMode === 'directional') {
-        baseColor = lastTickDirection === 'up' ? '59, 130, 246' : '239, 68, 68'; // Blue or Red
-    } else if (volatilityColorMode === 'gradient') {
-        const safeIntensity = volatilityIntensity || 0;
-        const intensityFactor = Math.min(1, safeIntensity * 1.5);
-        const red = 79 + (239 - 79) * intensityFactor;
-        const green = 70 - (70 - 68) * intensityFactor;
-        const blue = 229 - (229 - 68) * intensityFactor;
-        baseColor = `${red.toFixed(0)}, ${green.toFixed(0)}, ${blue.toFixed(0)}`;
-    } else { // 'single'
-        baseColor = '79, 70, 229'; // Default Purple
+    const volatilityText = `σ: ${volatility.toFixed(1)}%`;
+    const textMetrics = ctx.measureText(volatilityText);
+    const textX = axisX + orbRadius + priceHorizontalOffset;
+    const textY = orbY;
+    
+    // Draw text background if configured
+    if (priceDisplayPadding > 0) {
+      const padding = priceDisplayPadding;
+      const bgX = textX - padding;
+      const bgY = textY - (priceFontSize / 2) - padding;
+      const bgWidth = textMetrics.width + (padding * 2);
+      const bgHeight = priceFontSize + (padding * 2);
+      
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
     }
-
-    const maxOpacity = 0.4; // Slightly reduced for a subtler effect
-    const opacity = (volatilityOrbInvertBrightness ? 
-        (1 - volatilityIntensity) : 
-        volatilityIntensity) * maxOpacity;
-
-    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
     
-    gradient.addColorStop(0, `rgba(${baseColor}, ${opacity})`);
-    gradient.addColorStop(0.6, `rgba(${baseColor}, ${opacity * 0.4})`); // Adjusted stop for a softer edge
-    gradient.addColorStop(1, `rgba(${baseColor}, 0)`);
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+    // Draw text
+    ctx.fillStyle = priceUseStaticColor ? priceStaticColor : (lastTickDirection === 'up' ? priceUpColor : priceDownColor);
+    ctx.fillText(volatilityText, textX, textY);
+    
+    ctx.restore();
+  }
 }

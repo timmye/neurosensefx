@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { floatingStore, actions } from '../stores/floatingStore.js';
+  import { displayStore, displayActions } from '../stores/displayStore.js';
   
   // ✅ INTERACT.JS: Import interact.js for drag
   import interact from 'interactjs';
@@ -20,7 +20,7 @@
   let zIndex = 1000;
   
   // ✅ ULTRA-MINIMAL: Simple store binding
-  $: panel = $floatingStore.panels?.get(id);
+  $: panel = $displayStore.panels?.get(id);
   $: {
     panelPosition = panel?.position || position;
     isActive = panel?.isActive || false;
@@ -30,7 +30,7 @@
   // Event handlers
   function handleContextMenu(e) {
     e.preventDefault();
-    actions.setActivePanel(id);
+    displayActions.setActivePanel(id);
     
     const context = {
       type: 'panel',
@@ -38,11 +38,14 @@
       targetType: 'panel'
     };
     
-    actions.showUnifiedContextMenu(e.clientX, e.clientY, context);
+    displayActions.showContextMenu(e.clientX, e.clientY, id, 'panel', context);
   }
   
-  function handleClose() {
-    actions.removePanel(id);
+  function handleClose(e) {
+    e?.stopPropagation();
+    e?.preventDefault();
+    console.log(`[FLOATING_PANEL] Close button clicked for panel ${id}`);
+    displayActions.removePanel(id);
   }
   
   // ✅ ULTRA-MINIMAL: Simple interact.js setup
@@ -66,7 +69,7 @@
           ],
           onmove: (event) => {
             // ✅ DIRECT: Use interact.js rect directly
-            actions.movePanel(id, {
+            displayActions.movePanel(id, {
               x: event.rect.left,
               y: event.rect.top
             });
@@ -78,7 +81,7 @@
       
       // Click to activate
       interact(element).on('tap', (event) => {
-        actions.setActivePanel(id);
+        displayActions.setActivePanel(id);
       });
     }
     

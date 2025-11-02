@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy, setContext } from 'svelte';
-  import { defaultConfig } from '../data/symbolStore.js';
+  import { defaultConfig } from '../stores/displayStore.js';
   import { parameterGroups, getParameterMetadata } from './CanvasContextMenu/utils/parameterGroups.js';
   import { searchParameters } from './CanvasContextMenu/utils/searchUtils.js';
   import { highlightMatch } from '../utils/fuzzySearch.js';

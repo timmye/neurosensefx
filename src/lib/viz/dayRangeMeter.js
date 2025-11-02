@@ -23,6 +23,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
   const {
     visualizationsContentWidth,
     centralAxisXPosition,
+    adrAxisXPosition,
     meterHeight,
     centralMeterFixedThickness = 1,
     adrProximityThreshold,
@@ -59,12 +60,15 @@ export function drawDayRangeMeter(ctx, config, state, y) {
 
   const { currentPrice, todaysHigh, todaysLow, projectedAdrHigh, projectedAdrLow, digits, maxAdrPercentage } = state;
 
+  // NEW: Use configurable ADR axis position with fallback to central axis
+  const axisX = adrAxisXPosition || centralAxisXPosition;
+
   // Draw the main meter axis
   ctx.beginPath();
   ctx.strokeStyle = '#4B5563';
   ctx.lineWidth = centralMeterFixedThickness;
-  ctx.moveTo(centralAxisXPosition, 0);
-  ctx.lineTo(centralAxisXPosition, meterHeight);
+  ctx.moveTo(axisX, 0);
+  ctx.lineTo(axisX, meterHeight);
   ctx.stroke();
 
   const labelFontSize = 10;
@@ -137,7 +141,8 @@ export function drawDayRangeMeter(ctx, config, state, y) {
       const backgroundHeight = textHeight + (labelPadding * 2);
       
       const textAlign = side === 'right' ? 'left' : 'right';
-      const textX = side === 'right' ? centralAxisXPosition + labelOffset : centralAxisXPosition - labelOffset;
+      // NEW: Use configurable ADR axis position for label positioning
+      const textX = side === 'right' ? axisX + labelOffset : axisX - labelOffset;
       const backgroundX = side === 'right' ? textX - labelPadding : textX - textWidth - labelPadding;
       const backgroundY = priceY - (backgroundHeight / 2);
 
@@ -151,11 +156,12 @@ export function drawDayRangeMeter(ctx, config, state, y) {
           ctx.strokeRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
       }
       
+      // NEW: Use configurable ADR axis position for marker lines
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(centralAxisXPosition - markerLength, priceY);
-      ctx.lineTo(centralAxisXPosition + markerLength, priceY);
+      ctx.moveTo(axisX - markerLength, priceY);
+      ctx.lineTo(axisX + markerLength, priceY);
       ctx.stroke();
 
       ctx.textAlign = textAlign;
@@ -226,13 +232,14 @@ export function drawDayRangeMeter(ctx, config, state, y) {
           const pulseRadius = 20 + (intensity * 30);
           const pulseOpacity = intensity * 0.7;
 
-          const gradient = ctx.createRadialGradient(centralAxisXPosition, yPos, 0, centralAxisXPosition, yPos, pulseRadius);
+          // NEW: Use configurable ADR axis position for pulse center
+          const gradient = ctx.createRadialGradient(axisX, yPos, 0, axisX, yPos, pulseRadius);
           gradient.addColorStop(0, `rgba(59, 130, 246, ${pulseOpacity})`);
           gradient.addColorStop(1, `rgba(59, 130, 246, 0)`);
           
           ctx.fillStyle = gradient;
           ctx.beginPath();
-          ctx.arc(centralAxisXPosition, yPos, pulseRadius, 0, 2 * Math.PI);
+          ctx.arc(axisX, yPos, pulseRadius, 0, 2 * Math.PI);
           ctx.fill();
       };
 

@@ -1,12 +1,12 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { floatingStore, actions, displays, icons, panels } from './stores/floatingStore.js';
-  import { symbolStore } from './data/symbolStore.js';
+  import { displayStore, displayActions, displays, icons, panels, defaultConfig } from './stores/displayStore.js';
   import { subscribe, unsubscribe } from './data/wsClient.js';
   import FloatingDisplay from './components/FloatingDisplay.svelte';
   import FloatingIcon from './components/FloatingIcon.svelte';
   import UnifiedContextMenu from './components/UnifiedContextMenu.svelte';
   import SymbolPalette from './components/SymbolPalette.svelte';
+  import symbolService from './services/symbolService.js';
   
   // Store subscriptions
   $: displayList = Array.from($displays.values());
@@ -29,13 +29,13 @@
     
     // Escape - close context menu or collapse panels
     if (e.key === 'Escape') {
-      if ($floatingStore.contextMenu.open) {
-        actions.hideContextMenu();
+      if ($displayStore.contextMenu.open) {
+        displayActions.hideContextMenu();
       } else {
         // Collapse expanded icon if any
         const expandedIcon = Array.from($icons.values()).find(icon => icon.isExpanded);
         if (expandedIcon) {
-          actions.collapseIcon(expandedIcon.id);
+          displayActions.collapseIcon(expandedIcon.id);
         }
       }
     }
@@ -49,37 +49,22 @@
     // Ctrl+N - Create new display
     if (e.ctrlKey && e.key === 'n') {
       e.preventDefault();
-      const symbols = Object.keys($symbolStore);
-      if (symbols.length > 0) {
-        const displayId = actions.addDisplay(symbols[0], {
-          x: 100 + Math.random() * 200,
-          y: 100 + Math.random() * 100
-        });
+      try {
+        const symbols = symbolService.getSymbols();
+        const firstSymbol = symbolService.getFirstSymbol();
         
-        // Subscribe to data after a tick to ensure display is created
-        setTimeout(async () => {
-          try {
-            // Direct WebSocket subscription
-            subscribe(symbols[0]);
-            
-            // Wait for symbol data to be ready
-            await new Promise((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                reject(new Error(`Timeout waiting for ${symbols[0]} data`));
-              }, 10000);
-              
-              const unsubscribe = symbolStore.subscribe(symbols => {
-                if (symbols[symbols[0]]?.ready) {
-                  clearTimeout(timeout);
-                  unsubscribe();
-                  resolve();
-                }
-              });
-            });
-          } catch (error) {
-            console.error('Failed to subscribe new display to data:', error);
-          }
-        }, 0);
+        if (firstSymbol) {
+          const displayId = displayActions.addDisplay(firstSymbol, {
+            x: 100 + Math.random() * 200,
+            y: 100 + Math.random() * 100
+          });
+          
+          console.log(`[APP] Created new display for ${firstSymbol}: ${displayId}`);
+        } else {
+          console.warn('[APP] No symbols available for display creation');
+        }
+      } catch (error) {
+        console.error('[APP] Failed to create display:', error);
       }
     }
     
@@ -97,7 +82,7 @@
     
     // Expand icon if collapsed
     if (icon && !icon.isExpanded) {
-      actions.expandIcon(iconId);
+      displayActions.expandIcon(iconId);
     }
     
     // Focus search input with delay for animation
@@ -122,59 +107,48 @@
     
     if (icon) {
       if (icon.isExpanded) {
-        actions.collapseIcon(iconId);
+        displayActions.collapseIcon(iconId);
       } else {
-        actions.expandIcon(iconId);
+        displayActions.expandIcon(iconId);
       }
     }
   }
   
   // Initialize displays on mount
   onMount(async () => {
-    const symbols = Object.keys($symbolStore);
-    
-    // Register symbol palette panel
-    actions.addPanel('symbol-palette', 'symbol-palette', { x: 50, y: 50 }, {
-      title: 'Symbol Palette'
-    });
-    
-    // Create symbol palette floating icon
-    actions.addIcon('symbol-palette-icon', 'symbol-palette', { x: 20, y: 20 }, {
-      title: 'Symbol Palette',
-      status: 'online'
-    });
-    
-    // Link icon to panel
-    actions.linkIconToPanel('symbol-palette-icon', 'symbol-palette');
-    
-    // Add one display if none exist
-    if (displayList.length === 0 && symbols.length > 0) {
-      const displayId = actions.addDisplay(symbols[0], { x: 100, y: 100 });
+    try {
+      // Initialize symbol service
+      await symbolService.initialize();
+      const symbols = symbolService.getSymbols();
+      const firstSymbol = symbolService.getFirstSymbol();
       
-      // Wait a tick for the display to be fully created in floatingStore
-      await new Promise(resolve => setTimeout(resolve, 0));
+      // Register symbol palette panel
+      console.log('[APP] About to add symbol palette panel');
+      displayActions.addPanel('symbol-palette', { x: 50, y: 50 }, {
+        title: 'Symbol Palette'
+      });
+      console.log('[APP] Symbol palette panel add call completed');
       
-      // Subscribe to data
+      // Create symbol palette floating icon
+      displayActions.addIcon('symbol-palette-icon', 'symbol-palette', { x: 20, y: 20 }, {
+        title: 'Symbol Palette',
+        status: 'online'
+      });
+      
+      // ✅ CLEAN STARTUP: Don't create initial display - start with clean workspace
+      console.log('[APP] Startup complete - clean workspace (no initial display)');
+    } catch (error) {
+      console.error('[APP] Initialization failed:', error);
+      // Fallback: try to create display with default symbol
       try {
-        // Direct WebSocket subscription
-        subscribe(symbols[0]);
-        
-        // Wait for symbol data to be ready
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error(`Timeout waiting for ${symbols[0]} data`));
-          }, 10000);
-          
-          const unsubscribe = symbolStore.subscribe(symbols => {
-            if (symbols[symbols[0]]?.ready) {
-              clearTimeout(timeout);
-              unsubscribe();
-              resolve();
-            }
-          });
-        });
-      } catch (error) {
-        console.error('Failed to subscribe display to data:', error);
+        const fallbackSymbol = 'EURUSD';
+        const validation = symbolService.validateSymbol(fallbackSymbol);
+        if (validation.valid) {
+          const displayId = displayActions.addDisplay(validation.symbol, { x: 100, y: 100 });
+          console.log(`[APP] Created fallback display for ${validation.symbol}: ${displayId}`);
+        }
+      } catch (fallbackError) {
+        console.error('[APP] Fallback display creation also failed:', fallbackError);
       }
     }
   });
@@ -192,7 +166,7 @@
         targetType: 'workspace'
       };
       
-      actions.showUnifiedContextMenu(e.clientX, e.clientY, context);
+      displayActions.showContextMenu(e.clientX, e.clientY, null, 'workspace', context);
     }
   }
 </script>
@@ -217,9 +191,9 @@
       on:toggleExpansion={(e) => {
         const { id, isExpanded } = e.detail;
         if (isExpanded) {
-          actions.expandIcon(id);
+          displayActions.expandIcon(id);
         } else {
-          actions.collapseIcon(id);
+          displayActions.collapseIcon(id);
         }
       }}
     />
@@ -235,7 +209,11 @@
   {/each}
   
   <!-- Symbol Palette (Layer 2) -->
-  <SymbolPalette bind:this={symbolPaletteRef} />
+  {#each panelList as panel (panel.id)}
+    {#if panel.id === 'symbol-palette'}
+      <SymbolPalette bind:this={symbolPaletteRef} />
+    {/if}
+  {/each}
   
   <!-- Unified Context Menu (Layer 4) -->
   <UnifiedContextMenu />

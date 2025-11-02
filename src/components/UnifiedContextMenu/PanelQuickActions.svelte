@@ -1,24 +1,56 @@
 <script>
-  export let panelId = null;
   export let onAction = () => {};
 </script>
 
-<div class="panel-quick-actions">
-  <div class="menu-section">
-    <div class="menu-item" on:click={() => onAction('bringToFront')}>
+<div class="panel-quick-actions" role="menu">
+  <div class="menu-section" role="none">
+    <button 
+      class="menu-item" 
+      type="button"
+      role="menuitem"
+      on:click={() => onAction('bringToFront')}
+      on:keydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onAction('bringToFront');
+        }
+      }}
+    >
       Bring to Front
-    </div>
+    </button>
   </div>
   
-  <div class="menu-divider"></div>
+  <div class="menu-divider" role="separator"></div>
   
-  <div class="menu-section">
-    <div class="menu-item" on:click={() => onAction('reset')}>
+  <div class="menu-section" role="none">
+    <button 
+      class="menu-item" 
+      type="button"
+      role="menuitem"
+      on:click={() => onAction('reset')}
+      on:keydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onAction('reset');
+        }
+      }}
+    >
       Reset Panel
-    </div>
-    <div class="menu-item danger" on:click={() => onAction('close')}>
+    </button>
+    <button 
+      class="menu-item danger" 
+      type="button"
+      role="menuitem"
+      on:click={() => onAction('close')}
+      on:keydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onAction('close');
+        }
+      }}
+    >
       Close Panel
-    </div>
+    </button>
   </div>
 </div>
 

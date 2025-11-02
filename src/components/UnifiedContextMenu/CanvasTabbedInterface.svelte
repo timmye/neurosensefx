@@ -10,11 +10,11 @@
     return text.replace(regex, '<mark>$1</mark>');
   }
   import { createShortcutHandler, defaultShortcuts } from './utils/keyboardShortcuts.js';
-  import { displays } from '../../stores/floatingStore.js';
+  import { displays } from '../../stores/displayStore.js';
   
   export let displayId = null;
   export let onParameterChange = () => {};
-  export let onMultipleParameterChange = () => {};
+  export const onMultipleParameterChange = () => {};
   export let onReset = () => {};
   
   const dispatch = createEventDispatcher();
@@ -221,6 +221,7 @@
       <div class="search-container">
         <input 
           bind:this={searchInput}
+          id="search-input"
           type="text" 
           placeholder="Search parameters..."
           class="search-input"
@@ -251,11 +252,20 @@
   
   <!-- Search Results Dropdown -->
   {#if showSearchResults}
-    <div class="search-results">
+    <div class="search-results" role="listbox" aria-label="Search results">
       {#each searchResults as result, index}
         <div 
           class="search-result {index === selectedSearchIndex ? 'selected' : ''}"
+          role="option"
+          aria-selected={index === selectedSearchIndex}
+          tabindex={index === selectedSearchIndex ? '0' : '-1'}
           on:click={() => selectSearchResult(result)}
+          on:keydown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              selectSearchResult(result);
+            }
+          }}
           on:mouseover={() => selectedSearchIndex = index}
         >
           <div class="result-label">
@@ -293,15 +303,17 @@
             <div class="parameters-grid">
               {#each group.parameters as parameter}
                 {@const metadata = getParameterMetadata(parameter)}
+                {@const controlId = `param-${parameter}`}
                 {#if metadata}
                   <div class="parameter-control">
-                    <label class="parameter-label">
+                    <label class="parameter-label" for={controlId}>
                       {metadata.label}
                     </label>
                     
                     {#if metadata.type === 'toggle'}
                       <label class="toggle-switch">
                         <input 
+                          id={controlId}
                           type="checkbox" 
                           checked={config[parameter] || metadata.defaultValue}
                           on:change={(e) => handleParameterChange(parameter, e.target.checked)}
@@ -312,12 +324,14 @@
                     {:else if metadata.type === 'color'}
                       <div class="color-input-wrapper">
                         <input 
+                          id={`${controlId}-color`}
                           type="color" 
                           class="color-input"
                           value={config[parameter] || metadata.defaultValue}
                           on:change={(e) => handleParameterChange(parameter, e.target.value)}
                         />
                         <input 
+                          id={`${controlId}-text`}
                           type="text" 
                           class="color-text"
                           value={config[parameter] || metadata.defaultValue}
@@ -329,6 +343,7 @@
                       {@const percentageMeta = getParameterMetadataWithPercentage(parameter)}
                       <div class="range-input-wrapper">
                         <input 
+                          id={controlId}
                           type="range" 
                           class="range-input"
                           min={metadata.range?.min || 0}
@@ -347,6 +362,7 @@
                     
                     {:else if metadata.type === 'select'}
                       <select 
+                        id={controlId}
                         class="select-input"
                         value={config[parameter] || metadata.defaultValue}
                         on:change={(e) => handleParameterChange(parameter, e.target.value)}
@@ -358,6 +374,7 @@
                     
                     {:else}
                       <input 
+                        id={controlId}
                         type="text" 
                         class="text-input"
                         value={config[parameter] || metadata.defaultValue}

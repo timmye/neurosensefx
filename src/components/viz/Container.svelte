@@ -1,4 +1,3 @@
-
 <script>
   import { onMount } from 'svelte';
   import { scaleLinear } from 'd3-scale';
@@ -14,7 +13,7 @@
   import { writable } from 'svelte/store';
   
   // 🔧 UNIFIED SIZING: Import canvas sizing utilities
-  import { createCanvasSizingConfig, configureCanvasContext, CANVAS_CONSTANTS } from '../../utils/canvasSizing.js';
+  import { createCanvasSizingConfig, configureCanvasContext, CANVAS_CONSTANTS, boundsUtils } from '../../utils/canvasSizing.js';
 
   // Local hover state (replaces uiState.hoverState)
   const hoverState = writable(null);
@@ -24,9 +23,9 @@
   let canvas;
   let ctx;
   let dpr = 1;
-  let y; // Declare y scale at the top level to be accessible everywhere
+  let y; // Declare y scale at top level to be accessible everywhere
 
-  let markers = []; // Local variable to hold the markers from the store
+  let markers = []; // Local variable to hold markers from store
   // State for flash animation
   let flashOpacity = 0;
   let flashDuration = 300; // ms
@@ -65,21 +64,52 @@
     canvas.width = canvasDims.width;
     canvas.height = canvasDims.height;
     
+    // NEW: Apply responsive ADR axis calculation with boundary checking
+    applyResponsiveAxisConfig();
+    
     // Update normalized config for rendering
     normalizedConfig = canvasSizingConfig.config;
     
     // Canvas sizing applied
   }
 
-  // This reactive block triggers a redraw whenever the core data, config, hover state, or marker store changes
+  // NEW: Apply responsive ADR axis calculation and boundary checking
+  function applyResponsiveAxisConfig() {
+    if (!canvasSizingConfig) return;
+    
+    const { canvasArea } = canvasSizingConfig.dimensions;
+    const { config: currentConfig } = canvasSizingConfig;
+    
+    // Calculate responsive ADR axis position (30% right of center by default)
+    const defaultAxisPosition = canvasArea.width * 0.65; // 30% right of center (65% of width)
+    
+    // Use existing axis position if set, otherwise use default
+    let axisPosition = currentConfig.adrAxisXPosition || defaultAxisPosition;
+    
+    // NEW: Apply boundary checking and clamping
+    if (!boundsUtils.isAxisInBounds(axisPosition, currentConfig, canvasSizingConfig.dimensions)) {
+      axisPosition = boundsUtils.clampAxisToBounds(axisPosition, currentConfig, canvasSizingConfig.dimensions);
+    }
+    
+    // Update normalized config with responsive axis position
+    normalizedConfig = {
+      ...normalizedConfig,
+      adrAxisXPosition: axisPosition
+    };
+  }
+
+  // This reactive block triggers a redraw whenever core data, config, hover state, or marker store changes
   $: if (ctx && state && config && $hoverState !== undefined && $markerStore !== undefined) {
     // We access $hoverState here to make this block reactive to its changes
     // We access $markerStore here to make this block reactive to its changes
     markers = $markerStore; // Update local markers variable
 
+    // NEW: Re-apply responsive axis calculation on config changes
+    applyResponsiveAxisConfig();
+
     // Trigger draw when state, config, hoverState, or markerStore changes
     // The check for ctx, state, config ensures everything is ready
-    draw(state, config, markers); // Pass the markers array to the draw function
+    draw(state, normalizedConfig, markers); // Pass normalized config and markers array to draw function
   }
 
   function handleMouseMove(event) {
@@ -121,13 +151,13 @@
     }
   }
 
-  function draw(currentState, currentConfig) {
+  function draw(currentState, currentConfig, currentMarkers) {
     if (!ctx || !currentState || !currentConfig) return;
 
     // 🔧 UNIFIED SIZING: Use normalized config for consistent rendering
-    const { visualizationsContentWidth, meterHeight } = normalizedConfig;
+    const { visualizationsContentWidth, meterHeight } = currentConfig;
     
-    // Initialize/update the y-scale for the current render frame
+    // Initialize/update y-scale for the current render frame
     y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([meterHeight, 0]);
     
     // Use canvas sizing config dimensions for clearing
@@ -145,17 +175,18 @@
 
     // --- Draw Core Visualizations ---
     // 🔧 UNIFIED SIZING: Use normalized config for consistent rendering
-    drawMarketProfile(ctx, normalizedConfig, currentState, y);
-    drawDayRangeMeter(ctx, normalizedConfig, currentState, y);
-    drawVolatilityOrb(ctx, normalizedConfig, currentState, visualizationsContentWidth, meterHeight);
-    drawPriceFloat(ctx, normalizedConfig, currentState, y);
-    drawPriceDisplay(ctx, normalizedConfig, currentState, y, visualizationsContentWidth);
-    drawVolatilityMetric(ctx, normalizedConfig, currentState, visualizationsContentWidth, meterHeight);
+    drawMarketProfile(ctx, currentConfig, currentState, y);
+    drawDayRangeMeter(ctx, currentConfig, currentState, y);
+    drawVolatilityOrb(ctx, currentConfig, currentState, y);
+    drawPriceFloat(ctx, currentConfig, currentState, y);
+    drawPriceDisplay(ctx, currentConfig, currentState, y, visualizationsContentWidth);
+    drawVolatilityMetric(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
 
     // --- Draw Price Markers (on top of core visuals, below hover/flash) ---
-    drawPriceMarkers(ctx, normalizedConfig, currentState, y, markers);
+    drawPriceMarkers(ctx, currentConfig, currentState, y, currentMarkers);
+    
     // --- Draw Hover Indicator (must be last to be on top) ---
-    drawHoverIndicator(ctx, normalizedConfig, currentState, y, $hoverState);
+    drawHoverIndicator(ctx, currentConfig, currentState, y, $hoverState);
 
     // --- Draw Flash Overlay ---
     if (flashOpacity > 0) {

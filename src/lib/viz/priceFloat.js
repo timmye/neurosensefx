@@ -11,6 +11,7 @@ export function drawPriceFloat(ctx, config, state, y) {
   const {
     visualizationsContentWidth,
     centralAxisXPosition,
+    adrAxisXPosition,
     priceFloatWidth,
     priceFloatHeight,
     priceFloatUseDirectionalColor,
@@ -25,6 +26,9 @@ export function drawPriceFloat(ctx, config, state, y) {
   const targetPriceY = y(state.currentPrice);
   let animatedPriceY = targetPriceY;
 
+  // NEW: Use configurable ADR axis position with fallback to central axis
+  const axisX = adrAxisXPosition || centralAxisXPosition;
+
   const color = priceFloatUseDirectionalColor
     ? (state.lastTickDirection === 'up' ? priceFloatUpColor : (state.lastTickDirection === 'down' ? priceFloatDownColor : priceFloatColor))
     : priceFloatColor;
@@ -32,7 +36,8 @@ export function drawPriceFloat(ctx, config, state, y) {
   // Add the glow effect
   ctx.shadowColor = priceFloatGlowColor || color;
   ctx.shadowBlur = priceFloatGlowStrength || 12;
-  const startX = centralAxisXPosition - (priceFloatWidth / 2);
+  // NEW: Use configurable ADR axis position for horizontal positioning
+  const startX = axisX - (priceFloatWidth / 2);
   
   // Draw the price float line
   ctx.beginPath();

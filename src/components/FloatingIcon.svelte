@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { floatingStore, actions } from '../stores/floatingStore.js';
+  import { displayStore, displayActions } from '../stores/displayStore.js';
   
   // ✅ INTERACT.JS: Import interact.js for drag
   import interact from 'interactjs';
@@ -20,7 +20,7 @@
   let zIndex = 10000;
   
   // ✅ ULTRA-MINIMAL: Simple store binding
-  $: icon = $floatingStore.icons?.get(id);
+  $: icon = $displayStore.icons?.get(id);
   $: {
     iconPosition = icon?.position || position;
     isActive = icon?.isActive || false;
@@ -30,7 +30,7 @@
   // Event handlers
   function handleContextMenu(e) {
     e.preventDefault();
-    actions.setActiveIcon(id);
+    displayActions.setActiveIcon(id);
     
     const context = {
       type: 'icon',
@@ -38,12 +38,12 @@
       targetType: 'icon'
     };
     
-    actions.showUnifiedContextMenu(e.clientX, e.clientY, context);
+    displayActions.showContextMenu(e.clientX, e.clientY, id, 'icon', context);
   }
   
   function handleClick() {
     // Toggle expansion/collapse
-    actions.toggleIconExpansion(id);
+    displayActions.toggleIconExpansion(id);
   }
   
   // ✅ ULTRA-MINIMAL: Simple interact.js setup
@@ -67,7 +67,7 @@
           ],
           onmove: (event) => {
             // ✅ DIRECT: Use interact.js rect directly
-            actions.moveIcon(id, {
+            displayActions.moveIcon(id, {
               x: event.rect.left,
               y: event.rect.top
             });
@@ -79,8 +79,8 @@
       
       // Click to activate and toggle
       interact(element).on('tap', (event) => {
-        actions.setActiveIcon(id);
-        actions.toggleIconExpansion(id);
+        displayActions.setActiveIcon(id);
+        displayActions.toggleIconExpansion(id);
       });
     }
     

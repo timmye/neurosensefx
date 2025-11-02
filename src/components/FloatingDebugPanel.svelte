@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { symbolStore } from '../data/symbolStore.js';
+  import { displays, subscriptions } from '../stores/displayStore.js';
   import { availableSymbols } from '../data/wsClient.js';
   import InteractWrapper from './shared/InteractWrapper.svelte';
   import InfoGrid from './shared/InfoGrid.svelte';
@@ -19,9 +19,9 @@
   let currentSymbolData = null;
   let interactWrapperRef;
   
-  // Subscribe to symbol store (active subscriptions)
-  const unsubSymbolStore = symbolStore.subscribe(value => {
-    symbols = Object.keys(value);
+  // Subscribe to display store (active subscriptions)
+  const unsubSymbolStore = subscriptions.subscribe(value => {
+    symbols = Array.from(value);
   });
   
   // Subscribe to available symbols store

@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { dataSourceMode, wsStatus } from '../data/wsClient.js';
-  import { symbolStore } from '../data/symbolStore.js';
+  import { displays, subscriptions } from '../stores/displayStore.js';
   import InteractWrapper from './shared/InteractWrapper.svelte';
   import InfoGrid from './shared/InfoGrid.svelte';
   import SectionHeader from './shared/SectionHeader.svelte';
@@ -18,9 +18,9 @@
   let subscribedSymbols = [];
   let interactWrapperRef;
   
-  // Subscribe to symbol store
-  const unsubSymbolStore = symbolStore.subscribe(value => {
-    subscribedSymbols = Object.keys(value);
+  // Subscribe to display store for subscribed symbols
+  const unsubSymbolStore = subscriptions.subscribe(value => {
+    subscribedSymbols = Array.from(value);
   });
   
   onDestroy(() => {

@@ -1,7 +1,7 @@
-import { defaultConfig } from '../../../data/symbolStore.js';
+import { defaultConfig } from '../../../stores/displayStore.js';
 
 /**
- * Parameter groups for the Unified Context Menu
+ * Parameter groups for Unified Context Menu
  * Organizes all 85+ visualization parameters into 6 logical tabs
  */
 
@@ -323,7 +323,7 @@ export const volatilityGroup = {
   }
 };
 
-// Layout & Sizing (12 parameters): Dimensions and positioning
+// Layout & Sizing (13 parameters): Dimensions and positioning
 export const layoutSizingGroup = {
   id: 'layoutSizing',
   title: 'Layout & Sizing',
@@ -332,6 +332,7 @@ export const layoutSizingGroup = {
     'visualizationsContentWidth',
     'meterHeight',
     'centralAxisXPosition',
+    'adrAxisXPosition',
     'adrRangeIndicatorLabelColor',
     'adrRangeIndicatorLabelShowBackground',
     'adrRangeIndicatorLabelBackgroundColor',
@@ -346,6 +347,7 @@ export const layoutSizingGroup = {
     visualizationsContentWidth: 'range',
     meterHeight: 'range',
     centralAxisXPosition: 'range',
+    adrAxisXPosition: 'range',
     adrRangeIndicatorLabelColor: 'color',
     adrRangeIndicatorLabelShowBackground: 'toggle',
     adrRangeIndicatorLabelBackgroundColor: 'color',
@@ -360,6 +362,7 @@ export const layoutSizingGroup = {
     visualizationsContentWidth: 'Content Width',
     meterHeight: 'Meter Height',
     centralAxisXPosition: 'Central Axis X',
+    adrAxisXPosition: 'ADR Axis Position',
     adrRangeIndicatorLabelColor: 'ADR Label Color',
     adrRangeIndicatorLabelShowBackground: 'ADR Label BG',
     adrRangeIndicatorLabelBackgroundColor: 'ADR Label BG Color',
@@ -377,6 +380,7 @@ export const layoutSizingGroup = {
     visualizationsContentWidth: { min: 50, max: 200, step: 5 }, // Percentage of reference width (110-440px)
     meterHeight: { min: 50, max: 250, step: 5 }, // Percentage of reference height (60-300px)  
     centralAxisXPosition: { min: 10, max: 90, step: 5 }, // Percentage of reference width (22-198px)
+    adrAxisXPosition: { min: 5, max: 95, step: 1 }, // Percentage of container width (5%-95%)
     adrRangeIndicatorLabelBackgroundOpacity: { min: 0.1, max: 1.0, step: 0.1 },
     adrRangeIndicatorLabelBoxOutlineOpacity: { min: 0.1, max: 1.0, step: 0.1 }
   },
@@ -384,7 +388,8 @@ export const layoutSizingGroup = {
   percentageParameters: {
     visualizationsContentWidth: { basis: 'canvasWidth', absoluteFallback: 220 },
     meterHeight: { basis: 'canvasHeight', absoluteFallback: 120 },
-    centralAxisXPosition: { basis: 'canvasWidth', absoluteFallback: 220 }
+    centralAxisXPosition: { basis: 'canvasWidth', absoluteFallback: 220 },
+    adrAxisXPosition: { basis: 'canvasWidth', absoluteFallback: 143 } // 65% of 220px = 143px
   }
 };
 

@@ -126,6 +126,11 @@ export function normalizeConfig(config, canvasDimensions) {
       ? percentageToPixels(config.centralAxisXPosition, canvasArea.width)
       : canvasArea.width / 2,
     
+    // NEW: ADR axis positioning with default to 30% right of center (65% of container width)
+    adrAxisXPosition: config.adrAxisXPosition 
+      ? config.adrAxisXPosition 
+      : canvasArea.width * 0.65, // Default: 30% right of center
+    
     // Size-based values (always percentage-based)
     priceFloatWidth: config.priceFloatWidth
       ? percentageToPixels(config.priceFloatWidth, canvasArea.width)
@@ -158,7 +163,7 @@ export function normalizeConfig(config, canvasDimensions) {
     // Pass through non-scaled parameters unchanged
     ...Object.fromEntries(
       Object.entries(config).filter(([key]) => ![
-        'visualizationsContentWidth', 'meterHeight', 'centralAxisXPosition',
+        'visualizationsContentWidth', 'meterHeight', 'centralAxisXPosition', 'adrAxisXPosition',
         'priceFloatWidth', 'priceFloatHeight', 'priceFloatXOffset', 'priceFontSize',
         'priceHorizontalOffset', 'priceDisplayPadding', 'volatilityOrbBaseWidth'
       ].includes(key))
@@ -364,6 +369,34 @@ export const boundsUtils = {
       x: Math.max(0, Math.min(canvasArea.width, x)),
       y: Math.max(0, Math.min(canvasArea.height, y))
     };
+  },
+
+  /**
+   * Check if ADR axis position is within container bounds
+   * @param {number} axisX - ADR axis X position
+   * @param {Object} config - Configuration object
+   * @param {Object} canvasDimensions - Canvas dimensions
+   * @returns {boolean} True if axis is within bounds
+   */
+  isAxisInBounds: (axisX, config, canvasDimensions) => {
+    const { canvasArea } = canvasDimensions;
+    const minX = (config.adrAxisXMin || 5) * canvasArea.width / 100;
+    const maxX = (config.adrAxisXMax || 95) * canvasArea.width / 100;
+    return axisX >= minX && axisX <= maxX;
+  },
+
+  /**
+   * Clamp ADR axis position to container bounds
+   * @param {number} axisX - ADR axis X position
+   * @param {Object} config - Configuration object
+   * @param {Object} canvasDimensions - Canvas dimensions
+   * @returns {number} Clamped axis position
+   */
+  clampAxisToBounds: (axisX, config, canvasDimensions) => {
+    const { canvasArea } = canvasDimensions;
+    const minX = (config.adrAxisXMin || 5) * canvasArea.width / 100;
+    const maxX = (config.adrAxisXMax || 95) * canvasArea.width / 100;
+    return Math.max(minX, Math.min(maxX, axisX));
   }
 };
 

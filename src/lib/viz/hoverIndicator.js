@@ -1,121 +1,150 @@
-import { get } from 'svelte/store';
-import { coordinateUtils, boundsUtils } from '../../utils/canvasSizing.js';
+function hexToRgba(hex, opacity) {
+    if (!hex) return 'rgba(0,0,0,0)';
+    
+    const finalOpacity = (opacity === undefined || opacity === null) ? 1 : opacity;
 
-/**
- * Helper function to convert hex color string to RGBA string.
- * @param {string} hex - Hex color string (e.g., "#RRGGBB" or "#RGB").
- * @param {number} alpha - Alpha transparency value (0 to 1).
- * @returns {string} RGBA color string (e.g., "rgba(255, 0, 0, 0.5)").
- */
-function hexToRgba(hex, alpha) {
-    const bigint = parseInt(hex.slice(1), 16);
-    const r = (bigint >> 16) & 255;
-    const g = (bigint >> 8) & 255;
-    const b = bigint & 255;
-    return `rgba(${r},${g},${b},${alpha})`;
-}
-export function drawHoverIndicator(ctx, config, state, y, hoverState) {
-    // Ensure hoverState is active
-    if (!hoverState) {
-        // hoverState is null
-        return;
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 4) {
+        r = parseInt(hex[1] + hex[1], 16);
+        g = parseInt(hex[2] + hex[2], 16);
+        b = parseInt(hex[3] + hex[3], 16);
+    } else if (hex.length === 7) {
+        r = parseInt(hex.substring(1, 3), 16);
+        g = parseInt(hex.substring(3, 5), 16);
+        b = parseInt(hex.substring(5, 7), 16);
     }
+    
+    return `rgba(${r},${g},${b},${finalOpacity})`;
+}
 
-    // 🔧 UNIFIED COORDINATE SYSTEM: Use consistent coordinate transformation
-    // Create a mock canvas dimensions object for coordinate transformation
-    const canvasDimensions = {
-        dpr: window.devicePixelRatio || 1
+export function drawHoverIndicator(ctx, config, state, y) {
+    const {
+        visualizationsContentWidth,
+        centralAxisXPosition,
+        adrAxisXPosition,
+        markerLineColor,
+        markerLineThickness,
+        hoverLabelShowBackground,
+        hoverLabelBackgroundColor,
+        hoverLabelBackgroundOpacity,
+        priceFontSize,
+        priceUseStaticColor,
+        priceStaticColor,
+        priceUpColor,
+        priceDownColor,
+        priceHorizontalOffset,
+        priceDisplayPadding,
+        lastTickDirection,
+        currentPrice,
+        mousePosition
+    } = config;
+
+    if (!mousePosition || currentPrice === null || currentPrice === undefined) return;
+
+    // NEW: Use configurable ADR axis position with fallback to central axis
+    const axisX = adrAxisXPosition || centralAxisXPosition;
+    const priceY = y(currentPrice);
+    const { x: mouseX, y: mouseY } = mousePosition;
+
+    // Check if mouse is near the price line (within 10px tolerance)
+    const isNearPriceLine = Math.abs(mouseY - priceY) < 10;
+
+    if (!isNearPriceLine) return;
+
+    // Draw vertical marker line
+    ctx.strokeStyle = hexToRgba(markerLineColor, 0.3);
+    ctx.lineWidth = markerLineThickness;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(axisX, 0);
+    ctx.lineTo(axisX, config.meterHeight || 120);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Draw horizontal marker line at price level
+    ctx.strokeStyle = hexToRgba(markerLineColor, 0.5);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, priceY);
+    ctx.lineTo(visualizationsContentWidth, priceY);
+    ctx.stroke();
+
+    // Format price display
+    const formatPrice = (price) => {
+        try {
+            return (price !== undefined && price !== null && !isNaN(price)) 
+                ? price.toFixed(config.digits || 5) 
+                : 'N/A';
+        } catch (error) {
+            console.error('Error formatting price:', { price, error });
+            return 'N/A';
+        }
     };
 
-    ctx.save(); // Save the current canvas state (including transformation)
-    
-    // 🔧 UNIFIED COORDINATE SYSTEM: Use coordinate utils for consistent transformation
-    const canvasPos = coordinateUtils.cssToCanvas({ x: 0, y: hoverState.y }, canvasDimensions);
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformation to 1:1 CSS pixels
+    const priceText = formatPrice(currentPrice);
+    ctx.font = `${priceFontSize}px Arial`;
+    const textMetrics = ctx.measureText(priceText);
+    const textWidth = textMetrics.width;
+    const textHeight = priceFontSize;
 
-    try {
-        const { visualizationsContentWidth } = config;
-        const { digits } = state;
+    // Calculate label position with smart positioning
+    const padding = priceDisplayPadding;
+    const labelWidth = textWidth + (padding * 2);
+    const labelHeight = textHeight + (padding * 2);
 
-        const hoverY = hoverState.y; // Use hoverY since we are using CSS pixel coordinates
-        // hoverState received
-        const hoverPrice = hoverState.price;
+    // Smart positioning: avoid edges and mouse cursor
+    let labelX = axisX + priceHorizontalOffset;
+    let labelY = priceY - labelHeight / 2;
 
-        if (hoverY === undefined || hoverPrice === undefined || isNaN(hoverY) || isNaN(hoverPrice)) {
-            return;
-        }
-
-        // 🔧 UNIFIED BOUNDS CHECKING: Use unified bounds checking utilities
-        // Create canvas dimensions for bounds checking
-        const canvasDimensions = {
-            canvasArea: {
-                width: config.visualizationsContentWidth,
-                height: config.meterHeight
-            }
-        };
-        
-        // Ensure hover line is within the canvas bounds
-        if (!boundsUtils.isYInBounds(hoverY, config, canvasDimensions)) {
-            console.log(`[HOVER_INDICATOR] Hover Y out of bounds: ${hoverY} (canvas height: ${config.meterHeight})`);
-            return;
-        }
-
-        // Draw the horizontal line
-        ctx.beginPath();
-        ctx.strokeStyle = '#9CA3AF'; // Grey color
-        ctx.lineWidth = 1;
-        ctx.moveTo(0, hoverY);
-        ctx.lineTo(visualizationsContentWidth, hoverY);
-        ctx.stroke();
-
-        // Draw the price label
-        const safeDigits = state && state.digits ? state.digits : 5;
-        const labelText = (hoverPrice !== undefined && hoverPrice !== null && !isNaN(hoverPrice)) ? hoverPrice.toFixed(safeDigits) : 'N/A';
-        const labelFontSize = 10; // config.hoverLabelFontSize || 10; // Use config, fallback to 10 - TO BE ADDED TO CONFIG
-        const labelPadding = 5; // Padding around the label
-        const labelOffsetFromLine = 10; // Distance from the line
-
-        ctx.font = `${labelFontSize}px Arial`;
-        ctx.fillStyle = '#9CA3AF'; // Grey color
-        ctx.textBaseline = 'middle';
-        ctx.textAlign = 'left';
-
-        const metrics = ctx.measureText(labelText);
-
-        // Position the label to the right of the line, near the central axis or a side
-        let labelX = visualizationsContentWidth / 2 + labelOffsetFromLine; // Example positioning
-
-        // Calculate background dimensions and position
-        const textWidth = metrics.width;
-        const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-        const backgroundX = (ctx.textAlign === 'right') ? labelX - textWidth - labelPadding : labelX - labelPadding;
-        const backgroundY = hoverY - (textHeight / 2) - labelPadding; // Center vertically around hoverY
-        const backgroundWidth = textWidth + labelPadding * 2;
-        const backgroundHeight = textHeight + labelPadding * 2;
-
- const centralAxisX = config.centralAxisXPosition;
- if (centralAxisX + labelOffsetFromLine + metrics.width < visualizationsContentWidth) {
- labelX = centralAxisX + labelOffsetFromLine;
- } else if (centralAxisX - labelOffsetFromLine - metrics.width > 0) {
-            labelX = centralAxisX - labelOffsetFromLine - metrics.width;
-            ctx.textAlign = 'right';
-        } else {
-            // Fallback if central axis positioning is not ideal
-            labelX = visualizationsContentWidth - metrics.width - labelPadding;
-            ctx.textAlign = 'right';
-        }
-
-        // Draw background rectangle if enabled in config (after labelX is finalized)
-       if (config.hoverLabelShowBackground) {
-            const backgroundColor = hexToRgba(config.hoverLabelBackgroundColor || '#000000', config.hoverLabelBackgroundOpacity || 0.7); // Use config, fallback to defaults
-            ctx.fillStyle = backgroundColor;
-            ctx.fillRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
-        }
-
-        // Draw the text label on top of the background
-        ctx.fillStyle = '#9CA3AF'; // config.hoverLabelColor || '#9CA3AF'; // Use config, fallback to grey - TO BE ADDED TO CONFIG
-	ctx.fillText(labelText, labelX, hoverY);
-    } finally {
-        ctx.restore(); // Restore the original canvas state (including transformation)
+    // Adjust X position if it would go off-screen
+    if (labelX + labelWidth > visualizationsContentWidth) {
+        labelX = axisX - priceHorizontalOffset - labelWidth;
     }
+
+    // Adjust Y position if it would go off-screen
+    if (labelY < 0) {
+        labelY = priceY + 10; // Position below price line
+    } else if (labelY + labelHeight > (config.meterHeight || 120)) {
+        labelY = priceY - labelHeight - 10; // Position above price line
+    }
+
+    // Further adjust if label would interfere with mouse cursor
+    const mouseBuffer = 20;
+    if (Math.abs(mouseX - labelX) < mouseBuffer && 
+        Math.abs(mouseY - labelY) < mouseBuffer) {
+        // Move label to opposite side of cursor
+        if (mouseX < axisX) {
+            labelX = axisX + priceHorizontalOffset;
+        } else {
+            labelX = axisX - priceHorizontalOffset - labelWidth;
+        }
+    }
+
+    // Draw label background
+    if (hoverLabelShowBackground) {
+        ctx.fillStyle = hexToRgba(hoverLabelBackgroundColor, hoverLabelBackgroundOpacity);
+        ctx.fillRect(labelX, labelY, labelWidth, labelHeight);
+    }
+
+    // Draw label text
+    const textColor = priceUseStaticColor 
+        ? priceStaticColor 
+        : (lastTickDirection === 'up' ? priceUpColor : priceDownColor);
+    
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(priceText, labelX + padding, labelY + labelHeight / 2);
+
+    // Draw small indicator dot at intersection
+    ctx.fillStyle = markerLineColor;
+    ctx.beginPath();
+    ctx.arc(axisX, priceY, 3, 0, 2 * Math.PI);
+    ctx.fill();
+}
+
+export function hideHoverIndicator(ctx, config) {
+    // This function would be called to clear hover indicators
+    // In practice, the canvas is typically cleared and redrawn each frame
+    // so this might not be needed, but included for completeness
 }

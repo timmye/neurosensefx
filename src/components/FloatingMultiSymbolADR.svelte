@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { symbolStore } from '../data/symbolStore.js';
+  import { displays } from '../stores/displayStore.js';
   import { drawMultiSymbolADR } from '../lib/viz/multiSymbolADR.js';
   import InteractWrapper from './shared/InteractWrapper.svelte';
   import InfoGrid from './shared/InfoGrid.svelte';
@@ -25,23 +25,22 @@
   const height = 300;
   const IS_DEBUG = true;
   
-  // Subscribe to symbol store
-  const unsubSymbolStore = symbolStore.subscribe(value => {
-    symbols = Object.keys(value);
+  // Subscribe to displays store
+  const unsubSymbolStore = displays.subscribe(value => {
+    symbols = Array.from(value.keys());
     
     // Process symbols for rendering
-    if (!value || Object.keys(value).length === 0) {
+    if (!value || value.size === 0) {
       symbolsToRender = [];
     } else {
-      symbolsToRender = Object.keys(value)
-        .map(symbolName => {
-          const symbolData = value[symbolName];
-          // Check if the essential state for calculation exists
+      symbolsToRender = Array.from(value.entries())
+        .map(([symbolName, symbolData]) => {
+          // Check if essential state for calculation exists
           if (symbolData && symbolData.state && typeof symbolData.state.currentPrice === 'number' && typeof symbolData.state.todaysHigh === 'number' && typeof symbolData.state.todaysLow === 'number') {
             
             const state = symbolData.state;
             
-            // Calculate adrPercentage here, using the exact same logic as the main visualization.
+            // Calculate adrPercentage here, using to exact same logic as the main visualization.
             const adrPercentage = (state.todaysHigh > state.todaysLow) ? ((state.currentPrice - state.todaysLow) / (state.todaysHigh - state.todaysLow)) * 200 - 100 : 0;
 
             return {

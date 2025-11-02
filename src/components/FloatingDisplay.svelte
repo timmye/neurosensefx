@@ -1,8 +1,7 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
-  import { floatingStore, actions } from '../stores/floatingStore.js';
+  import { displayStore, displayActions, displays, activeDisplay } from '../stores/displayStore.js';
   import { subscribe, unsubscribe, wsStatus } from '../data/wsClient.js';
-  import { symbolStore } from '../data/symbolStore.js';
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
@@ -41,13 +40,12 @@
   let isActive = false;
   let zIndex = 1;
   
-  // ✅ ULTRA-MINIMAL: Simple store binding - no reactive conflicts
-  $: display = $floatingStore.displays?.get(id);
-  $: symbolData = $symbolStore[symbol];
+  // ✅ UNIFIED STORE: Simple store binding - no reactive conflicts
+  $: display = $displays?.get(id);
   $: {
     displayPosition = display?.position || position;
     config = display?.config || {};
-    state = symbolData?.state || {}; // ✅ FIXED: Get state from symbolStore (real market data)
+    state = display?.state || {}; // ✅ FIXED: Get state from unified displayStore
     isActive = display?.isActive || false;
     zIndex = display?.zIndex || 1;
     
@@ -81,7 +79,7 @@
   // Event handlers
   function handleContextMenu(e) {
     e.preventDefault();
-    actions.setActiveDisplay(id);
+    displayActions.setActiveDisplay(id);
     
     const context = {
       type: e.target.closest('canvas') ? 'canvas' : 
@@ -90,11 +88,11 @@
       targetType: 'display'
     };
     
-    actions.showUnifiedContextMenu(e.clientX, e.clientY, context);
+    displayActions.showContextMenu(e.clientX, e.clientY, id, 'display', context);
   }
   
   function handleClose() {
-    actions.removeDisplay(id);
+    displayActions.removeDisplay(id);
   }
   
   function handleCanvasMouseMove(event) {
@@ -154,7 +152,7 @@
           ],
           onmove: (event) => {
             // ✅ DIRECT: Use interact.js rect directly - no position tracking
-            actions.moveDisplay(id, {
+            displayActions.moveDisplay(id, {
               x: event.rect.left,
               y: event.rect.top
             });
@@ -182,8 +180,8 @@
             };
             
             // ✅ FIXED: Update both position and size
-            actions.moveDisplay(id, newPosition);
-            actions.resizeDisplay(id, event.rect.width, event.rect.height);
+            displayActions.moveDisplay(id, newPosition);
+            displayActions.resizeDisplay(id, event.rect.width, event.rect.height);
           },
           onend: () => {
             console.log(`[INTERACT_JS] Resize ended for display ${id}`);
@@ -192,44 +190,21 @@
       
       // Click to activate
       interact(element).on('tap', (event) => {
-        actions.setActiveDisplay(id);
+        displayActions.setActiveDisplay(id);
       });
     }
     
-    // Subscribe to data using direct integration
-    try {
-      console.log(`[FLOATING_DISPLAY] Subscribing to data for ${symbol}`);
-      
-      // Direct WebSocket subscription
-      subscribe(symbol);
-      
-      // Wait for symbol data to be ready
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error(`Timeout waiting for ${symbol} data`));
-        }, 10000);
-        
-        const unsubscribe = symbolStore.subscribe(symbols => {
-          if (symbols[symbol]?.ready) {
-            clearTimeout(timeout);
-            unsubscribe();
-            resolve();
-          }
-        });
-      });
-      
-      console.log(`[FLOATING_DISPLAY] Successfully subscribed to ${symbol}`);
-    } catch (error) {
-      console.error(`[FLOATING_DISPLAY] Failed to subscribe to ${symbol}:`, error);
-    }
+    // Display is already created by parent component, no need to create again
+    // Worker creation is handled automatically by displayActions.addDisplay() in parent
+    console.log(`[FLOATING_DISPLAY] Display ${id} for ${symbol} is ready`);
     
     return () => {
       // ✅ CLEANUP: Simple interact.js cleanup
       if (element) {
         interact(element).unset();
       }
-      console.log(`[FLOATING_DISPLAY] Unsubscribing from data for ${symbol}`);
-      unsubscribe(symbol);
+      console.log(`[FLOATING_DISPLAY] Cleaning up display for ${symbol}`);
+      // Display cleanup is handled by displayActions.removeDisplay() which also terminates worker
     };
   });
   

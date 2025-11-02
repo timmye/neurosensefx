@@ -1,5 +1,5 @@
 import { writable, get } from 'svelte/store';
-import { symbolStore } from './symbolStore';
+import { displayActions } from '../stores/displayStore.js';
 import { TickSchema, SymbolDataPackageSchema } from './schema.js';
 
 export const wsStatus = writable('disconnected');
@@ -98,7 +98,8 @@ function handleSocketMessage(data) {
     // Processing tick
         const tickResult = TickSchema.safeParse(data);
         if (tickResult.success) {
-            symbolStore.dispatchTick(tickResult.data.symbol, tickResult.data);
+            console.log('[wsClient] Tick received for:', tickResult.data.symbol);
+            displayActions.dispatchTick(tickResult.data.symbol, tickResult.data);
         } else {
             console.error('[wsClient] Invalid tick data received:', tickResult.error);
         }
@@ -107,7 +108,11 @@ function handleSocketMessage(data) {
 
 function handleDataPackage(data) {
     console.log(`[WSCLIENT_DEBUG] handleDataPackage called for ${data.symbol}`);
-    symbolStore.createNewSymbol(data.symbol, data);
+    console.log('[wsClient] Data package received for:', data.symbol);
+    
+    // Create symbol display with received data
+    displayActions.createNewSymbol(data.symbol, data);
+    
     subscriptions.update(subs => {
         subs.add(data.symbol);
         return subs;
@@ -124,7 +129,10 @@ export function disconnect() {
     wsStatus.set('disconnected');
     availableSymbols.set([]);
     subscriptions.set(new Set());
-    symbolStore.clear();
+    
+    // Clear all displays and workers
+    displayActions.clear();
+    console.log('[wsClient] Disconnect called - displayStore cleared');
 }
 
 export function subscribe(symbol) {
@@ -145,7 +153,11 @@ export function unsubscribe(symbol) {
     if (ws) {
         ws.send(JSON.stringify({ type: 'unsubscribe', symbols: [symbol] }));
     }
-    symbolStore.removeSymbol(symbol);
+    
+    // Remove symbol displays and workers
+    displayActions.removeSymbol(symbol);
+    console.log('[wsClient] Unsubscribe called for:', symbol);
+    
     subscriptions.update(subs => {
         subs.delete(symbol);
         return subs;

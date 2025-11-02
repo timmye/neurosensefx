@@ -1,8 +1,8 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { actions, panels, icons } from '../stores/floatingStore.js';
+  import { displayActions, panels, icons } from '../stores/displayStore.js';
   import FloatingPanel from './FloatingPanel.svelte';
-  import { symbolStore } from '../data/symbolStore.js';
+  import { displays } from '../stores/displayStore.js';
   import { availableSymbols, subscribe, unsubscribe } from '../data/wsClient.js';
   import { FuzzySearch, debounce } from '../utils/fuzzySearch.js';
   
@@ -19,8 +19,8 @@
   let isSearchFocused = false;
   
   // Store subscriptions
-  const unsubscribeSymbol = symbolStore.subscribe(value => {
-    symbols = Object.keys(value);
+  const unsubscribeDisplays = displays.subscribe(value => {
+    symbols = Array.from(value.values()).map(display => display.symbol);
   });
   
   const unsubscribeAvailable = availableSymbols.subscribe(value => {
@@ -59,7 +59,7 @@
   
   // Cleanup
   onDestroy(() => {
-    unsubscribeSymbol();
+    unsubscribeDisplays();
     unsubscribeAvailable();
     unsubscribePanels();
   });
@@ -171,7 +171,7 @@
     console.log('Creating display for symbol:', symbol);
     
     // Create display first
-    const displayId = actions.addDisplay(symbol, {
+    const displayId = displayActions.addDisplay(symbol, {
       x: 100 + Math.random() * 200,
       y: 100 + Math.random() * 100
     });
@@ -187,10 +187,11 @@
           reject(new Error(`Timeout waiting for ${symbol} data`));
         }, 10000);
         
-        const unsubscribe = symbolStore.subscribe(symbols => {
-          if (symbols[symbol]?.ready) {
+        const unsubscribeDisplays = displays.subscribe(displaysMap => {
+          const display = Array.from(displaysMap.values()).find(d => d.symbol === symbol);
+          if (display?.ready) {
             clearTimeout(timeout);
-            unsubscribe();
+            unsubscribeDisplays();
             resolve();
           }
         });
@@ -205,7 +206,7 @@
       setTimeout(() => {
         const icon = $icons.get('symbol-palette-icon');
         if (icon && icon.isExpanded) {
-          actions.collapseIcon('symbol-palette-icon');
+          displayActions.collapseIcon('symbol-palette-icon');
         }
       }, 500);
       
@@ -256,9 +257,7 @@
               on:mouseenter={() => selectedIndex = index}
             >
               <span class="symbol-number">{index + 1}</span>
-              <span class="symbol-name" 
-                on:click={() => createDisplayFromSearch(symbol)}
-              >{@html highlightMatch(symbol, searchQuery)}</span>
+              <span class="symbol-name">{@html highlightMatch(symbol, searchQuery)}</span>
               <span class="symbol-action">Create Display</span>
             </div>
           {/each}

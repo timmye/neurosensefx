@@ -1,5 +1,5 @@
 <script>
-  import { floatingStore, actions, contextMenu, displays, panels } from '../stores/floatingStore.js';
+  import { displayStore, displayActions, contextMenu, displays, panels } from '../stores/displayStore.js';
   import { getZIndex } from '../constants/zIndex.js';
   
   // Import context-specific components
@@ -123,14 +123,14 @@
   // Handle click outside to close
   function handleClickOutside(event) {
     if (menuElement && !menuElement.contains(event.target)) {
-      actions.hideContextMenu();
+      displayActions.hideContextMenu();
     }
   }
   
   // Handle keyboard shortcuts
   function handleKeydown(event) {
     if (event.key === 'Escape') {
-      actions.hideContextMenu();
+      displayActions.hideContextMenu();
     }
   }
   
@@ -156,14 +156,14 @@
   }
   
   // Get current context configuration
-  $: currentConfig = $contextMenu.context?.type ? 
+  $: currentConfig = ($contextMenu.context?.type && CONTEXT_CONFIGURATIONS[$contextMenu.context.type]) ? 
     CONTEXT_CONFIGURATIONS[$contextMenu.context.type] : 
     CONTEXT_CONFIGURATIONS.workspace;
   
   // Handle context menu trigger from external components
   export function showContextMenu(event) {
     const context = detectContextMenuContext(event);
-    actions.showUnifiedContextMenu(event.clientX, event.clientY, context);
+    displayActions.showContextMenu(event.clientX, event.clientY, context.targetId, context.targetType, context);
   }
 </script>
 
@@ -194,9 +194,14 @@
       {#if $contextMenu.context.type === 'canvas'}
         <CanvasTabbedInterface 
           displayId={$contextMenu.context.targetId}
-          onParameterChange={(parameter, value) => actions.updateCanvasConfig($contextMenu.context.targetId, parameter, value)}
-          onMultipleParameterChange={(configUpdates) => actions.updateMultipleCanvasConfig($contextMenu.context.targetId, configUpdates)}
-          onReset={() => actions.resetCanvasConfig($contextMenu.context.targetId)}
+          onParameterChange={(parameter, value) => displayActions.updateDisplayConfig($contextMenu.context.targetId, parameter, value)}
+          onMultipleParameterChange={(configUpdates) => {
+            // Apply multiple config updates
+            Object.entries(configUpdates).forEach(([param, value]) => {
+              displayActions.updateDisplayConfig($contextMenu.context.targetId, param, value);
+            });
+          }}
+          onReset={() => displayActions.resetDisplayConfig($contextMenu.context.targetId)}
         />
       {:else if $contextMenu.context.type === 'header'}
         <HeaderQuickActions 
@@ -205,22 +210,22 @@
             // Handle header-specific actions
             switch(action) {
               case 'bringToFront':
-                actions.setActiveDisplay($contextMenu.context.targetId);
+                displayActions.setActiveDisplay($contextMenu.context.targetId);
                 break;
               case 'duplicate':
                 const display = $displays.get($contextMenu.context.targetId);
                 if (display) {
-                  actions.addDisplay(display.symbol, { 
+                  displayActions.addDisplay(display.symbol, { 
                     x: display.position.x + 20, 
                     y: display.position.y + 20 
                   });
                 }
                 break;
               case 'close':
-                actions.removeDisplay($contextMenu.context.targetId);
+                displayActions.removeDisplay($contextMenu.context.targetId);
                 break;
             }
-            actions.hideContextMenu();
+            displayActions.hideContextMenu();
           }}
         />
       {:else if $contextMenu.context.type === 'workspace'}
@@ -229,7 +234,7 @@
             // Handle workspace-specific actions
             switch(action) {
               case 'addDisplay':
-                actions.addDisplay('EURUSD', { x: 100, y: 100 });
+                displayActions.addDisplay('EURUSD', { x: 100, y: 100 });
                 break;
               case 'showSymbolPalette':
                 // Show symbol palette logic
@@ -238,7 +243,7 @@
                 // Workspace settings logic
                 break;
             }
-            actions.hideContextMenu();
+            displayActions.hideContextMenu();
           }}
         />
       {:else if $contextMenu.context.type === 'panel'}
@@ -248,16 +253,16 @@
             // Handle panel-specific actions
             switch(action) {
               case 'bringToFront':
-                actions.setActivePanel($contextMenu.context.targetId);
+                displayActions.setActivePanel($contextMenu.context.targetId);
                 break;
               case 'close':
-                actions.removePanel($contextMenu.context.targetId);
+                displayActions.removePanel($contextMenu.context.targetId);
                 break;
               case 'reset':
                 // Reset panel logic
                 break;
             }
-            actions.hideContextMenu();
+            displayActions.hideContextMenu();
           }}
         />
       {/if}
@@ -267,12 +272,12 @@
     {#if currentConfig.showReset}
       <div class="menu-footer">
         <button class="reset-btn" on:click={() => {
-          actions.resetCanvasConfig($contextMenu.context.targetId);
-          actions.hideContextMenu();
+          displayActions.resetDisplayConfig($contextMenu.context.targetId);
+          displayActions.hideContextMenu();
         }}>
           Reset to Defaults
         </button>
-        <button class="close-btn" on:click={() => actions.hideContextMenu()}>
+        <button class="close-btn" on:click={() => displayActions.hideContextMenu()}>
           Close (Esc)
         </button>
       </div>
