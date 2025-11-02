@@ -59,19 +59,20 @@ const initialState = {
   // WebSocket workers per symbol for data processing
   workers: new Map(),
   
-  // === UNIFIED CONFIGURATION ===
-  // Complete merged configuration from both stores
-  // Includes ADR axis and all 85+ visualization parameters
+  // === CLEAN FOUNDATION CONFIGURATION ===
+  // Clean parameters without legacy confusion
+  // Container → Content → Rendering pipeline
   defaultConfig: {
-    // === ADR AXIS POSITIONING (from floatingStore) ===
-    adrAxisXPosition: 65,                   // 30% right of center (65% of canvas width)
-    adrAxisXMin: 5,                     // 5% of container width
-    adrAxisXMax: 95,                    // 95% of container width
+    // === CONTAINER LAYOUT ===
+    containerSize: { width: 240, height: 160 },     // Physical container dimensions
+    padding: 20,                                     // Container padding
+    headerHeight: 40,                                // Header area height
     
-    // === LAYOUT & METER (from symbolStore) ===
-    visualizationsContentWidth: 100,      // 100% of reference width (220px)
-    meterHeight: 100,                    // 100% of reference height (120px)
-    centralAxisXPosition: 50,            // 50% of reference width (110px) - legacy fallback
+    // === POSITIONING ===
+    adrAxisPosition: 0.65,                           // 65% of content width (30% right of center)
+    adrAxisBounds: { min: 0.05, max: 0.95 },       // 5%-95% of content width
+    
+    // === VISUALIZATION PARAMETERS (content-relative) ===
     adrRange: 100,
     adrLookbackDays: 14,
     adrProximityThreshold: 10,
@@ -109,10 +110,10 @@ const initialState = {
     ohlLabelBoxOutlineColor: '#4b5563',
     ohlLabelBoxOutlineOpacity: 1,
 
-    // === PRICE FLOAT & DISPLAY ===
-    priceFloatWidth: 45.5,              // 45.5% of reference width (100px ÷ 220px)
-    priceFloatHeight: 3.3,              // 3.3% of reference height (4px ÷ 120px)
-    priceFloatXOffset: 0,               // 0% of reference width
+    // === PRICE FLOAT & DISPLAY (content-relative) ===
+    priceFloatWidth: 0.8,                              // 80% of content width
+    priceFloatHeight: 0.1,                             // 10% of content height
+    priceFloatXOffset: 0,                               // 0% of content width
     priceFloatUseDirectionalColor: false,
     priceFloatColor: '#FFFFFF',
     priceFloatUpColor: '#3b82f6',
@@ -121,10 +122,10 @@ const initialState = {
     priceFloatPulseThreshold: 0.5,
     priceFloatPulseColor: 'rgba(167, 139, 250, 0.8)',
     priceFloatPulseScale: 1.5,
-    priceFontSize: 54.2,               // 54.2% of reference height (65px ÷ 120px)
+    priceFontSize: 0.45,                                // 45% of content height
     priceFontWeight: '600',
-    priceHorizontalOffset: 1.8,        // 1.8% of reference width (4px ÷ 220px)
-    priceDisplayPadding: 0,             // 0% of reference dimensions
+    priceHorizontalOffset: 0.018,                         // 1.8% of content width
+    priceDisplayPadding: 0,                               // 0% of content dimensions
     bigFigureFontSizeRatio: 0.7,
     pipFontSizeRatio: 1.0,
     pipetteFontSizeRatio: 0.4,
@@ -140,10 +141,10 @@ const initialState = {
     priceBoxOutlineColor: '#4b5563',
     priceBoxOutlineOpacity: 1,
     
-    // === VOLATILITY ORB ===
+    // === VOLATILITY ORB (content-relative) ===
     showVolatilityOrb: true,
     volatilityColorMode: 'directional',
-    volatilityOrbBaseWidth: 90.9,       // 90.9% of reference width (200px ÷ 220px)
+    volatilityOrbBaseWidth: 0.91,                        // 91% of content width
     volatilityOrbInvertBrightness: false,
     volatilitySizeMultiplier: 1.5,
     showVolatilityMetric: true,
@@ -199,26 +200,26 @@ export const displayStore = writable(initialState);
 // =============================================================================
 
 // Display-related selectors
-export const displays = derived(displayStore, $store => $store.displays);
-export const activeDisplayId = derived(displayStore, $store => $store.activeDisplayId);
-export const activeDisplay = derived(displayStore, $store => 
-  $store.activeDisplayId ? $store.displays.get($store.activeDisplayId) : null
+export const displays = derived(displayStore, store => store.displays);
+export const activeDisplayId = derived(displayStore, store => store.activeDisplayId);
+export const activeDisplay = derived(displayStore, store => 
+  store.activeDisplayId ? store.displays.get(store.activeDisplayId) : null
 );
 
 // UI element selectors
-export const panels = derived(displayStore, $store => $store.panels);
-export const icons = derived(displayStore, $store => $store.icons);
-export const activePanelId = derived(displayStore, $store => $store.activePanelId);
-export const activeIconId = derived(displayStore, $store => $store.activeIconId);
-export const activePanel = derived(displayStore, $store => 
-  $store.activePanelId ? $store.panels.get($store.activePanelId) : null
+export const panels = derived(displayStore, store => store.panels);
+export const icons = derived(displayStore, store => store.icons);
+export const activePanelId = derived(displayStore, store => store.activePanelId);
+export const activeIconId = derived(displayStore, store => store.activeIconId);
+export const activePanel = derived(displayStore, store => 
+  store.activePanelId ? store.panels.get(store.activePanelId) : null
 );
 
 // Context menu selector
-export const contextMenu = derived(displayStore, $store => $store.contextMenu);
+export const contextMenu = derived(displayStore, store => store.contextMenu);
 
 // Configuration selector
-export const defaultConfig = derived(displayStore, $store => $store.defaultConfig);
+export const defaultConfig = derived(displayStore, store => store.defaultConfig);
 
 // =============================================================================
 // UNIFIED ACTIONS (everything in one place)
@@ -689,9 +690,9 @@ export const displayActions = {
       const display = newDisplays.get(displayId);
       if (display) {
         // Validate position is within bounds (5% to 95%)
-        const validatedPosition = Math.max(5, Math.min(95, position));
+        const validatedPosition = Math.max(0.05, Math.min(0.95, position));
         
-        const updatedConfig = { ...display.config, adrAxisXPosition: validatedPosition };
+        const updatedConfig = { ...display.config, adrAxisPosition: validatedPosition };
         newDisplays.set(displayId, {
           ...display,
           config: updatedConfig
@@ -702,7 +703,7 @@ export const displayActions = {
         if (worker) {
           worker.postMessage({ 
             type: 'updateConfig', 
-            payload: { adrAxisXPosition: validatedPosition } 
+            payload: { adrAxisPosition: validatedPosition } 
           });
         }
       }
@@ -848,7 +849,7 @@ export const displayActions = {
           const newDisplays = new Map(store.displays);
           const display = newDisplays.get(elementId);
           if (display) {
-            newDisplays.set(elementId, { ...display, zIndex: store.nextDisplayZIndex });
+            newDisplays.set(elementId, { ...display, zIndex: newStore.nextDisplayZIndex });
           }
           newStore.displays = newDisplays;
           break;
@@ -858,7 +859,7 @@ export const displayActions = {
           const newPanels = new Map(store.panels);
           const panel = newPanels.get(elementId);
           if (panel) {
-            newPanels.set(elementId, { ...panel, zIndex: store.nextPanelZIndex });
+            newPanels.set(elementId, { ...panel, zIndex: newStore.nextPanelZIndex });
           }
           newStore.panels = newPanels;
           break;
@@ -868,7 +869,7 @@ export const displayActions = {
           const newIcons = new Map(store.icons);
           const icon = newIcons.get(elementId);
           if (icon) {
-            newIcons.set(elementId, { ...icon, zIndex: store.nextIconZIndex });
+            newIcons.set(elementId, { ...icon, zIndex: newStore.nextIconZIndex });
           }
           newStore.icons = newIcons;
           break;

@@ -1,10 +1,13 @@
 import { scaleLinear } from 'd3-scale';
 
-export function drawMarketProfile(ctx, config, state, y) {
+export function drawMarketProfile(ctx, renderingContext, config, state, y) {
+  if (!renderingContext || !state) return;
+
+  // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
+  const { contentArea, adrAxisX } = renderingContext;
+  
+  // Extract configuration parameters (now content-relative)
   const {
-    visualizationsContentWidth,
-    centralAxisXPosition,
-    adrAxisXPosition,
     showMarketProfile,
     marketProfileView,
     marketProfileUpColor,
@@ -23,15 +26,14 @@ export function drawMarketProfile(ctx, config, state, y) {
     showMaxMarker,
     priceDisplayPadding,
     priceFontSize,
-    marketProfileData,
-    visualHigh,
-    visualLow
   } = config;
+
+  const { marketProfileData, visualHigh, visualLow } = state; 
 
   if (!showMarketProfile || !marketProfileData || !Array.isArray(marketProfileData)) return;
 
-  // NEW: Use configurable ADR axis position with fallback to central axis
-  const axisX = adrAxisXPosition || centralAxisXPosition;
+  // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
+  const axisX = adrAxisX;
   
   // Calculate bucket size and total distribution
   const priceRange = visualHigh - visualLow;
@@ -39,7 +41,7 @@ export function drawMarketProfile(ctx, config, state, y) {
   const buckets = new Map();
   let maxVolume = 0;
   
-  // Bucket the price data
+  // Bucket price data
   marketProfileData.forEach(point => {
     const price = point.price;
     const volume = point.volume || 1;
@@ -65,8 +67,9 @@ export function drawMarketProfile(ctx, config, state, y) {
   // Convert to array for processing
   const bucketArray = Array.from(buckets.values()).sort((a, b) => a.price - b.price);
   
-  // Calculate profile dimensions
-  const profileWidth = (visualizationsContentWidth * 0.15) * marketProfileWidthRatio;
+  // 🔧 CLEAN FOUNDATION: Use content-relative positioning
+  // Calculate profile dimensions based on content area
+  const profileWidth = (contentArea.width * 0.15) * marketProfileWidthRatio;
   const maxBarWidth = profileWidth;
   
   // Filter based on distribution mode

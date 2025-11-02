@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { displayStore, displayActions } from '../stores/displayStore.js';
+  import { displayStore, displayActions, icons } from '../stores/displayStore.js';
   
   // ✅ INTERACT.JS: Import interact.js for drag
   import interact from 'interactjs';
@@ -20,7 +20,7 @@
   let zIndex = 10000;
   
   // ✅ ULTRA-MINIMAL: Simple store binding
-  $: icon = $displayStore.icons?.get(id);
+  $: icon = $icons?.get(id);
   $: {
     iconPosition = icon?.position || position;
     isActive = icon?.isActive || false;

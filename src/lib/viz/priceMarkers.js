@@ -1,9 +1,13 @@
-export function drawPriceMarkers(ctx, config, state, y, markers) {
-  if (!markers || markers.length === 0) {
+export function drawPriceMarkers(ctx, renderingContext, config, state, y, markers) {
+  if (!renderingContext || !state || !markers || markers.length === 0) {
     return;
   }
 
-  const { visualizationsContentWidth, markerLineColor, markerLineThickness, markerLabelColor, markerLabelFontSize, markerLabelXOffset } = config;
+  // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
+  const { contentArea } = renderingContext;
+  
+  // Extract configuration parameters (now content-relative)
+  const { markerLineColor, markerLineThickness, markerLabelColor, markerLabelFontSize, markerLabelXOffset } = config;
 
   markers.forEach(marker => {
     const markerY = y(marker.price);
@@ -14,9 +18,10 @@ export function drawPriceMarkers(ctx, config, state, y, markers) {
     ctx.strokeStyle = markerLineColor; // Use config color
     ctx.lineWidth = markerLineThickness; // Use config thickness
 
+    // 🔧 CLEAN FOUNDATION: Use content area dimensions
     // Draw the line across the canvas
     ctx.moveTo(0, markerY);
-    ctx.lineTo(visualizationsContentWidth, markerY);
+    ctx.lineTo(contentArea.width, markerY);
     ctx.stroke();
 
     // Reset line dash for other drawing functions
@@ -31,6 +36,8 @@ export function drawPriceMarkers(ctx, config, state, y, markers) {
     ctx.font = `${labelFontSize}px Arial`;
     ctx.fillStyle = '#9CA3AF'; // Grey color for the label
     ctx.textBaseline = 'middle';
-    ctx.fillText(labelText, visualizationsContentWidth - ctx.measureText(labelText).width - labelPadding, markerY);
+    
+    // 🔧 CLEAN FOUNDATION: Use content area dimensions for positioning
+    ctx.fillText(labelText, contentArea.width - ctx.measureText(labelText).width - labelPadding, markerY);
   });
 }

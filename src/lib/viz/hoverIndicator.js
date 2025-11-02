@@ -17,11 +17,14 @@ function hexToRgba(hex, opacity) {
     return `rgba(${r},${g},${b},${finalOpacity})`;
 }
 
-export function drawHoverIndicator(ctx, config, state, y) {
+export function drawHoverIndicator(ctx, renderingContext, config, state, y, hoverState) {
+    if (!renderingContext || !state) return;
+
+    // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
+    const { contentArea, adrAxisX } = renderingContext;
+    
+    // Extract configuration parameters (now content-relative)
     const {
-        visualizationsContentWidth,
-        centralAxisXPosition,
-        adrAxisXPosition,
         markerLineColor,
         markerLineThickness,
         hoverLabelShowBackground,
@@ -34,17 +37,16 @@ export function drawHoverIndicator(ctx, config, state, y) {
         priceDownColor,
         priceHorizontalOffset,
         priceDisplayPadding,
-        lastTickDirection,
-        currentPrice,
-        mousePosition
     } = config;
 
-    if (!mousePosition || currentPrice === null || currentPrice === undefined) return;
+    const { currentPrice, lastTickDirection } = state; 
 
-    // NEW: Use configurable ADR axis position with fallback to central axis
-    const axisX = adrAxisXPosition || centralAxisXPosition;
+    if (!hoverState || currentPrice === null || currentPrice === undefined) return;
+
+    // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
+    const axisX = adrAxisX;
     const priceY = y(currentPrice);
-    const { x: mouseX, y: mouseY } = mousePosition;
+    const { x: mouseX, y: mouseY } = hoverState;
 
     // Check if mouse is near the price line (within 10px tolerance)
     const isNearPriceLine = Math.abs(mouseY - priceY) < 10;
@@ -57,23 +59,24 @@ export function drawHoverIndicator(ctx, config, state, y) {
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
     ctx.moveTo(axisX, 0);
-    ctx.lineTo(axisX, config.meterHeight || 120);
+    ctx.lineTo(axisX, contentArea.height);
     ctx.stroke();
     ctx.setLineDash([]);
 
+    // 🔧 CLEAN FOUNDATION: Use content area dimensions
     // Draw horizontal marker line at price level
     ctx.strokeStyle = hexToRgba(markerLineColor, 0.5);
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, priceY);
-    ctx.lineTo(visualizationsContentWidth, priceY);
+    ctx.lineTo(contentArea.width, priceY);
     ctx.stroke();
 
     // Format price display
     const formatPrice = (price) => {
         try {
             return (price !== undefined && price !== null && !isNaN(price)) 
-                ? price.toFixed(config.digits || 5) 
+                ? price.toFixed(state.digits || 5) 
                 : 'N/A';
         } catch (error) {
             console.error('Error formatting price:', { price, error });
@@ -82,10 +85,15 @@ export function drawHoverIndicator(ctx, config, state, y) {
     };
 
     const priceText = formatPrice(currentPrice);
-    ctx.font = `${priceFontSize}px Arial`;
+    
+    // 🔧 CLEAN FOUNDATION: Use content-relative positioning
+    const fontSize = contentArea.height * priceFontSize;
+    const horizontalOffset = contentArea.width * priceHorizontalOffset;
+    
+    ctx.font = `${fontSize}px Arial`;
     const textMetrics = ctx.measureText(priceText);
     const textWidth = textMetrics.width;
-    const textHeight = priceFontSize;
+    const textHeight = fontSize;
 
     // Calculate label position with smart positioning
     const padding = priceDisplayPadding;
@@ -93,18 +101,18 @@ export function drawHoverIndicator(ctx, config, state, y) {
     const labelHeight = textHeight + (padding * 2);
 
     // Smart positioning: avoid edges and mouse cursor
-    let labelX = axisX + priceHorizontalOffset;
+    let labelX = axisX + horizontalOffset;
     let labelY = priceY - labelHeight / 2;
 
     // Adjust X position if it would go off-screen
-    if (labelX + labelWidth > visualizationsContentWidth) {
-        labelX = axisX - priceHorizontalOffset - labelWidth;
+    if (labelX + labelWidth > contentArea.width) {
+        labelX = axisX - horizontalOffset - labelWidth;
     }
 
     // Adjust Y position if it would go off-screen
     if (labelY < 0) {
         labelY = priceY + 10; // Position below price line
-    } else if (labelY + labelHeight > (config.meterHeight || 120)) {
+    } else if (labelY + labelHeight > contentArea.height) {
         labelY = priceY - labelHeight - 10; // Position above price line
     }
 
@@ -114,9 +122,9 @@ export function drawHoverIndicator(ctx, config, state, y) {
         Math.abs(mouseY - labelY) < mouseBuffer) {
         // Move label to opposite side of cursor
         if (mouseX < axisX) {
-            labelX = axisX + priceHorizontalOffset;
+            labelX = axisX + horizontalOffset;
         } else {
-            labelX = axisX - priceHorizontalOffset - labelWidth;
+            labelX = axisX - horizontalOffset - labelWidth;
         }
     }
 

@@ -10,11 +10,14 @@ function hexToRgb(hex) {
   } : null;
 }
 
-export function drawVolatilityOrb(ctx, config, state, y) {
+export function drawVolatilityOrb(ctx, renderingContext, config, state, y) {
+  if (!renderingContext || !state) return;
+
+  // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
+  const { contentArea, adrAxisX } = renderingContext;
+  
+  // Extract configuration parameters (now content-relative)
   const {
-    visualizationsContentWidth,
-    centralAxisXPosition,
-    adrAxisXPosition,
     showVolatilityOrb,
     volatilityColorMode,
     volatilityOrbBaseWidth,
@@ -31,18 +34,19 @@ export function drawVolatilityOrb(ctx, config, state, y) {
     priceDisplayPadding,
     priceFloatGlowColor,
     priceFloatGlowStrength,
-    visualHigh,
-    visualLow,
-    currentPrice,
-    volatility,
-    lastTickDirection,
   } = config;
+
+  const { currentPrice, volatility, lastTickDirection } = state; 
 
   if (!showVolatilityOrb || currentPrice === null || currentPrice === undefined) return;
 
-  // NEW: Use configurable ADR axis position with fallback to central axis
-  const axisX = adrAxisXPosition || centralAxisXPosition;
-  const orbRadius = (volatilityOrbBaseWidth / 2) * (volatility / 100) * volatilitySizeMultiplier;
+  // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
+  const axisX = adrAxisX;
+  
+  // 🔧 CLEAN FOUNDATION: Use content-relative positioning
+  // Convert percentage values to actual pixels
+  const orbBaseWidth = contentArea.width * volatilityOrbBaseWidth;
+  const orbRadius = (orbBaseWidth / 2) * (volatility / 100) * volatilitySizeMultiplier;
   const orbY = y(currentPrice);
 
   // Draw volatility orb
@@ -90,22 +94,27 @@ export function drawVolatilityOrb(ctx, config, state, y) {
   // Draw volatility metric if enabled
   if (showVolatilityMetric) {
     ctx.save();
-    ctx.font = `${priceFontSize}px Arial`;
+    
+    // 🔧 CLEAN FOUNDATION: Use content-relative positioning
+    const fontSize = contentArea.height * priceFontSize;
+    const horizontalOffset = contentArea.width * priceHorizontalOffset;
+    
+    ctx.font = `${fontSize}px Arial`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     
     const volatilityText = `σ: ${volatility.toFixed(1)}%`;
     const textMetrics = ctx.measureText(volatilityText);
-    const textX = axisX + orbRadius + priceHorizontalOffset;
+    const textX = axisX + orbRadius + horizontalOffset;
     const textY = orbY;
     
     // Draw text background if configured
     if (priceDisplayPadding > 0) {
       const padding = priceDisplayPadding;
       const bgX = textX - padding;
-      const bgY = textY - (priceFontSize / 2) - padding;
+      const bgY = textY - (fontSize / 2) - padding;
       const bgWidth = textMetrics.width + (padding * 2);
-      const bgHeight = priceFontSize + (padding * 2);
+      const bgHeight = fontSize + (padding * 2);
       
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.fillRect(bgX, bgY, bgWidth, bgHeight);

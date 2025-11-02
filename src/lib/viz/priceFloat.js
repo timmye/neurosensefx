@@ -1,17 +1,18 @@
 import { interpolate } from 'd3-interpolate';
 import { easeCubicOut } from 'd3-ease';
 
-// This map will store the last known price for each symbol to enable smooth animation.
+// This map will store last known price for each symbol to enable smooth animation.
 const lastKnownPrices = new Map();
 const animationState = new Map();
 
-export function drawPriceFloat(ctx, config, state, y) {
-  if (!state || !config) return;
+export function drawPriceFloat(ctx, renderingContext, config, state, y) {
+  if (!state || !renderingContext) return;
 
+  // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
+  const { contentArea, adrAxisX } = renderingContext;
+  
+  // Extract configuration parameters (now content-relative)
   const {
-    visualizationsContentWidth,
-    centralAxisXPosition,
-    adrAxisXPosition,
     priceFloatWidth,
     priceFloatHeight,
     priceFloatUseDirectionalColor,
@@ -26,25 +27,29 @@ export function drawPriceFloat(ctx, config, state, y) {
   const targetPriceY = y(state.currentPrice);
   let animatedPriceY = targetPriceY;
 
-  // NEW: Use configurable ADR axis position with fallback to central axis
-  const axisX = adrAxisXPosition || centralAxisXPosition;
+  // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
+  const axisX = adrAxisX;
 
   const color = priceFloatUseDirectionalColor
     ? (state.lastTickDirection === 'up' ? priceFloatUpColor : (state.lastTickDirection === 'down' ? priceFloatDownColor : priceFloatColor))
     : priceFloatColor;
   
-  // Add the glow effect
+  // Add glow effect
   ctx.shadowColor = priceFloatGlowColor || color;
   ctx.shadowBlur = priceFloatGlowStrength || 12;
-  // NEW: Use configurable ADR axis position for horizontal positioning
-  const startX = axisX - (priceFloatWidth / 2);
+  
+  // 🔧 CLEAN FOUNDATION: Use content-relative positioning
+  // Convert percentage values to actual pixels
+  const floatWidth = contentArea.width * priceFloatWidth;
+  const floatHeight = contentArea.height * priceFloatHeight;
+  const startX = axisX - (floatWidth / 2);
   
   // Draw the price float line
   ctx.beginPath();
   ctx.strokeStyle = color;
-  ctx.lineWidth = priceFloatHeight;
+  ctx.lineWidth = floatHeight;
   ctx.moveTo(startX, animatedPriceY);
-  ctx.lineTo(startX + priceFloatWidth, animatedPriceY);
+  ctx.lineTo(startX + floatWidth, animatedPriceY);
   ctx.stroke();
   
   // Reset shadow for subsequent drawing operations

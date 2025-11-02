@@ -31,28 +31,45 @@
   let flashDuration = 300; // ms
   let flashStartTime = 0;
   
-  // 🔧 UNIFIED SIZING: Canvas sizing configuration
+  // 🔧 CLEAN FOUNDATION: Rendering context for clean parameter pipeline
+  let renderingContext = null;
   let canvasSizingConfig = null;
-  let normalizedConfig = {};
 
   onMount(() => {
     ctx = canvas.getContext('2d');
     dpr = window.devicePixelRatio || 1;
   });
 
-  // 🔧 UNIFIED SIZING: Use createCanvasSizingConfig for consistent canvas sizing
+  // 🔧 CLEAN FOUNDATION: Container → Content → Rendering pipeline
   $: if (canvas && config) {
-    // Create container size from config (treat config values as container dimensions)
-    const containerSize = {
-      width: config.visualizationsContentWidth || CANVAS_CONSTANTS.DEFAULT_CONTAINER.width,
-      height: (config.meterHeight || CANVAS_CONSTANTS.DEFAULT_CONTAINER.height) + 40 // Add header height
+    // 1. Container layer - physical dimensions
+    const containerSize = config.containerSize || { width: 240, height: 160 };
+    
+    // 2. Content area - derived from container
+    const contentArea = {
+      width: containerSize.width - (config.padding * 2),
+      height: containerSize.height - config.headerHeight - config.padding
+    };
+    
+    // 3. ADR axis - positioned relative to content
+    const adrAxisX = contentArea.width * config.adrAxisPosition;
+    
+    // 4. Create rendering context for visualizations
+    renderingContext = {
+      containerSize,
+      contentArea,
+      adrAxisX,
+      // Derived values for backward compatibility
+      visualizationsContentWidth: contentArea.width,
+      meterHeight: contentArea.height,
+      adrAxisXPosition: adrAxisX
     };
     
     // Create unified canvas sizing configuration
     canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
       includeHeader: true,
-      padding: 10,
-      headerHeight: 40,
+      padding: config.padding,
+      headerHeight: config.headerHeight,
       respectDpr: true
     });
     
@@ -64,38 +81,7 @@
     canvas.width = canvasDims.width;
     canvas.height = canvasDims.height;
     
-    // NEW: Apply responsive ADR axis calculation with boundary checking
-    applyResponsiveAxisConfig();
-    
-    // Update normalized config for rendering
-    normalizedConfig = canvasSizingConfig.config;
-    
-    // Canvas sizing applied
-  }
-
-  // NEW: Apply responsive ADR axis calculation and boundary checking
-  function applyResponsiveAxisConfig() {
-    if (!canvasSizingConfig) return;
-    
-    const { canvasArea } = canvasSizingConfig.dimensions;
-    const { config: currentConfig } = canvasSizingConfig;
-    
-    // Calculate responsive ADR axis position (30% right of center by default)
-    const defaultAxisPosition = canvasArea.width * 0.65; // 30% right of center (65% of width)
-    
-    // Use existing axis position if set, otherwise use default
-    let axisPosition = currentConfig.adrAxisXPosition || defaultAxisPosition;
-    
-    // NEW: Apply boundary checking and clamping
-    if (!boundsUtils.isAxisInBounds(axisPosition, currentConfig, canvasSizingConfig.dimensions)) {
-      axisPosition = boundsUtils.clampAxisToBounds(axisPosition, currentConfig, canvasSizingConfig.dimensions);
-    }
-    
-    // Update normalized config with responsive axis position
-    normalizedConfig = {
-      ...normalizedConfig,
-      adrAxisXPosition: axisPosition
-    };
+    console.log('[CONTAINER] Clean foundation renderingContext:', renderingContext);
   }
 
   // This reactive block triggers a redraw whenever core data, config, hover state, or marker store changes
@@ -104,19 +90,16 @@
     // We access $markerStore here to make this block reactive to its changes
     markers = $markerStore; // Update local markers variable
 
-    // NEW: Re-apply responsive axis calculation on config changes
-    applyResponsiveAxisConfig();
-
     // Trigger draw when state, config, hoverState, or markerStore changes
     // The check for ctx, state, config ensures everything is ready
-    draw(state, normalizedConfig, markers); // Pass normalized config and markers array to draw function
+    draw(state, renderingContext, markers); // Pass rendering context and markers array to draw function
   }
 
   function handleMouseMove(event) {
     if (!y) return; // Guard clause: Don't run if y scale hasn't been initialized yet
 
     const rect = canvas.getBoundingClientRect();
-    // 1. Calculate mouse Y relative to the element's CSS position
+    // 1. Calculate mouse Y relative to element's CSS position
     const cssY = event.clientY - rect.top;
     // 2. Convert CSS pixel coordinate back to a price value using the y scale
     const calculatedPrice = y.invert(cssY);
@@ -151,14 +134,14 @@
     }
   }
 
-  function draw(currentState, currentConfig, currentMarkers) {
-    if (!ctx || !currentState || !currentConfig) return;
+  function draw(currentState, currentRenderingContext, currentMarkers) {
+    if (!ctx || !currentState || !currentRenderingContext) return;
 
-    // 🔧 UNIFIED SIZING: Use normalized config for consistent rendering
-    const { visualizationsContentWidth, meterHeight } = currentConfig;
+    // 🔧 CLEAN FOUNDATION: Use rendering context for all operations
+    const { contentArea, adrAxisX } = currentRenderingContext;
     
     // Initialize/update y-scale for the current render frame
-    y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([meterHeight, 0]);
+    y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([contentArea.height, 0]);
     
     // Use canvas sizing config dimensions for clearing
     if (canvasSizingConfig) {
@@ -167,31 +150,31 @@
       ctx.fillStyle = '#111827'; // Ensure background is always drawn
       ctx.fillRect(0, 0, canvasArea.width, canvasArea.height);
     } else {
-      // Fallback to current approach if sizing config not available
-      ctx.clearRect(0, 0, visualizationsContentWidth, meterHeight);
+      // Fallback to rendering context
+      ctx.clearRect(0, 0, contentArea.width, contentArea.height);
       ctx.fillStyle = '#111827';
-      ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
+      ctx.fillRect(0, 0, contentArea.width, contentArea.height);
     }
 
     // --- Draw Core Visualizations ---
-    // 🔧 UNIFIED SIZING: Use normalized config for consistent rendering
-    drawMarketProfile(ctx, currentConfig, currentState, y);
-    drawDayRangeMeter(ctx, currentConfig, currentState, y);
-    drawVolatilityOrb(ctx, currentConfig, currentState, y);
-    drawPriceFloat(ctx, currentConfig, currentState, y);
-    drawPriceDisplay(ctx, currentConfig, currentState, y, visualizationsContentWidth);
-    drawVolatilityMetric(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
+    // 🔧 CLEAN FOUNDATION: Pass rendering context to all visualization functions
+    drawMarketProfile(ctx, currentRenderingContext, config, currentState, y);
+    drawDayRangeMeter(ctx, currentRenderingContext, config, currentState, y);
+    drawVolatilityOrb(ctx, currentRenderingContext, config, currentState, y);
+    drawPriceFloat(ctx, currentRenderingContext, config, currentState, y);
+    drawPriceDisplay(ctx, currentRenderingContext, config, currentState, y);
+    drawVolatilityMetric(ctx, currentRenderingContext, config, currentState);
 
     // --- Draw Price Markers (on top of core visuals, below hover/flash) ---
-    drawPriceMarkers(ctx, currentConfig, currentState, y, currentMarkers);
+    drawPriceMarkers(ctx, currentRenderingContext, config, currentState, y, currentMarkers);
     
     // --- Draw Hover Indicator (must be last to be on top) ---
-    drawHoverIndicator(ctx, currentConfig, currentState, y, $hoverState);
+    drawHoverIndicator(ctx, currentRenderingContext, config, currentState, y, $hoverState);
 
     // --- Draw Flash Overlay ---
     if (flashOpacity > 0) {
       const elapsedTime = performance.now() - flashStartTime;
-      const newOpacity = currentConfig.flashIntensity * (1 - (elapsedTime / flashDuration));
+      const newOpacity = config.flashIntensity * (1 - (elapsedTime / flashDuration));
       
       flashOpacity = Math.max(0, newOpacity);
       
@@ -201,14 +184,14 @@
           const { canvasArea } = canvasSizingConfig.dimensions;
           ctx.fillRect(0, 0, canvasArea.width, canvasArea.height);
         } else {
-          ctx.fillRect(0, 0, visualizationsContentWidth, meterHeight);
+          ctx.fillRect(0, 0, contentArea.width, contentArea.height);
         }
       }
     }
   }
 </script>
 
-<div class="viz-container" style="width: {config.visualizationsContentWidth}px;">
+<div class="viz-container" style="width: {config.containerSize.width}px;">
   <canvas bind:this={canvas} on:mousemove={handleMouseMove} on:mouseleave={handleMouseLeave} on:click={handleClick}></canvas>
 </div>
 

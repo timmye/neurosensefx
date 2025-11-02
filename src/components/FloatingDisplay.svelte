@@ -210,9 +210,9 @@
   
   // ✅ ULTRA-MINIMAL: Simple canvas update - no complex sizing
   $: if (canvas && ctx && config) {
-    // Simple canvas sizing based on config
-    const newWidth = config.visualizationsContentWidth || canvasWidth;
-    const newHeight = config.meterHeight || canvasHeight;
+    // Simple canvas sizing based on clean foundation config
+    const newWidth = config.containerSize?.width || canvasWidth;
+    const newHeight = config.containerSize?.height || canvasHeight;
     
     // Only update if significant change
     if (Math.abs(canvas.width - newWidth) > 5 || Math.abs(canvas.height - newHeight) > 5) {
@@ -240,6 +240,9 @@
     }
   }
   
+  // 🔧 CLEAN FOUNDATION: Create rendering context for visualization functions
+  let renderingContext = null;
+  
   // ✅ ULTRA-MINIMAL: Simple rendering - no complex dependencies
   let renderFrame;
   
@@ -253,31 +256,50 @@
       return;
     }
     
+    // 🔧 CLEAN FOUNDATION: Create rendering context
+    const containerSize = config.containerSize || { width: canvasWidth, height: canvasHeight };
+    const contentArea = {
+      width: containerSize.width - (config.padding * 2),
+      height: containerSize.height - config.headerHeight - config.padding
+    };
+    const adrAxisX = contentArea.width * config.adrAxisPosition;
+    
+    renderingContext = {
+      containerSize,
+      contentArea,
+      adrAxisX,
+      // Derived values for backward compatibility
+      visualizationsContentWidth: contentArea.width,
+      meterHeight: contentArea.height,
+      adrAxisXPosition: adrAxisX
+    };
+    
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     console.log(`[RENDER_DEBUG] Canvas cleared and background filled`);
+    console.log(`[RENDER_DEBUG] Rendering context created:`, renderingContext);
     
     // Draw visualizations
     if (state.visualLow && state.visualHigh && yScale) {
       console.log(`[RENDER_DEBUG] Starting to draw visualizations`);
       try {
         console.log(`[RENDER_DEBUG] Drawing market profile`);
-        drawMarketProfile(ctx, config, state, yScale);
+        drawMarketProfile(ctx, renderingContext, config, state, yScale);
         console.log(`[RENDER_DEBUG] Drawing day range meter`);
-        drawDayRangeMeter(ctx, config, state, yScale);
+        drawDayRangeMeter(ctx, renderingContext, config, state, yScale);
         console.log(`[RENDER_DEBUG] Drawing volatility orb`);
-        drawVolatilityOrb(ctx, config, state, canvasWidth, canvasHeight);
+        drawVolatilityOrb(ctx, renderingContext, config, state, yScale);
         console.log(`[RENDER_DEBUG] Drawing price float`);
-        drawPriceFloat(ctx, config, state, yScale);
+        drawPriceFloat(ctx, renderingContext, config, state, yScale);
         console.log(`[RENDER_DEBUG] Drawing price display`);
-        drawPriceDisplay(ctx, config, state, yScale, canvasWidth);
+        drawPriceDisplay(ctx, renderingContext, config, state, yScale);
         console.log(`[RENDER_DEBUG] Drawing price markers`);
-        drawPriceMarkers(ctx, config, state, yScale, markers);
+        drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);
         console.log(`[RENDER_DEBUG] Drawing hover indicator`);
-        drawHoverIndicator(ctx, config, state, yScale, $hoverState);
+        drawHoverIndicator(ctx, renderingContext, config, state, yScale, $hoverState);
         console.log(`[RENDER_DEBUG] All visualizations drawn successfully`);
       } catch (error) {
         console.error(`[RENDER] Error in visualization functions:`, error);

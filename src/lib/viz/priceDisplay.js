@@ -1,14 +1,14 @@
 /**
- * Formats a given price into its major components for display, based on the number of digits.
+ * Formats a given price into its major components for display, based on number of digits.
  * This function correctly handles various forex and commodity pricing conventions.
  * @param {number} price - The numerical price to format (e.g., 1.12345).
- * @param {number} digits - The total number of decimal places for the symbol.
+ * @param {number} digits - The total number of decimal places for symbol.
  * @returns {{bigFigure: string, pips: string, pipette: string}|null}
  */
 function formatPrice(price, digits) {
     if (price === undefined || price === null || isNaN(price)) return null;
 
-    // Use toFixed to ensure the price has the correct number of decimal places, preventing floating point issues.
+    // Use toFixed to ensure price has correct number of decimal places, preventing floating point issues.
     const safeDigits = digits || 5;
     const priceStr = (price !== undefined && price !== null && !isNaN(price)) ? price.toFixed(safeDigits) : 'N/A';
     const parts = priceStr.split('.');
@@ -59,8 +59,13 @@ function hexToRgba(hex, opacity) {
     return `rgba(${r},${g},${b},${finalOpacity})`;
 }
 
+export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
+  if (!renderingContext || !state) return;
 
-export function drawPriceDisplay(ctx, config, state, y, width) {
+  // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
+  const { contentArea } = renderingContext;
+  
+  // Extract configuration parameters (now content-relative)
   const {
     priceHorizontalOffset,
     priceFontSize,
@@ -95,20 +100,25 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
 
   if (!formattedPrice) return;
 
+  // 🔧 CLEAN FOUNDATION: Use content-relative positioning
+  // Convert percentage values to actual pixels
+  const horizontalOffset = contentArea.width * priceHorizontalOffset;
+  const fontSize = contentArea.height * priceFontSize;
+
   // Use middle baseline for correct vertical centering.
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
 
-  const bigFigureSize = priceFontSize * bigFigureFontSizeRatio;
-  const pipsSize = priceFontSize * pipFontSizeRatio;
-  const pipetteSize = priceFontSize * pipetteFontSizeRatio;
+  const bigFigureSize = fontSize * bigFigureFontSizeRatio;
+  const pipsSize = fontSize * pipFontSizeRatio;
+  const pipetteSize = fontSize * pipetteFontSizeRatio;
 
   // --- Measure text widths and heights for accurate background ---
   ctx.font = `${priceFontWeight} ${pipsSize}px monospace`;
   const pipsMetrics = ctx.measureText(formattedPrice.pips || '00');
   const textHeight = (pipsMetrics.actualBoundingBoxAscent + pipsMetrics.actualBoundingBoxDescent);
   
-  // Measure full text metrics to accurately center the background and text.
+  // Measure full text metrics to accurately center background and text.
   ctx.font = `${priceFontWeight} ${bigFigureSize}px monospace`;
   const bigFigureWidth = ctx.measureText(formattedPrice.bigFigure).width;
 
@@ -128,10 +138,10 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
   const backgroundWidth = totalTextWidth + (priceDisplayPadding * 2);
   const backgroundHeight = textHeight + (priceDisplayPadding * 2);
 
-  const backgroundX = priceHorizontalOffset - priceDisplayPadding;
+  const backgroundX = horizontalOffset - priceDisplayPadding;
   const backgroundY = currentPriceY - (backgroundHeight / 2);
   
-  // The y-coordinate for drawing text, centered within the background box.
+  // The y-coordinate for drawing text, centered within background box.
   const textY = backgroundY + priceDisplayPadding + textHeight / 2 + pipsMetrics.actualBoundingBoxDescent;
 
   // Draw background if enabled
@@ -147,7 +157,7 @@ export function drawPriceDisplay(ctx, config, state, y, width) {
     ctx.strokeRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
   }
 
-  let currentX = priceHorizontalOffset;
+  let currentX = horizontalOffset;
 
   const textColor = priceUseStaticColor
     ? priceStaticColor

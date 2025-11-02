@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { displayStore, displayActions } from '../stores/displayStore.js';
+  import { displayStore, displayActions, panels } from '../stores/displayStore.js';
   
   // ✅ INTERACT.JS: Import interact.js for drag
   import interact from 'interactjs';
@@ -20,7 +20,7 @@
   let zIndex = 1000;
   
   // ✅ ULTRA-MINIMAL: Simple store binding
-  $: panel = $displayStore.panels?.get(id);
+  $: panel = $panels?.get(id);
   $: {
     panelPosition = panel?.position || position;
     isActive = panel?.isActive || false;

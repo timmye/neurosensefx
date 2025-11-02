@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { displayStore, displayActions, displays, icons, panels, defaultConfig } from './stores/displayStore.js';
+  import { displayStore, displayActions, displays, icons, panels, defaultConfig, contextMenu } from './stores/displayStore.js';
   import { subscribe, unsubscribe } from './data/wsClient.js';
   import FloatingDisplay from './components/FloatingDisplay.svelte';
   import FloatingIcon from './components/FloatingIcon.svelte';
@@ -29,7 +29,7 @@
     
     // Escape - close context menu or collapse panels
     if (e.key === 'Escape') {
-      if ($displayStore.contextMenu.open) {
+      if ($contextMenu.open) {
         displayActions.hideContextMenu();
       } else {
         // Collapse expanded icon if any

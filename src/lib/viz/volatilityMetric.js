@@ -1,6 +1,13 @@
+export function drawVolatilityMetric(ctx, renderingContext, config, state) {
+  if (!renderingContext || !state) return;
 
-export function drawVolatilityMetric(ctx, config, state, width, height) {
-  if (!config.showVolatilityMetric) {
+  // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
+  const { contentArea } = renderingContext;
+  
+  // Extract configuration parameters
+  const { showVolatilityMetric } = config;
+
+  if (!showVolatilityMetric) {
     return;
   }
 
@@ -17,7 +24,8 @@ export function drawVolatilityMetric(ctx, config, state, width, height) {
   const volatilityText = `Volatility: ${safeVolatility.toFixed(4)}`;
   const intensityText = `Intensity: ${(safeIntensity * 100).toFixed(2)}%`;
 
-  ctx.fillText(volatilityText, 10, height - 35);
-  ctx.fillText(intensityText, 10, height - 20);
+  // 🔧 CLEAN FOUNDATION: Use content area dimensions for positioning
+  ctx.fillText(volatilityText, 10, contentArea.height - 35);
+  ctx.fillText(intensityText, 10, contentArea.height - 20);
   ctx.restore();
 }

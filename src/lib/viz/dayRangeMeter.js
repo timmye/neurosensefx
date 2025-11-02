@@ -19,13 +19,12 @@ function hexToRgba(hex, opacity) {
     return `rgba(${r},${g},${b},${finalOpacity})`;
 }
 
-export function drawDayRangeMeter(ctx, config, state, y) {
+export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
+  // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
+  const { contentArea, adrAxisX } = renderingContext;
+  
+  // Extract configuration parameters (now content-relative)
   const {
-    visualizationsContentWidth,
-    centralAxisXPosition,
-    adrAxisXPosition,
-    meterHeight,
-    centralMeterFixedThickness = 1,
     adrProximityThreshold,
     pHighLowLabelSide,
     ohlLabelSide,
@@ -55,20 +54,20 @@ export function drawDayRangeMeter(ctx, config, state, y) {
     adrRangeIndicatorLabelShowBoxOutline,
     adrRangeIndicatorLabelBoxOutlineColor,
     adrRangeIndicatorLabelBoxOutlineOpacity,
-    adrLabelType, // Added adrLabelType from config
+    adrLabelType,
   } = config;
 
   const { currentPrice, todaysHigh, todaysLow, projectedAdrHigh, projectedAdrLow, digits, maxAdrPercentage } = state;
 
-  // NEW: Use configurable ADR axis position with fallback to central axis
-  const axisX = adrAxisXPosition || centralAxisXPosition;
+  // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
+  const axisX = adrAxisX;
 
   // Draw the main meter axis
   ctx.beginPath();
   ctx.strokeStyle = '#4B5563';
-  ctx.lineWidth = centralMeterFixedThickness;
+  ctx.lineWidth = 1;
   ctx.moveTo(axisX, 0);
-  ctx.lineTo(axisX, meterHeight);
+  ctx.lineTo(axisX, contentArea.height);
   ctx.stroke();
 
   const labelFontSize = 10;
@@ -82,12 +81,12 @@ export function drawDayRangeMeter(ctx, config, state, y) {
     // Top line
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.lineTo(visualizationsContentWidth, 0);
+    ctx.lineTo(contentArea.width, 0);
     ctx.stroke();
     // Bottom line
     ctx.beginPath();
-    ctx.moveTo(0, meterHeight);
-    ctx.lineTo(visualizationsContentWidth, meterHeight);
+    ctx.moveTo(0, contentArea.height);
+    ctx.lineTo(contentArea.width, contentArea.height);
     ctx.stroke();
   }
 
@@ -99,7 +98,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
     const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
     const backgroundWidth = textWidth + (labelPadding * 2);
     const backgroundHeight = textHeight + (labelPadding * 2);
-    const backgroundX = (visualizationsContentWidth - backgroundWidth) / 2;
+    const backgroundX = (contentArea.width - backgroundWidth) / 2;
     const backgroundY = labelPadding;
 
     if (adrRangeIndicatorLabelShowBackground) {
@@ -115,7 +114,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
     ctx.fillStyle = adrRangeIndicatorLabelColor;
     ctx.textAlign = 'center';
     const textY = backgroundY + (backgroundHeight / 2) + (textHeight / 2) - metrics.actualBoundingBoxDescent;
-    ctx.fillText(labelText, visualizationsContentWidth / 2, textY);
+    ctx.fillText(labelText, contentArea.width / 2, textY);
   }
 
   // --- Individual Price Level Markers ---
@@ -124,8 +123,8 @@ export function drawDayRangeMeter(ctx, config, state, y) {
   
   const drawMarkerAndLabel = (price, labelText, color = '#D1D5DB', side = 'left', labelType) => {
       const priceY = y(price);
-      // FIXED: Use actual meter height from scaled config for proper bounds checking
-      if (priceY === undefined || priceY === null || priceY < -50 || priceY > meterHeight + 50) return;
+      // FIXED: Use content area height for proper bounds checking
+      if (priceY === undefined || priceY === null || priceY < -50 || priceY > contentArea.height + 50) return;
 
       const showBg = labelType === 'pHighLow' ? pHighLowLabelShowBackground : ohlLabelShowBackground;
       const bgColor = labelType === 'pHighLow' ? pHighLowLabelBackgroundColor : ohlLabelBackgroundColor;
@@ -141,7 +140,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
       const backgroundHeight = textHeight + (labelPadding * 2);
       
       const textAlign = side === 'right' ? 'left' : 'right';
-      // NEW: Use configurable ADR axis position for label positioning
+      // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
       const textX = side === 'right' ? axisX + labelOffset : axisX - labelOffset;
       const backgroundX = side === 'right' ? textX - labelPadding : textX - textWidth - labelPadding;
       const backgroundY = priceY - (backgroundHeight / 2);
@@ -156,7 +155,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
           ctx.strokeRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
       }
       
-      // NEW: Use configurable ADR axis position for marker lines
+      // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -187,32 +186,32 @@ export function drawDayRangeMeter(ctx, config, state, y) {
   const adrLevels = [0.3, 0.5, 0.75, 1.0];
   
   if (adrLabelType === 'staticPercentage') {
- adrLevels.forEach(level => {
- if (maxAdrPercentage >= level) {
- const highLevel = state.midPrice + (adrRange / 2 * level);
- const lowLevel = state.midPrice - (adrRange / 2 * level);
+    adrLevels.forEach(level => {
+      if (maxAdrPercentage >= level) {
+        const highLevel = state.midPrice + (adrRange / 2 * level);
+        const lowLevel = state.midPrice - (adrRange / 2 * level);
 
- let label = `${level * 100}%`;
+        let label = `${level * 100}%`;
 
- drawMarkerAndLabel(highLevel, label, '#3B82F6', pHighLowLabelSide, 'pHighLow');
- drawMarkerAndLabel(lowLevel, label, '#3B82F6', pHighLowLabelSide, 'pHighLow');
- }
+        drawMarkerAndLabel(highLevel, label, '#3B82F6', pHighLowLabelSide, 'pHighLow');
+        drawMarkerAndLabel(lowLevel, label, '#3B82F6', pHighLowLabelSide, 'pHighLow');
+      }
     });
   } else if (adrLabelType === 'dynamicPercentage') {
- // Calculate dynamic percentage for today's high and low relative to open and total ADR
- if (adrRange > 0) {
- const highPercentage = ((todaysHigh - state.midPrice) / adrRange) * 100;
- const lowPercentage = ((todaysLow - state.midPrice) / adrRange) * 100;
+    // Calculate dynamic percentage for today's high and low relative to open and total ADR
+    if (adrRange > 0) {
+      const highPercentage = ((todaysHigh - state.midPrice) / adrRange) * 100;
+      const lowPercentage = ((todaysLow - state.midPrice) / adrRange) * 100;
 
- // Format labels with sign and percentage
- const highLabel = `${highPercentage >= 0 ? '+' : ''}${(highPercentage || 0).toFixed(0)}%`;
- const lowLabel = `${lowPercentage >= 0 ? '+' : ''}${(lowPercentage || 0).toFixed(0)}%`;
+      // Format labels with sign and percentage
+      const highLabel = `${highPercentage >= 0 ? '+' : ''}${(highPercentage || 0).toFixed(0)}%`;
+      const lowLabel = `${lowPercentage >= 0 ? '+' : ''}${(lowPercentage || 0).toFixed(0)}%`;
 
- // Draw labels at the actual todaysHigh and todaysLow price levels
- drawMarkerAndLabel(todaysHigh, highLabel, '#3B82F6', pHighLowLabelSide, 'pHighLow');
- drawMarkerAndLabel(todaysLow, lowLabel, '#3B82F6', pHighLowLabelSide, 'pHighLow');
+      // Draw labels at the actual todaysHigh and todaysLow price levels
+      drawMarkerAndLabel(todaysHigh, highLabel, '#3B82F6', pHighLowLabelSide, 'pHighLow');
+      drawMarkerAndLabel(todaysLow, lowLabel, '#3B82F6', pHighLowLabelSide, 'pHighLow');
     } else {
- // Handle case where adrRange is 0 (e.g., beginning of day before any range is established)
+      // Handle case where adrRange is 0 (e.g., beginning of day before any range is established)
     }
   }
 
@@ -224,7 +223,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
       const threshold = adrRange * (adrProximityThreshold / 100);
 
       const drawPulse = (yPos, proximity) => {
-          if (yPos === undefined || yPos === null || yPos < 0 || yPos > meterHeight) return;
+          if (yPos === undefined || yPos === null || yPos < 0 || yPos > contentArea.height) return;
           
           const intensity = 1 - (proximity / threshold);
           if (intensity <= 0) return;
@@ -232,7 +231,7 @@ export function drawDayRangeMeter(ctx, config, state, y) {
           const pulseRadius = 20 + (intensity * 30);
           const pulseOpacity = intensity * 0.7;
 
-          // NEW: Use configurable ADR axis position for pulse center
+          // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
           const gradient = ctx.createRadialGradient(axisX, yPos, 0, axisX, yPos, pulseRadius);
           gradient.addColorStop(0, `rgba(59, 130, 246, ${pulseOpacity})`);
           gradient.addColorStop(1, `rgba(59, 130, 246, 0)`);
