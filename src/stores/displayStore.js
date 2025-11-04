@@ -64,8 +64,7 @@ const initialState = {
   // Container → Content → Rendering pipeline
   defaultConfig: {
     // === CONTAINER LAYOUT ===
-    containerSize: { width: 240, height: 160 },     // Physical container dimensions
-    padding: 20,                                     // Container padding
+    containerSize: { width: 220, height: 160 },     // Full display including header (220×120 content + 40px header)
     headerHeight: 40,                                // Header area height
     
     // === POSITIONING ===
@@ -238,7 +237,7 @@ export const displayActions = {
       id: displayId,
       symbol,
       position,
-      size: { width: 240, height: 160 },
+      size: { width: 220, height: 160 },  // Full display including header
       isActive: false,
       zIndex: initialState.nextDisplayZIndex++,
       config: { ...initialState.defaultConfig, ...config },
@@ -310,9 +309,14 @@ export const displayActions = {
       const newDisplays = new Map(store.displays);
       const display = newDisplays.get(displayId);
       if (display) {
+        // 🔧 FIX: Sync containerSize with actual display size
         newDisplays.set(displayId, {
           ...display,
-          size: { width, height }
+          size: { width, height },
+          config: {
+            ...display.config,
+            containerSize: { width, height }  // 🔧 KEY: Sync containerSize
+          }
         });
       }
       return { ...store, displays: newDisplays };
@@ -607,6 +611,7 @@ export const displayActions = {
       size: config.size || { width: 300, height: 400 },
       isActive: false,
       zIndex: initialState.nextPanelZIndex++,
+      isVisible: true, // 🔧 FIXED: Add isVisible property for panel visibility
       config
     };
     
@@ -767,6 +772,7 @@ export const displayActions = {
                 size: { width: 300, height: 400 },
                 isActive: false,
                 zIndex: store.nextPanelZIndex++,
+                isVisible: true, // 🔧 FIXED: Add isVisible property
                 config: { title: 'Symbol Palette' }
               });
             }

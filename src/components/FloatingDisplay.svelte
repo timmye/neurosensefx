@@ -27,7 +27,6 @@
   let element;
   let canvas;
   let ctx;
-  let dpr = 1;
   
   // Hover and marker state
   const hoverState = writable(null);
@@ -66,14 +65,17 @@
     markers = $markerStore;
   }
   
-  // Simple canvas dimensions
-  const REFERENCE_CANVAS = { width: 220, height: 120 };
-  let canvasWidth = REFERENCE_CANVAS.width;
-  let canvasHeight = REFERENCE_CANVAS.height;
+  // 🔧 CONTAINER-STYLE: Use contentArea approach like Container.svelte
+  let canvasWidth = 240;  // Default container width
+  let canvasHeight = 160; // Default container height
+  let dpr = 1;
   
-  // Simple yScale calculation
-  $: yScale = state?.visualLow && state?.visualHigh
-    ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([canvasHeight, 0])
+  // 🔧 CONTAINER-STYLE: contentArea calculations like Container.svelte
+  let contentArea = { width: 220, height: 120 }; // Default content area (220×160 container - 40px header)
+  
+  // yScale calculation using contentArea height
+  $: yScale = state?.visualLow && state?.visualHigh && contentArea
+    ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([contentArea.height, 0])
     : null;
   
   // Event handlers
@@ -208,33 +210,74 @@
     };
   });
   
-  // ✅ ULTRA-MINIMAL: Simple canvas update - no complex sizing
+  // 🔧 CONTAINER-STYLE: Update canvas with contentArea approach and DPR preservation
   $: if (canvas && ctx && config) {
-    // Simple canvas sizing based on clean foundation config
-    const newWidth = config.containerSize?.width || canvasWidth;
-    const newHeight = config.containerSize?.height || canvasHeight;
+    // Calculate new contentArea from config (no padding reduction)
+    const containerSize = config.containerSize || { width: 220, height: 120 };
+    const newContentArea = {
+      width: containerSize.width,  // ✅ FIXED: No padding reduction
+      height: containerSize.height - config.headerHeight  // ✅ FIXED: Only subtract header
+    };
     
     // Only update if significant change
-    if (Math.abs(canvas.width - newWidth) > 5 || Math.abs(canvas.height - newHeight) > 5) {
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-      canvasWidth = newWidth;
-      canvasHeight = newHeight;
+    if (Math.abs(contentArea.width - newContentArea.width) > 5 || 
+        Math.abs(contentArea.height - newContentArea.height) > 5) {
+      
+      // Update contentArea for reactive use
+      contentArea = newContentArea;
+      
+      // 🔧 DPR-AWARE: Update canvas dimensions with DPR scaling
+      canvas.width = contentArea.width * dpr;
+      canvas.height = contentArea.height * dpr;
+      canvas.style.width = contentArea.width + 'px';
+      canvas.style.height = contentArea.height + 'px';
+      
+      // 🔧 CRISP RENDERING: Reconfigure canvas context after resize
+      ctx.scale(dpr, dpr);
+      ctx.translate(0.5, 0.5); // Sub-pixel alignment
+      ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
+      
+      canvasWidth = contentArea.width;
+      canvasHeight = contentArea.height;
+      
+      console.log(`[FLOATING_DISPLAY] Canvas resized to contentArea: ${contentArea.width}x${contentArea.height}, DPR: ${dpr}`);
     }
   }
   
-  // ✅ FIXED: Initialize canvas when it becomes available (reactive to state.ready)
+  // 🔧 CONTAINER-STYLE: Initialize canvas with contentArea and DPR when available
   $: if (state?.ready && canvas && !ctx) {
     console.log(`[FLOATING_DISPLAY] Canvas becoming available, initializing context`);
     ctx = canvas.getContext('2d');
     console.log(`[FLOATING_DISPLAY] Canvas context created:`, !!ctx);
     if (ctx) {
       dpr = window.devicePixelRatio || 1;
-      canvas.width = REFERENCE_CANVAS.width;
-      canvas.height = REFERENCE_CANVAS.height;
-      canvasWidth = REFERENCE_CANVAS.width;
-      canvasHeight = REFERENCE_CANVAS.height;
-      console.log(`[FLOATING_DISPLAY] Canvas initialized with dimensions: ${canvas.width}x${canvas.height}`);
+      
+      // 🔧 CONTAINER-STYLE: Calculate contentArea from config (no padding reduction)
+      const containerSize = config.containerSize || { width: 220, height: 120 };
+      const newContentArea = {
+        width: containerSize.width,  // ✅ FIXED: No padding reduction
+        height: containerSize.height - config.headerHeight  // ✅ FIXED: Only subtract header
+      };
+      
+      // Update contentArea for reactive use
+      contentArea = newContentArea;
+      
+      // 🔧 DPR-AWARE: Set canvas dimensions with DPR scaling
+      canvas.width = contentArea.width * dpr;
+      canvas.height = contentArea.height * dpr;
+      canvas.style.width = contentArea.width + 'px';
+      canvas.style.height = contentArea.height + 'px';
+      
+      // 🔧 CRISP RENDERING: Configure canvas context for crisp lines
+      ctx.scale(dpr, dpr);
+      ctx.translate(0.5, 0.5); // Sub-pixel alignment
+      ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
+      
+      canvasWidth = contentArea.width;
+      canvasHeight = contentArea.height;
+      
+      console.log(`[FLOATING_DISPLAY] Canvas initialized with contentArea: ${contentArea.width}x${contentArea.height}, DPR: ${dpr}`);
+      console.log(`[FLOATING_DISPLAY] Canvas actual dimensions: ${canvas.width}x${canvas.height}`);
     } else {
       console.error(`[FLOATING_DISPLAY] Failed to create canvas 2D context`);
     }
@@ -247,20 +290,15 @@
   let renderFrame;
   
   function render() {
-    console.log(`[RENDER_DEBUG] Render called - ctx: ${!!ctx}, state: ${!!state}, config: ${!!config}, canvas: ${!!canvas}`);
-    console.log(`[RENDER_DEBUG] State visualLow: ${state?.visualLow}, visualHigh: ${state?.visualHigh}, yScale: ${!!yScale}`);
-    console.log(`[RENDER_DEBUG] Canvas dimensions: ${canvas?.width}x${canvas?.height}`);
-    
     if (!ctx || !state || !config || !canvas) {
-      console.log(`[RENDER_DEBUG] Early return - missing requirements`);
       return;
     }
     
-    // 🔧 CLEAN FOUNDATION: Create rendering context
+    // 🔧 CLEAN FOUNDATION: Create rendering context (no padding reduction)
     const containerSize = config.containerSize || { width: canvasWidth, height: canvasHeight };
     const contentArea = {
-      width: containerSize.width - (config.padding * 2),
-      height: containerSize.height - config.headerHeight - config.padding
+      width: containerSize.width,  // ✅ FIXED: No padding reduction
+      height: containerSize.height - config.headerHeight  // ✅ FIXED: Only subtract header
     };
     const adrAxisX = contentArea.width * config.adrAxisPosition;
     
@@ -274,38 +312,24 @@
       adrAxisXPosition: adrAxisX
     };
     
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // 🔧 CONTAINER-STYLE: Clear canvas using contentArea coordinates (CSS pixels)
+    ctx.clearRect(0, 0, contentArea.width, contentArea.height);
     ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    console.log(`[RENDER_DEBUG] Canvas cleared and background filled`);
-    console.log(`[RENDER_DEBUG] Rendering context created:`, renderingContext);
+    ctx.fillRect(0, 0, contentArea.width, contentArea.height);
     
     // Draw visualizations
     if (state.visualLow && state.visualHigh && yScale) {
-      console.log(`[RENDER_DEBUG] Starting to draw visualizations`);
       try {
-        console.log(`[RENDER_DEBUG] Drawing market profile`);
         drawMarketProfile(ctx, renderingContext, config, state, yScale);
-        console.log(`[RENDER_DEBUG] Drawing day range meter`);
         drawDayRangeMeter(ctx, renderingContext, config, state, yScale);
-        console.log(`[RENDER_DEBUG] Drawing volatility orb`);
         drawVolatilityOrb(ctx, renderingContext, config, state, yScale);
-        console.log(`[RENDER_DEBUG] Drawing price float`);
         drawPriceFloat(ctx, renderingContext, config, state, yScale);
-        console.log(`[RENDER_DEBUG] Drawing price display`);
         drawPriceDisplay(ctx, renderingContext, config, state, yScale);
-        console.log(`[RENDER_DEBUG] Drawing price markers`);
         drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);
-        console.log(`[RENDER_DEBUG] Drawing hover indicator`);
         drawHoverIndicator(ctx, renderingContext, config, state, yScale, $hoverState);
-        console.log(`[RENDER_DEBUG] All visualizations drawn successfully`);
       } catch (error) {
         console.error(`[RENDER] Error in visualization functions:`, error);
       }
-    } else {
-      console.log(`[RENDER_DEBUG] Cannot draw visualizations - missing requirements`);
     }
   }
   
@@ -328,7 +352,7 @@
   bind:this={element}
   class="enhanced-floating"
   class:active={isActive}
-  style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: 240px; height: 160px; z-index: {zIndex};"
+  style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: 220px; height: 160px; z-index: {zIndex};"
   on:contextmenu={handleContextMenu}
   data-display-id={id}
 >
@@ -442,7 +466,6 @@
   }
   
   .content {
-    padding: 8px;
     background: #111827;
     border-radius: 0 0 6px 6px;
     height: calc(100% - 41px);

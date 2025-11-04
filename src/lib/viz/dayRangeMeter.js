@@ -1,253 +1,423 @@
 import { scaleLinear } from 'd3-scale';
+import { createCanvasSizingConfig, configureCanvasContext, boundsUtils } from '../../utils/canvasSizing.js';
 
-function hexToRgba(hex, opacity) {
-    if (!hex) return 'rgba(0,0,0,0)';
-    
-    const finalOpacity = (opacity === undefined || opacity === null) ? 1 : opacity;
-
-    let r = 0, g = 0, b = 0;
-    if (hex.length === 4) {
-        r = parseInt(hex[1] + hex[1], 16);
-        g = parseInt(hex[2] + hex[2], 16);
-        b = parseInt(hex[3] + hex[3], 16);
-    } else if (hex.length === 7) {
-        r = parseInt(hex.substring(1, 3), 16);
-        g = parseInt(hex.substring(3, 5), 16);
-        b = parseInt(hex.substring(5, 7), 16);
-    }
-    
-    return `rgba(${r},${g},${b},${finalOpacity})`;
-}
+/**
+ * DPR-Aware Day Range Meter Implementation
+ * 
+ * Leverages existing canvasSizing infrastructure for crisp 1px line rendering
+ * and proper device pixel ratio handling across all display types.
+ * 
+ * Architecture: Foundation First - elemental information display with perfect visual quality
+ */
 
 export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
-  // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
+  // Guard clauses for safety
+  if (!ctx || !renderingContext || !config || !state || !y) {
+    console.warn('[DayRangeMeter] Missing required parameters, skipping render');
+    return;
+  }
+
+  // Extract rendering context from the unified infrastructure
   const { contentArea, adrAxisX } = renderingContext;
   
-  // Extract configuration parameters (now content-relative)
+  // Extract essential data using source of truth from dataProcessor schema
   const {
-    adrProximityThreshold,
-    pHighLowLabelSide,
-    ohlLabelSide,
+    midPrice,        // Daily open price (from todaysOpen in backend)
+    currentPrice,     // Current tick price
+    todaysHigh,      // Session high
+    todaysLow,       // Session low
+    projectedAdrHigh, // ADR upper boundary
+    projectedAdrLow,  // ADR lower boundary
+    digits = 5       // Price precision
+  } = state;
 
-    pHighLowLabelShowBackground,
-    pHighLowLabelBackgroundColor,
-    pHighLowLabelBackgroundOpacity,
-    pHighLowLabelShowBoxOutline,
-    pHighLowLabelBoxOutlineColor,
-    pHighLowLabelBoxOutlineOpacity,
+  // Calculate ADR value from projected boundaries (consistent with dataProcessor)
+  const adrValue = projectedAdrHigh - projectedAdrLow;
 
-    ohlLabelShowBackground,
-    ohlLabelBackgroundColor,
-    ohlLabelBackgroundOpacity,
-    ohlLabelShowBoxOutline,
-    ohlLabelBoxOutlineColor,
-    ohlLabelBoxOutlineOpacity,
-
-    showAdrRangeIndicatorLines,
-    adrRangeIndicatorLinesColor,
-    adrRangeIndicatorLinesThickness,
-    showAdrRangeIndicatorLabel,
-    adrRangeIndicatorLabelColor,
-    adrRangeIndicatorLabelShowBackground,
-    adrRangeIndicatorLabelBackgroundColor,
-    adrRangeIndicatorLabelBackgroundOpacity,
-    adrRangeIndicatorLabelShowBoxOutline,
-    adrRangeIndicatorLabelBoxOutlineColor,
-    adrRangeIndicatorLabelBoxOutlineOpacity,
-    adrLabelType,
-  } = config;
-
-  const { currentPrice, todaysHigh, todaysLow, projectedAdrHigh, projectedAdrLow, digits, maxAdrPercentage } = state;
-
-  // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
-  const axisX = adrAxisX;
-
-  // Draw the main meter axis
-  ctx.beginPath();
-  ctx.strokeStyle = '#4B5563';
-  ctx.lineWidth = 1;
-  ctx.moveTo(axisX, 0);
-  ctx.lineTo(axisX, contentArea.height);
-  ctx.stroke();
-
-  const labelFontSize = 10;
-  const labelPadding = 4;
-  ctx.font = `${labelFontSize}px Arial`;
-
-  // --- ADR Range Indicator ---
-  if (showAdrRangeIndicatorLines) {
-    ctx.strokeStyle = adrRangeIndicatorLinesColor;
-    ctx.lineWidth = adrRangeIndicatorLinesThickness;
-    // Top line
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(contentArea.width, 0);
-    ctx.stroke();
-    // Bottom line
-    ctx.beginPath();
-    ctx.moveTo(0, contentArea.height);
-    ctx.lineTo(contentArea.width, contentArea.height);
-    ctx.stroke();
+  // Guard for essential data
+  if (!midPrice || !adrValue) {
+    console.warn('[DayRangeMeter] Missing essential data (midPrice, adrValue), skipping render');
+    return;
   }
 
-  if (showAdrRangeIndicatorLabel) {
-    const maxAdrValue = maxAdrPercentage || 0;
-    const labelText = `ADR: ±${(maxAdrValue * 100).toFixed(0)}%`;
-    const metrics = ctx.measureText(labelText);
-    const textWidth = metrics.width;
-    const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-    const backgroundWidth = textWidth + (labelPadding * 2);
-    const backgroundHeight = textHeight + (labelPadding * 2);
-    const backgroundX = (contentArea.width - backgroundWidth) / 2;
-    const backgroundY = labelPadding;
-
-    if (adrRangeIndicatorLabelShowBackground) {
-        ctx.fillStyle = hexToRgba(adrRangeIndicatorLabelBackgroundColor, adrRangeIndicatorLabelBackgroundOpacity);
-        ctx.fillRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
-    }
-    if (adrRangeIndicatorLabelShowBoxOutline) {
-        ctx.strokeStyle = hexToRgba(adrRangeIndicatorLabelBoxOutlineColor, adrRangeIndicatorLabelBoxOutlineOpacity);
-        ctx.lineWidth = 1;
-        ctx.strokeRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
-    }
-
-    ctx.fillStyle = adrRangeIndicatorLabelColor;
-    ctx.textAlign = 'center';
-    const textY = backgroundY + (backgroundHeight / 2) + (textHeight / 2) - metrics.actualBoundingBoxDescent;
-    ctx.fillText(labelText, contentArea.width / 2, textY);
-  }
-
-  // --- Individual Price Level Markers ---
-  const markerLength = 10;
-  const labelOffset = 15;
+  // === FOUNDATION LAYER IMPLEMENTATION ===
+  // 1. Draw ADR Axis (Core Meter Element)
+  drawAdrAxis(ctx, contentArea, adrAxisX);
   
-  const drawMarkerAndLabel = (price, labelText, color = '#D1D5DB', side = 'left', labelType) => {
-      const priceY = y(price);
-      // FIXED: Use content area height for proper bounds checking
-      if (priceY === undefined || priceY === null || priceY < -50 || priceY > contentArea.height + 50) return;
+  // 2. Draw Percentage Markers (Spatial Context)
+  drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y);
+  
+  // 3. Draw Price Markers (OHL + Current)
+  drawPriceMarkers(ctx, contentArea, adrAxisX, state, y, digits);
+  
+  // 4. Draw ADR Information Display
+  drawAdrInformation(ctx, contentArea, state);
+}
 
-      const showBg = labelType === 'pHighLow' ? pHighLowLabelShowBackground : ohlLabelShowBackground;
-      const bgColor = labelType === 'pHighLow' ? pHighLowLabelBackgroundColor : ohlLabelBackgroundColor;
-      const bgOpacity = labelType === 'pHighLow' ? pHighLowLabelBackgroundOpacity : ohlLabelBackgroundOpacity;
-      const showOutline = labelType === 'pHighLow' ? pHighLowLabelShowBoxOutline : ohlLabelShowBoxOutline;
-      const outlineColor = labelType === 'pHighLow' ? pHighLowLabelBoxOutlineColor : ohlLabelBoxOutlineColor;
-      const outlineOpacity = labelType === 'pHighLow' ? pHighLowLabelBoxOutlineOpacity : ohlLabelBoxOutlineOpacity;
-      
-      const metrics = ctx.measureText(labelText);
-      const textWidth = metrics.width;
-      const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-      const backgroundWidth = textWidth + (labelPadding * 2);
-      const backgroundHeight = textHeight + (labelPadding * 2);
-      
-      const textAlign = side === 'right' ? 'left' : 'right';
-      // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
-      const textX = side === 'right' ? axisX + labelOffset : axisX - labelOffset;
-      const backgroundX = side === 'right' ? textX - labelPadding : textX - textWidth - labelPadding;
-      const backgroundY = priceY - (backgroundHeight / 2);
+/**
+ * Draw ADR Axis - Core meter element with crisp 1px rendering
+ */
+function drawAdrAxis(ctx, contentArea, adrAxisX) {
+  // Configure for crisp 1px lines
+  ctx.save();
+  ctx.translate(0.5, 0.5); // Sub-pixel alignment for crispness
+  
+  // Main ADR axis line
+  ctx.strokeStyle = '#4B5563'; // Neutral gray
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(adrAxisX, 0);
+  ctx.lineTo(adrAxisX, contentArea.height);
+  ctx.stroke();
+  
+  // Center reference line (Daily Open Price position)
+  const centerY = Math.floor(contentArea.height / 2);
+  ctx.strokeStyle = '#6B7280'; // Lighter gray for center
+  ctx.setLineDash([2, 2]); // Dashed line for center reference
+  ctx.beginPath();
+  ctx.moveTo(0, centerY);
+  ctx.lineTo(contentArea.width, centerY);
+  ctx.stroke();
+  ctx.setLineDash([]); // Reset dash pattern
+  
+  ctx.restore();
+}
 
-      if (showBg) {
-          ctx.fillStyle = hexToRgba(bgColor, bgOpacity);
-          ctx.fillRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
-      }
-      if (showOutline) {
-          ctx.strokeStyle = hexToRgba(outlineColor, outlineOpacity);
-          ctx.lineWidth = 1;
-          ctx.strokeRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
-      }
-      
-      // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(axisX - markerLength, priceY);
-      ctx.lineTo(axisX + markerLength, priceY);
-      ctx.stroke();
+/**
+ * Draw Percentage Markers for spatial context
+ */
+function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
+  // Use source of truth from dataProcessor schema
+  const dailyOpen = state.midPrice;  // This IS the daily open price
+  const adrValue = state.projectedAdrHigh - state.projectedAdrLow;
+    
+  const { showAdrRangeIndicatorLines, adrLabelType } = config;
+  
+  if (!dailyOpen || !adrValue) {
+    console.log('[ADR_DEBUG] Missing essential data, returning');
+    return;
+  }
+  
+  // Guard: Only draw if enabled in configuration
+  if (!showAdrRangeIndicatorLines) {
+    console.log('[ADR_DEBUG] ADR range indicator lines disabled in config');
+    return;
+  }
 
-      ctx.textAlign = textAlign;
-      const textY = priceY + (textHeight / 2) - metrics.actualBoundingBoxDescent;
-      ctx.fillStyle = color;
-      ctx.fillText(labelText, textX, textY);
-  };
-
-  const formatPrice = (price) => {
-    try {
-      return (price !== undefined && price !== null && !isNaN(price)) ? price.toFixed(digits) : 'N/A';
-    } catch (error) {
-      console.error('Error formatting price:', { price, digits, error });
-      return 'N/A';
-    }
-  };
-
-  drawMarkerAndLabel(todaysHigh, `H ${formatPrice(todaysHigh)}`, '#F59E0B', ohlLabelSide, 'ohl');
-  drawMarkerAndLabel(todaysLow, `L ${formatPrice(todaysLow)}`, '#F59E0B', ohlLabelSide, 'ohl');
-  drawMarkerAndLabel(state.midPrice, `Open ${formatPrice(state.midPrice)}`, '#6B7280', ohlLabelSide, 'ohl');
-
-  const adrRange = projectedAdrHigh - projectedAdrLow;
-  const adrLevels = [0.3, 0.5, 0.75, 1.0];
+  // Calculate ADR levels up to current maximum
+  const adrRange = adrValue;
+  const currentMaxAdr = calculateMaxAdrPercentage(state);
+  
+  // 🔍 DEBUG: Log calculations
+  console.log('[ADR_DEBUG] Calculations:', {
+    adrRange,
+    currentMaxAdr,
+    todaysHigh: state.todaysHigh,
+    todaysLow: state.todaysLow
+  });
+  
+  ctx.save();
+  ctx.translate(0.5, 0.5); // Crisp line rendering
+  
+  // Font setup for percentage labels
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = '#9CA3AF'; // Light gray for percentage markers
   
   if (adrLabelType === 'staticPercentage') {
+    // Static: Draw fixed ADR percentage levels (25%, 50%, 75%, 100%)
+    const adrLevels = [0.3, 0.5, 0.75, 1.0];
+    
+    console.log('[ADR_DEBUG] Static mode, levels to check:', adrLevels.filter(level => currentMaxAdr >= level));
+    
     adrLevels.forEach(level => {
-      if (maxAdrPercentage >= level) {
-        const highLevel = state.midPrice + (adrRange / 2 * level);
-        const lowLevel = state.midPrice - (adrRange / 2 * level);
+      if (currentMaxAdr >= level) {
+        const adrHigh = dailyOpen + (adrRange * level);
+        const adrLow = dailyOpen - (adrRange * level);
 
-        let label = `${level * 100}%`;
-
-        drawMarkerAndLabel(highLevel, label, '#3B82F6', pHighLowLabelSide, 'pHighLow');
-        drawMarkerAndLabel(lowLevel, label, '#3B82F6', pHighLowLabelSide, 'pHighLow');
+        // High side marker
+        const highY = y(adrHigh);
+        const highInBounds = boundsUtils.isYInBounds(highY, config, { canvasArea: contentArea });
+        console.log('[ADR_DEBUG] Static high marker:', {
+          level,
+          adrHigh,
+          highY,
+          highInBounds
+        });
+        if (highInBounds) {
+          drawPercentageMarker(ctx, adrAxisX, highY, `${level * 100}%`, 'right');
+        }
+        
+        // Low side marker
+        const lowY = y(adrLow);
+        const lowInBounds = boundsUtils.isYInBounds(lowY, config, { canvasArea: contentArea });
+        console.log('[ADR_DEBUG] Static low marker:', {
+          level,
+          adrLow,
+          lowY,
+          lowInBounds
+        });
+        if (lowInBounds) {
+          drawPercentageMarker(ctx, adrAxisX, lowY, `-${level * 100}%`, 'right');
+        }
       }
     });
   } else if (adrLabelType === 'dynamicPercentage') {
-    // Calculate dynamic percentage for today's high and low relative to open and total ADR
-    if (adrRange > 0) {
-      const highPercentage = ((todaysHigh - state.midPrice) / adrRange) * 100;
-      const lowPercentage = ((todaysLow - state.midPrice) / adrRange) * 100;
-
-      // Format labels with sign and percentage
-      const highLabel = `${highPercentage >= 0 ? '+' : ''}${(highPercentage || 0).toFixed(0)}%`;
-      const lowLabel = `${lowPercentage >= 0 ? '+' : ''}${(lowPercentage || 0).toFixed(0)}%`;
-
-      // Draw labels at the actual todaysHigh and todaysLow price levels
-      drawMarkerAndLabel(todaysHigh, highLabel, '#3B82F6', pHighLowLabelSide, 'pHighLow');
-      drawMarkerAndLabel(todaysLow, lowLabel, '#3B82F6', pHighLowLabelSide, 'pHighLow');
-    } else {
-      // Handle case where adrRange is 0 (e.g., beginning of day before any range is established)
+    // Dynamic: Show actual percentage of ADR that today's high/low represent
+    const { todaysHigh, todaysLow } = state;
+    
+    console.log('[ADR_DEBUG] Dynamic mode, H/L data:', { todaysHigh, todaysLow });
+    
+    if (todaysHigh !== undefined) {
+      const highPercentage = ((todaysHigh - dailyOpen) / adrRange) * 100;
+      const highY = y(todaysHigh);
+      const highLabel = `${highPercentage >= 0 ? '+' : ''}${highPercentage.toFixed(0)}%`;
+      const highInBounds = boundsUtils.isYInBounds(highY, config, { canvasArea: contentArea });
+      
+      console.log('[ADR_DEBUG] Dynamic high marker:', {
+        todaysHigh,
+        dailyOpen,
+        highPercentage,
+        highY,
+        highLabel,
+        highInBounds
+      });
+      
+      if (highInBounds) {
+        drawPercentageMarker(ctx, adrAxisX, highY, highLabel, 'right');
+      }
+    }
+    
+    if (todaysLow !== undefined) {
+      const lowPercentage = ((dailyOpen - todaysLow) / adrRange) * 100;
+      const lowY = y(todaysLow);
+      const lowLabel = `${lowPercentage >= 0 ? '+' : ''}${lowPercentage.toFixed(0)}%`;
+      const lowInBounds = boundsUtils.isYInBounds(lowY, config, { canvasArea: contentArea });
+      
+      console.log('[ADR_DEBUG] Dynamic low marker:', {
+        todaysLow,
+        dailyOpen,
+        lowPercentage,
+        lowY,
+        lowLabel,
+        lowInBounds
+      });
+      
+      if (lowInBounds) {
+        drawPercentageMarker(ctx, adrAxisX, lowY, lowLabel, 'right');
+      }
     }
   }
+  
+  // Draw boundary lines at current canvas extremes
+  drawBoundaryLines(ctx, contentArea, adrAxisX, state, y);
+  
+  ctx.restore();
+}
 
-  // --- ADR Proximity Pulse ---
-  if (adrRange > 0 && currentPrice !== undefined && currentPrice !== null) {
-      const proximityUp = Math.abs(projectedAdrHigh - currentPrice);
-      const proximityDown = Math.abs(currentPrice - projectedAdrLow);
-      
-      const threshold = adrRange * (adrProximityThreshold / 100);
+/**
+ * Draw individual percentage marker with line and label
+ */
+function drawPercentageMarker(ctx, axisX, y, label, side) {
+  const markerLength = 8;
+  const labelOffset = 12;
+  
+  // Horizontal line at percentage level
+  ctx.strokeStyle = '#374151'; // Subtle gray
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(axisX - markerLength, y);
+  ctx.lineTo(axisX + markerLength, y);
+  ctx.stroke();
+  
+  // Percentage label
+  ctx.textAlign = side === 'right' ? 'left' : 'right';
+  ctx.fillStyle = '#9CA3AF';
+  const textX = side === 'right' ? axisX + labelOffset : axisX - labelOffset;
+  ctx.fillText(label, textX, y + 3);
+}
 
-      const drawPulse = (yPos, proximity) => {
-          if (yPos === undefined || yPos === null || yPos < 0 || yPos > contentArea.height) return;
-          
-          const intensity = 1 - (proximity / threshold);
-          if (intensity <= 0) return;
-          
-          const pulseRadius = 20 + (intensity * 30);
-          const pulseOpacity = intensity * 0.7;
-
-          // 🔧 CLEAN FOUNDATION: Use ADR axis position from rendering context
-          const gradient = ctx.createRadialGradient(axisX, yPos, 0, axisX, yPos, pulseRadius);
-          gradient.addColorStop(0, `rgba(59, 130, 246, ${pulseOpacity})`);
-          gradient.addColorStop(1, `rgba(59, 130, 246, 0)`);
-          
-          ctx.fillStyle = gradient;
-          ctx.beginPath();
-          ctx.arc(axisX, yPos, pulseRadius, 0, 2 * Math.PI);
-          ctx.fill();
-      };
-
-      if (proximityUp < threshold) {
-          drawPulse(y(projectedAdrHigh), proximityUp);
-      }
-
-      if (proximityDown < threshold) {
-          drawPulse(y(projectedAdrLow), proximityDown);
-      }
+/**
+ * Draw boundary lines at canvas extremes
+ */
+function drawBoundaryLines(ctx, contentArea, axisX, state, y) {
+  const { midPrice, projectedAdrHigh, projectedAdrLow } = state;
+  const adrValue = projectedAdrHigh - projectedAdrLow;
+  if (!midPrice || !adrValue) return;
+  
+  const currentMaxAdr = calculateMaxAdrPercentage(state);
+  const adrRange = adrValue;
+  
+  // Calculate actual boundary positions
+  const highBoundary = midPrice + (adrRange * currentMaxAdr);
+  const lowBoundary = midPrice - (adrRange * currentMaxAdr);
+  
+  const highY = y(highBoundary);
+  const lowY = y(lowBoundary);
+  
+  // Draw boundary lines if they're within reasonable canvas bounds
+  ctx.strokeStyle = '#EF4444'; // Red for boundaries
+  ctx.lineWidth = 1;
+  
+  if (highY >= -10 && highY <= contentArea.height + 10) {
+    ctx.beginPath();
+    ctx.moveTo(0, highY);
+    ctx.lineTo(contentArea.width, highY);
+    ctx.stroke();
   }
+  
+  if (lowY >= -10 && lowY <= contentArea.height + 10) {
+    ctx.beginPath();
+    ctx.moveTo(0, lowY);
+    ctx.lineTo(contentArea.width, lowY);
+    ctx.stroke();
+  }
+}
+
+/**
+ * Draw Price Markers (Open, High, Low, Current)
+ */
+function drawPriceMarkers(ctx, contentArea, axisX, state, y, digits) {
+  const { midPrice, currentPrice, todaysHigh, todaysLow } = state;
+  
+  ctx.save();
+  ctx.translate(0.5, 0.5); // Crisp line rendering
+  
+  // Font setup for price labels
+  ctx.font = '10px monospace';
+  
+  // Draw Open Price (always at center)
+  if (midPrice !== undefined) {
+    const openY = y(midPrice);
+    drawPriceMarker(ctx, axisX, openY, `O ${formatPrice(midPrice, digits)}`, '#6B7280', 'left');
+  }
+  
+  // Draw High Price
+  if (todaysHigh !== undefined) {
+    const highY = y(todaysHigh);
+    if (boundsUtils.isYInBounds(highY, {}, { canvasArea: contentArea })) {
+      drawPriceMarker(ctx, axisX, highY, `H ${formatPrice(todaysHigh, digits)}`, '#F59E0B', 'left');
+    }
+  }
+  
+  // Draw Low Price
+  if (todaysLow !== undefined) {
+    const lowY = y(todaysLow);
+    if (boundsUtils.isYInBounds(lowY, {}, { canvasArea: contentArea })) {
+      drawPriceMarker(ctx, axisX, lowY, `L ${formatPrice(todaysLow, digits)}`, '#F59E0B', 'left');
+    }
+  }
+  
+  // Draw Current Price (emphasized)
+  if (currentPrice !== undefined) {
+    const currentY = y(currentPrice);
+    if (boundsUtils.isYInBounds(currentY, {}, { canvasArea: contentArea })) {
+      drawPriceMarker(ctx, axisX, currentY, `C ${formatPrice(currentPrice, digits)}`, '#10B981', 'right');
+    }
+  }
+  
+  ctx.restore();
+}
+
+/**
+ * Draw individual price marker with line and label
+ */
+function drawPriceMarker(ctx, axisX, y, label, color, side) {
+  const markerLength = 12;
+  const labelOffset = 15;
+  
+  // Price marker line (longer than percentage markers)
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2; // Slightly thicker for price markers
+  ctx.beginPath();
+  ctx.moveTo(axisX - markerLength, y);
+  ctx.lineTo(axisX + markerLength, y);
+  ctx.stroke();
+  
+  // Price label
+  ctx.textAlign = side === 'right' ? 'left' : 'right';
+  ctx.fillStyle = color;
+  const textX = side === 'right' ? axisX + labelOffset : axisX - labelOffset;
+  ctx.fillText(label, textX, y + 3);
+}
+
+/**
+ * Draw ADR Information Display at top center
+ */
+function drawAdrInformation(ctx, contentArea, state) {
+  const { midPrice, currentPrice, projectedAdrHigh, projectedAdrLow } = state;
+  const adrValue = projectedAdrHigh - projectedAdrLow;
+  if (!midPrice || !currentPrice || !adrValue) return;
+  
+  // Calculate current ADR percentage
+  const adrPercentage = ((currentPrice - midPrice) / adrValue) * 100;
+  const sign = adrPercentage >= 0 ? '+' : '';
+  const labelText = `ADR: ${sign}${adrPercentage.toFixed(1)}%`;
+  
+  // Draw at top center with background
+  ctx.save();
+  
+  // Text metrics for background
+  ctx.font = '12px monospace';
+  const metrics = ctx.measureText(labelText);
+  const textWidth = metrics.width;
+  const padding = 8;
+  const backgroundHeight = 20;
+  
+  // Background
+  const bgX = (contentArea.width - textWidth) / 2 - padding;
+  const bgY = 5;
+  const bgWidth = textWidth + (padding * 2);
+  
+  ctx.fillStyle = 'rgba(31, 41, 55, 0.9)'; // Dark semi-transparent background
+  ctx.fillRect(bgX, bgY, bgWidth, backgroundHeight);
+  
+  // Border
+  ctx.strokeStyle = '#4B5563';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bgX, bgY, bgWidth, backgroundHeight);
+  
+  // Text
+  ctx.fillStyle = '#3B82F6'; // Blue for ADR info
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(labelText, contentArea.width / 2, bgY + backgroundHeight / 2);
+  
+  ctx.restore();
+}
+
+/**
+ * Helper: Calculate maximum ADR percentage needed for current data
+ */
+function calculateMaxAdrPercentage(state) {
+  const { midPrice: dailyOpen, todaysHigh, todaysLow, projectedAdrHigh, projectedAdrLow } = state;
+  const adrValue = projectedAdrHigh && projectedAdrLow ? projectedAdrHigh - projectedAdrLow : null;
+  
+  if (!dailyOpen || !adrValue || (!todaysHigh && !todaysLow)) {
+    return 0.5; // Default to 50% if no data
+  }
+  
+  let maxPercentage = 0.5; // Start with 50% baseline
+  
+  if (todaysHigh) {
+    const highPercentage = Math.abs(todaysHigh - dailyOpen) / adrValue;
+    maxPercentage = Math.max(maxPercentage, highPercentage);
+  }
+  
+  if (todaysLow) {
+    const lowPercentage = Math.abs(dailyOpen - todaysLow) / adrValue;
+    maxPercentage = Math.max(maxPercentage, lowPercentage);
+  }
+  
+  // Round up to next 0.25 increment for clean marker spacing
+  return Math.ceil(maxPercentage * 4) / 4;
+}
+
+/**
+ * Helper: Format price with proper digits
+ */
+function formatPrice(price, digits) {
+  if (price === undefined || price === null || isNaN(price)) {
+    return 'N/A';
+  }
+  return price.toFixed(digits);
 }
