@@ -3,7 +3,7 @@
 ## System Architecture Overview
 
 ### High-Level Architecture Pattern
-NeuroSense FX follows a **Two-Server Architecture** with a **Radical Floating Architecture** pattern for the frontend:
+NeuroSense FX follows a **Two-Server Architecture** with a **Radical Floating Architecture** pattern for frontend:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -454,7 +454,7 @@ function callAPI(url) {
         circuitOpen = true;
         setTimeout(() => {
           circuitOpen = false; failureCount = 0;
-        }, 30000);
+        },30000);
       }
       throw error;
     });
@@ -927,12 +927,12 @@ onDestroy(() => {
 │  │  ┌─────────────────────────────────────────────┐   │ │
 │  │  │            DISPLAY LAYER                    │   │ │
 │  │  │  ┌─────────────────────────────────────┐   │   │ │
-│  │  │  │         Canvas (220×120px)          │   │ │ │
-│  │  │  │  • Market Profile                   │   │ │ │
-│  │  │  │  • Price Float                      │   │ │ │
-│  │  │  │  • Volatility Orb                   │   │ │ │
-│  │  │  │  • Price Display                    │   │ │ │
-│  │  │  └─────────────────────────────────────┘   │ │ │
+│  │  │  │         Canvas (220×120px)          │   │   │ │
+│  │  │  │  • Market Profile                   │   │   │ │
+│  │  │  │  • Price Float                      │   │   │ │
+│  │  │  │  • Volatility Orb                   │   │   │ │
+│  │  │  │  • Price Display                    │   │   │ │
+│  │  │  └─────────────────────────────────────┘   │   │ │
 │  │  └─────────────────────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────┐ │
@@ -1226,6 +1226,259 @@ function debugLog(category, message, data) {
 }
 ```
 
+## Price Display Foundation Patterns ✅ COMPLETE (November 5, 2025)
+
+### 17. Enhanced Price Formatting Pattern ✅ COMPLETE
+**Purpose**: Robust price component separation with comprehensive validation and configurable sizing
+
+**Key Features**:
+- Multi-level input validation with graceful null returns
+- FX convention handling for different digit counts (3/5 digit pairs)
+- Critical percentage-to-decimal conversion with fallbacks
+- Component sizing with configurable ratios
+
+**Pattern Template**:
+```javascript
+function formatPrice(price, digits, config) {
+  // Comprehensive input validation
+  if (price === undefined || price === null || isNaN(price)) return null;
+  
+  const safeDigits = digits || 5;
+  const priceStr = price.toFixed(safeDigits);
+  const parts = priceStr.split('.');
+  const integerPart = parts[0];
+  const decimalPart = parts[1] || '';
+
+  // Enhanced component separation with FX conventions
+  let bigFigure = integerPart;
+  let pips = '';
+  let pipette = '';
+
+  if (digits === 5 || digits === 3) {
+    const pipsIndex = digits - 3;
+    bigFigure += '.' + decimalPart.substring(0, pipsIndex);
+    pips = decimalPart.substring(pipsIndex, pipsIndex + 2);
+    pipette = decimalPart.substring(pipsIndex + 2);
+  } else if (digits > 0) {
+    bigFigure += '.' + decimalPart;
+  }
+
+  // Critical: Convert percentage ratios to decimals (displayStore saves as 80, 100, 70)
+  const bigFigureRatio = (config.bigFigureFontSizeRatio || 80) / 100;     // 80 → 0.8
+  const pipsRatio = (config.pipFontSizeRatio || 100) / 100;               // 100 → 1.0
+  const pipetteRatio = (config.pipetteFontSizeRatio || 70) / 100;         // 70 → 0.7
+  
+  return {
+    text: { bigFigure, pips, pipette },
+    sizing: { bigFigureRatio, pipsRatio, pipetteRatio }
+  };
+}
+```
+
+**Benefits**:
+- **Production-Ready Validation**: Handles all edge cases with graceful fallbacks
+- **FX Convention Support**: Proper handling for different instrument digit counts
+- **Configuration Flexibility**: Independent sizing ratios for each component
+- **Critical Conversion**: Essential percentage-to-decimal conversion pattern
+
+### 18. Dual Positioning Mode Pattern ✅ COMPLETE
+**Purpose**: Flexible positioning with runtime selection and percentage conversion
+
+**Key Features**:
+- Runtime mode selection (ADR axis vs canvas-relative)
+- Percentage-to-decimal conversion for all positioning parameters
+- Content-relative dimension calculations
+- Configurable offsets with percentage-based values
+
+**Pattern Template**:
+```javascript
+const calculateRenderData = (contentArea, adrAxisX, config, state, y) => {
+  const priceY = y(state.currentPrice);
+  const inBounds = boundsUtils.isYInBounds(priceY, config, { canvasArea: contentArea });
+  
+  // Percentage-to-decimal conversion (FOUNDATION PATTERN)
+  const fontSizePercentage = (config.priceFontSize || 40) / 100;
+  const baseFontSize = contentArea.height * fontSizePercentage;
+  
+  // Dual positioning modes with runtime selection
+  const positioningMode = config.priceDisplayPositioning || 'canvasRelative';
+  let startX;
+  
+  if (positioningMode === 'adrAxis') {
+    const xOffsetPercentage = (config.priceDisplayXOffset || 0) / 100;
+    const xOffset = contentArea.width * xOffsetPercentage;
+    startX = adrAxisX + xOffset;
+  } else {
+    const horizontalPosition = (config.priceDisplayHorizontalPosition || 2) / 100;
+    const xOffsetPercentage = (config.priceDisplayXOffset || 0) / 100;
+    const xOffset = contentArea.width * xOffsetPercentage;
+    startX = contentArea.width * horizontalPosition + xOffset;
+  }
+
+  return { startX, startY: priceY, baseFontSize, positioningMode };
+};
+```
+
+**Benefits**:
+- **Flexible Positioning**: Two distinct modes for different use cases
+- **Runtime Selection**: Configuration-driven mode switching
+- **Percentage Conversion**: Consistent sizing across display dimensions
+- **Content-Relative**: Proper scaling with container size
+
+### 19. Optimized Text Rendering Pattern ✅ COMPLETE
+**Purpose**: Single-pass measurement with separated rendering for performance
+
+**Key Features**:
+- Single text measurement pass for all components
+- Cached metrics reuse for background and text rendering
+- Independent background/box control
+- Early returns for disabled features
+
+**Pattern Template**:
+```javascript
+// Performance-optimized text measurement and rendering
+const textMetrics = calculateTextMetrics(ctx, formattedPrice, baseFontSize);
+drawBackground(ctx, renderData, config, state, contentArea, digits); // Independent control
+drawPriceText(ctx, renderData, config, state, digits);              // Core requirement
+addEnhancements(ctx, renderData, config, state, contentArea, digits); // Selective rendering
+```
+
+**Enhancement Pattern**:
+```javascript
+// Optional features with bounds checking
+function addEnhancements(ctx, renderData, config, state, contentArea, digits) {
+  // Apply bounds checking ONLY to enhancements (foundation pattern)
+  if (boundsUtils.isYInBounds(renderData.startY, config, { canvasArea: contentArea })) {
+    drawBoundingBox(ctx, renderData, config, state, contentArea, digits);
+  }
+}
+```
+
+**Benefits**:
+- **Single-Pass Performance**: Measure once, render multiple times
+- **Independent Control**: Background and box rendered separately
+- **Selective Rendering**: Enhancements only when in bounds
+- **Cache Reuse**: Metrics shared between rendering functions
+
+### 20. Comprehensive Error Handling Pattern ✅ COMPLETE
+**Purpose**: Multi-level validation with graceful fallbacks and debugging support
+
+**Key Features**:
+- Level 1: Parameter validation at function entry
+- Level 2: Data validation for critical fields
+- Level 3: Formatting validation with null returns
+- Console logging for debugging without breaking rendering
+- Early returns to prevent cascade failures
+
+**Pattern Template**:
+```javascript
+export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
+  // Level 1: Parameter validation
+  if (!ctx || !renderingContext || !config || !state || !y) {
+    console.warn('[PriceDisplay] Missing required parameters, skipping render');
+    return;
+  }
+
+  // Level 2: Data validation
+  if (currentPrice === undefined || currentPrice === null) {
+    console.warn('[PriceDisplay] Missing currentPrice, skipping render');
+    return;
+  }
+
+  // Level 3: Formatting validation
+  const formattedPrice = formatPrice(state.currentPrice, digits, config);
+  if (!formattedPrice) {
+    console.warn('[PriceDisplay] Price formatting failed, skipping render');
+    return;
+  }
+}
+```
+
+**Benefits**:
+- **Multi-Level Protection**: Comprehensive validation at multiple layers
+- **Graceful Degradation**: System continues operating with missing data
+- **Debug Support**: Clear logging for troubleshooting
+- **Cascade Prevention**: Early returns stop error propagation
+
+### 21. Enhancement Pattern ✅ COMPLETE
+**Purpose**: Optional features with selective bounds checking for performance
+
+**Key Features**:
+- Core elements always render (trader requirements)
+- Enhancements only render when in bounds (performance optimization)
+- Independent feature control via configuration flags
+- Bounds checking applied selectively
+
+**Pattern Template**:
+```javascript
+function addEnhancements(ctx, renderData, config, state, contentArea, digits) {
+  // Apply bounds checking ONLY to enhancements (foundation pattern)
+  if (boundsUtils.isYInBounds(renderData.startY, config, { canvasArea: contentArea })) {
+    drawBoundingBox(ctx, renderData, config, state, contentArea, digits);
+  }
+}
+```
+
+**Benefits**:
+- **Performance Optimization**: Core elements always visible, enhancements optimized
+- **Selective Bounds Checking**: Applied only where needed
+- **Independent Control**: Each enhancement has separate flag
+- **Trader Priority**: Essential features always render
+
+## Configuration Architecture Patterns
+
+### Percentage-to-Decimal Conversion Pattern ✅ COMPLETE
+**Purpose**: Standardized conversion for all percentage-based configuration parameters
+
+**Implementation**:
+```javascript
+// Standard conversion pattern for all parameters
+const bigFigureRatio = (config.bigFigureFontSizeRatio || 80) / 100;     // 80 → 0.8
+const pipsRatio = (config.pipFontSizeRatio || 100) / 100;               // 100 → 1.0
+const pipetteRatio = (config.pipetteFontSizeRatio || 70) / 100;         // 70 → 0.7
+
+// Positioning conversion
+const xOffsetPercentage = (config.priceDisplayXOffset || 0) / 100;
+const xOffset = contentArea.width * xOffsetPercentage;
+
+// Font size conversion
+const fontSizePercentage = (config.priceFontSize || 40) / 100;
+const baseFontSize = contentArea.height * fontSizePercentage;
+```
+
+**Benefits**:
+- **Standardization**: Consistent conversion across all parameters
+- **Intuitive Configuration**: Users think in percentages, system handles decimals
+- **Safe Defaults**: Fallback values prevent undefined parameters
+- **Maintainable**: Single conversion pattern for entire system
+
+### Feature Flag Independence Pattern ✅ COMPLETE
+**Purpose**: Independent control over individual display features
+
+**Implementation**:
+```javascript
+// Independent boolean flags for each feature
+const config = {
+  showPriceBackground: true,      // Background fill control
+  showPriceBoundingBox: false,    // Border outline control
+  showPipetteDigit: true,        // Pipette digit visibility
+  priceUseStaticColor: false,     // Directional vs static coloring
+  
+  // Independent sizing ratios
+  bigFigureFontSizeRatio: 80,    // Big figure size
+  pipFontSizeRatio: 100,          // Pips size
+  pipetteFontSizeRatio: 70         // Pipette size
+};
+```
+
+**Benefits**:
+- **Granular Control**: Each feature independently configurable
+- **User Flexibility**: Mix and match features as needed
+- **Performance**: Disable unused features for optimization
+- **Testing**: Individual feature testing and validation
+
 These Container vs Display architecture patterns provide a robust foundation for stable, responsive resize functionality while maintaining clear separation of concerns and preventing circular dependencies. The hierarchical structure ensures that layout interactions (Container) are completely independent from content rendering (Display), allowing for scalable and maintainable code architecture.
 
-These system patterns provide the architectural foundation for NeuroSense FX's radical floating architecture, ensuring performance, maintainability, and scalability while supporting the complex requirements of professional trading interfaces. The enhanced floating element patterns (7-9) represent the latest innovations in perfect behavior implementation and production integration, achieving 85% clean code ratio with production stability. The Container vs Display patterns (11-15) represent the critical breakthrough in resolving exponential canvas growth issues through hierarchical architecture and reactive independence.
+The Price Display Foundation Patterns (17-21) establish comprehensive architectural patterns for production-ready visualization components. These patterns demonstrate sophisticated error handling, performance optimization, configurable rendering, and modular design that serve as a template for all future visualization development in the NeuroSense FX ecosystem.
+
+These system patterns provide an architectural foundation for NeuroSense FX's radical floating architecture, ensuring performance, maintainability, and scalability while supporting complex requirements of professional trading interfaces. The enhanced floating element patterns (7-9) represent the latest innovations in perfect behavior implementation and production integration, achieving 85% clean code ratio with production stability. The Container vs Display patterns (11-15) represent a critical breakthrough in resolving exponential canvas growth issues through hierarchical architecture and reactive independence. The Price Display Foundation patterns (17-21) establish production-ready templates for all future visualization components.

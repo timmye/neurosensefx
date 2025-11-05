@@ -67,9 +67,11 @@ const initialState = {
     containerSize: { width: 220, height: 160 },     // Full display including header (220×120 content + 40px header)
     headerHeight: 40,                                // Header area height
     
-    // === POSITIONING ===
-    adrAxisPosition: 0.65,                           // 65% of content width (30% right of center)
-    adrAxisBounds: { min: 0.05, max: 0.95 },       // 5%-95% of content width
+    // === LAYOUT & SIZING ===
+    visualizationsContentWidth: 100,                    // 100% of canvas width
+    meterHeight: 75,                                   // 75% of canvas height (120px - 40px header = 80px, so 75% = 60px)
+    adrAxisPosition: 75,                              // 65% of content width (30% right of center)
+    adrAxisBounds: { min: 5, max: 95 },             // 5%-95% of content width
     
     // === VISUALIZATION PARAMETERS (content-relative) ===
     adrRange: 100,
@@ -110,8 +112,8 @@ const initialState = {
     ohlLabelBoxOutlineOpacity: 1,
 
     // === PRICE FLOAT & DISPLAY (content-relative) ===
-    priceFloatWidth: 0.8,                              // 80% of content width
-    priceFloatHeight: 0.1,                             // 10% of content height
+    priceFloatWidth: 15,                               // 15% of content width (33px on 220px canvas)
+    priceFloatHeight: 2,                              // 2% of content height (2.4px on 120px canvas)
     priceFloatXOffset: 0,                               // 0% of content width
     priceFloatUseDirectionalColor: false,
     priceFloatColor: '#FFFFFF',
@@ -121,13 +123,15 @@ const initialState = {
     priceFloatPulseThreshold: 0.5,
     priceFloatPulseColor: 'rgba(167, 139, 250, 0.8)',
     priceFloatPulseScale: 1.5,
-    priceFontSize: 0.45,                                // 45% of content height
+    priceFontSize: 40,                                  // 5% of content height (MINIMUM: User requested minimum 5%)
     priceFontWeight: '600',
-    priceHorizontalOffset: 0.018,                         // 1.8% of content width
-    priceDisplayPadding: 0,                               // 0% of content dimensions
-    bigFigureFontSizeRatio: 0.7,
-    pipFontSizeRatio: 1.0,
-    pipetteFontSizeRatio: 0.4,
+    priceDisplayPositioning: 'canvasRelative',             // Positioning mode: 'canvasRelative' or 'adrAxis'
+    priceDisplayHorizontalPosition: 2,                     // ✅ FIXED: 2% from left edge (percentage, not decimal)
+    priceDisplayXOffset: 0,                              // 0% offset from base position (DIFFERENT PURPOSE: fine-tuning)
+    priceDisplayPadding: 4,                               // 4px padding (absolute pixels)
+    bigFigureFontSizeRatio: 80,                           // ✅ FIXED: 80% of base font size (percentage for context menu)
+    pipFontSizeRatio: 100,                               // ✅ FIXED: 100% of base font size (percentage for context menu)
+    pipetteFontSizeRatio: 70,                             // ✅ FIXED: 70% of base font size (percentage for context menu)
     showPipetteDigit: true,
     priceUseStaticColor: false,
     priceStaticColor: '#d1d5db',
@@ -159,8 +163,8 @@ const initialState = {
     // === MARKET PROFILE ===
     showMarketProfile: true,
     marketProfileView: 'combinedRight',
-    marketProfileUpColor: '#a78bfa',
-    marketProfileDownColor: '#a78bfa',
+    marketProfileUpColor: '#10B981',    // ✅ FIXED: Green for buy volume
+    marketProfileDownColor: '#EF4444',  // ✅ FIXED: Red for sell volume  
     marketProfileOpacity: 0.7,
     marketProfileOutline: true,
     marketProfileOutlineShowStroke: true,
@@ -171,12 +175,15 @@ const initialState = {
     distributionDepthMode: 'all',
     distributionPercentage: 50,
     priceBucketMultiplier: 1,
-    marketProfileWidthRatio: 1,
+    marketProfileWidthRatio: 15,         // ✅ FIXED: 15% = visible bars (33px on 220px canvas)
+    marketProfileWidthMode: 'responsive', // 'responsive' | 'fixed' - NEW: Responsive width management
+    marketProfileMinWidth: 5,            // NEW: Minimum bar width constraint (5px)
+    marketProfileMarkerFontSize: 10,      // Font size for max volume marker (separate from price display)
     showMaxMarker: true,
 
     // === PRICE MARKERS ===
     markerLineColor: '#FFFFFF',
-    markerLineThickness: 2,
+    markerLineThickness: 1,
 
     // === HOVER INDICATOR ===
     hoverLabelShowBackground: true,
@@ -356,11 +363,23 @@ export const displayActions = {
       const newDisplays = new Map(store.displays);
       const display = newDisplays.get(displayId);
       if (display) {
+        const oldConfigValue = display.config[parameter];
         const updatedConfig = { ...display.config, [parameter]: value };
         newDisplays.set(displayId, {
           ...display,
           config: updatedConfig
         });
+        
+        // 🔍 DEBUG: Enhanced logging for ADR axis changes
+        if (parameter === 'adrAxisPosition') {
+          console.log(`[DISPLAY_STORE_DEBUG] ADR axis position update:`, {
+            displayId,
+            oldValue: oldConfigValue,
+            newValue: value,
+            symbol: display.symbol,
+            fullConfig: updatedConfig
+          });
+        }
         
         // Notify worker of configuration change
         const worker = store.workers.get(display.symbol);
@@ -480,7 +499,7 @@ export const displayActions = {
             projectedAdrLow: initData.projectedAdrLow,
             todaysHigh: initData.todaysHigh,
             todaysLow: initData.todaysLow,
-            initialMarketProfile: initData.marketProfile || []
+            initialMarketProfile: initData.initialMarketProfile || []
           }
         };
         worker.postMessage(initPayload);
@@ -695,7 +714,7 @@ export const displayActions = {
       const display = newDisplays.get(displayId);
       if (display) {
         // Validate position is within bounds (5% to 95%)
-        const validatedPosition = Math.max(0.05, Math.min(0.95, position));
+        const validatedPosition = Math.max(5, Math.min(95, position));
         
         const updatedConfig = { ...display.config, adrAxisPosition: validatedPosition };
         newDisplays.set(displayId, {

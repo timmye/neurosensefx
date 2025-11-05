@@ -300,7 +300,15 @@
       width: containerSize.width,  // ✅ FIXED: No padding reduction
       height: containerSize.height - config.headerHeight  // ✅ FIXED: Only subtract header
     };
-    const adrAxisX = contentArea.width * config.adrAxisPosition;
+    const adrAxisX = contentArea.width * (config.adrAxisPosition / 100);
+    
+    // 🔍 DEBUG: Log ADR axis calculation to track updates
+    console.log(`[RENDER_DEBUG] ADR axis calculation:`, {
+      displayId: id,
+      adrAxisPosition: config.adrAxisPosition,
+      contentAreaWidth: contentArea.width,
+      calculatedAdrAxisX: adrAxisX
+    });
     
     renderingContext = {
       containerSize,

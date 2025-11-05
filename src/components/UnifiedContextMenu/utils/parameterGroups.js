@@ -54,11 +54,106 @@ export const quickActionsGroup = {
   }
 };
 
-// Price Display (18 parameters): Price float and display settings
+// Price Display (12 parameters): Price display text settings
 export const priceDisplayGroup = {
   id: 'priceDisplay',
   title: 'Price Display',
-  description: 'Price float and display settings',
+  description: 'Price display text settings',
+  parameters: [
+    'priceFontSize',
+    'priceFontWeight',
+    'priceDisplayPositioning',
+    'priceDisplayHorizontalPosition',
+    'priceDisplayXOffset',
+    'priceDisplayPadding',
+    'bigFigureFontSizeRatio',
+    'pipFontSizeRatio',
+    'pipetteFontSizeRatio',
+    'showPipetteDigit',
+    'priceUseStaticColor',
+    'priceStaticColor',
+    'priceUpColor',
+    'priceDownColor',
+    'showPriceBackground',
+    'priceBackgroundColor',
+    'priceBackgroundOpacity',
+    'showPriceBoundingBox',
+    'priceBoxOutlineColor',
+    'priceBoxOutlineOpacity'
+  ],
+  controlTypes: {
+    priceFontSize: 'range',
+    priceFontWeight: 'select',
+    priceDisplayPositioning: 'select',
+    priceDisplayHorizontalPosition: 'range',
+    priceDisplayXOffset: 'range',
+    priceDisplayPadding: 'range',
+    bigFigureFontSizeRatio: 'range',
+    pipFontSizeRatio: 'range',
+    pipetteFontSizeRatio: 'range',
+    showPipetteDigit: 'toggle',
+    priceUseStaticColor: 'toggle',
+    priceStaticColor: 'color',
+    priceUpColor: 'color',
+    priceDownColor: 'color',
+    showPriceBackground: 'toggle',
+    priceBackgroundColor: 'color',
+    priceBackgroundOpacity: 'range',
+    showPriceBoundingBox: 'toggle',
+    priceBoxOutlineColor: 'color',
+    priceBoxOutlineOpacity: 'range'
+  },
+  labels: {
+    priceFontSize: 'Font Size',
+    priceFontWeight: 'Font Weight',
+    priceDisplayPositioning: 'Positioning Mode',
+    priceDisplayHorizontalPosition: 'Horizontal Position',
+    priceDisplayXOffset: 'X Offset',
+    priceDisplayPadding: 'Display Padding',
+    bigFigureFontSizeRatio: 'Big Figure Ratio',
+    pipFontSizeRatio: 'Pip Size Ratio',
+    pipetteFontSizeRatio: 'Pipette Size Ratio',
+    showPipetteDigit: 'Show Pipette',
+    priceUseStaticColor: 'Use Static Color',
+    priceStaticColor: 'Static Color',
+    priceUpColor: 'Up Color',
+    priceDownColor: 'Down Color',
+    showPriceBackground: 'Price Background',
+    priceBackgroundColor: 'Price Background Color',
+    priceBackgroundOpacity: 'Price Background Opacity',
+    showPriceBoundingBox: 'Price Box Outline',
+    priceBoxOutlineColor: 'Box Color',
+    priceBoxOutlineOpacity: 'Box Opacity'
+  },
+  controlOptions: {
+    priceFontWeight: ['400', '500', '600', '700', '800', '900'],
+    priceDisplayPositioning: ['canvasRelative', 'adrAxis']
+  },
+  ranges: {
+    priceFontSize: { min: 5, max: 80, step: 1 }, // Percentage of canvas height (MINIMUM: User requested 5%)
+    priceDisplayHorizontalPosition: { min: 0, max: 50, step: 1 }, // Percentage of canvas width (0%-50% from left)
+    priceDisplayXOffset: { min: -25, max: 25, step: 1 }, // Percentage of canvas width offset
+    priceDisplayPadding: { min: 0, max: 10, step: 1 }, // Percentage of canvas dimensions
+    bigFigureFontSizeRatio: { min: 50, max: 100, step: 5 }, // ✅ FIXED: Percentage ratios (50%-100%) to match displayStore
+    pipFontSizeRatio: { min: 50, max: 150, step: 10 }, // ✅ FIXED: Percentage ratios (50%-150%) to match displayStore
+    pipetteFontSizeRatio: { min: 20, max: 80, step: 5 }, // ✅ FIXED: Percentage ratios (20%-80%) to match displayStore
+    priceBackgroundOpacity: { min: 0.1, max: 1.0, step: 0.1 },
+    priceBoxOutlineOpacity: { min: 0.1, max: 1.0, step: 0.1 }
+  },
+  // NEW: Percentage-based parameter metadata
+  percentageParameters: {
+    priceFontSize: { basis: 'canvasHeight', absoluteFallback: 65 },
+    priceDisplayHorizontalPosition: { basis: 'canvasWidth', absoluteFallback: 2 },
+    priceDisplayXOffset: { basis: 'canvasWidth', absoluteFallback: 0 },
+    priceDisplayPadding: { basis: 'canvasWidth', absoluteFallback: 0 }
+  }
+};
+
+// Price Float (10 parameters): Price float line settings
+export const priceFloatGroup = {
+  id: 'priceFloat',
+  title: 'Price Float',
+  description: 'Price float line settings',
   parameters: [
     'priceFloatWidth',
     'priceFloatHeight',
@@ -67,19 +162,10 @@ export const priceDisplayGroup = {
     'priceFloatColor',
     'priceFloatUpColor',
     'priceFloatDownColor',
+    'showPriceFloatPulse',
     'priceFloatPulseThreshold',
     'priceFloatPulseColor',
-    'priceFloatPulseScale',
-    'priceFontSize',
-    'priceFontWeight',
-    'priceHorizontalOffset',
-    'priceDisplayPadding',
-    'bigFigureFontSizeRatio',
-    'pipFontSizeRatio',
-    'pipetteFontSizeRatio',
-    'priceUseStaticColor',
-    'priceBackgroundColor',
-    'priceBackgroundOpacity'
+    'priceFloatPulseScale'
   ],
   controlTypes: {
     priceFloatWidth: 'range',
@@ -89,19 +175,10 @@ export const priceDisplayGroup = {
     priceFloatColor: 'color',
     priceFloatUpColor: 'color',
     priceFloatDownColor: 'color',
+    showPriceFloatPulse: 'toggle',
     priceFloatPulseThreshold: 'range',
     priceFloatPulseColor: 'color',
-    priceFloatPulseScale: 'range',
-    priceFontSize: 'range',
-    priceFontWeight: 'select',
-    priceHorizontalOffset: 'range',
-    priceDisplayPadding: 'range',
-    bigFigureFontSizeRatio: 'range',
-    pipFontSizeRatio: 'range',
-    pipetteFontSizeRatio: 'range',
-    priceUseStaticColor: 'toggle',
-    priceBackgroundColor: 'color',
-    priceBackgroundOpacity: 'range'
+    priceFloatPulseScale: 'range'
   },
   labels: {
     priceFloatWidth: 'Float Width',
@@ -111,49 +188,27 @@ export const priceDisplayGroup = {
     priceFloatColor: 'Float Color',
     priceFloatUpColor: 'Float Up Color',
     priceFloatDownColor: 'Float Down Color',
+    showPriceFloatPulse: 'Price Pulse',
     priceFloatPulseThreshold: 'Pulse Threshold',
     priceFloatPulseColor: 'Pulse Color',
-    priceFloatPulseScale: 'Pulse Scale',
-    priceFontSize: 'Font Size',
-    priceFontWeight: 'Font Weight',
-    priceHorizontalOffset: 'Horizontal Offset',
-    priceDisplayPadding: 'Display Padding',
-    bigFigureFontSizeRatio: 'Big Figure Ratio',
-    pipFontSizeRatio: 'Pip Size Ratio',
-    pipetteFontSizeRatio: 'Pipette Size Ratio',
-    priceUseStaticColor: 'Use Static Color',
-    priceBackgroundColor: 'Price Background Color',
-    priceBackgroundOpacity: 'Price Background Opacity'
-  },
-  controlOptions: {
-    priceFontWeight: ['400', '500', '600', '700', '800', '900']
+    priceFloatPulseScale: 'Pulse Scale'
   },
   ranges: {
-    priceFloatWidth: { min: 10, max: 80, step: 1 }, // Percentage of canvas width
-    priceFloatHeight: { min: 1, max: 10, step: 0.5 }, // Percentage of canvas height
+    priceFloatWidth: { min: 0.1, max: 100, step: 0.1 }, // Percentage of canvas width (0.1% to 100%)
+    priceFloatHeight: { min: 0.1, max: 10, step: 0.1 }, // Percentage of canvas height (0.1% to 10%)
     priceFloatXOffset: { min: -25, max: 25, step: 1 }, // Percentage of canvas width
     priceFloatPulseThreshold: { min: 0.1, max: 2.0, step: 0.1 },
-    priceFloatPulseScale: { min: 1.0, max: 3.0, step: 0.1 },
-    priceFontSize: { min: 20, max: 80, step: 2 }, // Percentage of canvas height
-    priceHorizontalOffset: { min: -10, max: 10, step: 1 }, // Percentage of canvas width
-    priceDisplayPadding: { min: 0, max: 10, step: 1 }, // Percentage of canvas dimensions
-    bigFigureFontSizeRatio: { min: 0.5, max: 1.0, step: 0.05 },
-    pipFontSizeRatio: { min: 0.5, max: 1.5, step: 0.1 },
-    pipetteFontSizeRatio: { min: 0.2, max: 0.8, step: 0.05 },
-    priceBackgroundOpacity: { min: 0.1, max: 1.0, step: 0.1 }
+    priceFloatPulseScale: { min: 1.0, max: 3.0, step: 0.1 }
   },
   // NEW: Percentage-based parameter metadata
   percentageParameters: {
     priceFloatWidth: { basis: 'canvasWidth', absoluteFallback: 100 },
     priceFloatHeight: { basis: 'canvasHeight', absoluteFallback: 4 },
-    priceFloatXOffset: { basis: 'canvasWidth', absoluteFallback: 0 },
-    priceFontSize: { basis: 'canvasHeight', absoluteFallback: 65 },
-    priceHorizontalOffset: { basis: 'canvasWidth', absoluteFallback: 4 },
-    priceDisplayPadding: { basis: 'canvasWidth', absoluteFallback: 0 }
+    priceFloatXOffset: { basis: 'canvasWidth', absoluteFallback: 0 }
   }
 };
 
-// Market Profile (20 parameters): Market profile visualization settings
+// Market Profile (22 parameters): Market profile visualization settings
 export const marketProfileGroup = {
   id: 'marketProfile',
   title: 'Market Profile',
@@ -173,6 +228,10 @@ export const marketProfileGroup = {
     'distributionPercentage',
     'priceBucketMultiplier',
     'marketProfileWidthRatio',
+    'marketProfileWidthMode',      // NEW: Responsive width management
+    'marketProfileMinWidth',       // NEW: Minimum bar width constraint
+    'showMaxMarker',
+    'marketProfileMarkerFontSize',
     'pHighLowLabelSide',
     'ohlLabelSide',
     'pHighLowLabelShowBackground',
@@ -195,6 +254,10 @@ export const marketProfileGroup = {
     distributionPercentage: 'range',
     priceBucketMultiplier: 'range',
     marketProfileWidthRatio: 'range',
+    marketProfileWidthMode: 'select',     // NEW: Width mode selector
+    marketProfileMinWidth: 'range',      // NEW: Minimum width control
+    showMaxMarker: 'toggle',
+    marketProfileMarkerFontSize: 'range',
     pHighLowLabelSide: 'select',
     ohlLabelSide: 'select',
     pHighLowLabelShowBackground: 'toggle',
@@ -217,6 +280,10 @@ export const marketProfileGroup = {
     distributionPercentage: 'Distribution %',
     priceBucketMultiplier: 'Bucket Multiplier',
     marketProfileWidthRatio: 'Width Ratio',
+    marketProfileWidthMode: 'Width Mode',      // NEW: Responsive vs Fixed
+    marketProfileMinWidth: 'Min Bar Width',   // NEW: Minimum constraint
+    showMaxMarker: 'Show Max Marker',
+    marketProfileMarkerFontSize: 'Marker Font Size',
     pHighLowLabelSide: 'PH/PL Label Side',
     ohlLabelSide: 'OHL Label Side',
     pHighLowLabelShowBackground: 'PH/PL Background',
@@ -227,6 +294,7 @@ export const marketProfileGroup = {
   controlOptions: {
     marketProfileView: ['separate', 'combinedLeft', 'combinedRight'],
     distributionDepthMode: ['all', 'percentage', 'custom'],
+    marketProfileWidthMode: ['responsive', 'fixed'], // NEW: Width mode options
     pHighLowLabelSide: ['left', 'right'],
     ohlLabelSide: ['left', 'right']
   },
@@ -237,6 +305,8 @@ export const marketProfileGroup = {
     distributionPercentage: { min: 10, max: 90, step: 5 },
     priceBucketMultiplier: { min: 0.5, max: 2.0, step: 0.1 },
     marketProfileWidthRatio: { min: 0.5, max: 2.0, step: 0.1 },
+    marketProfileMinWidth: { min: 1, max: 20, step: 1 }, // NEW: 1-20px minimum bar width
+    marketProfileMarkerFontSize: { min: 8, max: 16, step: 1 },
     pHighLowLabelBackgroundOpacity: { min: 0.1, max: 1.0, step: 0.1 }
   }
 };
@@ -331,8 +401,7 @@ export const layoutSizingGroup = {
   parameters: [
     'visualizationsContentWidth',
     'meterHeight',
-    'centralAxisXPosition',
-    'adrAxisXPosition',
+    'adrAxisPosition',
     'adrRangeIndicatorLabelColor',
     'adrRangeIndicatorLabelShowBackground',
     'adrRangeIndicatorLabelBackgroundColor',
@@ -346,8 +415,7 @@ export const layoutSizingGroup = {
   controlTypes: {
     visualizationsContentWidth: 'range',
     meterHeight: 'range',
-    centralAxisXPosition: 'range',
-    adrAxisXPosition: 'range',
+    adrAxisPosition: 'range',
     adrRangeIndicatorLabelColor: 'color',
     adrRangeIndicatorLabelShowBackground: 'toggle',
     adrRangeIndicatorLabelBackgroundColor: 'color',
@@ -361,8 +429,7 @@ export const layoutSizingGroup = {
   labels: {
     visualizationsContentWidth: 'Content Width',
     meterHeight: 'Meter Height',
-    centralAxisXPosition: 'Central Axis X',
-    adrAxisXPosition: 'ADR Axis Position',
+    adrAxisPosition: 'ADR Axis Position',
     adrRangeIndicatorLabelColor: 'ADR Label Color',
     adrRangeIndicatorLabelShowBackground: 'ADR Label BG',
     adrRangeIndicatorLabelBackgroundColor: 'ADR Label BG Color',
@@ -378,9 +445,8 @@ export const layoutSizingGroup = {
   },
   ranges: {
     visualizationsContentWidth: { min: 50, max: 200, step: 5 }, // Percentage of reference width (110-440px)
-    meterHeight: { min: 50, max: 250, step: 5 }, // Percentage of reference height (60-300px)  
-    centralAxisXPosition: { min: 10, max: 90, step: 5 }, // Percentage of reference width (22-198px)
-    adrAxisXPosition: { min: 5, max: 95, step: 1 }, // Percentage of container width (5%-95%)
+    meterHeight: { min: 50, max: 200, step: 5 }, // Percentage of reference height (60-240px)
+    adrAxisPosition: { min: 5, max: 95, step: 1 }, // Percentage of container width (5%-95%)
     adrRangeIndicatorLabelBackgroundOpacity: { min: 0.1, max: 1.0, step: 0.1 },
     adrRangeIndicatorLabelBoxOutlineOpacity: { min: 0.1, max: 1.0, step: 0.1 }
   },
@@ -388,8 +454,7 @@ export const layoutSizingGroup = {
   percentageParameters: {
     visualizationsContentWidth: { basis: 'canvasWidth', absoluteFallback: 220 },
     meterHeight: { basis: 'canvasHeight', absoluteFallback: 120 },
-    centralAxisXPosition: { basis: 'canvasWidth', absoluteFallback: 220 },
-    adrAxisXPosition: { basis: 'canvasWidth', absoluteFallback: 143 } // 65% of 220px = 143px
+    adrAxisPosition: { basis: 'canvasWidth', absoluteFallback: 143 } // 65% of 220px = 143px
   }
 };
 
@@ -475,6 +540,7 @@ export const advancedGroup = {
 export const parameterGroups = [
   quickActionsGroup,
   priceDisplayGroup,
+  priceFloatGroup,
   marketProfileGroup,
   volatilityGroup,
   layoutSizingGroup,

@@ -318,6 +318,35 @@ export const coordinateUtils = {
 
 /**
  * Unified bounds checking utilities for consistent behavior across visualization functions
+ * 
+ * FOUNDATION PATTERN: Performance optimization for 60fps rendering with 20+ displays
+ * 
+ * ARCHITECTURAL INTENT:
+ * - Skip unnecessary canvas operations for out-of-bounds elements
+ * - Support expandable range scenarios (elements beyond initial canvas)
+ * - Maintain trader precision with professional-grade rendering
+ * - Enable zero-latency updates for real-time trading data
+ * 
+ * USAGE PATTERNS:
+ * - ELEMENT-SPECIFIC: Check individual elements before rendering (PREFERRED - see dayRangeMeter.js)
+ * - AVOID BINARY CHECKING: Do NOT use all-or-nothing approach for entire visualizations
+ * - CONTEXT-AWARE: Use different bounds logic for different element types
+ * 
+ * PERFORMANCE BENEFITS:
+ * - Reduces canvas operations for elements outside visible area
+ * - Enables smooth 60fps rendering with 20+ simultaneous displays
+ * - Maintains sub-100ms latency for real-time trading data
+ * - Supports visual effects that extend beyond canvas boundaries
+ * 
+ * EXAMPLE USAGE:
+ * // GOOD: Element-specific checking (like dayRangeMeter.js)
+ * if (boundsUtils.isYInBounds(highY, {}, { canvasArea: contentArea })) {
+ *   drawHighMarker(ctx, highY); // Only draw if visible
+ * }
+ * 
+ * // AVOID: Binary checking for entire visualization
+ * const inBounds = boundsUtils.isYInBounds(priceY, config, { canvasArea: contentArea });
+ * if (!inBounds) return; // Don't skip entire visualization!
  */
 export const boundsUtils = {
   /**
@@ -333,11 +362,22 @@ export const boundsUtils = {
   },
 
   /**
-   * Check if a Y coordinate is within bounds for drawing
-   * @param {number} y - Y coordinate
-   * @param {Object} config - Configuration object
-   * @param {Object} canvasDimensions - Canvas dimensions
-   * @returns {boolean} True if Y is within drawable bounds
+   * Check if a Y coordinate is within drawable bounds with overflow tolerance
+   * 
+   * FOUNDATION PATTERN: Enables expandable range support for trading visualizations
+   * 
+   * PURPOSE: Allows elements slightly outside canvas to support:
+   * - Visual effects that extend beyond boundaries (glow, shadows)
+   * - Smooth transitions when elements move in/out of view
+   * - Expandable range scenarios when price moves beyond expected limits
+   * 
+   * OVERFLOW TOLERANCE: ±50px allows for visual effects while preventing
+   * unnecessary rendering of elements far outside visible area
+   * 
+   * @param {number} y - Y coordinate to check
+   * @param {Object} config - Configuration object (optional, can be {} for minimal checks)
+   * @param {Object} canvasDimensions - Canvas dimensions containing canvasArea
+   * @returns {boolean} True if Y is within drawable bounds (including overflow tolerance)
    */
   isYInBounds: (y, config, canvasDimensions) => {
     const { canvasArea } = canvasDimensions;
@@ -399,6 +439,57 @@ export const boundsUtils = {
     return Math.max(minX, Math.min(maxX, axisX));
   }
 };
+
+/**
+ * Configure text rendering with DPR-aware font sizing
+ * 
+ * Fixes fuzzy text rendering by using base CSS font sizes in DPR-scaled canvas context.
+ * When canvas context is already scaled by DPR, we use base font size directly.
+ * 
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Object} canvasDimensions - Canvas dimensions from getCanvasDimensions
+ * @param {Object} options - Text configuration options
+ * @returns {Object} Configured text settings for DPR-aware rendering
+ */
+export function configureTextForDPR(ctx, canvasDimensions, options = {}) {
+  const { dpr } = canvasDimensions;
+  const {
+    baseFontSize = 10,        // Base font size in CSS pixels
+    fontFamily = 'sans-serif',
+    fontWeight = 'normal',
+    textAlign = 'center',
+    textBaseline = 'middle',
+    fillStyle = '#000000',
+    smoothingEnabled = true
+  } = options;
+
+  // When canvas context is DPR-scaled (ctx.scale(dpr, dpr) was called),
+  // we use the base CSS font size directly - no need to scale again
+  const finalFontSize = baseFontSize;
+  const fontString = `${fontWeight} ${finalFontSize}px ${fontFamily}`;
+  
+  // Apply font and text properties
+  ctx.font = fontString;
+  ctx.textAlign = textAlign;
+  ctx.textBaseline = textBaseline;
+  ctx.fillStyle = fillStyle;
+  
+  // Configure text smoothing for crisp rendering
+  ctx.imageSmoothingEnabled = smoothingEnabled;
+  
+  return {
+    fontString,
+    baseFontSize,
+    finalFontSize,
+    dpr,
+    fontFamily,
+    fontWeight,
+    textAlign,
+    textBaseline,
+    fillStyle,
+    smoothingEnabled
+  };
+}
 
 /**
  * Configuration normalization utilities
