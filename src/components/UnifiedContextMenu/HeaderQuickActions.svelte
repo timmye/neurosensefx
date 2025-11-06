@@ -8,8 +8,8 @@
     <div class="menu-item" on:click={() => onAction('bringToFront')}>
       Bring to Front
     </div>
-    <div class="menu-item" on:click={() => onAction('duplicate')}>
-      Duplicate Display
+    <div class="menu-item refresh" on:click={() => onAction('refresh')}>
+      Refresh Canvas
     </div>
   </div>
   
@@ -49,6 +49,14 @@
   
   .menu-item.danger:hover {
     background: rgba(239, 68, 68, 0.1);
+  }
+  
+  .menu-item.refresh {
+    color: #10b981;
+  }
+  
+  .menu-item.refresh:hover {
+    background: rgba(16, 185, 129, 0.1);
   }
   
   .menu-divider {

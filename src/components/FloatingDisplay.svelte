@@ -38,6 +38,7 @@
   let state = {};
   let isActive = false;
   let zIndex = 1;
+  let displaySize = { width: 220, height: 160 }; // ✅ FIXED: Add explicit displaySize variable
   
   // ✅ UNIFIED STORE: Simple store binding - no reactive conflicts
   $: display = $displays?.get(id);
@@ -47,15 +48,16 @@
     state = display?.state || {}; // ✅ FIXED: Get state from unified displayStore
     isActive = display?.isActive || false;
     zIndex = display?.zIndex || 1;
+    displaySize = display?.size || { width: 220, height: 160 }; // ✅ FIXED: Extract size safely
     
-    // 🔍 DEBUG: Log state changes to track data flow
-    if (state && Object.keys(state).length > 0) {
-      console.log(`[FLOATING_DISPLAY_DEBUG] State updated for ${symbol}:`, {
-        ready: state.ready,
-        hasPrice: !!state.currentPrice,
-        visualLow: state.visualLow,
-        visualHigh: state.visualHigh,
-        volatility: state.volatility
+    // 🔍 DEBUG: Log display changes to track data flow
+    if (display) {
+      console.log(`[FLOATING_DISPLAY_DEBUG] Display updated for ${symbol}:`, {
+        id: display.id,
+        position: displayPosition,
+        size: displaySize,
+        hasCustomSize: !!display?.size,
+        configKeys: Object.keys(config || {})
       });
     }
   }
@@ -360,7 +362,7 @@
   bind:this={element}
   class="enhanced-floating"
   class:active={isActive}
-  style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: 220px; height: 160px; z-index: {zIndex};"
+  style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: {displaySize.width}px; height: {displaySize.height}px; z-index: {zIndex};"
   on:contextmenu={handleContextMenu}
   data-display-id={id}
 >

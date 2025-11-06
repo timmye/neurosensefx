@@ -31,8 +31,8 @@
     },
     workspace: {
       title: 'Workspace',
-      width: 200,
-      height: 120,
+      width: 250,
+      height: 200,
       showTabs: false,
       showSearch: false,
       showReset: false
@@ -194,14 +194,17 @@
       {#if $contextMenu.context.type === 'canvas'}
         <CanvasTabbedInterface 
           displayId={$contextMenu.context.targetId}
-          onParameterChange={(parameter, value) => displayActions.updateDisplayConfig($contextMenu.context.targetId, parameter, value)}
+          onParameterChange={(parameter, value) => {
+            // Update global config when canvas parameters change
+            displayActions.updateGlobalConfig(parameter, value);
+          }}
           onMultipleParameterChange={(configUpdates) => {
-            // Apply multiple config updates
+            // Apply multiple config updates to global
             Object.entries(configUpdates).forEach(([param, value]) => {
-              displayActions.updateDisplayConfig($contextMenu.context.targetId, param, value);
+              displayActions.updateGlobalConfig(param, value);
             });
           }}
-          onReset={() => displayActions.resetDisplayConfig($contextMenu.context.targetId)}
+          onReset={() => displayActions.resetToFactoryDefaults()}
         />
       {:else if $contextMenu.context.type === 'header'}
         <HeaderQuickActions 
@@ -212,12 +215,18 @@
               case 'bringToFront':
                 displayActions.setActiveDisplay($contextMenu.context.targetId);
                 break;
-              case 'duplicate':
-                const display = $displays.get($contextMenu.context.targetId);
-                if (display) {
-                  displayActions.addDisplay(display.symbol, { 
-                    x: display.position.x + 20, 
-                    y: display.position.y + 20 
+              case 'refresh':
+                // Refresh individual canvas using existing workspace restoration logic
+                const refreshDisplay = $displays.get($contextMenu.context.targetId);
+                if (refreshDisplay) {
+                  console.log(`[CONTEXT_MENU] Refreshing canvas for ${refreshDisplay.symbol}`);
+                  
+                  // Re-subscribe to symbol to trigger fresh data package
+                  // This will call updateExistingSymbol() through existing handleDataPackage() logic
+                  import('../data/wsClient.js').then(({ subscribe }) => {
+                    subscribe(refreshDisplay.symbol);
+                  }).catch(error => {
+                    console.error(`[CONTEXT_MENU] Failed to refresh symbol:`, error);
                   });
                 }
                 break;
@@ -239,8 +248,9 @@
               case 'showSymbolPalette':
                 // Show symbol palette logic
                 break;
-              case 'workspaceSettings':
-                // Workspace settings logic
+              case 'resetDefaults':
+                // Reset to factory defaults
+                displayActions.resetToFactoryDefaults();
                 break;
             }
             displayActions.hideContextMenu();
@@ -272,7 +282,7 @@
     {#if currentConfig.showReset}
       <div class="menu-footer">
         <button class="reset-btn" on:click={() => {
-          displayActions.resetDisplayConfig($contextMenu.context.targetId);
+          displayActions.resetToFactoryDefaults();
           displayActions.hideContextMenu();
         }}>
           Reset to Defaults
@@ -385,10 +395,14 @@
   }
   
   .header-context,
-  .workspace-context,
   .panel-context {
     min-width: 200px;
     max-width: 250px;
+  }
+  
+  .workspace-context {
+    min-width: 250px;
+    max-width: 300px;
   }
   
   /* Scrollbar styling */

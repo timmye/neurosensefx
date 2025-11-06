@@ -110,8 +110,27 @@ function handleDataPackage(data) {
     console.log(`[WSCLIENT_DEBUG] handleDataPackage called for ${data.symbol}`);
     console.log('[wsClient] Data package received for:', data.symbol);
     
-    // Create symbol display with received data
-    displayActions.createNewSymbol(data.symbol, data);
+    // 🔧 CRITICAL FIX: Check if display already exists before creating/updating
+    const currentStore = get(displayStore);
+    let existingDisplay = null;
+    
+    // Search for existing display with this symbol
+    for (const [displayId, display] of currentStore.displays) {
+        if (display.symbol === data.symbol) {
+            existingDisplay = display;
+            break;
+        }
+    }
+    
+    if (existingDisplay) {
+        // Update existing display (workspace restoration case)
+        console.log(`[WSCLIENT_DEBUG] Updating existing display for ${data.symbol}`);
+        displayActions.updateExistingSymbol(data.symbol, data);
+    } else {
+        // Create new display (symbol palette case)
+        console.log(`[WSCLIENT_DEBUG] Creating new display for ${data.symbol}`);
+        displayActions.createNewSymbol(data.symbol, data);
+    }
     
     subscriptions.update(subs => {
         subs.add(data.symbol);

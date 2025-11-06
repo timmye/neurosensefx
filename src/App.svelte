@@ -117,6 +117,10 @@
   // Initialize displays on mount
   onMount(async () => {
     try {
+      // Initialize workspace from persisted data first
+      console.log('[APP] Initializing workspace from persistence...');
+      await displayActions.initializeWorkspace();
+      
       // Initialize symbol service
       await symbolService.initialize();
       const symbols = symbolService.getSymbols();
@@ -135,8 +139,7 @@
         status: 'online'
       });
       
-      // ✅ CLEAN STARTUP: Don't create initial display - start with clean workspace
-      console.log('[APP] Startup complete - clean workspace (no initial display)');
+      console.log('[APP] Startup complete - workspace restored from persistence');
     } catch (error) {
       console.error('[APP] Initialization failed:', error);
       // Fallback: try to create display with default symbol

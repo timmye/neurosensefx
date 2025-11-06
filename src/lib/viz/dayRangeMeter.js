@@ -90,32 +90,45 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
   // Use source of truth from dataProcessor schema
   const dailyOpen = state.midPrice;  // This IS the daily open price
   const adrValue = state.projectedAdrHigh - state.projectedAdrLow;
-    
+
   const { showAdrRangeIndicatorLines, adrLabelType } = config;
-  
-  if (!dailyOpen || !adrValue) return;
-  
+
+  if (!dailyOpen || !adrValue) {
+    console.log('[ADR_DEBUG] Missing essential data, returning');
+    return;
+  }
+
   // Guard: Only draw if enabled in configuration
-  if (!showAdrRangeIndicatorLines) return;
+  if (!showAdrRangeIndicatorLines) {
+    console.log('[ADR_DEBUG] ADR range indicator lines disabled in config');
+    return;
+  }
 
   // Calculate ADR levels up to current maximum
   const adrRange = adrValue;
   const currentMaxAdr = calculateMaxAdrPercentage(state);
-  
-  
+
+  // 🔍 DEBUG: Log calculations
+  console.log('[ADR_DEBUG] Calculations:', {
+    adrRange,
+    currentMaxAdr,
+    todaysHigh: state.todaysHigh,
+    todaysLow: state.todaysLow
+  });
+
   ctx.save();
   ctx.translate(0.5, 0.5); // Crisp line rendering
-  
-  // Simple font setup for percentage labels (no DPR scaling in DPR-scaled context)
+
+  // Font setup for percentage labels
   ctx.font = '10px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
   ctx.fillStyle = '#9CA3AF'; // Light gray for percentage markers
-  
+
   if (adrLabelType === 'staticPercentage') {
     // Static: Draw fixed ADR percentage levels (25%, 50%, 75%, 100%)
-    const adrLevels = [0.3, 0.5, 0.75, 1.0];
-    
+    const adrLevels = [0.25, 0.5, 0.75, 1.0];
+
+    console.log('[ADR_DEBUG] Static mode, levels to check:', adrLevels.filter(level => currentMaxAdr >= level));
+
     adrLevels.forEach(level => {
       if (currentMaxAdr >= level) {
         const adrHigh = dailyOpen + (adrRange * level);
@@ -124,13 +137,25 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
         // High side marker
         const highY = y(adrHigh);
         const highInBounds = boundsUtils.isYInBounds(highY, config, { canvasArea: contentArea });
+        console.log('[ADR_DEBUG] Static high marker:', {
+          level,
+          adrHigh,
+          highY,
+          highInBounds
+        });
         if (highInBounds) {
           drawPercentageMarker(ctx, adrAxisX, highY, `${level * 100}%`, 'right');
         }
-        
+
         // Low side marker
         const lowY = y(adrLow);
         const lowInBounds = boundsUtils.isYInBounds(lowY, config, { canvasArea: contentArea });
+        console.log('[ADR_DEBUG] Static low marker:', {
+          level,
+          adrLow,
+          lowY,
+          lowInBounds
+        });
         if (lowInBounds) {
           drawPercentageMarker(ctx, adrAxisX, lowY, `-${level * 100}%`, 'right');
         }
@@ -139,33 +164,53 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
   } else if (adrLabelType === 'dynamicPercentage') {
     // Dynamic: Show actual percentage of ADR that today's high/low represent
     const { todaysHigh, todaysLow } = state;
-    
+
+    console.log('[ADR_DEBUG] Dynamic mode, H/L data:', { todaysHigh, todaysLow });
+
     if (todaysHigh !== undefined) {
       const highPercentage = ((todaysHigh - dailyOpen) / adrRange) * 100;
       const highY = y(todaysHigh);
       const highLabel = `${highPercentage >= 0 ? '+' : ''}${highPercentage.toFixed(0)}%`;
       const highInBounds = boundsUtils.isYInBounds(highY, config, { canvasArea: contentArea });
-      
+
+      console.log('[ADR_DEBUG] Dynamic high marker:', {
+        todaysHigh,
+        dailyOpen,
+        highPercentage,
+        highY,
+        highLabel,
+        highInBounds
+      });
+
       if (highInBounds) {
         drawPercentageMarker(ctx, adrAxisX, highY, highLabel, 'right');
       }
     }
-    
+
     if (todaysLow !== undefined) {
       const lowPercentage = ((dailyOpen - todaysLow) / adrRange) * 100;
       const lowY = y(todaysLow);
       const lowLabel = `${lowPercentage >= 0 ? '+' : ''}${lowPercentage.toFixed(0)}%`;
       const lowInBounds = boundsUtils.isYInBounds(lowY, config, { canvasArea: contentArea });
-      
+
+      console.log('[ADR_DEBUG] Dynamic low marker:', {
+        todaysLow,
+        dailyOpen,
+        lowPercentage,
+        lowY,
+        lowLabel,
+        lowInBounds
+      });
+
       if (lowInBounds) {
         drawPercentageMarker(ctx, adrAxisX, lowY, lowLabel, 'right');
       }
     }
   }
-  
+
   // Draw boundary lines at current canvas extremes
   drawBoundaryLines(ctx, contentArea, adrAxisX, state, y);
-  
+
   ctx.restore();
 }
 
@@ -175,7 +220,7 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
 function drawPercentageMarker(ctx, axisX, y, label, side) {
   const markerLength = 8;
   const labelOffset = 12;
-  
+
   // Horizontal line at percentage level
   ctx.strokeStyle = '#374151'; // Subtle gray
   ctx.lineWidth = 1;
@@ -183,7 +228,7 @@ function drawPercentageMarker(ctx, axisX, y, label, side) {
   ctx.moveTo(axisX - markerLength, y);
   ctx.lineTo(axisX + markerLength, y);
   ctx.stroke();
-  
+
   // Percentage label
   ctx.textAlign = side === 'right' ? 'left' : 'right';
   ctx.fillStyle = '#9CA3AF';
@@ -294,6 +339,35 @@ function drawPriceMarker(ctx, axisX, y, label, color, side) {
   ctx.textAlign = side === 'right' ? 'left' : 'right';
   ctx.fillStyle = color;
   const textX = side === 'right' ? axisX + labelOffset : axisX - labelOffset;
+  ctx.fillText(label, textX, y + 3);
+}
+
+/**
+ * Draw dynamic session marker (real-time high/low percentages)
+ * Distinguished from static markers with different visual style
+ */
+function drawDynamicSessionMarker(ctx, axisX, y, label, side) {
+  const markerLength = 10; // Slightly shorter than static markers
+  const labelOffset = 15;
+  
+  // Use different visual style to distinguish from static markers
+  ctx.strokeStyle = '#60A5FA'; // Blue color for session markers
+  ctx.lineWidth = 1.5; // Intermediate thickness
+  ctx.beginPath();
+  ctx.moveTo(axisX - markerLength, y);
+  ctx.lineTo(axisX + markerLength, y);
+  ctx.stroke();
+  
+  // Add small circle marker for additional visual distinction
+  ctx.fillStyle = '#60A5FA';
+  ctx.beginPath();
+  ctx.arc(axisX, y, 3, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Session label with different color
+  ctx.textAlign = side === 'right' ? 'left' : 'right';
+  ctx.fillStyle = '#60A5FA'; // Blue to match marker
+  const textX = side === 'right' ? axisX + labelOffset + 5 : axisX - labelOffset - 5;
   ctx.fillText(label, textX, y + 3);
 }
 

@@ -10,8 +10,8 @@
     <div class="menu-item" on:click={() => onAction('showSymbolPalette')}>
       Show Symbol Palette
     </div>
-    <div class="menu-item" on:click={() => onAction('workspaceSettings')}>
-      Workspace Settings
+    <div class="menu-item reset-item" on:click={() => onAction('resetDefaults')}>
+      Reset Defaults
     </div>
   </div>
 </div>
@@ -35,5 +35,17 @@
   
   .menu-item:hover {
     background: #374151;
+  }
+  
+  .reset-item {
+    color: #ef4444;
+    border-top: 1px solid #374151;
+    margin-top: 4px;
+    padding-top: 12px;
+  }
+  
+  .reset-item:hover {
+    background: #374151;
+    color: #f87171;
   }
 </style>

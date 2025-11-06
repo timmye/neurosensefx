@@ -1,13 +1,6 @@
 import { boundsUtils } from '../../utils/canvasSizing.js';
 
 export function drawMarketProfile(ctx, renderingContext, config, state, y) {
-  console.log('[MarketProfile] RENDERING CHAIN - Starting drawMarketProfile');
-  console.log('[MarketProfile] RENDERING CHAIN - ctx:', !!ctx);
-  console.log('[MarketProfile] RENDERING CHAIN - renderingContext:', !!renderingContext);
-  console.log('[MarketProfile] RENDERING CHAIN - config:', !!config);
-  console.log('[MarketProfile] RENDERING CHAIN - state:', !!state);
-  console.log('[MarketProfile] RENDERING CHAIN - y:', !!y);
-
   // Guard clauses for safety (FOUNDATION PATTERN)
   if (!ctx || !renderingContext || !config || !state || !y) {
     console.warn('[MarketProfile] Missing required parameters, skipping render');
@@ -16,8 +9,6 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
 
   // Extract rendering context from the unified infrastructure
   const { contentArea, adrAxisX } = renderingContext;
-  console.log('[MarketProfile] RENDERING CHAIN - contentArea:', contentArea);
-  console.log('[MarketProfile] RENDERING CHAIN - adrAxisX:', adrAxisX);
   
   // Extract essential data - use existing worker structure
   const { 
@@ -25,10 +16,6 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
     visualHigh, 
     visualLow 
   } = state;
-
-  console.log('[MarketProfile] RENDERING CHAIN - state.marketProfile:', marketProfile);
-  console.log('[MarketProfile] RENDERING CHAIN - state.visualHigh:', visualHigh);
-  console.log('[MarketProfile] RENDERING CHAIN - state.visualLow:', visualLow);
 
   // Guard for essential data - use worker's structure
   if (!marketProfile || !marketProfile.levels || !Array.isArray(marketProfile.levels) || visualHigh === undefined || visualLow === undefined) {
@@ -39,9 +26,6 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
     console.warn('[MarketProfile] - visualLow:', visualLow);
     return;
   }
-
-  console.log('[MarketProfile] RENDERING CHAIN - marketProfile.levels.length:', marketProfile.levels.length);
-  console.log('[MarketProfile] RENDERING CHAIN - showMarketProfile config:', config.showMarketProfile);
 
   // === FOUNDATION LAYER IMPLEMENTATION ===
   // 1. Calculate render data with bounds checking and percentage conversion
@@ -73,30 +57,15 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
 function calculateResponsiveWidth(config, contentArea, adrAxisX, mode) {
   const minBarWidth = config.marketProfileMinWidth || 5; // Minimum bar width constraint
   
-  console.log('[MarketProfile] WIDTH_CALC - Calculating responsive width:', {
-    mode,
-    contentArea_width: contentArea.width,
-    adrAxisX,
-    minBarWidth
-  });
-  
   switch (mode) {
     case 'combinedRight':
       // Fill from ADR axis to right edge
       const rightWidth = contentArea.width - adrAxisX;
-      console.log('[MarketProfile] WIDTH_CALC - combinedRight:', { 
-        rightSpace: rightWidth, 
-        finalWidth: Math.max(minBarWidth, rightWidth) 
-      });
       return Math.max(minBarWidth, rightWidth);
       
     case 'combinedLeft':
       // Fill from left edge to ADR axis
       const leftWidth = adrAxisX;
-      console.log('[MarketProfile] WIDTH_CALC - combinedLeft:', { 
-        leftSpace: leftWidth, 
-        finalWidth: Math.max(minBarWidth, leftWidth) 
-      });
       return Math.max(minBarWidth, leftWidth);
       
     case 'separate':
@@ -104,21 +73,11 @@ function calculateResponsiveWidth(config, contentArea, adrAxisX, mode) {
       const leftSpace = adrAxisX;
       const rightSpace = contentArea.width - adrAxisX;
       const availableSpace = Math.min(leftSpace, rightSpace);
-      console.log('[MarketProfile] WIDTH_CALC - separate:', { 
-        leftSpace, 
-        rightSpace, 
-        availableSpace, 
-        finalWidth: Math.max(minBarWidth, availableSpace) 
-      });
       return Math.max(minBarWidth, availableSpace);
       
     default:
       // Fallback to legacy fixed percentage
       const fallbackWidth = contentArea.width * (config.marketProfileWidthRatio / 100);
-      console.log('[MarketProfile] WIDTH_CALC - fallback:', { 
-        widthRatio: config.marketProfileWidthRatio, 
-        fallbackWidth 
-      });
       return fallbackWidth;
   }
 }
@@ -127,20 +86,6 @@ function calculateResponsiveWidth(config, contentArea, adrAxisX, mode) {
  * Validate render data and apply percentage-to-decimal conversion
  */
 function validateRenderData(contentArea, adrAxisX, config) {
-  // ✅ FORENSIC FIX: Robust data type validation and conversion
-  console.log('[MarketProfile] FORENSIC - Raw config values:', {
-    marketProfileWidthRatio: config.marketProfileWidthRatio,
-    marketProfileWidthRatio_type: typeof config.marketProfileWidthRatio,
-    marketProfileWidthMode: config.marketProfileWidthMode,
-    marketProfileWidthMode_type: typeof config.marketProfileWidthMode,
-    marketProfileMinWidth: config.marketProfileMinWidth,
-    marketProfileMinWidth_type: typeof config.marketProfileMinWidth,
-    marketProfileOpacity: config.marketProfileOpacity,
-    marketProfileOpacity_type: typeof config.marketProfileOpacity,
-    marketProfileXOffset: config.marketProfileXOffset,
-    marketProfileXOffset_type: typeof config.marketProfileXOffset
-  });
-
   // Critical percentage-to-decimal conversion with type safety (FOUNDATION PATTERN)
   const widthRatio = parseFloat(config.marketProfileWidthRatio) || 15;
   const xOffsetRaw = parseFloat(config.marketProfileXOffset) || 0;
@@ -155,15 +100,6 @@ function validateRenderData(contentArea, adrAxisX, config) {
     console.error('[MarketProfile] FORENSIC - Invalid calculated values:', { widthRatio, opacity, xOffsetPercentage });
     return { shouldRender: false, error: 'Invalid percentage calculations' };
   }
-  
-  console.log('[MarketProfile] FORENSIC - Validated values:', {
-    widthRatio,
-    widthRatio_type: typeof widthRatio,
-    opacity,
-    opacity_type: typeof opacity,
-    xOffsetPercentage,
-    xOffsetPercentage_type: typeof xOffsetPercentage
-  });
 
   // NEW: Responsive width calculation
   const mode = config.marketProfileView || 'combinedRight';
@@ -173,11 +109,9 @@ function validateRenderData(contentArea, adrAxisX, config) {
   if (widthMode === 'responsive') {
     // Use responsive width calculation
     maxBarWidth = calculateResponsiveWidth(config, contentArea, adrAxisX, mode);
-    console.log('[MarketProfile] WIDTH_CALC - Using responsive mode, calculated width:', maxBarWidth);
   } else {
     // Legacy fixed percentage mode
     maxBarWidth = contentArea.width * (widthRatio / 100);
-    console.log('[MarketProfile] WIDTH_CALC - Using fixed mode, calculated width:', maxBarWidth);
   }
   
   const xOffset = contentArea.width * xOffsetPercentage;
@@ -190,16 +124,6 @@ function validateRenderData(contentArea, adrAxisX, config) {
 
   // Configure profile mode positioning
   const profileMode = configureProfileMode(config, contentArea, adrAxisX, maxBarWidth, xOffset);
-
-  console.log('[MarketProfile] FORENSIC - Final calculations:', {
-    contentArea_width: contentArea.width,
-    widthMode,
-    widthRatio,
-    maxBarWidth,
-    opacity,
-    xOffset,
-    xOffsetPercentage
-  });
 
   return {
     shouldRender: true, // Always render if data is valid
@@ -268,35 +192,17 @@ function configureProfileMode(config, contentArea, adrAxisX, maxBarWidth, xOffse
  * Foundation pattern: leverage existing data processing
  */
 function processMarketProfileLevels(marketProfileLevels, visualHigh, visualLow, config, y) {
-  console.log('[MarketProfile] PROCESSING - Starting processMarketProfileLevels');
-  console.log('[MarketProfile] PROCESSING - marketProfileLevels count:', marketProfileLevels.length);
-  console.log('[MarketProfile] PROCESSING - visualHigh:', visualHigh);
-  console.log('[MarketProfile] PROCESSING - visualLow:', visualLow);
-  console.log('[MarketProfile] PROCESSING - config.distributionDepthMode:', config.distributionDepthMode);
-  console.log('[MarketProfile] PROCESSING - config.distributionPercentage:', config.distributionPercentage);
-  
   const priceRange = visualHigh - visualLow;
-  console.log('[MarketProfile] PROCESSING - calculated priceRange:', priceRange);
   
   // Find maximum volume for scaling
   let maxVolume = 0;
   marketProfileLevels.forEach((level, index) => {
-    console.log(`[MarketProfile] PROCESSING - level ${index}:`, level);
     maxVolume = Math.max(maxVolume, level.volume || 0);
   });
-  console.log('[MarketProfile] PROCESSING - maxVolume found:', maxVolume);
   
   // Apply depth filtering if configured
   let filteredLevels = marketProfileLevels;
   if (config.distributionDepthMode === 'percentage' && config.distributionPercentage < 100) {
-    // ✅ FORENSIC FIX: Robust data type validation for distribution percentage
-    console.log('[MarketProfile] FORENSIC - Distribution percentage raw data:', {
-      distributionDepthMode: config.distributionDepthMode,
-      distributionPercentage: config.distributionPercentage,
-      distributionPercentage_type: typeof config.distributionPercentage,
-      maxVolume
-    });
-
     // ✅ CRITICAL FIX: Convert to number and validate
     const distributionPercent = parseFloat(config.distributionPercentage) || 50;
     
@@ -307,22 +213,9 @@ function processMarketProfileLevels(marketProfileLevels, visualHigh, visualLow, 
     } else {
       // ✅ FIXED: distributionPercentage is already a percentage (50%), so division by 100 is correct
       const volumeThreshold = maxVolume * (distributionPercent / 100);
-      console.log('[MarketProfile] FORENSIC - Distribution percentage calculations:', {
-        distributionPercent,
-        calculation: `${maxVolume} * (${distributionPercent} / 100)`,
-        volumeThreshold,
-        threshold_type: typeof volumeThreshold
-      });
-      
       filteredLevels = marketProfileLevels.filter(level => (level.volume || 0) >= volumeThreshold);
-      console.log('[MarketProfile] FORENSIC - Depth filtering results:', {
-        originalLevels: marketProfileLevels.length,
-        filteredLevels: filteredLevels.length,
-        volumeThreshold
-      });
     }
   } else if (config.distributionDepthMode === 'all') {
-    console.log('[MarketProfile] PROCESSING - distribution mode is "all", showing all levels');
     // Show all levels when mode is 'all'
     filteredLevels = marketProfileLevels;
   }
@@ -330,14 +223,11 @@ function processMarketProfileLevels(marketProfileLevels, visualHigh, visualLow, 
   // Pre-calculate Y positions for performance (FOUNDATION PATTERN)
   const levelsWithPositions = filteredLevels.map(level => {
     const priceY = y(level.price);
-    console.log(`[MarketProfile] PROCESSING - level price ${level.price} -> Y position ${priceY}`);
     return {
       ...level,
       priceY
     };
   });
-  
-  console.log('[MarketProfile] PROCESSING - returning processed data with', levelsWithPositions.length, 'levels');
   
   return {
     levels: levelsWithPositions,
@@ -371,18 +261,12 @@ function addEnhancements(ctx, renderData, profileData, config, state, contentAre
  * Draw profile bars with foundation integration
  */
 function drawProfileBars(ctx, renderData, profileData, config) {
-  console.log('[MarketProfile] DRAWING - Starting drawProfileBars');
-  console.log('[MarketProfile] DRAWING - renderData:', renderData);
-  console.log('[MarketProfile] DRAWING - profileData.levels count:', profileData.levels.length);
-  console.log('[MarketProfile] DRAWING - profileData.maxVolume:', profileData.maxVolume);
-  
   const { leftStartX, rightStartX, direction, maxBarWidth, opacity } = renderData;
   const { levels, maxVolume } = profileData;
   
   let barsDrawn = 0;
   levels.forEach((level, index) => {
     if (!level.volume || level.volume === 0) {
-      console.log(`[MarketProfile] DRAWING - skipping level ${index} (no volume)`);
       return; // Skip empty levels
     }
     
@@ -390,32 +274,25 @@ function drawProfileBars(ctx, renderData, profileData, config) {
     const bucketY = level.priceY;
     const barWidth = (level.volume / maxVolume) * maxBarWidth;
     
-    console.log(`[MarketProfile] DRAWING - level ${index}: price=${level.price}, volume=${level.volume}, buy=${level.buy}, sell=${level.sell}, barWidth=${barWidth}, bucketY=${bucketY}`);
-    
     // Draw based on mode
     switch (direction) {
       case 'separate':
-        console.log(`[MarketProfile] DRAWING - separate mode - left: sell, right: buy for level ${index}`);
         drawLeftBars(ctx, leftStartX, bucketY, level.buy || 0, level.sell || 0, barWidth, config, opacity);
         drawRightBars(ctx, rightStartX, bucketY, level.buy || 0, level.sell || 0, barWidth, config, opacity, 'separate');
         break;
         
       case 'combinedLeft':
-        console.log(`[MarketProfile] DRAWING - combinedLeft mode - both on left for level ${index}`);
         drawLeftBars(ctx, leftStartX, bucketY, level.buy || 0, level.sell || 0, barWidth, config, opacity, 'combined');
         break;
         
       case 'combinedRight':
       default:
-        console.log(`[MarketProfile] DRAWING - combinedRight mode - both on right for level ${index}`);
         drawRightBars(ctx, rightStartX, bucketY, level.buy || 0, level.sell || 0, barWidth, config, opacity, 'combined');
         break;
     }
     
     barsDrawn++;
   });
-  
-  console.log(`[MarketProfile] DRAWING - completed drawing ${barsDrawn} bars`);
 }
 
 /**
@@ -435,7 +312,6 @@ function drawLeftBars(ctx, startX, bucketY, buyVolume, sellVolume, barWidth, con
     if (sellVolume > 0) {
       sellWidth = (sellVolume / totalVolume) * fullBarWidth;
       ctx.fillStyle = hexToRgba(config.marketProfileDownColor || '#EF4444', opacity); // Red for sell
-      console.log(`[MarketProfile] DRAWING - separate mode left side: sellWidth=${sellWidth}, fillColor=${ctx.fillStyle}`);
       ctx.fillRect(startX - sellWidth, bucketY - 0.5, sellWidth, 1);
     }
     
@@ -444,7 +320,6 @@ function drawLeftBars(ctx, startX, bucketY, buyVolume, sellVolume, barWidth, con
       // ✅ FIXED: Use down color for sell bars, up color for buy bars
       ctx.strokeStyle = hexToRgba(config.marketProfileOutlineDownColor || '#4B5563', config.marketProfileOutlineOpacity || 1);
       ctx.lineWidth = config.marketProfileOutlineStrokeWidth || 1; // ✅ FIXED: Use config value
-      console.log(`[MarketProfile] DRAWING - separate mode left side outline: sellWidth=${sellWidth}, strokeColor=${ctx.strokeStyle}, strokeWidth=${ctx.lineWidth}`);
       ctx.strokeRect(startX - sellWidth, bucketY - 0.5, sellWidth, 1);
     }
   } else {
@@ -473,7 +348,6 @@ function drawLeftBars(ctx, startX, bucketY, buyVolume, sellVolume, barWidth, con
       // ✅ FIXED: Use proper outline color mapping for combined mode
       ctx.strokeStyle = hexToRgba(config.marketProfileOutlineUpColor || '#4B5563', config.marketProfileOutlineOpacity || 1);
       ctx.lineWidth = config.marketProfileOutlineStrokeWidth || 1; // ✅ FIXED: Use config value
-      console.log(`[MarketProfile] DRAWING - combined left outline: totalWidth=${sellWidth + buyWidth}, strokeColor=${ctx.strokeStyle}, strokeWidth=${ctx.lineWidth}`);
       ctx.strokeRect(startX - sellWidth - buyWidth, bucketY - 0.5, sellWidth + buyWidth, 1);
     }
   }
@@ -497,7 +371,6 @@ function drawRightBars(ctx, startX, bucketY, buyVolume, sellVolume, barWidth, co
       buyWidth = barWidth; // Full width for buy only
       ctx.fillStyle = hexToRgba(config.marketProfileUpColor || '#10B981', opacity); // Green for buy
       ctx.fillRect(startX, bucketY - 0.5, buyWidth, 1);
-      console.log(`[MarketProfile] DRAWING - separate mode right side: buyWidth=${buyWidth}, fillColor=${ctx.fillStyle}`);
     }
     
     // Draw outline if enabled
@@ -505,7 +378,6 @@ function drawRightBars(ctx, startX, bucketY, buyVolume, sellVolume, barWidth, co
       // ✅ FIXED: Use up color for buy bars, proper opacity and stroke width
       ctx.strokeStyle = hexToRgba(config.marketProfileOutlineUpColor || '#4B5563', config.marketProfileOutlineOpacity || 1);
       ctx.lineWidth = config.marketProfileOutlineStrokeWidth || 1; // ✅ FIXED: Use config value
-      console.log(`[MarketProfile] DRAWING - separate mode right side outline: buyWidth=${buyWidth}, strokeColor=${ctx.strokeStyle}, strokeWidth=${ctx.lineWidth}`);
       ctx.strokeRect(startX, bucketY - 0.5, buyWidth, 1);
     }
   } else {
@@ -518,13 +390,13 @@ function drawRightBars(ctx, startX, bucketY, buyVolume, sellVolume, barWidth, co
     }
     
     // Draw buy volume (leftmost)
-    if (buyVolume > 0) {
+    if (buyWidth > 0) {
       ctx.fillStyle = hexToRgba(config.marketProfileUpColor || '#10B981', opacity); // Green for buy
       ctx.fillRect(startX, bucketY - 0.5, buyWidth, 1);
     }
     
     // Draw sell volume (right of buy)
-    if (sellVolume > 0) {
+    if (sellWidth > 0) {
       ctx.fillStyle = hexToRgba(config.marketProfileDownColor || '#EF4444', opacity); // Red for sell
       ctx.fillRect(startX + buyWidth, bucketY - 0.5, sellWidth, 1);
     }
@@ -534,7 +406,6 @@ function drawRightBars(ctx, startX, bucketY, buyVolume, sellVolume, barWidth, co
       // ✅ FIXED: Use proper outline color and stroke width for combined right mode
       ctx.strokeStyle = hexToRgba(config.marketProfileOutlineUpColor || '#4B5563', config.marketProfileOutlineOpacity || 1);
       ctx.lineWidth = config.marketProfileOutlineStrokeWidth || 1; // ✅ FIXED: Use config value
-      console.log(`[MarketProfile] DRAWING - combined right outline: totalWidth=${fullBarWidth}, strokeColor=${ctx.strokeStyle}, strokeWidth=${ctx.lineWidth}`);
       ctx.strokeRect(startX, bucketY - 0.5, fullBarWidth, 1);
     }
   }
@@ -557,8 +428,6 @@ function drawMaxVolumeMarker(ctx, maxVolumeLevel, renderData, config) {
   ctx.textBaseline = 'middle';
   
   const volumeText = `${(maxVolumeLevel.volume || 0).toFixed(0)}`;
-  console.log(`[MarketProfile] ENHANCEMENT - Drawing max volume marker: "${volumeText}" at position`, maxVolumeLevel.priceY);
-  
   const textMetrics = ctx.measureText(volumeText);
   
   // Position text based on mode

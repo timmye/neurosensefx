@@ -4,7 +4,7 @@
   import FloatingPanel from './FloatingPanel.svelte';
   import { displays } from '../stores/displayStore.js';
   import { availableSymbols, subscribe, unsubscribe } from '../data/wsClient.js';
-  import { FuzzySearch, debounce } from '../utils/fuzzySearch.js';
+  import { FuzzySearch } from '../utils/fuzzySearch.js';
   
   let symbols = [];
   let availableSyms = [];
@@ -17,6 +17,8 @@
   let searchInput;
   let fuzzySearch;
   let isSearchFocused = false;
+  let searchTimeout;
+  let isSearching = false;
   
   // Store subscriptions
   const unsubscribeDisplays = displays.subscribe(value => {
@@ -48,7 +50,7 @@
     fuzzySearch = new FuzzySearch(availableSyms, {
       threshold: 0.6,
       includeScore: false,
-      maxResults: 50
+      maxResults: 30 // Reduced from 50 for faster rendering
     });
     
     // Initial search if query exists
@@ -62,22 +64,46 @@
     unsubscribeDisplays();
     unsubscribeAvailable();
     unsubscribePanels();
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
   });
   
-  // Reactive search with debouncing
-  const debouncedSearch = debounce((query) => {
-    performSearch(query);
-  }, 300);
-  
-  $: if (searchQuery && fuzzySearch) {
-    debouncedSearch(searchQuery);
-  } else {
-    filteredSymbols = [];
-    selectedIndex = 0;
+  // Handle search input with proper debouncing
+  function handleSearchInput() {
+    // Clear any existing timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    if (!searchQuery || !fuzzySearch) {
+      filteredSymbols = [];
+      selectedIndex = 0;
+      isSearching = false;
+      return;
+    }
+    
+    // Improved progressive delay: give users time to type comfortably
+    let delay;
+    if (searchQuery.length === 1) {
+      delay = 300; // Allow time for second character
+    } else if (searchQuery.length === 2) {
+      delay = 250; // Slightly shorter but still comfortable
+    } else if (searchQuery.length <= 4) {
+      delay = 200; // Moderate delay for short queries
+    } else {
+      delay = 150; // Shorter delay for longer queries (user likely refining)
+    }
+    
+    isSearching = true;
+    searchTimeout = setTimeout(() => {
+      performSearch(searchQuery);
+      isSearching = false;
+    }, delay);
   }
   
   function performSearch(query) {
-    if (!fuzzySearch) return;
+    if (!fuzzySearch || !query) return;
     
     const startTime = performance.now();
     filteredSymbols = fuzzySearch.search(query);
@@ -158,6 +184,10 @@
     searchQuery = '';
     filteredSymbols = [];
     selectedIndex = 0;
+    isSearching = false;
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
     searchInput?.focus();
   }
   
@@ -239,11 +269,15 @@
           bind:value={searchQuery}
           class="search-input"
           placeholder="Search symbols... (Ctrl+K)"
+          on:input={handleSearchInput}
           on:keydown={handleSearchKeydown}
           on:focus={() => isSearchFocused = true}
           on:blur={() => isSearchFocused = false}
         />
         <div class="search-shortcut">Ctrl+K</div>
+        {#if isSearching}
+          <div class="search-loading">Searching...</div>
+        {/if}
       </div>
       
       <!-- Search Results -->
@@ -265,7 +299,7 @@
       {/if}
       
       <!-- No Results -->
-      {#if searchQuery && filteredSymbols.length === 0}
+      {#if searchQuery && filteredSymbols.length === 0 && !isSearching}
         <div class="no-results">
           <div class="no-results-text">No symbols found for "{searchQuery}"</div>
           <div class="no-results-hint">Try different keywords or check spelling</div>
@@ -392,6 +426,23 @@
     padding: 2px 6px;
     border-radius: 4px;
     pointer-events: none;
+  }
+  
+  .search-loading {
+    position: absolute;
+    right: 80px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #4f46e5;
+    font-size: 12px;
+    font-family: monospace;
+    opacity: 0.7;
+    animation: pulse 1s infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 0.3; }
   }
   
   /* Search Results */
@@ -635,6 +686,10 @@
     .search-result,
     .symbol-item {
       transition: none;
+    }
+    
+    .search-loading {
+      animation: none;
     }
   }
   

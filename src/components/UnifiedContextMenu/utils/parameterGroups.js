@@ -5,7 +5,7 @@ import { defaultConfig } from '../../../stores/displayStore.js';
  * Organizes all 85+ visualization parameters into 6 logical tabs
  */
 
-// Quick Actions (12 parameters): Essential toggles and show/hide controls
+// Quick Actions (11 parameters): Essential toggles and show/hide controls
 export const quickActionsGroup = {
   id: 'quickActions',
   title: 'Quick Actions',
@@ -311,7 +311,7 @@ export const marketProfileGroup = {
   }
 };
 
-// Volatility (16 parameters): Volatility orb and flash settings
+// Volatility (18 parameters): Volatility orb and flash settings
 export const volatilityGroup = {
   id: 'volatility',
   title: 'Volatility',
@@ -319,6 +319,8 @@ export const volatilityGroup = {
   parameters: [
     'volatilityColorMode',
     'volatilityOrbBaseWidth',
+    'volatilityOrbPositionMode',
+    'volatilityOrbXOffset',
     'volatilityOrbInvertBrightness',
     'volatilitySizeMultiplier',
     'flashThreshold',
@@ -337,6 +339,8 @@ export const volatilityGroup = {
   controlTypes: {
     volatilityColorMode: 'select',
     volatilityOrbBaseWidth: 'range',
+    volatilityOrbPositionMode: 'select',
+    volatilityOrbXOffset: 'range',
     volatilityOrbInvertBrightness: 'toggle',
     volatilitySizeMultiplier: 'range',
     flashThreshold: 'range',
@@ -355,6 +359,8 @@ export const volatilityGroup = {
   labels: {
     volatilityColorMode: 'Color Mode',
     volatilityOrbBaseWidth: 'Base Width',
+    volatilityOrbPositionMode: 'Position Mode',
+    volatilityOrbXOffset: 'X Offset',
     volatilityOrbInvertBrightness: 'Invert Brightness',
     volatilitySizeMultiplier: 'Size Multiplier',
     flashThreshold: 'Flash Threshold',
@@ -371,10 +377,12 @@ export const volatilityGroup = {
     adrRangeIndicatorLinesThickness: 'ADR Line Thickness'
   },
   controlOptions: {
-    volatilityColorMode: ['single', 'intensity', 'directional']
+    volatilityColorMode: ['single', 'intensity', 'directional'],
+    volatilityOrbPositionMode: ['canvasCenter', 'adrAxis']
   },
   ranges: {
-    volatilityOrbBaseWidth: { min: 30, max: 100, step: 1 }, // Percentage of canvas width
+    volatilityOrbBaseWidth: { min: 10, max: 200, step: 1 }, // Fixed: Percentage values (10%-200%) to match standard pattern
+    volatilityOrbXOffset: { min: -25, max: 25, step: 1 }, // Percentage of canvas width offset
     volatilitySizeMultiplier: { min: 0.5, max: 3.0, step: 0.1 },
     flashThreshold: { min: 0.5, max: 5.0, step: 0.5 },
     flashIntensity: { min: 0.1, max: 1.0, step: 0.1 },
@@ -389,7 +397,8 @@ export const volatilityGroup = {
   },
   // NEW: Percentage-based parameter metadata
   percentageParameters: {
-    volatilityOrbBaseWidth: { basis: 'canvasWidth', absoluteFallback: 200 }
+    volatilityOrbBaseWidth: { basis: 'canvasWidth', absoluteFallback: 200 },
+    volatilityOrbXOffset: { basis: 'canvasWidth', absoluteFallback: 0 }
   }
 };
 
@@ -440,9 +449,9 @@ export const layoutSizingGroup = {
     adrLabelType: 'ADR Label Type',
     priceStaticColor: 'Price Static Color'
   },
-  controlOptions: {
-    adrLabelType: ['dynamicPercentage', 'fixedPips', 'absolutePrice']
-  },
+    controlOptions: {
+      adrLabelType: ['dynamicPercentage', 'staticPercentage', 'fixedPips', 'absolutePrice']
+    },
   ranges: {
     visualizationsContentWidth: { min: 50, max: 200, step: 5 }, // Percentage of reference width (110-440px)
     meterHeight: { min: 50, max: 200, step: 5 }, // Percentage of reference height (60-240px)

@@ -1,15 +1,15 @@
 // =============================================================================
-// UNIFIED DISPLAY STORE - Single Source of Truth for All Display Operations
+// UNIFIED DISPLAY STORE - Simplified Global Configuration Only
 // =============================================================================
-// Replaces fragmented symbolStore.js + floatingStore.js with unified architecture
-// Solves ADR axis synchronization issues and eliminates dual-store complexity
+// Simplified architecture: Global config only, no per-display overrides
+// Changes auto-save to localStorage, reset restores factory defaults
 // 
 // DESIGN PRINCIPLES:
 // 1. Single source of truth for all display data
-// 2. Complete configuration management (ADR axis + all 85+ parameters)
+// 2. Global configuration only (simplified from complex multi-level)
 // 3. Unified worker integration with instant config propagation
-// 4. LLM-friendly structure with clear sections
-// 5. Following successful "rip it out and start again" pattern
+// 4. Auto-save on any configuration change
+// 5. Simple "Reset Defaults" functionality
 
 import { writable } from 'svelte/store';
 import { derived } from 'svelte/store';
@@ -17,6 +17,8 @@ import {
     SymbolDataPackageSchema,
     VisualizationConfigSchema 
 } from '../data/schema.js';
+import { configDefaultsManager } from '../utils/configDefaults.js';
+import { workspacePersistenceManager } from '../utils/workspacePersistence.js';
 
 // =============================================================================
 // UNIFIED DISPLAY STATE (everything in one place)
@@ -59,9 +61,8 @@ const initialState = {
   // WebSocket workers per symbol for data processing
   workers: new Map(),
   
-  // === CLEAN FOUNDATION CONFIGURATION ===
-  // Clean parameters without legacy confusion
-  // Container → Content → Rendering pipeline
+  // === GLOBAL CONFIGURATION ===
+  // Single global configuration for all displays
   defaultConfig: {
     // === CONTAINER LAYOUT ===
     containerSize: { width: 220, height: 160 },     // Full display including header (220×120 content + 40px header)
@@ -147,7 +148,9 @@ const initialState = {
     // === VOLATILITY ORB (content-relative) ===
     showVolatilityOrb: true,
     volatilityColorMode: 'directional',
-    volatilityOrbBaseWidth: 0.91,                        // 91% of content width
+    volatilityOrbBaseWidth: 91,                         // 91% of content width
+    volatilityOrbPositionMode: 'canvasCenter',             // Default: user expectation
+    volatilityOrbXOffset: 0,                            // Default: no offset
     volatilityOrbInvertBrightness: false,
     volatilitySizeMultiplier: 1.5,
     showVolatilityMetric: true,
@@ -228,12 +231,12 @@ export const contextMenu = derived(displayStore, store => store.contextMenu);
 export const defaultConfig = derived(displayStore, store => store.defaultConfig);
 
 // =============================================================================
-// UNIFIED ACTIONS (everything in one place)
+// SIMPLIFIED UNIFIED ACTIONS (global config only)
 // =============================================================================
 
 export const displayActions = {
   
-  // === DISPLAY OPERATIONS (from floatingStore) ===
+  // === DISPLAY OPERATIONS ===
   
   addDisplay: (symbol, position = { x: 100, y: 100 }, config = {}) => {
     console.log('[DISPLAY_STORE] Adding display:', symbol);
@@ -247,7 +250,7 @@ export const displayActions = {
       size: { width: 220, height: 160 },  // Full display including header
       isActive: false,
       zIndex: initialState.nextDisplayZIndex++,
-      config: { ...initialState.defaultConfig, ...config },
+      config: { ...initialState.defaultConfig }, // Use global config only
       state: null,
       ready: false
     };
@@ -255,11 +258,20 @@ export const displayActions = {
     displayStore.update(store => {
       const newDisplays = new Map(store.displays);
       newDisplays.set(displayId, display);
-      return {
+      const newStore = {
         ...store,
         displays: newDisplays,
         activeDisplayId: displayId
       };
+      
+      // Persist workspace layout after adding display
+      workspacePersistenceManager.saveWorkspaceLayout(
+        newStore.displays,
+        newStore.panels,
+        newStore.icons
+      );
+      
+      return newStore;
     });
     
     // Create worker for this display
@@ -275,7 +287,8 @@ export const displayActions = {
       const display = store.displays.get(displayId);
       if (display) {
         // Terminate worker if exists
-        const worker = store.workers.get(display.symbol);
+        const workerKey = `${display.symbol}-${displayId}`;
+        const worker = store.workers.get(workerKey);
         if (worker) {
           worker.terminate();
         }
@@ -284,14 +297,23 @@ export const displayActions = {
         const newWorkers = new Map(store.workers);
         
         newDisplays.delete(displayId);
-        newWorkers.delete(display.symbol);
+        newWorkers.delete(workerKey);
         
-        return {
+        const newStore = {
           ...store,
           displays: newDisplays,
           workers: newWorkers,
           activeDisplayId: store.activeDisplayId === displayId ? null : store.activeDisplayId
         };
+        
+        // Persist workspace layout after removing display
+        workspacePersistenceManager.saveWorkspaceLayout(
+          newStore.displays,
+          newStore.panels,
+          newStore.icons
+        );
+        
+        return newStore;
       }
       return store;
     });
@@ -306,6 +328,13 @@ export const displayActions = {
           ...display,
           position
         });
+        
+        // Persist workspace layout after moving display
+        workspacePersistenceManager.saveWorkspaceLayout(
+          newDisplays,
+          store.panels,
+          store.icons
+        );
       }
       return { ...store, displays: newDisplays };
     });
@@ -325,6 +354,13 @@ export const displayActions = {
             containerSize: { width, height }  // 🔧 KEY: Sync containerSize
           }
         });
+        
+        // Persist workspace layout after resizing display
+        workspacePersistenceManager.saveWorkspaceLayout(
+          newDisplays,
+          store.panels,
+          store.icons
+        );
       }
       return { ...store, displays: newDisplays };
     });
@@ -340,58 +376,74 @@ export const displayActions = {
   },
   
   updateDisplayState: (displayId, newState) => {
-    displayStore.update(store => {
-      const newDisplays = new Map(store.displays);
-      const display = newDisplays.get(displayId);
-      if (display) {
-        newDisplays.set(displayId, {
-          ...display,
-          state: newState,
-          ready: true
-        });
-      }
-      return { ...store, displays: newDisplays };
+    console.log(`[DISPLAY_STORE] Updating state for display ${displayId}:`, {
+      ready: newState?.ready,
+      hasPrice: newState?.hasPrice,
+      currentPrice: newState?.currentPrice
     });
-  },
-  
-  // === CONFIGURATION OPERATIONS (unified from both stores) ===
-  
-  updateDisplayConfig: (displayId, parameter, value) => {
-    console.log('[DISPLAY_STORE] Updating config:', displayId, parameter, value);
     
     displayStore.update(store => {
       const newDisplays = new Map(store.displays);
       const display = newDisplays.get(displayId);
       if (display) {
-        const oldConfigValue = display.config[parameter];
-        const updatedConfig = { ...display.config, [parameter]: value };
-        newDisplays.set(displayId, {
+        const updatedDisplay = {
           ...display,
-          config: updatedConfig
+          state: newState,
+          ready: newState?.ready || false
+        };
+        newDisplays.set(displayId, updatedDisplay);
+        
+        console.log(`[DISPLAY_STORE] Display ${displayId} updated:`, {
+          symbol: display.symbol,
+          ready: updatedDisplay.ready,
+          hasPrice: newState?.hasPrice,
+          stateKeys: Object.keys(newState || {})
+        });
+      } else {
+        console.warn(`[DISPLAY_STORE] Display ${displayId} not found for state update`);
+      }
+      return { ...store, displays: newDisplays };
+    });
+  },
+  
+  // === SIMPLIFIED CONFIGURATION OPERATIONS (global only) ===
+  
+  updateDisplayConfig: (displayId, parameter, value) => {
+    console.log('[DISPLAY_STORE] Updating global config:', parameter, value);
+    
+    displayStore.update(store => {
+      const updatedConfig = { ...store.defaultConfig, [parameter]: value };
+      
+      // Update all displays with this parameter (global-only approach)
+      const newDisplays = new Map(store.displays);
+      newDisplays.forEach((display, id) => {
+        newDisplays.set(id, {
+          ...display,
+          config: { ...display.config, [parameter]: value }
         });
         
-        // 🔍 DEBUG: Enhanced logging for ADR axis changes
-        if (parameter === 'adrAxisPosition') {
-          console.log(`[DISPLAY_STORE_DEBUG] ADR axis position update:`, {
-            displayId,
-            oldValue: oldConfigValue,
-            newValue: value,
-            symbol: display.symbol,
-            fullConfig: updatedConfig
-          });
-        }
-        
         // Notify worker of configuration change
-        const worker = store.workers.get(display.symbol);
+        const workerKey = `${display.symbol}-${id}`;
+        const worker = store.workers.get(workerKey);
         if (worker) {
           worker.postMessage({ 
             type: 'updateConfig', 
             payload: { [parameter]: value } 
           });
         }
-      }
-      return { ...store, displays: newDisplays };
+      });
+      
+      const newStore = {
+        ...store,
+        defaultConfig: updatedConfig,
+        displays: newDisplays
+      };
+      
+      return newStore;
     });
+    
+    // Auto-save global config change
+    workspacePersistenceManager.saveGlobalConfig({ [parameter]: value });
   },
   
   updateGlobalConfig: (parameter, value) => {
@@ -409,7 +461,8 @@ export const displayActions = {
         });
         
         // Notify worker of configuration change
-        const worker = store.workers.get(display.symbol);
+        const workerKey = `${display.symbol}-${displayId}`;
+        const worker = store.workers.get(workerKey);
         if (worker) {
           worker.postMessage({ 
             type: 'updateConfig', 
@@ -418,64 +471,90 @@ export const displayActions = {
         }
       });
       
-      return {
+      const newStore = {
         ...store,
         defaultConfig: updatedConfig,
         displays: newDisplays
       };
+      
+      return newStore;
     });
+    
+    // Auto-save global config change
+    workspacePersistenceManager.saveGlobalConfig({ [parameter]: value });
   },
   
-  resetDisplayConfig: (displayId) => {
-    console.log('[DISPLAY_STORE] Resetting config for display:', displayId);
+  resetToFactoryDefaults: () => {
+    console.log('[DISPLAY_STORE] Resetting to factory defaults');
     
     displayStore.update(store => {
+      const factoryDefaults = configDefaultsManager.getFactoryDefaults();
       const newDisplays = new Map(store.displays);
-      const display = newDisplays.get(displayId);
-      if (display) {
-        const resetConfig = { ...store.defaultConfig };
+      
+      newDisplays.forEach((display, displayId) => {
         newDisplays.set(displayId, {
           ...display,
-          config: resetConfig
+          config: { ...factoryDefaults }
         });
         
         // Notify worker of configuration reset
-        const worker = store.workers.get(display.symbol);
+        const workerKey = `${display.symbol}-${displayId}`;
+        const worker = store.workers.get(workerKey);
         if (worker) {
           worker.postMessage({ 
             type: 'updateConfig', 
-            payload: resetConfig 
+            payload: factoryDefaults 
           });
         }
-      }
-      return { ...store, displays: newDisplays };
+      });
+      
+      const newStore = {
+        ...store,
+        defaultConfig: factoryDefaults,
+        displays: newDisplays
+      };
+      
+      return newStore;
     });
+    
+    // Reset persistence to factory defaults
+    workspacePersistenceManager.resetToFactoryDefaults();
   },
   
-  // === WORKER OPERATIONS (from symbolStore) ===
+  // === WORKER OPERATIONS ===
   
   createWorkerForSymbol: (symbol, displayId) => {
     console.log('[DISPLAY_STORE] Creating worker for symbol:', symbol, 'display:', displayId);
     
-    displayStore.update(store => {
-      // Check if worker already exists
-      if (store.workers.has(symbol)) {
-        return store;
-      }
-      
-      const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
-      
-      worker.onmessage = ({ data }) => {
-        const { type, payload } = data;
-        if (type === 'stateUpdate') {
-          displayActions.updateDisplayState(displayId, payload.newState);
+    return new Promise((resolve) => {
+      displayStore.update(store => {
+        // 🔧 RACE FIX: Create unique worker per display (not per symbol)
+        const workerKey = `${symbol}-${displayId}`;
+        
+        // Check if worker already exists for this specific display
+        if (store.workers.has(workerKey)) {
+          console.log(`[DISPLAY_STORE] Worker already exists for ${workerKey}, reusing`);
+          resolve(store.workers.get(workerKey));
+          return store;
         }
-      };
-      
-      const newWorkers = new Map(store.workers);
-      newWorkers.set(symbol, worker);
-      
-      return { ...store, workers: newWorkers };
+        
+        const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
+        
+        worker.onmessage = ({ data }) => {
+          const { type, payload } = data;
+          if (type === 'stateUpdate') {
+            displayActions.updateDisplayState(displayId, payload.newState);
+          }
+        };
+        
+        const newWorkers = new Map(store.workers);
+        newWorkers.set(workerKey, worker);
+        
+        console.log(`[DISPLAY_STORE] Worker created for ${workerKey}`);
+        resolve(worker);
+        
+        return { ...store, workers: newWorkers };
+      });
     });
   },
   
@@ -484,7 +563,9 @@ export const displayActions = {
     
     displayStore.subscribe(store => {
       const display = store.displays.get(displayId);
-      const worker = store.workers.get(symbol);
+      // 🔧 RACE FIX: Use unique worker key (symbol-displayId)
+      const workerKey = `${symbol}-${displayId}`;
+      const worker = store.workers.get(workerKey);
       if (display && worker) {
         const initPayload = {
           type: 'init',
@@ -502,21 +583,43 @@ export const displayActions = {
             initialMarketProfile: initData.initialMarketProfile || []
           }
         };
+        console.log(`[DISPLAY_STORE] Sending init payload to ${workerKey}:`, initPayload);
         worker.postMessage(initPayload);
+      } else {
+        console.warn(`[DISPLAY_STORE] Cannot initialize worker - display or worker missing:`, {
+          displayId,
+          symbol,
+          hasDisplay: !!display,
+          hasWorker: !!worker,
+          workerKey
+        });
       }
     })();
   },
   
   dispatchTickToWorker: (symbol, tick) => {
     displayStore.subscribe(store => {
-      const worker = store.workers.get(symbol);
-      if (worker) {
+      // 🔧 RACE FIX: Find all workers for this symbol (multiple displays possible)
+      const matchingWorkers = [];
+      store.workers.forEach((worker, workerKey) => {
+        if (workerKey.startsWith(`${symbol}-`)) {
+          matchingWorkers.push({ worker, workerKey });
+        }
+      });
+      
+      // Send tick to all matching workers
+      matchingWorkers.forEach(({ worker, workerKey }) => {
+        console.log(`[DISPLAY_STORE] Dispatching tick to ${workerKey}`);
         worker.postMessage({ type: 'tick', payload: tick });
+      });
+      
+      if (matchingWorkers.length === 0) {
+        console.warn(`[DISPLAY_STORE] No workers found for symbol: ${symbol}`);
       }
     })();
   },
   
-  // === WEBSOCKET INTEGRATION METHODS (missing from wsClient.js) ===
+  // === WEBSOCKET INTEGRATION METHODS ===
   
   dispatchTick: (symbol, tickData) => {
     console.log('[DISPLAY_STORE] Dispatching tick for symbol:', symbol);
@@ -526,35 +629,54 @@ export const displayActions = {
   createNewSymbol: (symbol, data) => {
     console.log('[DISPLAY_STORE] Creating new symbol:', symbol);
     
-    let displayId = null;
-    
-    // Find existing display for this symbol or create new one
-    displayStore.update(store => {
-      let existingDisplay = null;
-      
-      // Check if display already exists for this symbol
-      for (const [id, display] of store.displays) {
-        if (display.symbol === symbol) {
-          existingDisplay = display;
-          displayId = id;
-          break;
-        }
-      }
-      
-      if (!existingDisplay) {
-        // Create new display for this symbol
-        displayId = displayActions.addDisplay(symbol, {
-          x: 100 + Math.random() * 200,
-          y: 100 + Math.random() * 100
-        });
-      }
-      
-      return store;
+    // For Symbol Palette: ALWAYS create new display (maintain existing behavior)
+    const displayId = displayActions.addDisplay(symbol, {
+      x: 100 + Math.random() * 200,
+      y: 100 + Math.random() * 100
     });
     
     // Initialize worker with received data
-    if (displayId) {
-      displayActions.initializeWorker(symbol, displayId, data);
+    displayActions.initializeWorker(symbol, displayId, data);
+  },
+
+  /**
+   * Update existing symbol with fresh data (used by workspace restoration)
+   * 🔧 RACE FIX: Sequential worker creation and unique worker per display
+   * @param {string} symbol - Symbol to update
+   * @param {Object} data - Fresh market data
+   */
+  updateExistingSymbol: async (symbol, data) => {
+    console.log('[DISPLAY_STORE] Updating existing symbol:', symbol);
+    
+    let existingDisplayId = null;
+    
+    // Find existing display ID (simplified approach)
+    displayStore.update(store => {
+      for (const [id, display] of store.displays) {
+        if (display.symbol === symbol) {
+          existingDisplayId = id;
+          break;
+        }
+      }
+      return store; // No changes, just finding ID
+    });
+    
+    // Use existing display ID with sequential worker initialization
+    if (existingDisplayId) {
+      console.log(`[DISPLAY_STORE] Using existing display ${existingDisplayId} for ${symbol}`);
+      
+      try {
+        // 🔧 RACE FIX: Create worker first, wait for it to be ready
+        const worker = await displayActions.createWorkerForSymbol(symbol, existingDisplayId);
+        console.log(`[DISPLAY_STORE] Worker created successfully for ${symbol}-${existingDisplayId}`);
+        
+        // 🔧 RACE FIX: Initialize worker after it's created
+        displayActions.initializeWorker(symbol, existingDisplayId, data);
+      } catch (error) {
+        console.error(`[DISPLAY_STORE] Failed to create worker for ${symbol}:`, error);
+      }
+    } else {
+      console.warn(`[DISPLAY_STORE] No existing display found for symbol ${symbol}`);
     }
   },
   
@@ -577,13 +699,14 @@ export const displayActions = {
         newDisplays.delete(displayId);
       });
       
-      // Terminate worker
+      // Terminate workers for this symbol
       const newWorkers = new Map(store.workers);
-      const worker = newWorkers.get(symbol);
-      if (worker) {
-        worker.terminate();
-        newWorkers.delete(symbol);
-      }
+      store.workers.forEach((worker, workerKey) => {
+        if (workerKey.startsWith(`${symbol}-`)) {
+          worker.terminate();
+          newWorkers.delete(workerKey);
+        }
+      });
       
       return {
         ...store,
@@ -616,7 +739,7 @@ export const displayActions = {
     });
   },
   
-  // === UI ELEMENT OPERATIONS (from floatingStore) ===
+  // === UI ELEMENT OPERATIONS ===
   
   addPanel: (type, position = { x: 50, y: 50 }, config = {}) => {
     console.log('[DISPLAY_STORE] Adding panel:', type, 'with config:', config);
@@ -702,37 +825,6 @@ export const displayActions = {
       ...store,
       contextMenu: { ...store.contextMenu, open: false }
     }));
-  },
-  
-  // === ADR AXIS OPERATIONS ===
-  
-  updateAdrAxisPosition: (displayId, position) => {
-    console.log('[DISPLAY_STORE] Updating ADR axis position:', displayId, position);
-    
-    displayStore.update(store => {
-      const newDisplays = new Map(store.displays);
-      const display = newDisplays.get(displayId);
-      if (display) {
-        // Validate position is within bounds (5% to 95%)
-        const validatedPosition = Math.max(5, Math.min(95, position));
-        
-        const updatedConfig = { ...display.config, adrAxisPosition: validatedPosition };
-        newDisplays.set(displayId, {
-          ...display,
-          config: updatedConfig
-        });
-        
-        // Notify worker of configuration change
-        const worker = store.workers.get(display.symbol);
-        if (worker) {
-          worker.postMessage({ 
-            type: 'updateConfig', 
-            payload: { adrAxisPosition: validatedPosition } 
-          });
-        }
-      }
-      return { ...store, displays: newDisplays };
-    });
   },
   
   // === ICON OPERATIONS ===
@@ -901,6 +993,191 @@ export const displayActions = {
       }
       
       return newStore;
+    });
+  },
+
+  // === SIMPLIFIED WORKSPACE OPERATIONS ===
+  
+  /**
+   * Initialize workspace from persisted data
+   */
+  initializeWorkspace: async () => {
+    try {
+      console.log('[DISPLAY_STORE] Initializing workspace...');
+      
+      const workspaceData = await workspacePersistenceManager.initializeWorkspace();
+      
+      if (workspaceData.layout) {
+        // Restore workspace layout
+        displayStore.update(store => {
+          let newStore = { ...store };
+          
+          // Restore displays
+          const newDisplays = new Map();
+          workspaceData.layout.displays.forEach(displayData => {
+            // 🔍 DEBUG: Log size restoration for each display
+            console.log(`[DISPLAY_STORE_DEBUG] Restoring display ${displayData.id}:`, {
+              symbol: displayData.symbol,
+              restoredSize: displayData.size,
+              hasCustomSize: !!displayData.size,
+              defaultSize: { width: 220, height: 160 }
+            });
+            const display = {
+              ...displayData,
+              config: {
+                ...initialState.defaultConfig,
+                // 🔧 CRITICAL FIX: Ensure containerSize matches actual display size
+                ...(displayData.size ? { containerSize: displayData.size } : {})
+              },
+              state: null,
+              ready: false
+            };
+            newDisplays.set(displayData.id, display);
+          });
+          newStore.displays = newDisplays;
+          
+          // Restore panels
+          const newPanels = new Map();
+          workspaceData.layout.panels.forEach(panelData => {
+            newPanels.set(panelData.id, {
+              ...panelData,
+              isActive: false
+            });
+          });
+          newStore.panels = newPanels;
+          
+          // Restore icons
+          const newIcons = new Map();
+          workspaceData.layout.icons.forEach(iconData => {
+            newIcons.set(iconData.id, {
+              ...iconData,
+              isActive: false
+            });
+          });
+          newStore.icons = newIcons;
+          
+          // Set active elements
+          newStore.activeDisplayId = null;
+          newStore.activePanelId = null;
+          newStore.activeIconId = null;
+          
+          console.log('[DISPLAY_STORE] Workspace restored:', {
+            displays: newDisplays.size,
+            panels: newPanels.size,
+            icons: newIcons.size
+          });
+          
+          return newStore;
+        });
+
+        // 🔧 CRITICAL FIX: Subscribe restored symbols to WebSocket for fresh data
+        console.log('[DISPLAY_STORE] Scheduling delayed subscription for restored symbols...');
+        
+        // Import WebSocket client dynamically to avoid circular dependencies
+        const { subscribe, wsStatus } = await import('../data/wsClient.js');
+        
+        // 🔧 RACE FIX: Staggered WebSocket subscriptions to prevent overload
+        setTimeout(() => {
+          console.log('[DISPLAY_STORE] Attempting to subscribe restored symbols with staggered timing...');
+          
+          // Subscribe each restored symbol with 500ms delays between them
+          workspaceData.layout.displays.forEach((displayData, index) => {
+            setTimeout(() => {
+              console.log(`[DISPLAY_STORE] Subscribing restored symbol ${index + 1}/${workspaceData.layout.displays.length}: ${displayData.symbol}`);
+              subscribe(displayData.symbol);
+            }, index * 500); // 500ms delay between each subscription
+          });
+          
+          // Log when all subscriptions are scheduled
+          const totalDelay = (workspaceData.layout.displays.length - 1) * 500;
+          setTimeout(() => {
+            console.log(`[DISPLAY_STORE] All ${workspaceData.layout.displays.length} restored symbols subscription attempts completed`);
+          }, totalDelay);
+          
+        }, 2000); // 2 second initial delay to allow WebSocket connection
+        
+        console.log(`[DISPLAY_STORE] Scheduled subscriptions for ${workspaceData.layout.displays.length} restored symbols in 2 seconds`);
+      }
+      
+      return workspaceData;
+    } catch (error) {
+      console.error('[DISPLAY_STORE] Failed to initialize workspace:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Save current workspace state
+   */
+  saveWorkspace: () => {
+    displayStore.subscribe(store => {
+      workspacePersistenceManager.saveWorkspaceLayout(
+        store.displays,
+        store.panels,
+        store.icons
+      );
+    })();
+  },
+
+  /**
+   * Export workspace to JSON
+   */
+  exportWorkspace: (metadata = {}) => {
+    return new Promise((resolve) => {
+      displayStore.subscribe(store => {
+        const exportData = workspacePersistenceManager.exportWorkspace(
+          store.displays,
+          store.panels,
+          store.icons,
+          metadata
+        );
+        resolve(exportData);
+      })();
+    });
+  },
+
+  /**
+   * Import workspace from JSON
+   */
+  importWorkspace: (jsonData) => {
+    return new Promise((resolve) => {
+      const success = workspacePersistenceManager.importWorkspace(jsonData);
+      if (success) {
+        // Reload workspace after import
+        displayActions.initializeWorkspace().then(() => {
+          resolve(true);
+        });
+      } else {
+        resolve(false);
+      }
+    });
+  },
+
+  /**
+   * Clear all workspace data
+   */
+  clearWorkspace: () => {
+    displayStore.update(store => {
+      // Terminate all workers
+      store.workers.forEach(worker => worker.terminate());
+      
+      // Clear persistence data
+      workspacePersistenceManager.clearAllPersistence();
+      
+      return {
+        ...store,
+        displays: new Map(),
+        panels: new Map(),
+        icons: new Map(),
+        workers: new Map(),
+        activeDisplayId: null,
+        activePanelId: null,
+        activeIconId: null,
+        contextMenu: { 
+          ...store.contextMenu,
+          open: false
+        }
+      };
     });
   }
 };
