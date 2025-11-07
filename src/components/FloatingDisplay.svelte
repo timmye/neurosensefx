@@ -18,6 +18,12 @@
   // ✅ INTERACT.JS: Import interact.js for drag and resize
   import interact from 'interactjs';
   
+  // ✅ GRID SNAPPING: Import workspace grid utility
+  import { workspaceGrid } from '../utils/workspaceGrid.js';
+  
+  // 🔧 ZOOM AWARENESS: Import zoom detection utilities
+  import { createZoomDetector } from '../utils/canvasSizing.js';
+  
   // Component props
   export let id;
   export let symbol;
@@ -39,6 +45,9 @@
   let isActive = false;
   let zIndex = 1;
   let displaySize = { width: 220, height: 160 }; // ✅ FIXED: Add explicit displaySize variable
+  
+  // Local state for interact.js instance
+  let interactable = null;
   
   // ✅ UNIFIED STORE: Simple store binding - no reactive conflicts
   $: display = $displays?.get(id);
@@ -134,35 +143,37 @@
     }
   }
   
-  // ✅ ULTRA-MINIMAL: Simple interact.js setup - no complex logic
+  // ✅ GRID SNAPPING: Enhanced interact.js setup with grid integration
   onMount(async () => {
     console.log(`[FLOATING_DISPLAY] Mounting display ${id} for symbol ${symbol}`);
     console.log(`[FLOATING_DISPLAY] Canvas element available:`, !!canvas);
     
-    // ✅ INTERACT.JS: Ultra-minimal setup - use event.rect directly
+    // ✅ GRID ENHANCED: Setup interact.js with grid snapping
     if (element) {
-      interact(element)
+      // Create interactable instance
+      interactable = interact(element);
+      
+      // Configure draggable with grid snapping
+      interactable
         .draggable({
           inertia: true,
-          modifiers: [
-            interact.modifiers.restrictEdges({
-              outer: { 
-                left: 0, 
-                top: 0, 
-                right: window.innerWidth - element.offsetWidth,
-                bottom: window.innerHeight - element.offsetHeight
-              }
-            })
-          ],
+          modifiers: workspaceGrid.getInteractModifiers(),
+          onstart: () => {
+            // ✅ GRID FEEDBACK: Notify workspace grid of drag start
+            workspaceGrid.setDraggingState(true);
+            console.log(`[GRID_SNAPPING] Drag started for display ${id}`);
+          },
           onmove: (event) => {
-            // ✅ DIRECT: Use interact.js rect directly - no position tracking
+            // ✅ GRID SNAPPING: event.rect already includes snapped coordinates
             displayActions.moveDisplay(id, {
               x: event.rect.left,
               y: event.rect.top
             });
           },
           onend: () => {
-            console.log(`[INTERACT_JS] Drag ended for display ${id}`);
+            // ✅ GRID FEEDBACK: Notify workspace grid of drag end
+            workspaceGrid.setDraggingState(false);
+            console.log(`[GRID_SNAPPING] Drag ended for display ${id}`);
           }
         })
         .resizable({
@@ -170,49 +181,67 @@
           modifiers: [
             interact.modifiers.restrictSize({
               min: { width: 240, height: 160 }
-            })
+            }),
+            // ✅ GRID SNAPPING: Add grid snapping for resize
+            ...(workspaceGrid.enabled ? [interact.modifiers.snap({
+              targets: workspaceGrid.getInteractSnappers(),
+              relativePoints: [{ x: 0, y: 0 }],
+              range: workspaceGrid.snapThreshold
+            })] : [])
           ],
+          onstart: () => {
+            // ✅ GRID FEEDBACK: Notify workspace grid of resize start
+            workspaceGrid.setDraggingState(true);
+            console.log(`[GRID_SNAPPING] Resize started for display ${id}`);
+          },
           onmove: (event) => {
-            // ✅ FIXED: Update element style immediately for visual feedback
+            // ✅ GRID SNAPPING: Update element style for visual feedback
             element.style.width = event.rect.width + 'px';
             element.style.height = event.rect.height + 'px';
             
-            // ✅ FIXED: Calculate correct position based on resize edge
             const newPosition = {
               x: event.rect.left,
               y: event.rect.top
             };
             
-            // ✅ FIXED: Update both position and size
             displayActions.moveDisplay(id, newPosition);
             displayActions.resizeDisplay(id, event.rect.width, event.rect.height);
           },
           onend: () => {
-            console.log(`[INTERACT_JS] Resize ended for display ${id}`);
+            // ✅ GRID FEEDBACK: Notify workspace grid of resize end
+            workspaceGrid.setDraggingState(false);
+            console.log(`[GRID_SNAPPING] Resize ended for display ${id}`);
           }
         });
       
+      // Register interactable with workspace grid for dynamic updates
+      workspaceGrid.registerInteractInstance(interactable);
+      
       // Click to activate
-      interact(element).on('tap', (event) => {
+      interactable.on('tap', (event) => {
         displayActions.setActiveDisplay(id);
+      });
+      
+      console.log(`[GRID_SNAPPING] Interact.js setup completed for display ${id}`, {
+        gridEnabled: workspaceGrid.enabled,
+        gridSize: workspaceGrid.gridSize
       });
     }
     
-    // Display is already created by parent component, no need to create again
-    // Worker creation is handled automatically by displayActions.addDisplay() in parent
     console.log(`[FLOATING_DISPLAY] Display ${id} for ${symbol} is ready`);
     
     return () => {
-      // ✅ CLEANUP: Simple interact.js cleanup
-      if (element) {
-        interact(element).unset();
+      // ✅ CLEANUP: Enhanced cleanup with grid unregistration
+      if (interactable) {
+        workspaceGrid.unregisterInteractInstance(interactable);
+        interactable.unset();
+        interactable = null;
       }
       console.log(`[FLOATING_DISPLAY] Cleaning up display for ${symbol}`);
-      // Display cleanup is handled by displayActions.removeDisplay() which also terminates worker
     };
   });
   
-  // 🔧 CONTAINER-STYLE: Update canvas with contentArea approach and DPR preservation
+  // 🔧 CONTAINER-STYLE: Update canvas with pixel-perfect dimensions
   $: if (canvas && ctx && config) {
     // Calculate new contentArea from config (no padding reduction)
     const containerSize = config.containerSize || { width: 220, height: 120 };
@@ -228,11 +257,19 @@
       // Update contentArea for reactive use
       contentArea = newContentArea;
       
-      // 🔧 DPR-AWARE: Update canvas dimensions with DPR scaling
-      canvas.width = contentArea.width * dpr;
-      canvas.height = contentArea.height * dpr;
-      canvas.style.width = contentArea.width + 'px';
-      canvas.style.height = contentArea.height + 'px';
+      // 🔧 PIXEL-PERFIX: Use integer canvas dimensions for crisp rendering
+      const integerCanvasWidth = Math.round(contentArea.width * dpr);
+      const integerCanvasHeight = Math.round(contentArea.height * dpr);
+      
+      // Calculate corresponding CSS dimensions
+      const cssWidth = integerCanvasWidth / dpr;
+      const cssHeight = integerCanvasHeight / dpr;
+      
+      // Apply pixel-perfect dimensions
+      canvas.width = integerCanvasWidth;
+      canvas.height = integerCanvasHeight;
+      canvas.style.width = cssWidth + 'px';
+      canvas.style.height = cssHeight + 'px';
       
       // 🔧 CRISP RENDERING: Reconfigure canvas context after resize
       ctx.scale(dpr, dpr);
@@ -242,17 +279,63 @@
       canvasWidth = contentArea.width;
       canvasHeight = contentArea.height;
       
-      console.log(`[FLOATING_DISPLAY] Canvas resized to contentArea: ${contentArea.width}x${contentArea.height}, DPR: ${dpr}`);
+      console.log(`[FLOATING_DISPLAY] Pixel-perfect canvas resize:`, {
+        contentArea: `${contentArea.width}x${contentArea.height}`,
+        dpr,
+        integerCanvas: `${integerCanvasWidth}x${integerCanvasHeight}`,
+        cssDimensions: `${cssWidth.toFixed(2)}x${cssHeight.toFixed(2)}`
+      });
     }
   }
   
-  // 🔧 CONTAINER-STYLE: Initialize canvas with contentArea and DPR when available
+  // 🔧 CONTAINER-STYLE: Initialize canvas with pixel-perfect dimensions
   $: if (state?.ready && canvas && !ctx) {
     console.log(`[FLOATING_DISPLAY] Canvas becoming available, initializing context`);
     ctx = canvas.getContext('2d');
     console.log(`[FLOATING_DISPLAY] Canvas context created:`, !!ctx);
     if (ctx) {
       dpr = window.devicePixelRatio || 1;
+      
+      // 🔧 ZOOM AWARENESS: Initialize zoom detector
+      const cleanupZoomDetector = createZoomDetector((newDpr) => {
+        console.log(`[ZOOM_AWARENESS] DPR changed to ${newDpr} for display ${id}`);
+        dpr = newDpr;
+        
+        // Recalculate canvas dimensions with new DPR
+        if (contentArea) {
+          const integerCanvasWidth = Math.round(contentArea.width * dpr);
+          const integerCanvasHeight = Math.round(contentArea.height * dpr);
+          const cssWidth = integerCanvasWidth / dpr;
+          const cssHeight = integerCanvasHeight / dpr;
+          
+          // Apply new pixel-perfect dimensions
+          canvas.width = integerCanvasWidth;
+          canvas.height = integerCanvasHeight;
+          canvas.style.width = cssWidth + 'px';
+          canvas.style.height = cssHeight + 'px';
+          
+          // Reconfigure canvas context for new DPR
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.scale(dpr, dpr);
+          ctx.translate(0.5, 0.5);
+          ctx.imageSmoothingEnabled = false;
+          
+          console.log(`[ZOOM_AWARENESS] Canvas updated for new DPR:`, {
+            displayId: id,
+            newDpr,
+            contentArea: `${contentArea.width}x${contentArea.height}`,
+            integerCanvas: `${integerCanvasWidth}x${integerCanvasHeight}`,
+            cssDimensions: `${cssWidth.toFixed(2)}x${cssHeight.toFixed(2)}`
+          });
+        }
+      });
+      
+      // Store cleanup function for onDestroy
+      onDestroy(() => {
+        if (cleanupZoomDetector) {
+          cleanupZoomDetector();
+        }
+      });
       
       // 🔧 CONTAINER-STYLE: Calculate contentArea from config (no padding reduction)
       const containerSize = config.containerSize || { width: 220, height: 120 };
@@ -264,11 +347,19 @@
       // Update contentArea for reactive use
       contentArea = newContentArea;
       
-      // 🔧 DPR-AWARE: Set canvas dimensions with DPR scaling
-      canvas.width = contentArea.width * dpr;
-      canvas.height = contentArea.height * dpr;
-      canvas.style.width = contentArea.width + 'px';
-      canvas.style.height = contentArea.height + 'px';
+      // 🔧 PIXEL-PERFECT: Use integer canvas dimensions for crisp rendering
+      const integerCanvasWidth = Math.round(contentArea.width * dpr);
+      const integerCanvasHeight = Math.round(contentArea.height * dpr);
+      
+      // Calculate corresponding CSS dimensions
+      const cssWidth = integerCanvasWidth / dpr;
+      const cssHeight = integerCanvasHeight / dpr;
+      
+      // Apply pixel-perfect dimensions
+      canvas.width = integerCanvasWidth;
+      canvas.height = integerCanvasHeight;
+      canvas.style.width = cssWidth + 'px';
+      canvas.style.height = cssHeight + 'px';
       
       // 🔧 CRISP RENDERING: Configure canvas context for crisp lines
       ctx.scale(dpr, dpr);
@@ -278,8 +369,12 @@
       canvasWidth = contentArea.width;
       canvasHeight = contentArea.height;
       
-      console.log(`[FLOATING_DISPLAY] Canvas initialized with contentArea: ${contentArea.width}x${contentArea.height}, DPR: ${dpr}`);
-      console.log(`[FLOATING_DISPLAY] Canvas actual dimensions: ${canvas.width}x${canvas.height}`);
+      console.log(`[FLOATING_DISPLAY] Pixel-perfect canvas initialization:`, {
+        contentArea: `${contentArea.width}x${contentArea.height}`,
+        dpr,
+        integerCanvas: `${integerCanvasWidth}x${integerCanvasHeight}`,
+        cssDimensions: `${cssWidth.toFixed(2)}x${cssHeight.toFixed(2)}`
+      });
     } else {
       console.error(`[FLOATING_DISPLAY] Failed to create canvas 2D context`);
     }

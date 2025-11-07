@@ -1,5 +1,5 @@
 import { scaleLinear } from 'd3-scale';
-import { createCanvasSizingConfig, configureCanvasContext, boundsUtils } from '../../utils/canvasSizing.js';
+import { createCanvasSizingConfig, configureCanvasContext, boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
 
 /**
  * DPR-Aware Day Range Meter Implementation
@@ -144,7 +144,7 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
           highInBounds
         });
         if (highInBounds) {
-          drawPercentageMarker(ctx, adrAxisX, highY, `${level * 100}%`, 'right');
+          drawPercentageMarker(ctx, adrAxisX, highY, `${level * 100}%`, 'left');
         }
 
         // Low side marker
@@ -157,13 +157,14 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
           lowInBounds
         });
         if (lowInBounds) {
-          drawPercentageMarker(ctx, adrAxisX, lowY, `-${level * 100}%`, 'right');
+          drawPercentageMarker(ctx, adrAxisX, lowY, `-${level * 100}%`, 'left');
         }
       }
     });
   } else if (adrLabelType === 'dynamicPercentage') {
     // Dynamic: Show actual percentage of ADR that today's high/low represent
     const { todaysHigh, todaysLow } = state;
+
 
     console.log('[ADR_DEBUG] Dynamic mode, H/L data:', { todaysHigh, todaysLow });
 
@@ -183,7 +184,7 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
       });
 
       if (highInBounds) {
-        drawPercentageMarker(ctx, adrAxisX, highY, highLabel, 'right');
+        drawPercentageMarker(ctx, adrAxisX, highY, highLabel, 'left');
       }
     }
 
@@ -203,8 +204,9 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
       });
 
       if (lowInBounds) {
-        drawPercentageMarker(ctx, adrAxisX, lowY, lowLabel, 'right');
+        drawPercentageMarker(ctx, adrAxisX, lowY, lowLabel, 'left');
       }
+
     }
   }
 
@@ -282,22 +284,33 @@ function drawPriceMarkers(ctx, contentArea, axisX, state, y, digits) {
   ctx.save();
   ctx.translate(0.5, 0.5); // Crisp line rendering
   
-  // Simple font setup for price labels (no DPR scaling in DPR-scaled context)
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  // 🔧 PIXEL-PERFECT: Use enhanced DPR-aware font configuration
+  // Create canvas dimensions object for configureTextForDPR
+  const canvasDimensions = {
+    dpr: window.devicePixelRatio || 1,
+    canvas: { width: contentArea.width, height: contentArea.height }
+  };
+  
+  // Configure text with pixel-perfect sizing
+  const textConfig = configureTextForDPR(ctx, canvasDimensions, {
+    baseFontSize: 10,
+    fontFamily: 'monospace',
+    textAlign: 'center',
+    textBaseline: 'middle',
+    fillStyle: '#9CA3AF' // Light gray for price markers
+  });
   
   // Draw Open Price (always at center)
   if (midPrice !== undefined) {
     const openY = y(midPrice);
-    drawPriceMarker(ctx, axisX, openY, `O ${formatPrice(midPrice, digits)}`, '#6B7280', 'left');
+    drawPriceMarker(ctx, axisX, openY, `O ${formatPrice(midPrice, digits)}`, '#6B7280', 'right');
   }
   
   // Draw High Price
   if (todaysHigh !== undefined) {
     const highY = y(todaysHigh);
     if (boundsUtils.isYInBounds(highY, {}, { canvasArea: contentArea })) {
-      drawPriceMarker(ctx, axisX, highY, `H ${formatPrice(todaysHigh, digits)}`, '#F59E0B', 'left');
+      drawPriceMarker(ctx, axisX, highY, `H ${formatPrice(todaysHigh, digits)}`, '#F59E0B', 'right');
     }
   }
   
@@ -305,9 +318,10 @@ function drawPriceMarkers(ctx, contentArea, axisX, state, y, digits) {
   if (todaysLow !== undefined) {
     const lowY = y(todaysLow);
     if (boundsUtils.isYInBounds(lowY, {}, { canvasArea: contentArea })) {
-      drawPriceMarker(ctx, axisX, lowY, `L ${formatPrice(todaysLow, digits)}`, '#F59E0B', 'left');
+      drawPriceMarker(ctx, axisX, lowY, `L ${formatPrice(todaysLow, digits)}`, '#F59E0B', 'right');
     }
   }
+
   
   // Draw Current Price (emphasized)
   if (currentPrice !== undefined) {

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Zoom Awareness Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #2d2d2d;
+        }
+        .success { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+        .error { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+        .warning { border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+        canvas {
+            border: 1px solid #555;
+            margin: 10px 0;
+            background: #111827;
+        }
+        .instructions {
+            background: #374151;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .dpr-info {
+            background: #4b5563;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+        }
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background: #6366f1;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .zoom-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Browser Zoom Awareness Test</h1>
+    
+    <div class="instructions">
+        <h3>📋 Test Instructions</h3>
+        <ol>
+            <li><strong>Initial State:</strong> Text should be crisp at current zoom level</li>
+            <li><strong>Zoom Test:</strong> Use Ctrl+Plus/Ctrl+Minus (or Cmd+Plus/Cmd+Minus) to zoom in/out</li>
+            <li><strong>Expected Result:</strong> Text remains crisp at ALL zoom levels</li>
+            <li><strong>Browser Zoom:</strong> Test shows real-time DPR: <span id="currentDpr">1.00</span></li>
+            <li><strong>Canvas State:</strong> <span id="canvasState">Initializing...</span></li>
+        </ol>
+    </div>
+
+    <div class="dpr-info">
+        <strong>Current Device Pixel Ratio:</strong> <span id="dprValue">1.00</span><br>
+        <strong>Canvas Dimensions:</strong> <span id="canvasDimensions">0×0</span><br>
+        <strong>Text Configuration:</strong> <span id="textConfig">Not configured</span>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Zoom Detector Test</h3>
+        <canvas id="testCanvas" width="300" height="200"></canvas>
+        <div id="zoomDetectorResult" class="result">Testing zoom detector...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Canvas Sizing Test</h3>
+        <canvas id="sizingCanvas" width="244.51" height="156.08"></canvas>
+        <div id="sizingResult" class="result">Testing canvas sizing...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Text Rendering Test</h3>
+        <canvas id="textCanvas" width="300" height="150"></canvas>
+        <div id="textResult" class="result">Testing text rendering...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Fractional Dimensions Test</h3>
+        <canvas id="fractionalCanvas" width="244.51" height="156.08"></canvas>
+        <div id="fractionalResult" class="result">Testing fractional dimensions...</div>
+    </div>
+
+    <div class="zoom-controls">
+        <h4>🎛️ Quick Zoom Controls</h4>
+        <div class="test-controls">
+            <button class="btn" onclick="zoomIn()">Zoom In (Ctrl++)</button>
+            <button class="btn" onclick="zoomOut()">Zoom Out (Ctrl+-)</button>
+            <button class="btn" onclick="resetZoom()">Reset Zoom</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import canvas sizing utilities
+        import { 
+            createZoomDetector, 
+            getCanvasDimensions, 
+            configureTextForDPR 
+        } from './src/utils/canvasSizing.js';
+
+        // Test state
+        let currentDpr = window.devicePixelRatio || 1;
+        let zoomDetector = null;
+        let testResults = {
+            zoomDetector: 'pending',
+            canvasSizing: 'pending',
+            textRendering: 'pending',
+            fractionalDimensions: 'pending'
+        };
+
+        // Update DPR display
+        function updateDprDisplay() {
+            document.getElementById('currentDpr').textContent = currentDpr.toFixed(2);
+            document.getElementById('dprValue').textContent = currentDpr.toFixed(2);
+        }
+
+        // Test 1: Zoom Detector
+        async function testZoomDetector() {
+            const canvas = document.getElementById('testCanvas');
+            const ctx = canvas.getContext('2d');
+            const resultDiv = document.getElementById('zoomDetectorResult');
+
+            try {
+                // Initialize zoom detector
+                zoomDetector = createZoomDetector((newDpr) => {
+                    currentDpr = newDpr;
+                    updateDprDisplay();
+                    testZoomDetector(); // Re-run test
+                    testCanvasSizing(); // Re-run canvas sizing test
+                    testTextRendering(); // Re-run text rendering test
+                    testFractionalDimensions(); // Re-run fractional test
+                });
+
+                resultDiv.className = 'result success';
+                resultDiv.textContent = '✅ PASSED: Zoom detector initialized successfully';
+                testResults.zoomDetector = 'passed';
+
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ FAILED: ${error.message}`;
+                testResults.zoomDetector = 'failed';
+            }
+        }
+
+        // Test 2: Canvas Sizing
+        async function testCanvasSizing() {
+            const canvas = document.getElementById('sizingCanvas');
+            const ctx = canvas.getContext('2d');
+            const resultDiv = document.getElementById('sizingResult');
+
+            try {
+                // Test fractional dimensions (original problem)
+                const containerSize = { width: 244.51, height: 156.08 };
+                const canvasDimensions = getCanvasDimensions(containerSize, { respectDpr: true });
+
+                // Apply pixel-perfect dimensions
+                const { canvas: dims } = canvasDimensions;
+                canvas.width = dims.width;
+                canvas.height = dims.height;
+                canvas.style.width = dims.cssWidth + 'px';
+                canvas.style.height = dims.cssHeight + 'px';
+
+                // Draw test content
+                ctx.fillStyle = '#111827';
+                ctx.fillRect(0, 0, dims.cssWidth, dims.cssHeight);
+
+                // Add text with DPR awareness
+                const textConfig = configureTextForDPR(ctx, canvasDimensions, {
+                    baseFontSize: 12,
+                    fontFamily: 'Arial',
+                    textAlign: 'center',
+                    textBaseline: 'middle',
+                    fillStyle: '#ffffff'
+                });
+
+                ctx.font = textConfig.fontString;
+                ctx.fillStyle = textConfig.fillStyle;
+                ctx.fillText('CRISP TEXT', dims.cssWidth / 2, dims.cssHeight / 2);
+
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ PASSED: Canvas ${dims.width}×${dims.height} (${dims.cssWidth.toFixed(1)}×${dims.cssHeight.toFixed(1)} CSS)`;
+                testResults.canvasSizing = 'passed';
+
+                // Update display
+                document.getElementById('canvasDimensions').textContent = `${dims.width}×${dims.height} (${dims.cssWidth.toFixed(1)}×${dims.cssHeight.toFixed(1)} CSS)`;
+                document.getElementById('textConfig').textContent = `${textConfig.finalFontSize}px @ DPR ${canvasDimensions.dpr}`;
+
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ FAILED: ${error.message}`;
+                testResults.canvasSizing = 'failed';
+            }
+        }
+
+        // Test 3: Text Rendering
+        async function testTextRendering() {
+            const canvas = document.getElementById('textCanvas');
+            const ctx = canvas.getContext('2d');
+            const resultDiv = document.getElementById('textResult');
+
+            try {
+                const containerSize = { width: 300, height: 150 };
+                const canvasDimensions = getCanvasDimensions(containerSize, { respectDpr: true });
+
+                // Apply dimensions
+                const { canvas: dims } = canvasDimensions;
+                canvas.width = dims.width;
+                canvas.height = dims.height;
+                canvas.style.width = dims.cssWidth + 'px';
+                canvas.style.height = dims.cssHeight + 'px';
+
+                // Clear and setup
+                ctx.fillStyle = '#111827';
+                ctx.fillRect(0, 0, dims.cssWidth, dims.cssHeight);
+                ctx.imageSmoothingEnabled = false;
+                ctx.translate(0.5, 0.5);
+
+                // Test multiple text sizes with DPR awareness
+                const textSizes = [8, 10, 12, 14, 16];
+                const texts = ['CRISP', 'SHARP', 'CLEAR'];
+                
+                textSizes.forEach((fontSize, index) => {
+                    const textConfig = configureTextForDPR(ctx, canvasDimensions, {
+                        baseFontSize: fontSize,
+                        fontFamily: 'Arial',
+                        textAlign: 'center',
+                        textBaseline: 'middle',
+                        fillStyle: '#ffffff'
+                    });
+
+                    ctx.font = textConfig.fontString;
+                    ctx.fillStyle = textConfig.fillStyle;
+                    ctx.fillText(
+                        texts[index % texts.length], 
+                        50, 
+                        30 + (index * 25)
+                    );
+                });
+
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ PASSED: Text rendering with DPR awareness at ${textConfig.baseFontSize}px base size`;
+                testResults.textRendering = 'passed';
+
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ FAILED: ${error.message}`;
+                testResults.textRendering = 'failed';
+            }
+        }
+
+        // Test 4: Fractional Dimensions
+        async function testFractionalDimensions() {
+            const canvas = document.getElementById('fractionalCanvas');
+            const ctx = canvas.getContext('2d');
+            const resultDiv = document.getElementById('fractionalResult');
+
+            try {
+                // Test the exact fractional dimensions that caused the original problem
+                const containerSize = { width: 244.51, height: 156.08 };
+                const canvasDimensions = getCanvasDimensions(containerSize, { respectDpr: true });
+
+                // Apply pixel-perfect integer dimensions
+                const { canvas: dims } = canvasDimensions;
+                canvas.width = dims.width; // Should be integer (e.g., 490)
+                canvas.height = dims.height; // Should be integer (e.g., 312)
+                canvas.style.width = dims.cssWidth + 'px'; // Should match exactly
+                canvas.style.height = dims.cssHeight + 'px';
+
+                // Draw test pattern
+                ctx.fillStyle = '#10b981';
+                ctx.fillRect(0, 0, dims.cssWidth, dims.cssHeight);
+                
+                // Add 1px grid lines to test crispness
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, dims.cssHeight / 2);
+                ctx.lineTo(dims.cssWidth, dims.cssHeight / 2);
+                ctx.moveTo(dims.cssWidth / 2, 0);
+                ctx.lineTo(dims.cssWidth / 2, dims.cssHeight);
+                ctx.stroke();
+
+                // Add text
+                const textConfig = configureTextForDPR(ctx, canvasDimensions, {
+                    baseFontSize: 10,
+                    fontFamily: 'Arial',
+                    textAlign: 'center',
+                    textBaseline: 'middle',
+                    fillStyle: '#ffffff'
+                });
+
+                ctx.font = textConfig.fontString;
+                ctx.fillStyle = textConfig.fillStyle;
+                ctx.fillText('FRACTIONAL', dims.cssWidth / 2, dims.cssHeight / 2);
+
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ PASSED: Fractional ${containerSize.width}×${containerSize.height} → Integer ${dims.width}×${dims.height}`;
+                testResults.fractionalDimensions = 'passed';
+
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ FAILED: ${error.message}`;
+                testResults.fractionalDimensions = 'failed';
+            }
+        }
+
+        // Zoom control functions
+        function zoomIn() {
+            document.body.style.zoom = parseFloat(document.body.style.zoom || 1) + 0.1;
+            console.log('Manual zoom in:', document.body.style.zoom);
+        }
+
+        function zoomOut() {
+            document.body.style.zoom = Math.max(0.5, parseFloat(document.body.style.zoom || 1) - 0.1);
+            console.log('Manual zoom out:', document.body.style.zoom);
+        }
+
+        function resetZoom() {
+            document.body.style.zoom = 1;
+            console.log('Zoom reset to 1');
+        }
+
+        // Update canvas state display
+        function updateCanvasState() {
+            const allPassed = Object.values(testResults).every(result => result === 'passed');
+            const stateText = allPassed ? 
+                '✅ ALL TESTS PASSED - Zoom awareness working correctly' :
+                `⚠️ SOME TESTS FAILED - Check results above`;
+            
+            document.getElementById('canvasState').textContent = stateText;
+            document.getElementById('canvasState').className = allPassed ? 'result success' : 'result warning';
+        }
+
+        // Initialize all tests
+        async function initializeTests() {
+            console.log('🧪 Starting zoom awareness tests...');
+            updateDprDisplay();
+            
+            await testZoomDetector();
+            await testCanvasSizing();
+            await testTextRendering();
+            await testFractionalDimensions();
+            
+            updateCanvasState();
+        }
+
+        // Start tests when page loads
+        document.addEventListener('DOMContentLoaded', initializeTests);
+
+        // Update state on any test completion
+        const originalTestZoomDetector = testZoomDetector;
+        const originalTestCanvasSizing = testCanvasSizing;
+        const originalTestTextRendering = testTextRendering;
+        const originalTestFractionalDimensions = testFractionalDimensions;
+
+        // Wrap test functions to update state
+        testZoomDetector = async function(...args) {
+            await originalTestZoomDetector(...args);
+            updateCanvasState();
+        };
+
+        testCanvasSizing = async function(...args) {
+            await originalTestCanvasSizing(...args);
+            updateCanvasState();
+        };
+
+        testTextRendering = async function(...args) {
+            await originalTestTextRendering(...args);
+            updateCanvasState();
+        };
+
+        testFractionalDimensions = async function(...args) {
+            await originalTestFractionalDimensions(...args);
+            updateCanvasState();
+        };
+    </script>
+</body>
+</html>

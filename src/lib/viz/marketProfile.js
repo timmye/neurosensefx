@@ -1,4 +1,4 @@
-import { boundsUtils } from '../../utils/canvasSizing.js';
+import { boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
 
 export function drawMarketProfile(ctx, renderingContext, config, state, y) {
   // Guard clauses for safety (FOUNDATION PATTERN)
@@ -413,7 +413,7 @@ function drawRightBars(ctx, startX, bucketY, buyVolume, sellVolume, barWidth, co
 
 /**
  * Draw maximum volume marker with foundation integration
- * ✅ FIXED: Use marketProfile-specific config, not priceFontSize
+ * ✅ ENHANCED: Use configureTextForDPR for pixel-perfect text rendering
  * This is an enhancement that should only render ONCE at max volume level
  */
 function drawMaxVolumeMarker(ctx, maxVolumeLevel, renderData, config) {
@@ -421,11 +421,21 @@ function drawMaxVolumeMarker(ctx, maxVolumeLevel, renderData, config) {
   
   ctx.save();
   
-  // ✅ FIXED: Use marketProfile-specific font config, not priceFontSize
-  const fontSize = Math.max(8, (config.marketProfileMarkerFontSize || 10));
-  ctx.font = `${fontSize}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  // 🔧 ENHANCED: Use configureTextForDPR for pixel-perfect text rendering
+  // Create canvas dimensions object for configureTextForDPR
+  const canvasDimensions = {
+    dpr: window.devicePixelRatio || 1,
+    canvas: { width: maxVolumeLevel.priceY, height: maxVolumeLevel.priceY }
+  };
+  
+  // Configure text with pixel-perfect sizing
+  const textConfig = configureTextForDPR(ctx, canvasDimensions, {
+    baseFontSize: Math.max(8, (config.marketProfileMarkerFontSize || 10)),
+    fontFamily: 'Arial',
+    textAlign: 'center',
+    textBaseline: 'middle',
+    fillStyle: '#FFFFFF'
+  });
   
   const volumeText = `${(maxVolumeLevel.volume || 0).toFixed(0)}`;
   const textMetrics = ctx.measureText(volumeText);
@@ -456,9 +466,9 @@ function drawMaxVolumeMarker(ctx, maxVolumeLevel, renderData, config) {
   // Draw text background
   const padding = 4;
   const bgX = textX - textMetrics.width / 2 - padding;
-  const bgY = bucketY - fontSize / 2 - padding;
+  const bgY = bucketY - textConfig.baseFontSize / 2 - padding;
   const bgWidth = textMetrics.width + (padding * 2);
-  const bgHeight = fontSize + (padding * 2);
+  const bgHeight = textConfig.baseFontSize + (padding * 2);
   
   ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
   ctx.fillRect(bgX, bgY, bgWidth, bgHeight);

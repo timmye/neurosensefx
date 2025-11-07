@@ -15,6 +15,7 @@
   
   let symbolPaletteRef;
   
+  
   // Enhanced keyboard shortcuts
   function handleKeyDown(e) {
     // Ignore if typing in input/textarea
@@ -139,6 +140,7 @@
         status: 'online'
       });
       
+      
       console.log('[APP] Startup complete - workspace restored from persistence');
     } catch (error) {
       console.error('[APP] Initialization failed:', error);
@@ -183,24 +185,24 @@
     on:contextmenu={handleWorkspaceContextMenu}
   ></div>
   
-  <!-- Floating Icons (Layer 3) -->
-  {#each iconList as icon (icon.id)}
-    <FloatingIcon 
-      id={icon.id}
-      type={icon.type}
-      position={icon.position}
-      config={icon.config}
-      title={icon.config?.title}
-      on:toggleExpansion={(e) => {
-        const { id, isExpanded } = e.detail;
-        if (isExpanded) {
-          displayActions.expandIcon(id);
-        } else {
-          displayActions.collapseIcon(id);
-        }
-      }}
-    />
-  {/each}
+      <!-- Floating Icons (Layer 3) -->
+      {#each iconList as icon (icon.id)}
+        <FloatingIcon 
+          id={icon.id}
+          type={icon.type}
+          position={icon.position}
+          config={icon.config}
+          title={icon.config?.title}
+          on:toggleExpansion={(e) => {
+            const { id, isExpanded } = e.detail;
+            if (isExpanded) {
+              displayActions.expandIcon(id);
+            } else {
+              displayActions.collapseIcon(id);
+            }
+          }}
+        />
+      {/each}
   
   <!-- Floating Displays (Layer 1) -->
   {#each displayList as display (display.id)}
@@ -220,6 +222,7 @@
   
   <!-- Unified Context Menu (Layer 4) -->
   <UnifiedContextMenu />
+  
 </main>
 
 <style>

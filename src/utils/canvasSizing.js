@@ -20,10 +20,45 @@ export const DEFAULT_CONTAINER = {
   height: 160   // 120px canvas + 40px header
 };
 
-// Device pixel ratio handling
+// Device pixel ratio handling with zoom awareness
 export const getDevicePixelRatio = () => {
   return window.devicePixelRatio || 1;
 };
+
+/**
+ * Create a zoom detector for dynamic DPR monitoring
+ * @param {Function} callback - Function called when DPR changes
+ * @returns {Function} Cleanup function to remove event listeners
+ */
+export function createZoomDetector(callback) {
+  let currentDpr = window.devicePixelRatio || 1;
+  
+  const checkZoom = () => {
+    const newDpr = window.devicePixelRatio || 1;
+    if (newDpr !== currentDpr) {
+      currentDpr = newDpr;
+      console.log(`[ZOOM_DETECTOR] DPR changed from ${currentDpr} to ${newDpr}`);
+      callback(newDpr);
+    }
+  };
+  
+  // Listen for zoom indicators
+  window.addEventListener('resize', checkZoom, { passive: true });
+  window.addEventListener('wheel', checkZoom, { passive: true });
+  
+  // Check periodically for smooth zoom detection
+  const interval = setInterval(checkZoom, 100);
+  
+  console.log(`[ZOOM_DETECTOR] Initialized with DPR: ${currentDpr}`);
+  
+  // Return cleanup function
+  return () => {
+    window.removeEventListener('resize', checkZoom);
+    window.removeEventListener('wheel', checkZoom);
+    clearInterval(interval);
+    console.log(`[ZOOM_DETECTOR] Cleanup completed`);
+  };
+}
 
 /**
  * Calculate canvas dimensions based on container size and reference canvas
@@ -54,6 +89,11 @@ export function getCanvasDimensions(containerSize, options = {}) {
   // Apply device pixel ratio if requested
   const dpr = respectDpr ? getDevicePixelRatio() : 1;
 
+  // 🔧 FIX: Use Math.round() for pixel-perfect integer dimensions
+  const dprMultiplier = respectDpr ? dpr : 1;
+  const integerCanvasWidth = Math.round(canvasArea.width * dprMultiplier);
+  const integerCanvasHeight = Math.round(canvasArea.height * dprMultiplier);
+
   return {
     // Reference information
     reference: REFERENCE_CANVAS,
@@ -67,10 +107,10 @@ export function getCanvasDimensions(containerSize, options = {}) {
     
     // Final canvas dimensions (with DPR applied if requested)
     canvas: {
-      width: Math.floor(canvasArea.width * (respectDpr ? dpr : 1)),
-      height: Math.floor(canvasArea.height * (respectDpr ? dpr : 1)),
-      cssWidth: canvasArea.width,
-      cssHeight: canvasArea.height
+      width: integerCanvasWidth,
+      height: integerCanvasHeight,
+      cssWidth: integerCanvasWidth / dprMultiplier, // Ensure CSS matches canvas internal dimensions
+      cssHeight: integerCanvasHeight / dprMultiplier
     },
     
     // Device pixel ratio information

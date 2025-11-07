@@ -8,7 +8,7 @@
  * Architecture: Foundation First - simple, proven patterns
  */
 
-import { boundsUtils } from '../../utils/canvasSizing.js';
+import { boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
 
 export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
   // Guard clauses for safety (SAME PATTERN AS priceFloat.js)

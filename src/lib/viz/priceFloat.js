@@ -7,7 +7,7 @@
  * Architecture: Foundation First - perfect 1px line with progressive enhancement
  */
 
-import { boundsUtils } from '../../utils/canvasSizing.js';
+import { boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
 
 export function drawPriceFloat(ctx, renderingContext, config, state, y) {
   // Guard clauses for safety

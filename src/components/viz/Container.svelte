@@ -13,7 +13,7 @@
   import { writable } from 'svelte/store';
   
   // 🔧 UNIFIED SIZING: Import canvas sizing utilities
-  import { createCanvasSizingConfig, configureCanvasContext, CANVAS_CONSTANTS, boundsUtils } from '../../utils/canvasSizing.js';
+  import { createCanvasSizingConfig, configureCanvasContext, CANVAS_CONSTANTS, boundsUtils, createZoomDetector } from '../../utils/canvasSizing.js';
 
   // Local hover state (replaces uiState.hoverState)
   const hoverState = writable(null);
@@ -38,6 +38,41 @@
   onMount(() => {
     ctx = canvas.getContext('2d');
     dpr = window.devicePixelRatio || 1;
+    
+    // 🔧 ZOOM AWARENESS: Initialize zoom detector
+    const cleanupZoomDetector = createZoomDetector((newDpr) => {
+      console.log(`[CONTAINER_ZOOM_AWARENESS] DPR changed to ${newDpr}`);
+      dpr = newDpr;
+      
+      // Recalculate canvas sizing with new DPR
+      if (config) {
+        const containerSize = config.containerSize || { width: 240, height: 160 };
+        canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
+          includeHeader: true,
+          padding: config.padding,
+          headerHeight: config.headerHeight,
+          respectDpr: true
+        });
+        
+        // Update canvas with new dimensions
+        configureCanvasContext(ctx, canvasSizingConfig.dimensions);
+        const { canvas: canvasDims } = canvasSizingConfig.dimensions;
+        canvas.width = canvasDims.width;
+        canvas.height = canvasDims.height;
+        
+        console.log(`[CONTAINER_ZOOM_AWARENESS] Canvas updated for new DPR:`, {
+          newDpr,
+          canvasDimensions: `${canvasDims.width}x${canvasDims.height}`
+        });
+      }
+    });
+    
+    // Store cleanup function for onDestroy
+    onDestroy(() => {
+      if (cleanupZoomDetector) {
+        cleanupZoomDetector();
+      }
+    });
   });
 
   // 🔧 CLEAN FOUNDATION: Container → Content → Rendering pipeline

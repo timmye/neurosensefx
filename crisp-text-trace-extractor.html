@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUDUSD Crisp Text Trace Extractor</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1f2937;
+            color: #d1d5db;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section {
+            background: #374151;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #4b5563;
+        }
+        .audusd-trace {
+            background: #065f46;
+            border-color: #10b981;
+        }
+        .extracted {
+            background: #065f46;
+            border-color: #10b981;
+        }
+        .pre {
+            background: #111827;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .parameter {
+            color: #60a5fa;
+        }
+        .value {
+            color: #34d399;
+        }
+        .success {
+            background: #065f46;
+            border-color: #10b981;
+        }
+        h1, h2, h3 {
+            color: #f3f4f6;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .trace-data {
+            background: #111827;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #4b5563;
+        }
+        .step {
+            background: #374151;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #10b981;
+        }
+        .step-number {
+            background: #10b981;
+            color: white;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px 0 0 4px;
+            margin: -15px 0 10px -15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 AUDUSD Crisp Text Trace Extractor</h1>
+        <p>Extracts AUDUSD's cached rendering traces to identify what makes text crisp.</p>
+        
+        <button onclick="extractTrace()">🚀 Extract AUDUSD Rendering Trace</button>
+        <button onclick="extractFromAllDisplays()">📊 Extract From All Displays</button>
+        <button onclick="applyCrispSettings()">✅ Apply Crisp Settings to All</button>
+        <button onclick="exportTraceData()">📤 Export Trace Data</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Storage keys
+        const STORAGE_KEYS = {
+            WORKSPACE_LAYOUT: 'neurosensefx-workspace-layout',
+            GLOBAL_CONFIG: 'neurosensefx-global-config',
+            DISPLAY_SIZES: 'neurosensefx-display-sizes'
+        };
+
+        let extractedTrace = null;
+        let crispParameters = {};
+
+        function extractTrace() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<div class="section"><h2>🔄 Extracting AUDUSD rendering trace...</h2></div>';
+            
+            try {
+                // Get current workspace data
+                const workspaceLayout = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKSPACE_LAYOUT) || '{}');
+                
+                // Find AUDUSD display
+                const audusdDisplay = workspaceLayout.displays?.find(d => d.symbol === 'AUDUSD.P');
+                
+                if (!audusdDisplay) {
+                    results.innerHTML = '<div class="section"><h2>❌ AUDUSD.P Not Found</h2><p>Please create an AUDUSD.P display first.</p></div>';
+                    return;
+                }
+                
+                // Extract rendering trace from cached state
+                const trace = extractRenderingTrace(audusdDisplay);
+                
+                if (trace) {
+                    extractedTrace = trace;
+                    displayTraceResults(trace);
+                } else {
+                    results.innerHTML = '<div class="section"><h2>❌ No Trace Found</h2><p>Could not extract rendering trace from AUDUSD.P display.</p></div>';
+                }
+                
+            } catch (error) {
+                results.innerHTML = `<div class="section"><h2>❌ Extraction Error</h2><pre>${error.message}</pre></div>`;
+            }
+        }
+
+        function extractFromAllDisplays() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<div class="section"><h2>🔄 Analyzing all displays for crisp text patterns...</h2></div>';
+            
+            try {
+                const workspaceLayout = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKSPACE_LAYOUT) || '{}');
+                
+                if (!workspaceLayout.displays || workspaceLayout.displays.length === 0) {
+                    results.innerHTML = '<div class="section"><h2>❌ No Displays Found</h2><p>No displays found in workspace.</p></div>';
+                    return;
+                }
+                
+                // Analyze each display for crisp text indicators
+                const displayAnalyses = workspaceLayout.displays.map(display => {
+                    const trace = extractRenderingTrace(display);
+                    return {
+                        symbol: display.symbol,
+                        config: display.config,
+                        trace: trace,
+                        crispness: analyzeCrispness(display, trace)
+                    };
+                });
+                
+                // Identify crisp patterns
+                const crispDisplays = displayAnalyses.filter(analysis => analysis.crispness.isLikelyCrisp);
+                const blurryDisplays = displayAnalyses.filter(analysis => !analysis.crispness.isLikelyCrisp);
+                
+                let html = '<div class="section">';
+                html += '<h2>📊 Display Analysis Results</h2>';
+                
+                // Show crisp displays
+                if (crispDisplays.length > 0) {
+                    html += '<div class="extracted">';
+                    html += '<h3>✅ Likely Crisp Displays</h3>';
+                    crispDisplays.forEach(analysis => {
+                        html += `<div class="trace-data">`;
+                        html += `<strong>${analysis.symbol}</strong><br>`;
+                        html += `Size: ${analysis.config?.containerSize?.width}×${analysis.config?.containerSize?.height}px<br>`;
+                        html += `Factors: ${analysis.crispness.factors.join(', ')}`;
+                        html += `</div>`;
+                    });
+                    html += '</div>';
+                }
+                
+                // Show blurry displays
+                if (blurryDisplays.length > 0) {
+                    html += '<div class="section">';
+                    html += '<h3>❌ Likely Blurry Displays</h3>';
+                    blurryDisplays.forEach(analysis => {
+                        html += `<div class="trace-data">`;
+                        html += `<strong>${analysis.symbol}</strong><br>`;
+                        html += `Size: ${analysis.config?.containerSize?.width}×${analysis.config?.containerSize?.height}px<br>`;
+                        html += `Missing: ${analysis.crispness.missingFactors.join(', ')}`;
+                        html += `</div>`;
+                    });
+                    html += '</div>';
+                }
+                
+                // Extract common crisp patterns
+                const commonCrispPatterns = identifyCommonCrispPatterns(crispDisplays);
+                if (commonCrispPatterns.length > 0) {
+                    html += '<div class="success">';
+                    html += '<h3>🎯 Common Crisp Patterns Found</h3>';
+                    commonCrispPatterns.forEach(pattern => {
+                        html += `<div class="trace-data"><strong>${pattern.name}:</strong> ${pattern.value} (${pattern.frequency} displays)</div>`;
+                    });
+                    html += '</div>';
+                }
+                
+                html += '</div>';
+                results.innerHTML = html;
+                
+                // Store extracted crisp parameters
+                if (commonCrispPatterns.length > 0) {
+                    crispParameters = extractCommonParameters(commonCrispPatterns);
+                }
+                
+            } catch (error) {
+                results.innerHTML = `<div class="section"><h2>❌ Analysis Error</h2><pre>${error.message}</pre></div>`;
+            }
+        }
+
+        function extractRenderingTrace(display) {
+            try {
+                // Try to access cached rendering state
+                const canvasElements = document.querySelectorAll('canvas');
+                const trace = {
+                    canvasCount: canvasElements.length,
+                    renderingContexts: [],
+                    fontSettings: {},
+                    scalingFactors: {},
+                    cachedState: null
+                };
+                
+                // Extract from each canvas
+                canvasElements.forEach((canvas, index) => {
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        const rect = canvas.getBoundingClientRect();
+                        const displayElement = canvas.closest('[data-display-id]');
+                        const displayId = displayElement?.dataset.displayId;
+                        
+                        if (displayId === display?.id) {
+                            trace.renderingContexts.push({
+                                canvasIndex: index,
+                                displayId: displayId,
+                                dpr: window.devicePixelRatio || 1,
+                                canvasWidth: canvas.width,
+                                canvasHeight: canvas.height,
+                                cssWidth: rect.width,
+                                cssHeight: rect.height,
+                                contextSettings: {
+                                    font: ctx.font,
+                                    textAlign: ctx.textAlign,
+                                    textBaseline: ctx.textBaseline,
+                                    fillStyle: ctx.fillStyle,
+                                    strokeStyle: ctx.strokeStyle,
+                                    lineWidth: ctx.lineWidth,
+                                    imageSmoothingEnabled: ctx.imageSmoothingEnabled
+                                }
+                            });
+                        }
+                    }
+                });
+                
+                // Try to extract from component state
+                const componentStates = extractComponentStates();
+                trace.cachedState = componentStates;
+                
+                return trace;
+                
+            } catch (error) {
+                console.warn('Error extracting rendering trace:', error);
+                return null;
+            }
+        }
+
+        function extractComponentStates() {
+            try {
+                // Try to access global component states
+                const states = {};
+                
+                // Check for Svelte stores or component instances
+                if (window.__svelte || window.stores) {
+                    // Extract from Svelte stores if available
+                    Object.keys(window.__svelte || {}).forEach(key => {
+                        if (key.includes('display') || key.includes('render')) {
+                            states[key] = window.__svelte[key];
+                        }
+                    });
+                }
+                
+                // Check for any global rendering state
+                if (window.neurosensefx) {
+                    states.neurosensefx = window.neurosensefx;
+                }
+                
+                return states;
+            } catch (error) {
+                console.warn('Error extracting component states:', error);
+                return {};
+            }
+        }
+
+        function analyzeCrispness(display, trace) {
+            const factors = [];
+            const missingFactors = [];
+            
+            // Check for crisp indicators
+            if (trace && trace.renderingContexts.length > 0) {
+                const ctx = trace.renderingContexts[0];
+                
+                // Check for proper DPR handling
+                if (ctx.dpr > 1 && ctx.imageSmoothingEnabled === false) {
+                    factors.push('DPR-aware rendering');
+                }
+                
+                // Check for sub-pixel alignment
+                if (ctx.contextSettings && ctx.contextSettings.imageSmoothingEnabled === false) {
+                    factors.push('Anti-aliasing disabled');
+                }
+                
+                // Check for proper canvas scaling
+                if (ctx.canvasWidth && ctx.cssWidth && Math.abs(ctx.canvasWidth - (ctx.cssWidth * ctx.dpr)) < 2) {
+                    factors.push('Proper canvas scaling');
+                }
+                
+                // Check configuration indicators
+                const config = display.config;
+                if (config) {
+                    if (config.containerSize && config.containerSize.width >= 250) {
+                        factors.push('Large display size');
+                    }
+                    
+                    if (config.priceFontSize >= 45) {
+                        factors.push('Larger font size');
+                    }
+                    
+                    if (config.priceFontWeight === '600' || config.priceFontWeight === '700') {
+                        factors.push('Higher font weight');
+                    }
+                }
+            }
+            
+            // Determine if likely crisp
+            const isLikelyCrisp = factors.length >= 2; // Need multiple factors
+            
+            if (!isLikelyCrisp) {
+                missingFactors.push('DPR awareness', 'Anti-aliasing disabled', 'Proper scaling', 'Large size', 'Higher font weight');
+            }
+            
+            return {
+                isLikelyCrisp,
+                factors,
+                missingFactors
+            };
+        }
+
+        function identifyCommonCrispPatterns(crispDisplays) {
+            const patterns = [];
+            
+            if (crispDisplays.length === 0) return patterns;
+            
+            // Group by common properties
+            const commonConfigs = {};
+            const commonTraces = {};
+            
+            crispDisplays.forEach(analysis => {
+                const config = analysis.config;
+                const trace = analysis.trace;
+                
+                // Analyze config patterns
+                if (config) {
+                    Object.keys(config).forEach(key => {
+                        if (!commonConfigs[key]) commonConfigs[key] = {};
+                        commonConfigs[key][config[key]] = (commonConfigs[key][config[key]] || 0) + 1;
+                    });
+                }
+                
+                // Analyze trace patterns
+                if (trace && trace.renderingContexts) {
+                    trace.renderingContexts.forEach(ctx => {
+                        if (ctx.contextSettings) {
+                            Object.keys(ctx.contextSettings).forEach(key => {
+                                const value = ctx.contextSettings[key];
+                                if (!commonTraces[key]) commonTraces[key] = {};
+                                const keyStr = JSON.stringify(value);
+                                commonTraces[key][keyStr] = (commonTraces[key][keyStr] || 0) + 1;
+                            });
+                        }
+                    });
+                }
+            });
+            
+            // Find most common patterns
+            Object.keys(commonConfigs).forEach(key => {
+                const values = commonConfigs[key];
+                const maxCount = Math.max(...Object.values(values));
+                const mostCommon = Object.keys(values).find(k => values[k] === maxCount);
+                
+                if (maxCount > 1 && crispDisplays.length > 1) {
+                    patterns.push({
+                        name: key,
+                        value: mostCommon,
+                        frequency: maxCount
+                    });
+                }
+            });
+            
+            Object.keys(commonTraces).forEach(key => {
+                const values = commonTraces[key];
+                const maxCount = Math.max(...Object.values(values));
+                const mostCommon = Object.keys(values).find(k => values[k] === maxCount);
+                
+                if (maxCount > 1 && crispDisplays.length > 1) {
+                    patterns.push({
+                        name: key,
+                        value: mostCommon,
+                        frequency: maxCount
+                    });
+                }
+            });
+            
+            return patterns;
+        }
+
+        function extractCommonParameters(patterns) {
+            const params = {};
+            
+            patterns.forEach(pattern => {
+                if (pattern.name.includes('font') || pattern.name.includes('size') || pattern.name.includes('weight')) {
+                    params[pattern.name] = pattern.value;
+                }
+            });
+            
+            return params;
+        }
+
+        function displayTraceResults(trace) {
+            let html = '<div class="audusd-trace">';
+            html += '<h2>🔍 AUDUSD Rendering Trace</h2>';
+            
+            // Display trace summary
+            html += `<div class="trace-data"><strong>Canvases Found:</strong> ${trace.canvasCount}</div>`;
+            html += `<div class="trace-data"><strong>Rendering Contexts:</strong> ${trace.renderingContexts.length}</div>`;
+            
+            if (trace.renderingContexts.length > 0) {
+                const ctx = trace.renderingContexts[0];
+                html += '<h3>🎨 Canvas Context Settings</h3>';
+                html += `<div class="trace-data"><strong>DPR:</strong> ${ctx.dpr}</div>`;
+                html += `<div class="trace-data"><strong>Canvas Size:</strong> ${ctx.canvasWidth}×${ctx.canvasHeight}</div>`;
+                html += `<div class="trace-data"><strong>CSS Size:</strong> ${ctx.cssWidth}×${ctx.cssHeight}</div>`;
+                html += `<div class="trace-data"><strong>Font:</strong> ${ctx.contextSettings.font}</div>`;
+                html += `<div class="trace-data"><strong>Anti-aliasing:</strong> ${ctx.contextSettings.imageSmoothingEnabled ? 'Enabled' : 'Disabled'}</div>`;
+                html += `<div class="trace-data"><strong>Text Align:</strong> ${ctx.contextSettings.textAlign}</div>`;
+                html += `<div class="trace-data"><strong>Line Width:</strong> ${ctx.contextSettings.lineWidth}</div>`;
+            }
+            
+            if (trace.cachedState && Object.keys(trace.cachedState).length > 0) {
+                html += '<h3>💾 Cached Component State</h3>';
+                Object.keys(trace.cachedState).forEach(key => {
+                    html += `<div class="trace-data"><strong>${key}:</strong> ${JSON.stringify(trace.cachedState[key])}</div>`;
+                });
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        function applyCrispSettings() {
+            if (Object.keys(crispParameters).length === 0) {
+                alert('❌ No crisp parameters extracted. Please run trace extraction first.');
+                return;
+            }
+            
+            const results = document.getElementById('results');
+            results.innerHTML = '<div class="section"><h2>🔄 Applying crisp settings to all displays...</h2></div>';
+            
+            try {
+                const workspaceLayout = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKSPACE_LAYOUT) || '{}');
+                
+                if (!workspaceLayout.displays) {
+                    results.innerHTML = '<div class="section"><h2>❌ No Displays Found</h2><p>No displays to update.</p></div>';
+                    return;
+                }
+                
+                // Apply crisp parameters to all displays except AUDUSD.P
+                let updatedCount = 0;
+                workspaceLayout.displays.forEach(display => {
+                    if (display.symbol === 'AUDUSD.P') {
+                        // Skip AUDUSD to preserve crispness
+                        return;
+                    }
+                    
+                    // Apply extracted crisp parameters
+                    if (!display.config) display.config = {};
+                    
+                    Object.keys(crispParameters).forEach(key => {
+                        display.config[key] = crispParameters[key];
+                    });
+                    
+                    updatedCount++;
+                });
+                
+                // Save updated workspace
+                localStorage.setItem(STORAGE_KEYS.WORKSPACE_LAYOUT, JSON.stringify(workspaceLayout));
+                
+                let html = '<div class="success">';
+                html += '<h2>✅ Crisp Settings Applied</h2>';
+                html += `<p>Applied crisp parameters to ${updatedCount} displays.</p>`;
+                html += '<h3>Applied Parameters:</h3>';
+                Object.keys(crispParameters).forEach(key => {
+                    html += `<div class="trace-data"><strong>${key}:</strong> ${JSON.stringify(crispParameters[key])}</div>`;
+                });
+                html += '<p><strong>Note:</strong> Refresh the page to see updated text rendering.</p>';
+                html += '</div>';
+                
+                results.innerHTML = html;
+                
+            } catch (error) {
+                results.innerHTML = `<div class="section"><h2>❌ Application Error</h2><pre>${error.message}</pre></div>`;
+            }
+        }
+
+        function exportTraceData() {
+            const data = {
+                extractedTrace: extractedTrace,
+                crispParameters: crispParameters,
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                url: window.location.href
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `audusd-crisp-text-trace-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
