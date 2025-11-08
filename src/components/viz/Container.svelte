@@ -193,12 +193,42 @@
 
     // --- Draw Core Visualizations ---
     // 🔧 CLEAN FOUNDATION: Pass rendering context to all visualization functions
-    drawMarketProfile(ctx, currentRenderingContext, config, currentState, y);
-    drawDayRangeMeter(ctx, currentRenderingContext, config, currentState, y);
-    drawVolatilityOrb(ctx, currentRenderingContext, config, currentState, y);
-    drawPriceFloat(ctx, currentRenderingContext, config, currentState, y);
-    drawPriceDisplay(ctx, currentRenderingContext, config, currentState, y);
-    drawVolatilityMetric(ctx, currentRenderingContext, config, currentState);
+    // Add error handling to identify any component causing canvas to go white
+    try {
+      drawMarketProfile(ctx, currentRenderingContext, config, currentState, y);
+    } catch (error) {
+      console.error('[Container] Market Profile render error:', error);
+    }
+
+    try {
+      drawDayRangeMeter(ctx, currentRenderingContext, config, currentState, y);
+    } catch (error) {
+      console.error('[Container] Day Range Meter render error:', error);
+    }
+
+    try {
+      drawVolatilityOrb(ctx, currentRenderingContext, config, currentState, y);
+    } catch (error) {
+      console.error('[Container] Volatility Orb render error:', error);
+    }
+
+    try {
+      drawPriceFloat(ctx, currentRenderingContext, config, currentState, y);
+    } catch (error) {
+      console.error('[Container] Price Float render error:', error);
+    }
+
+    try {
+      drawPriceDisplay(ctx, currentRenderingContext, config, currentState, y);
+    } catch (error) {
+      console.error('[Container] Price Display render error:', error);
+    }
+
+    try {
+      drawVolatilityMetric(ctx, currentRenderingContext, config, currentState);
+    } catch (error) {
+      console.error('[Container] Volatility Metric render error:', error);
+    }
 
     // --- Draw Price Markers (on top of core visuals, below hover/flash) ---
     drawPriceMarkers(ctx, currentRenderingContext, config, currentState, y, currentMarkers);

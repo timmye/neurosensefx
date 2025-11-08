@@ -16,12 +16,10 @@ function convertValue(value, digits) {
 }
 
 self.onmessage = (event) => {
-    console.log('[WORKER_DEBUG] Received message:', event.data);
     const { type, payload } = event.data;
     try {
         switch (type) {
             case 'init':
-                console.log('[WORKER_DEBUG] Initializing with payload:', payload);
                 initialize(payload);
                 break;
             case 'tick':
@@ -84,9 +82,15 @@ function initialize(payload) {
 }
 
 function processTick(rawTick) {
+    // 🔧 DEFENSIVE FIX: Ensure state is properly initialized before processing
+    if (!state || !state.ready || typeof state.ticks === 'undefined' || typeof state.allTicks === 'undefined') {
+        return;
+    }
+
     const tick = TickSchema.parse(rawTick);
     const lastPrice = state.currentPrice;
     state.currentPrice = tick.bid;
+    state.hasPrice = true; // 🔧 FIX: Update hasPrice when we receive a valid tick
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
     state.lastTick = tick;
     state.todaysHigh = Math.max(state.todaysHigh, tick.bid);
@@ -109,13 +113,30 @@ function updateConfig(newConfig) {
 }
 
 function runCalculationsAndPostUpdate() {
+    // 🔧 DEFENSIVE FIX: Ensure state is initialized before running calculations
+    if (!state || !state.ready) {
+        console.warn('[WORKER_DEBUG] runCalculationsAndPostUpdate called before initialization complete, skipping');
+        return;
+    }
+    
     updateVolatility(performance.now());
     state.marketProfile = generateMarketProfile();
+    console.log('[WORKER_DEBUG] Market profile generated:', {
+      levelsCount: state.marketProfile.levels.length,
+      tickCount: state.marketProfile.tickCount,
+      allTicksCount: state.allTicks.length
+    });
     recalculateVisualRange();
     postStateUpdate();
 }
 
 function updateVolatility(now) {
+    // 🔧 DEFENSIVE FIX: Ensure state arrays exist before accessing
+    if (!state || typeof state.ticks === 'undefined' || typeof state.tickMagnitudes === 'undefined') {
+        console.warn('[WORKER_DEBUG] updateVolatility called before state arrays initialized, skipping');
+        return;
+    }
+
     const lookbackPeriod = 10000;
     state.ticks = state.ticks.filter(t => now - t.time <= lookbackPeriod);
     if (state.tickMagnitudes.length > 50) state.tickMagnitudes.shift();
@@ -137,6 +158,12 @@ function updateVolatility(now) {
 }
 
 function generateMarketProfile() {
+    // 🔧 DEFENSIVE FIX: Ensure state.allTicks exists before accessing
+    if (!state || typeof state.allTicks === 'undefined') {
+        console.warn('[WORKER_DEBUG] generateMarketProfile called before state.allTicks initialized, returning empty profile');
+        return { levels: [], tickCount: 0 };
+    }
+
     const pipetteSize = 1 / Math.pow(10, localDigits);
     const priceBucketSize = pipetteSize * (config.priceBucketMultiplier || 1);
 

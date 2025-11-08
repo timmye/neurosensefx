@@ -56,16 +56,12 @@ function calculateRenderData(contentArea, adrAxisX, config, state, y) {
   // Check if price line is within canvas bounds
   const inBounds = boundsUtils.isYInBounds(priceY, config, { canvasArea: contentArea });
   
-  // Calculate content-relative dimensions with percentage-to-decimal conversion
-  const widthPercentage = (config.priceFloatWidth || 15) / 100; // Convert percentage to decimal
-  const heightPercentage = (config.priceFloatHeight || 2) / 100; // Convert percentage to decimal
-  
-  const floatWidth = contentArea.width * widthPercentage;
-  const floatHeight = Math.max(1, contentArea.height * heightPercentage);
-  
+  // Calculate content-relative dimensions using simplified decimal format
+  const floatWidth = contentArea.width * (config.priceFloatWidth || 0.15);
+  const floatHeight = Math.max(1, contentArea.height * (config.priceFloatHeight || 0.02));
+
   // Calculate X offset from priceFloatXOffset parameter
-  const xOffsetPercentage = (config.priceFloatXOffset || 0) / 100; // Convert percentage to decimal
-  const xOffset = contentArea.width * xOffsetPercentage;
+  const xOffset = contentArea.width * (config.priceFloatXOffset || 0);
   
   // Calculate start position: center on ADR axis, then apply offset
   const centeredStartX = adrAxisX - (floatWidth / 2);
@@ -88,13 +84,13 @@ function calculateRenderData(contentArea, adrAxisX, config, state, y) {
  */
 function configureRenderContext(ctx) {
   ctx.save();
-  
+
   // Sub-pixel alignment for crisp 1px lines
   ctx.translate(0.5, 0.5);
-  
+
   // Disable anti-aliasing for sharp rendering
   ctx.imageSmoothingEnabled = false;
-  
+
   // Set baseline for consistent text rendering (future use)
   ctx.textBaseline = 'middle';
 }

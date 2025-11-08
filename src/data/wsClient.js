@@ -39,7 +39,6 @@ export function connect() {
             handleSocketMessage(rawData);
         };
         ws.onclose = (event) => {
-            console.log(`[WSCLIENT_DEBUG] WebSocket closed, code: ${event.code}, reason: ${event.reason}`);
             stopConnectionMonitor();
             ws = null;
             if (get(wsStatus) !== 'error') wsStatus.set('disconnected');
@@ -75,11 +74,8 @@ function stopConnectionMonitor() {
 }
 
 function handleSocketMessage(data) {
-    console.log(`[WSCLIENT_DEBUG] Received message:`, data);
-    console.log(`[WSCLIENT_DEBUG] Message type: ${data.type}, symbol: ${data.symbol}`);
     
     if (data.type === 'symbolDataPackage') {
-        console.log(`[WSCLIENT_DEBUG] Processing symbolDataPackage for ${data.symbol}`);
         const packageResult = SymbolDataPackageSchema.safeParse(data);
         if (packageResult.success) {
             handleDataPackage(packageResult.data);
@@ -88,18 +84,15 @@ function handleSocketMessage(data) {
         }
     } else if (data.type === 'status' || data.type === 'ready') {
          const status = data.type === 'ready' ? 'connected' : data.status;
-         console.log(`[WSCLIENT_DEBUG] Setting status to: ${status}`);
          wsStatus.set(status);
          if(status === 'connected'){
-             console.log(`[WSCLIENT_DEBUG] Setting available symbols to:`, data.availableSymbols);
              availableSymbols.set(data.availableSymbols || []);
          }
     } else if (data.type === 'tick') {
     // Processing tick
         const tickResult = TickSchema.safeParse(data);
         if (tickResult.success) {
-            console.log('[wsClient] Tick received for:', tickResult.data.symbol);
-            displayActions.dispatchTick(tickResult.data.symbol, tickResult.data);
+                        displayActions.dispatchTick(tickResult.data.symbol, tickResult.data);
         } else {
             console.error('[wsClient] Invalid tick data received:', tickResult.error);
         }
@@ -107,9 +100,7 @@ function handleSocketMessage(data) {
 }
 
 function handleDataPackage(data) {
-    console.log(`[WSCLIENT_DEBUG] handleDataPackage called for ${data.symbol}`);
-    console.log('[wsClient] Data package received for:', data.symbol);
-    
+        
     // 🔧 CRITICAL FIX: Check if display already exists before creating/updating
     const currentStore = get(displayStore);
     let existingDisplay = null;
@@ -124,19 +115,16 @@ function handleDataPackage(data) {
     
     if (existingDisplay) {
         // Update existing display (workspace restoration case)
-        console.log(`[WSCLIENT_DEBUG] Updating existing display for ${data.symbol}`);
         displayActions.updateExistingSymbol(data.symbol, data);
     } else {
         // Create new display (symbol palette case)
-        console.log(`[WSCLIENT_DEBUG] Creating new display for ${data.symbol}`);
         displayActions.createNewSymbol(data.symbol, data);
     }
-    
+
     subscriptions.update(subs => {
         subs.add(data.symbol);
         return subs;
     });
-    console.log(`[WSCLIENT_DEBUG] Symbol ${data.symbol} added to subscriptions`);
 }
 
 export function disconnect() {

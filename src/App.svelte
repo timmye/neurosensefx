@@ -59,8 +59,7 @@
             x: 100 + Math.random() * 200,
             y: 100 + Math.random() * 100
           });
-          
-          console.log(`[APP] Created new display for ${firstSymbol}: ${displayId}`);
+
         } else {
           console.warn('[APP] No symbols available for display creation');
         }
@@ -119,7 +118,6 @@
   onMount(async () => {
     try {
       // Initialize workspace from persisted data first
-      console.log('[APP] Initializing workspace from persistence...');
       await displayActions.initializeWorkspace();
       
       // Initialize symbol service
@@ -128,20 +126,16 @@
       const firstSymbol = symbolService.getFirstSymbol();
       
       // Register symbol palette panel
-      console.log('[APP] About to add symbol palette panel');
       displayActions.addPanel('symbol-palette', { x: 50, y: 50 }, {
         title: 'Symbol Palette'
       });
-      console.log('[APP] Symbol palette panel add call completed');
       
       // Create symbol palette floating icon
       displayActions.addIcon('symbol-palette-icon', 'symbol-palette', { x: 20, y: 20 }, {
         title: 'Symbol Palette',
         status: 'online'
       });
-      
-      
-      console.log('[APP] Startup complete - workspace restored from persistence');
+
     } catch (error) {
       console.error('[APP] Initialization failed:', error);
       // Fallback: try to create display with default symbol
@@ -150,7 +144,6 @@
         const validation = symbolService.validateSymbol(fallbackSymbol);
         if (validation.valid) {
           const displayId = displayActions.addDisplay(validation.symbol, { x: 100, y: 100 });
-          console.log(`[APP] Created fallback display for ${validation.symbol}: ${displayId}`);
         }
       } catch (fallbackError) {
         console.error('[APP] Fallback display creation also failed:', fallbackError);

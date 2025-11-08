@@ -16,9 +16,9 @@ export const FACTORY_DEFAULTS = {
   headerHeight: 40,                                // Header area height
   
   // === LAYOUT & SIZING ===
-  visualizationsContentWidth: 100,                    // 100% of canvas width
-  meterHeight: 75,                                   // 75% of canvas height (120px - 40px header = 80px, so 75% = 60px)
-  adrAxisPosition: 75,                              // 65% of content width (30% right of center)
+  visualizationsContentWidth: 1.0,                    // 100% of canvas width
+  meterHeight: 0.75,                                 // 75% of canvas height (120px - 40px header = 80px, so 75% = 60px)
+  adrAxisPosition: 0.75,                             // 75% of canvas width (30% right of center)
   adrAxisBounds: { min: 5, max: 95 },             // 5%-95% of content width
   
   // === VISUALIZATION PARAMETERS (content-relative) ===
@@ -60,8 +60,8 @@ export const FACTORY_DEFAULTS = {
   ohlLabelBoxOutlineOpacity: 1,
 
   // === PRICE FLOAT & DISPLAY (content-relative) ===
-  priceFloatWidth: 15,                               // 15% of content width (33px on 220px canvas)
-  priceFloatHeight: 2,                              // 2% of content height (2.4px on 120px canvas)
+  priceFloatWidth: 0.15,                             // 15% of content width (33px on 220px canvas) - converted to decimal
+  priceFloatHeight: 0.02,                            // 2% of content height (2.4px on 120px canvas) - converted to decimal
   priceFloatXOffset: 0,                               // 0% of content width
   priceFloatUseDirectionalColor: false,
   priceFloatColor: '#FFFFFF',
@@ -71,15 +71,15 @@ export const FACTORY_DEFAULTS = {
   priceFloatPulseThreshold: 0.5,
   priceFloatPulseColor: 'rgba(167, 139, 250, 0.8)',
   priceFloatPulseScale: 1.5,
-  priceFontSize: 40,                                  // 5% of content height (MINIMUM: User requested minimum 5%)
+  priceFontSize: 0.05,                                 // 5% of content height (MINIMUM: User requested minimum 5%) - converted to decimal
   priceFontWeight: '600',
   priceDisplayPositioning: 'canvasRelative',             // Positioning mode: 'canvasRelative' or 'adrAxis'
-  priceDisplayHorizontalPosition: 2,                     // ✅ FIXED: 2% from left edge (percentage, not decimal)
+  priceDisplayHorizontalPosition: 0.02,                 // ✅ FIXED: 2% from left edge - converted to decimal
   priceDisplayXOffset: 0,                              // 0% offset from base position (DIFFERENT PURPOSE: fine-tuning)
   priceDisplayPadding: 4,                               // 4px padding (absolute pixels)
-  bigFigureFontSizeRatio: 80,                           // ✅ FIXED: 80% of base font size (percentage for context menu)
-  pipFontSizeRatio: 100,                               // ✅ FIXED: 100% of base font size (percentage for context menu)
-  pipetteFontSizeRatio: 70,                             // ✅ FIXED: 70% of base font size (percentage for context menu)
+  bigFigureFontSizeRatio: 1.0,                         // ✅ FIXED: 100% of base font size - main price component
+  pipFontSizeRatio: 0.6,                               // ✅ FIXED: 60% of base font size - smaller but readable
+  pipetteFontSizeRatio: 0.4,                           // ✅ FIXED: 40% of base font size - smallest but visible
   showPipetteDigit: true,
   priceUseStaticColor: false,
   priceStaticColor: '#d1d5db',
@@ -123,7 +123,7 @@ export const FACTORY_DEFAULTS = {
   distributionDepthMode: 'all',
   distributionPercentage: 50,
   priceBucketMultiplier: 1,
-  marketProfileWidthRatio: 15,         // ✅ FIXED: 15% = visible bars (33px on 220px canvas)
+  marketProfileWidthRatio: 0.15,       // ✅ FIXED: 15% = visible bars (33px on 220px canvas) - converted to decimal
   marketProfileWidthMode: 'responsive', // 'responsive' | 'fixed' - NEW: Responsive width management
   marketProfileMinWidth: 5,            // NEW: Minimum bar width constraint (5px)
   marketProfileMarkerFontSize: 10,      // Font size for max volume marker (separate from price display)

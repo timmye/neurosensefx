@@ -89,12 +89,6 @@ export class WorkspacePersistenceManager {
       const layout = this.createWorkspaceLayout(displays, panels, icons);
       this.workspaceAutoSaver.save(layout);
       this.currentLayout = layout;
-      
-      console.log('[WORKSPACE_PERSISTENCE] Workspace layout saved:', {
-        displayCount: displays.size,
-        panelCount: panels.size,
-        iconCount: icons.size
-      });
     } catch (error) {
       console.error('[WORKSPACE_PERSISTENCE] Failed to save workspace layout:', error);
     }
@@ -112,7 +106,6 @@ export class WorkspacePersistenceManager {
         const validation = this.validateWorkspaceLayout(layout);
         
         if (validation.isValid) {
-          console.log('[WORKSPACE_PERSISTENCE] Workspace layout loaded successfully');
           return layout;
         } else {
           console.warn('[WORKSPACE_PERSISTENCE] Invalid workspace layout data:', validation.errors);

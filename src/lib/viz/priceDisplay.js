@@ -48,6 +48,9 @@ export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
 
   // 5. Apply bounds checking ONLY to enhancements (foundation pattern)
   addEnhancements(ctx, renderData, config, state, contentArea, digits);
+
+  // 6. Restore context state (foundation pattern)
+  ctx.restore();
 }
 
 /**
@@ -60,25 +63,23 @@ function calculateRenderData(contentArea, adrAxisX, config, state, y) {
   // Check if price display is within canvas bounds
   const inBounds = boundsUtils.isYInBounds(priceY, config, { canvasArea: contentArea });
   
-  // Percentage-to-decimal conversion for font size (FOUNDATION PATTERN)
-  const fontSizePercentage = (config.priceFontSize || 40) / 100; // Default 5% from displayStore
-  const baseFontSize = contentArea.height * fontSizePercentage;
-  
-  // Calculate positioning based on mode (DUAL POSITIONING) - ✅ FIXED: ADR Axis mode
+  // Calculate font size using simplified decimal format
+  const fontSize = config.priceFontSize || 0.05; // 5% default as decimal
+  const baseFontSize = contentArea.height * fontSize;
+
+  // Calculate positioning based on mode using simplified decimal format
   const positioningMode = config.priceDisplayPositioning || 'canvasRelative';
   let startX;
-  
+
   if (positioningMode === 'adrAxis') {
     // Mode 1: ADR Axis Aligned
-    const xOffsetPercentage = (config.priceDisplayXOffset || 0) / 100;
-    const xOffset = contentArea.width * xOffsetPercentage;
-    startX = adrAxisX + xOffset; // ✅ FIXED: Start from ADR axis position
+    const xOffset = config.priceDisplayXOffset || 0;
+    startX = adrAxisX + (contentArea.width * xOffset);
   } else {
     // Mode 2: Canvas Relative
-    const horizontalPosition = (config.priceDisplayHorizontalPosition || 2) / 100; // 2% from left
-    const xOffsetPercentage = (config.priceDisplayXOffset || 0) / 100;
-    const xOffset = contentArea.width * xOffsetPercentage;
-    startX = contentArea.width * horizontalPosition + xOffset;
+    const horizontalPosition = config.priceDisplayHorizontalPosition || 0.02; // 2% from left as decimal
+    const xOffset = config.priceDisplayXOffset || 0;
+    startX = contentArea.width * horizontalPosition + (contentArea.width * xOffset);
   }
 
   return {
@@ -96,13 +97,13 @@ function calculateRenderData(contentArea, adrAxisX, config, state, y) {
  */
 function configureRenderContext(ctx) {
   ctx.save();
-  
+
   // Sub-pixel alignment for crisp 1px lines
   ctx.translate(0.5, 0.5);
-  
+
   // Disable anti-aliasing for sharp rendering
   ctx.imageSmoothingEnabled = false;
-  
+
   // Set baseline for consistent text rendering
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
@@ -148,9 +149,8 @@ function drawPriceText(ctx, renderData, config, state, digits) {
     ctx.font = `${baseFontSize * formattedPrice.sizing.pipetteRatio}px monospace`;
     ctx.fillText(formattedPrice.text.pipette, currentX, startY);
   }
-  
-  // Restore context state
-  ctx.restore();
+
+  // Note: Context restoration handled by main drawPriceDisplay function
 }
 
 /**
@@ -193,10 +193,12 @@ function formatPrice(price, digits, config) {
     bigFigure += '.' + decimalPart;
   }
 
-  // ✅ CRITICAL FIX: Convert percentage ratios to decimals (displayStore saves as 80, 100, 70 but we need 0.8, 1.0, 0.7)
-  const bigFigureRatio = (config.bigFigureFontSizeRatio || 80) / 100;     // Convert 80 → 0.8
-  const pipsRatio = (config.pipFontSizeRatio || 100) / 100;               // Convert 100 → 1.0
-  const pipetteRatio = (config.pipetteFontSizeRatio || 70) / 100;         // Convert 70 → 0.7
+  // Use simplified decimal format for sizing ratios
+  // FIXED: Use correct parameter names and adjust ratios for user expectations
+  // When user sets 50%, visible text should be close to 50% of canvas height
+  const bigFigureRatio = config.bigFigureFontSizeRatio || 1.0;          // 100% of base size (main price component)
+  const pipsRatio = config.pipFontSizeRatio || 0.6;                     // 60% of base size (smaller but still readable)
+  const pipetteRatio = config.pipetteFontSizeRatio || 0.4;              // 40% of base size (smallest but visible)
   
   return {
     text: { bigFigure, pips, pipette },

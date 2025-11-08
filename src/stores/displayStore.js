@@ -13,12 +13,18 @@
 
 import { writable } from 'svelte/store';
 import { derived } from 'svelte/store';
-import { 
-    SymbolDataPackageSchema,
-    VisualizationConfigSchema 
+import {
+    SymbolDataPackageSchema
 } from '../data/schema.js';
 import { configDefaultsManager } from '../utils/configDefaults.js';
 import { workspacePersistenceManager } from '../utils/workspacePersistence.js';
+import {
+    generateDefaultConfig,
+    migrateAndGenerateConfig,
+    VisualizationConfigSchema,
+    validateConfig,
+    validateParameter
+} from '../config/configGenerator.js';
 
 // =============================================================================
 // UNIFIED DISPLAY STATE (everything in one place)
@@ -62,140 +68,8 @@ const initialState = {
   workers: new Map(),
   
   // === GLOBAL CONFIGURATION ===
-  // Single global configuration for all displays
-  defaultConfig: {
-    // === CONTAINER LAYOUT ===
-    containerSize: { width: 220, height: 160 },     // Full display including header (220×120 content + 40px header)
-    headerHeight: 40,                                // Header area height
-    
-    // === LAYOUT & SIZING ===
-    visualizationsContentWidth: 100,                    // 100% of canvas width
-    meterHeight: 75,                                   // 75% of canvas height (120px - 40px header = 80px, so 75% = 60px)
-    adrAxisPosition: 75,                              // 65% of content width (30% right of center)
-    adrAxisBounds: { min: 5, max: 95 },             // 5%-95% of content width
-    
-    // === VISUALIZATION PARAMETERS (content-relative) ===
-    adrRange: 100,
-    adrLookbackDays: 14,
-    adrProximityThreshold: 10,
-    adrPulseColor: '#3B82F6',
-    adrPulseWidthRatio: 1,
-    adrPulseHeight: 2,
-
-    // === ADR RANGE INDICATOR ===
-    showAdrRangeIndicatorLines: true,
-    adrRangeIndicatorLinesColor: '#9CA3AF',
-    adrRangeIndicatorLinesThickness: 1,
-    showAdrRangeIndicatorLabel: true,
-    adrRangeIndicatorLabelColor: '#E5E7EB',
-    adrRangeIndicatorLabelShowBackground: true,
-    adrRangeIndicatorLabelBackgroundColor: '#1F2937',
-    adrRangeIndicatorLabelBackgroundOpacity: 0.8,
-    adrLabelType: 'dynamicPercentage',
-    adrRangeIndicatorLabelShowBoxOutline: true,
-    adrRangeIndicatorLabelBoxOutlineColor: '#4B5563',
-    adrRangeIndicatorLabelBoxOutlineOpacity: 1,
-
-    // === LABELS (PH/PL, OHL) ===
-    pHighLowLabelSide: 'right',
-    ohlLabelSide: 'right',
-    pHighLowLabelShowBackground: true,
-    pHighLowLabelBackgroundColor: '#1f2937',
-    pHighLowLabelBackgroundOpacity: 0.7,
-    pHighLowLabelShowBoxOutline: false,
-    pHighLowLabelBoxOutlineColor: '#4b5563',
-    pHighLowLabelBoxOutlineOpacity: 1,
-    ohlLabelShowBackground: true,
-    ohlLabelBackgroundColor: '#1f2937',
-    ohlLabelBackgroundOpacity: 0.7,
-    ohlLabelShowBoxOutline: false,
-    ohlLabelBoxOutlineColor: '#4b5563',
-    ohlLabelBoxOutlineOpacity: 1,
-
-    // === PRICE FLOAT & DISPLAY (content-relative) ===
-    priceFloatWidth: 15,                               // 15% of content width (33px on 220px canvas)
-    priceFloatHeight: 2,                              // 2% of content height (2.4px on 120px canvas)
-    priceFloatXOffset: 0,                               // 0% of content width
-    priceFloatUseDirectionalColor: false,
-    priceFloatColor: '#FFFFFF',
-    priceFloatUpColor: '#3b82f6',
-    priceFloatDownColor: '#ef4444',
-    showPriceFloatPulse: false,
-    priceFloatPulseThreshold: 0.5,
-    priceFloatPulseColor: 'rgba(167, 139, 250, 0.8)',
-    priceFloatPulseScale: 1.5,
-    priceFontSize: 40,                                  // 5% of content height (MINIMUM: User requested minimum 5%)
-    priceFontWeight: '600',
-    priceDisplayPositioning: 'canvasRelative',             // Positioning mode: 'canvasRelative' or 'adrAxis'
-    priceDisplayHorizontalPosition: 2,                     // ✅ FIXED: 2% from left edge (percentage, not decimal)
-    priceDisplayXOffset: 0,                              // 0% offset from base position (DIFFERENT PURPOSE: fine-tuning)
-    priceDisplayPadding: 4,                               // 4px padding (absolute pixels)
-    bigFigureFontSizeRatio: 80,                           // ✅ FIXED: 80% of base font size (percentage for context menu)
-    pipFontSizeRatio: 100,                               // ✅ FIXED: 100% of base font size (percentage for context menu)
-    pipetteFontSizeRatio: 70,                             // ✅ FIXED: 70% of base font size (percentage for context menu)
-    showPipetteDigit: true,
-    priceUseStaticColor: false,
-    priceStaticColor: '#d1d5db',
-    priceUpColor: '#3b82f6',
-    priceDownColor: '#ef4444',
-    showPriceBackground: true,
-    priceBackgroundColor: '#111827',
-    priceBackgroundOpacity: 0.5,
-    showPriceBoundingBox: false,
-    priceBoxOutlineColor: '#4b5563',
-    priceBoxOutlineOpacity: 1,
-    
-    // === VOLATILITY ORB (content-relative) ===
-    showVolatilityOrb: true,
-    volatilityColorMode: 'directional',
-    volatilityOrbBaseWidth: 91,                         // 91% of content width
-    volatilityOrbPositionMode: 'canvasCenter',             // Default: user expectation
-    volatilityOrbXOffset: 0,                            // Default: no offset
-    volatilityOrbInvertBrightness: false,
-    volatilitySizeMultiplier: 1.5,
-    showVolatilityMetric: true,
-    
-    // === EVENT HIGHLIGHTING ===
-    showFlash: false,
-    flashThreshold: 2.0,
-    flashIntensity: 0.3,
-    showOrbFlash: false,
-    orbFlashThreshold: 2.0,
-    orbFlashIntensity: 0.8,
-    
-    // === MARKET PROFILE ===
-    showMarketProfile: true,
-    marketProfileView: 'combinedRight',
-    marketProfileUpColor: '#10B981',    // ✅ FIXED: Green for buy volume
-    marketProfileDownColor: '#EF4444',  // ✅ FIXED: Red for sell volume  
-    marketProfileOpacity: 0.7,
-    marketProfileOutline: true,
-    marketProfileOutlineShowStroke: true,
-    marketProfileOutlineStrokeWidth: 1,
-    marketProfileOutlineUpColor: '#a78bfa',
-    marketProfileOutlineDownColor: '#a78bfa',
-    marketProfileOutlineOpacity: 1,
-    distributionDepthMode: 'all',
-    distributionPercentage: 50,
-    priceBucketMultiplier: 1,
-    marketProfileWidthRatio: 15,         // ✅ FIXED: 15% = visible bars (33px on 220px canvas)
-    marketProfileWidthMode: 'responsive', // 'responsive' | 'fixed' - NEW: Responsive width management
-    marketProfileMinWidth: 5,            // NEW: Minimum bar width constraint (5px)
-    marketProfileMarkerFontSize: 10,      // Font size for max volume marker (separate from price display)
-    showMaxMarker: true,
-
-    // === PRICE MARKERS ===
-    markerLineColor: '#FFFFFF',
-    markerLineThickness: 1,
-
-    // === HOVER INDICATOR ===
-    hoverLabelShowBackground: true,
-    hoverLabelBackgroundColor: '#000000',
-    hoverLabelBackgroundOpacity: 0.7,
-
-    // === SIMULATION ===
-    frequencyMode: 'normal'
-  }
+  // Single global configuration for all displays - generated from unified schema
+  defaultConfig: generateDefaultConfig()
 };
 
 // =============================================================================
@@ -239,7 +113,6 @@ export const displayActions = {
   // === DISPLAY OPERATIONS ===
   
   addDisplay: (symbol, position = { x: 100, y: 100 }, config = {}) => {
-    console.log('[DISPLAY_STORE] Adding display:', symbol);
     
     const displayId = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
@@ -281,7 +154,6 @@ export const displayActions = {
   },
   
   removeDisplay: (displayId) => {
-    console.log('[DISPLAY_STORE] Removing display:', displayId);
     
     displayStore.update(store => {
       const display = store.displays.get(displayId);
@@ -376,11 +248,6 @@ export const displayActions = {
   },
   
   updateDisplayState: (displayId, newState) => {
-    console.log(`[DISPLAY_STORE] Updating state for display ${displayId}:`, {
-      ready: newState?.ready,
-      hasPrice: newState?.hasPrice,
-      currentPrice: newState?.currentPrice
-    });
     
     displayStore.update(store => {
       const newDisplays = new Map(store.displays);
@@ -393,12 +260,6 @@ export const displayActions = {
         };
         newDisplays.set(displayId, updatedDisplay);
         
-        console.log(`[DISPLAY_STORE] Display ${displayId} updated:`, {
-          symbol: display.symbol,
-          ready: updatedDisplay.ready,
-          hasPrice: newState?.hasPrice,
-          stateKeys: Object.keys(newState || {})
-        });
       } else {
         console.warn(`[DISPLAY_STORE] Display ${displayId} not found for state update`);
       }
@@ -409,7 +270,6 @@ export const displayActions = {
   // === SIMPLIFIED CONFIGURATION OPERATIONS (global only) ===
   
   updateDisplayConfig: (displayId, parameter, value) => {
-    console.log('[DISPLAY_STORE] Updating global config:', parameter, value);
     
     displayStore.update(store => {
       const updatedConfig = { ...store.defaultConfig, [parameter]: value };
@@ -447,8 +307,14 @@ export const displayActions = {
   },
   
   updateGlobalConfig: (parameter, value) => {
-    console.log('[DISPLAY_STORE] Updating global config:', parameter, value);
-    
+
+    // Validate parameter before updating
+    const validation = validateParameter(parameter, value);
+    if (!validation.isValid) {
+      console.error('[DISPLAY_STORE] Configuration validation failed:', validation.error);
+      return false;
+    }
+
     displayStore.update(store => {
       const updatedConfig = { ...store.defaultConfig, [parameter]: value };
       
@@ -485,10 +351,9 @@ export const displayActions = {
   },
   
   resetToFactoryDefaults: () => {
-    console.log('[DISPLAY_STORE] Resetting to factory defaults');
-    
+
     displayStore.update(store => {
-      const factoryDefaults = configDefaultsManager.getFactoryDefaults();
+      const factoryDefaults = generateDefaultConfig();
       const newDisplays = new Map(store.displays);
       
       newDisplays.forEach((display, displayId) => {
@@ -524,7 +389,6 @@ export const displayActions = {
   // === WORKER OPERATIONS ===
   
   createWorkerForSymbol: (symbol, displayId) => {
-    console.log('[DISPLAY_STORE] Creating worker for symbol:', symbol, 'display:', displayId);
     
     return new Promise((resolve) => {
       displayStore.update(store => {
@@ -533,7 +397,6 @@ export const displayActions = {
         
         // Check if worker already exists for this specific display
         if (store.workers.has(workerKey)) {
-          console.log(`[DISPLAY_STORE] Worker already exists for ${workerKey}, reusing`);
           resolve(store.workers.get(workerKey));
           return store;
         }
@@ -549,8 +412,7 @@ export const displayActions = {
         
         const newWorkers = new Map(store.workers);
         newWorkers.set(workerKey, worker);
-        
-        console.log(`[DISPLAY_STORE] Worker created for ${workerKey}`);
+
         resolve(worker);
         
         return { ...store, workers: newWorkers };
@@ -559,7 +421,6 @@ export const displayActions = {
   },
   
   initializeWorker: (symbol, displayId, initData) => {
-    console.log('[DISPLAY_STORE] Initializing worker for symbol:', symbol, 'display:', displayId);
     
     displayStore.subscribe(store => {
       const display = store.displays.get(displayId);
@@ -583,7 +444,6 @@ export const displayActions = {
             initialMarketProfile: initData.initialMarketProfile || []
           }
         };
-        console.log(`[DISPLAY_STORE] Sending init payload to ${workerKey}:`, initPayload);
         worker.postMessage(initPayload);
       } else {
         console.warn(`[DISPLAY_STORE] Cannot initialize worker - display or worker missing:`, {
@@ -608,26 +468,19 @@ export const displayActions = {
       });
       
       // Send tick to all matching workers
-      matchingWorkers.forEach(({ worker, workerKey }) => {
-        console.log(`[DISPLAY_STORE] Dispatching tick to ${workerKey}`);
+      matchingWorkers.forEach(({ worker }) => {
         worker.postMessage({ type: 'tick', payload: tick });
       });
-      
-      if (matchingWorkers.length === 0) {
-        console.warn(`[DISPLAY_STORE] No workers found for symbol: ${symbol}`);
-      }
     })();
   },
   
   // === WEBSOCKET INTEGRATION METHODS ===
   
   dispatchTick: (symbol, tickData) => {
-    console.log('[DISPLAY_STORE] Dispatching tick for symbol:', symbol);
     displayActions.dispatchTickToWorker(symbol, tickData);
   },
   
   createNewSymbol: (symbol, data) => {
-    console.log('[DISPLAY_STORE] Creating new symbol:', symbol);
     
     // For Symbol Palette: ALWAYS create new display (maintain existing behavior)
     const displayId = displayActions.addDisplay(symbol, {
@@ -646,7 +499,6 @@ export const displayActions = {
    * @param {Object} data - Fresh market data
    */
   updateExistingSymbol: async (symbol, data) => {
-    console.log('[DISPLAY_STORE] Updating existing symbol:', symbol);
     
     let existingDisplayId = null;
     
@@ -663,25 +515,19 @@ export const displayActions = {
     
     // Use existing display ID with sequential worker initialization
     if (existingDisplayId) {
-      console.log(`[DISPLAY_STORE] Using existing display ${existingDisplayId} for ${symbol}`);
-      
       try {
         // 🔧 RACE FIX: Create worker first, wait for it to be ready
-        const worker = await displayActions.createWorkerForSymbol(symbol, existingDisplayId);
-        console.log(`[DISPLAY_STORE] Worker created successfully for ${symbol}-${existingDisplayId}`);
-        
+        await displayActions.createWorkerForSymbol(symbol, existingDisplayId);
+
         // 🔧 RACE FIX: Initialize worker after it's created
         displayActions.initializeWorker(symbol, existingDisplayId, data);
       } catch (error) {
         console.error(`[DISPLAY_STORE] Failed to create worker for ${symbol}:`, error);
       }
-    } else {
-      console.warn(`[DISPLAY_STORE] No existing display found for symbol ${symbol}`);
     }
   },
   
   removeSymbol: (symbol) => {
-    console.log('[DISPLAY_STORE] Removing symbol:', symbol);
     
     displayStore.update(store => {
       // Find and remove all displays for this symbol
@@ -718,7 +564,6 @@ export const displayActions = {
   },
   
   clear: () => {
-    console.log('[DISPLAY_STORE] Clearing all displays and workers');
     
     displayStore.update(store => {
       // Terminate all workers
@@ -742,7 +587,6 @@ export const displayActions = {
   // === UI ELEMENT OPERATIONS ===
   
   addPanel: (type, position = { x: 50, y: 50 }, config = {}) => {
-    console.log('[DISPLAY_STORE] Adding panel:', type, 'with config:', config);
     // Use type as ID for known panels, otherwise generate random ID
     const panelId = type === 'symbol-palette' ? 'symbol-palette' : `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
@@ -771,11 +615,9 @@ export const displayActions = {
   },
   
   removePanel: (panelId) => {
-    console.log('[DISPLAY_STORE] Removing panel:', panelId);
     displayStore.update(store => {
       const newPanels = new Map(store.panels);
       newPanels.delete(panelId);
-      console.log('[DISPLAY_STORE] Panel removed, remaining panels:', newPanels.size);
       return {
         ...store,
         panels: newPanels,
@@ -875,7 +717,6 @@ export const displayActions = {
           if (isExpanded) {
             // Create symbol palette panel if it doesn't exist
             if (!newPanels.has('symbol-palette')) {
-              console.log('[DISPLAY_STORE] Creating symbol palette panel for icon expansion');
               newPanels.set('symbol-palette', {
                 id: 'symbol-palette',
                 type: 'symbol-palette',
@@ -890,7 +731,6 @@ export const displayActions = {
           } else {
             // Remove symbol palette panel when collapsed
             if (newPanels.has('symbol-palette')) {
-              console.log('[DISPLAY_STORE] Removing symbol palette panel for icon collapse');
               newPanels.delete('symbol-palette');
             }
           }
@@ -1003,7 +843,6 @@ export const displayActions = {
    */
   initializeWorkspace: async () => {
     try {
-      console.log('[DISPLAY_STORE] Initializing workspace...');
       
       const workspaceData = await workspacePersistenceManager.initializeWorkspace();
       
@@ -1015,13 +854,6 @@ export const displayActions = {
           // Restore displays
           const newDisplays = new Map();
           workspaceData.layout.displays.forEach(displayData => {
-            // 🔍 DEBUG: Log size restoration for each display
-            console.log(`[DISPLAY_STORE_DEBUG] Restoring display ${displayData.id}:`, {
-              symbol: displayData.symbol,
-              restoredSize: displayData.size,
-              hasCustomSize: !!displayData.size,
-              defaultSize: { width: 220, height: 160 }
-            });
             const display = {
               ...displayData,
               config: {
@@ -1061,42 +893,23 @@ export const displayActions = {
           newStore.activePanelId = null;
           newStore.activeIconId = null;
           
-          console.log('[DISPLAY_STORE] Workspace restored:', {
-            displays: newDisplays.size,
-            panels: newPanels.size,
-            icons: newIcons.size
-          });
-          
           return newStore;
         });
 
         // 🔧 CRITICAL FIX: Subscribe restored symbols to WebSocket for fresh data
-        console.log('[DISPLAY_STORE] Scheduling delayed subscription for restored symbols...');
-        
         // Import WebSocket client dynamically to avoid circular dependencies
-        const { subscribe, wsStatus } = await import('../data/wsClient.js');
-        
+        const { subscribe } = await import('../data/wsClient.js');
+
         // 🔧 RACE FIX: Staggered WebSocket subscriptions to prevent overload
         setTimeout(() => {
-          console.log('[DISPLAY_STORE] Attempting to subscribe restored symbols with staggered timing...');
-          
           // Subscribe each restored symbol with 500ms delays between them
           workspaceData.layout.displays.forEach((displayData, index) => {
             setTimeout(() => {
-              console.log(`[DISPLAY_STORE] Subscribing restored symbol ${index + 1}/${workspaceData.layout.displays.length}: ${displayData.symbol}`);
               subscribe(displayData.symbol);
             }, index * 500); // 500ms delay between each subscription
           });
-          
-          // Log when all subscriptions are scheduled
-          const totalDelay = (workspaceData.layout.displays.length - 1) * 500;
-          setTimeout(() => {
-            console.log(`[DISPLAY_STORE] All ${workspaceData.layout.displays.length} restored symbols subscription attempts completed`);
-          }, totalDelay);
-          
+
         }, 2000); // 2 second initial delay to allow WebSocket connection
-        
-        console.log(`[DISPLAY_STORE] Scheduled subscriptions for ${workspaceData.layout.displays.length} restored symbols in 2 seconds`);
       }
       
       return workspaceData;

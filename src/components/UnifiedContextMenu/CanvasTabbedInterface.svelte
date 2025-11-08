@@ -14,7 +14,7 @@
   
   export let displayId = null;
   export let onParameterChange = () => {};
-  export const onMultipleParameterChange = () => {};
+  export let onMultipleParameterChange = () => {};
   export let onReset = () => {};
   
   const dispatch = createEventDispatcher();
@@ -342,18 +342,22 @@
                     {:else if metadata.type === 'range'}
                       {@const percentageMeta = getParameterMetadataWithPercentage(parameter)}
                       <div class="range-input-wrapper">
-                        <input 
+                        <input
                           id={controlId}
-                          type="range" 
+                          type="range"
                           class="range-input"
-                          min={metadata.range?.min || 0}
-                          max={metadata.range?.max || 100}
-                          step={metadata.range?.step || 1}
-                          value={config[parameter] || metadata.defaultValue}
-                          on:input={(e) => handleParameterChange(parameter, parseFloat(e.target.value))}
+                          min={percentageMeta?.isPercentage ? (metadata.range?.min * 100) || 0 : (metadata.range?.min || 0)}
+                          max={percentageMeta?.isPercentage ? (metadata.range?.max * 100) || 100 : (metadata.range?.max || 100)}
+                          step={percentageMeta?.isPercentage ? (metadata.range?.step * 100) || 1 : (metadata.range?.step || 1)}
+                          value={percentageMeta?.isPercentage ? ((config[parameter] || metadata.defaultValue) * 100) : (config[parameter] || metadata.defaultValue)}
+                          on:input={(e) => {
+                            const rawValue = parseFloat(e.target.value);
+                            const finalValue = percentageMeta?.isPercentage ? (rawValue / 100) : rawValue;
+                            handleParameterChange(parameter, finalValue);
+                          }}
                         />
                         <span class="range-value">
-                          {config[parameter] || metadata.defaultValue}
+                          {percentageMeta?.isPercentage ? ((config[parameter] || metadata.defaultValue) * 100).toFixed(1) : (config[parameter] || metadata.defaultValue)}
                           {#if percentageMeta?.isPercentage}
                             <span class="percentage-indicator">%</span>
                           {/if}

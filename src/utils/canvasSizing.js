@@ -37,26 +37,22 @@ export function createZoomDetector(callback) {
     const newDpr = window.devicePixelRatio || 1;
     if (newDpr !== currentDpr) {
       currentDpr = newDpr;
-      console.log(`[ZOOM_DETECTOR] DPR changed from ${currentDpr} to ${newDpr}`);
       callback(newDpr);
     }
   };
-  
+
   // Listen for zoom indicators
   window.addEventListener('resize', checkZoom, { passive: true });
   window.addEventListener('wheel', checkZoom, { passive: true });
-  
-  // Check periodically for smooth zoom detection
-  const interval = setInterval(checkZoom, 100);
-  
-  console.log(`[ZOOM_DETECTOR] Initialized with DPR: ${currentDpr}`);
-  
+
+  // Check periodically for smooth zoom detection (reduced frequency)
+  const interval = setInterval(checkZoom, 500);
+
   // Return cleanup function
   return () => {
     window.removeEventListener('resize', checkZoom);
     window.removeEventListener('wheel', checkZoom);
     clearInterval(interval);
-    console.log(`[ZOOM_DETECTOR] Cleanup completed`);
   };
 }
 
@@ -147,8 +143,15 @@ export function normalizeConfig(config, canvasDimensions) {
   };
 
   // Helper function to convert percentage to pixels
-  const percentageToPixels = (percentage, reference) => {
-    return (percentage / 100) * reference;
+  // Smart conversion: handles both decimal (≤1) and percentage (>1) values
+  const percentageToPixels = (value, reference) => {
+    if (value <= 1) {
+      // Already in decimal format (0.15 = 15%)
+      return value * reference;
+    } else {
+      // Old percentage format (15 = 15%)
+      return (value / 100) * reference;
+    }
   };
 
   return {

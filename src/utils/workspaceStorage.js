@@ -169,12 +169,6 @@ export function saveWorkspaceLayout(layout) {
   try {
     const data = JSON.stringify(layout);
     localStorage.setItem('neurosensefx-workspace-layout', data);
-    console.log('[WORKSPACE_STORAGE] Workspace layout saved:', {
-      displayCount: layout.displays?.length || 0,
-      panelCount: layout.panels?.length || 0,
-      iconCount: layout.icons?.length || 0,
-      dataSize: data.length
-    });
   } catch (error) {
     console.warn('[WORKSPACE_STORAGE] Failed to save workspace layout:', error);
   }
@@ -189,12 +183,6 @@ export function loadWorkspaceLayout() {
     const stored = localStorage.getItem('neurosensefx-workspace-layout');
     if (stored) {
       const layout = JSON.parse(stored);
-      console.log('[WORKSPACE_STORAGE] Workspace layout loaded:', {
-        displayCount: layout.displays?.length || 0,
-        panelCount: layout.panels?.length || 0,
-        iconCount: layout.icons?.length || 0,
-        timestamp: layout.timestamp
-      });
       return layout;
     }
   } catch (error) {
@@ -211,11 +199,6 @@ export function saveGlobalConfigState(config) {
   try {
     const data = JSON.stringify(config);
     localStorage.setItem('neurosensefx-global-config', data);
-    console.log('[WORKSPACE_STORAGE] Global config saved:', {
-      hasUserModifications: config.isActive,
-      modifiedParameters: Object.keys(config.userDefaults || {}).length,
-      dataSize: data.length
-    });
   } catch (error) {
     console.warn('[WORKSPACE_STORAGE] Failed to save global config state:', error);
   }

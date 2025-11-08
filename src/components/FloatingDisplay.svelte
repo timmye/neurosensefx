@@ -59,17 +59,7 @@
     zIndex = display?.zIndex || 1;
     displaySize = display?.size || { width: 220, height: 160 }; // ✅ FIXED: Extract size safely
     
-    // 🔍 DEBUG: Log display changes to track data flow
-    if (display) {
-      console.log(`[FLOATING_DISPLAY_DEBUG] Display updated for ${symbol}:`, {
-        id: display.id,
-        position: displayPosition,
-        size: displaySize,
-        hasCustomSize: !!display?.size,
-        configKeys: Object.keys(config || {})
-      });
     }
-  }
   
   // Update markers from store
   $: if ($markerStore !== undefined) {
@@ -145,8 +135,6 @@
   
   // ✅ GRID SNAPPING: Enhanced interact.js setup with grid integration
   onMount(async () => {
-    console.log(`[FLOATING_DISPLAY] Mounting display ${id} for symbol ${symbol}`);
-    console.log(`[FLOATING_DISPLAY] Canvas element available:`, !!canvas);
     
     // ✅ GRID ENHANCED: Setup interact.js with grid snapping
     if (element) {
@@ -161,7 +149,6 @@
           onstart: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of drag start
             workspaceGrid.setDraggingState(true);
-            console.log(`[GRID_SNAPPING] Drag started for display ${id}`);
           },
           onmove: (event) => {
             // ✅ GRID SNAPPING: event.rect already includes snapped coordinates
@@ -173,7 +160,6 @@
           onend: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of drag end
             workspaceGrid.setDraggingState(false);
-            console.log(`[GRID_SNAPPING] Drag ended for display ${id}`);
           }
         })
         .resizable({
@@ -192,7 +178,6 @@
           onstart: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize start
             workspaceGrid.setDraggingState(true);
-            console.log(`[GRID_SNAPPING] Resize started for display ${id}`);
           },
           onmove: (event) => {
             // ✅ GRID SNAPPING: Update element style for visual feedback
@@ -210,7 +195,6 @@
           onend: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize end
             workspaceGrid.setDraggingState(false);
-            console.log(`[GRID_SNAPPING] Resize ended for display ${id}`);
           }
         });
       
@@ -222,14 +206,8 @@
         displayActions.setActiveDisplay(id);
       });
       
-      console.log(`[GRID_SNAPPING] Interact.js setup completed for display ${id}`, {
-        gridEnabled: workspaceGrid.enabled,
-        gridSize: workspaceGrid.gridSize
-      });
-    }
-    
-    console.log(`[FLOATING_DISPLAY] Display ${id} for ${symbol} is ready`);
-    
+      }
+
     return () => {
       // ✅ CLEANUP: Enhanced cleanup with grid unregistration
       if (interactable) {
@@ -237,7 +215,6 @@
         interactable.unset();
         interactable = null;
       }
-      console.log(`[FLOATING_DISPLAY] Cleaning up display for ${symbol}`);
     };
   });
   
@@ -279,26 +256,17 @@
       canvasWidth = contentArea.width;
       canvasHeight = contentArea.height;
       
-      console.log(`[FLOATING_DISPLAY] Pixel-perfect canvas resize:`, {
-        contentArea: `${contentArea.width}x${contentArea.height}`,
-        dpr,
-        integerCanvas: `${integerCanvasWidth}x${integerCanvasHeight}`,
-        cssDimensions: `${cssWidth.toFixed(2)}x${cssHeight.toFixed(2)}`
-      });
-    }
+          }
   }
   
   // 🔧 CONTAINER-STYLE: Initialize canvas with pixel-perfect dimensions
   $: if (state?.ready && canvas && !ctx) {
-    console.log(`[FLOATING_DISPLAY] Canvas becoming available, initializing context`);
     ctx = canvas.getContext('2d');
-    console.log(`[FLOATING_DISPLAY] Canvas context created:`, !!ctx);
     if (ctx) {
       dpr = window.devicePixelRatio || 1;
       
       // 🔧 ZOOM AWARENESS: Initialize zoom detector
       const cleanupZoomDetector = createZoomDetector((newDpr) => {
-        console.log(`[ZOOM_AWARENESS] DPR changed to ${newDpr} for display ${id}`);
         dpr = newDpr;
         
         // Recalculate canvas dimensions with new DPR
@@ -319,14 +287,6 @@
           ctx.scale(dpr, dpr);
           ctx.translate(0.5, 0.5);
           ctx.imageSmoothingEnabled = false;
-          
-          console.log(`[ZOOM_AWARENESS] Canvas updated for new DPR:`, {
-            displayId: id,
-            newDpr,
-            contentArea: `${contentArea.width}x${contentArea.height}`,
-            integerCanvas: `${integerCanvasWidth}x${integerCanvasHeight}`,
-            cssDimensions: `${cssWidth.toFixed(2)}x${cssHeight.toFixed(2)}`
-          });
         }
       });
       
@@ -368,13 +328,6 @@
       
       canvasWidth = contentArea.width;
       canvasHeight = contentArea.height;
-      
-      console.log(`[FLOATING_DISPLAY] Pixel-perfect canvas initialization:`, {
-        contentArea: `${contentArea.width}x${contentArea.height}`,
-        dpr,
-        integerCanvas: `${integerCanvasWidth}x${integerCanvasHeight}`,
-        cssDimensions: `${cssWidth.toFixed(2)}x${cssHeight.toFixed(2)}`
-      });
     } else {
       console.error(`[FLOATING_DISPLAY] Failed to create canvas 2D context`);
     }
@@ -397,16 +350,9 @@
       width: containerSize.width,  // ✅ FIXED: No padding reduction
       height: containerSize.height - config.headerHeight  // ✅ FIXED: Only subtract header
     };
-    const adrAxisX = contentArea.width * (config.adrAxisPosition / 100);
+    const adrAxisX = contentArea.width * config.adrAxisPosition;
     
-    // 🔍 DEBUG: Log ADR axis calculation to track updates
-    console.log(`[RENDER_DEBUG] ADR axis calculation:`, {
-      displayId: id,
-      adrAxisPosition: config.adrAxisPosition,
-      contentAreaWidth: contentArea.width,
-      calculatedAdrAxisX: adrAxisX
-    });
-    
+        
     renderingContext = {
       containerSize,
       contentArea,
