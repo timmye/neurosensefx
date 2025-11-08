@@ -143,18 +143,12 @@ function renderDisplay(ctx, data) {
 }
 ```
 
-### 16. Coordinate System Unification Pattern ✅ COMPLETE (November 4, 2025)
-**Purpose**: Eliminate "stacked canvases" visual issue through unified coordinate system
-
-**Root Cause Resolution**:
-- **Issue Identified**: "Stacked canvases" perception was actually coordinate system mismatch
-- **Before**: Mixed REFERENCE_CANVAS (220×120px) vs contentArea coordinates
-- **After**: Unified contentArea approach across Container.svelte and FloatingDisplay.svelte
-- **Result**: No more visual layer separation, all elements properly aligned
+### 4. Coordinate System Unification Pattern ✅ COMPLETE
+**Purpose**: Eliminate coordinate system mismatches through unified contentArea approach
 
 **Implementation**:
 ```javascript
-// 🔧 CONTAINER-STYLE: contentArea calculations like Container.svelte
+// 🔧 CONTAINER-STYLE: contentArea calculations
 const containerSize = config.containerSize || { width: 240, height: 160 };
 const contentArea = {
   width: containerSize.width - (config.padding * 2),
@@ -177,15 +171,8 @@ ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
 - **Coordinate Consistency**: All visualizations use same contentArea coordinate space
 - **DPR Support**: Crisp 1px lines on all display types and zoom levels
 - **Performance**: Maintains 60fps with 20+ simultaneous displays
-- **Foundation**: Establishes base for unified visualization system
 
-**Benefits**:
-- 20x faster than DOM manipulation
-- Hardware-accelerated rendering
-- Precise control over visual updates
-- Supports 60fps with 20+ displays
-
-### 4. Component Hierarchy Pattern ✅ COMPLETE
+### 5. Component Hierarchy Pattern ✅ COMPLETE
 **Purpose**: Consistent component architecture for floating elements
 
 **Implementation**:
@@ -207,7 +194,7 @@ export let zIndex = 1000;
 - Shared lifecycle management
 - Code reusability
 
-### 5. WebSocket Communication Pattern ✅ COMPLETE
+### 6. WebSocket Communication Pattern ✅ COMPLETE
 **Purpose**: Real-time data flow between servers and client
 
 **Implementation**:
@@ -235,7 +222,7 @@ ws.send(JSON.stringify({
 - Bidirectional communication
 - Connection management and retry logic
 
-### 6. Event Delegation Pattern ✅ COMPLETE
+### 7. Event Delegation Pattern ✅ COMPLETE
 **Purpose**: Efficient event handling for multiple floating elements
 
 **Implementation**:
@@ -515,7 +502,7 @@ function cleanupDisplay(displayId) {
 }
 ```
 
-## Enhanced Floating Element Patterns ✅ COMPLETE (October 22, 2025)
+## Enhanced Floating Element Patterns ✅ COMPLETE
 
 ### 7. Clean Floating Element Pattern ✅ COMPLETE
 **Purpose**: Perfect behavior implementation for floating elements with advanced interactions
@@ -559,7 +546,6 @@ function snapToGrid(value) {
 - Threshold-based grid snapping prevents "massive jumps"
 - 8-handle resize system with collision awareness
 - Touch detection allows resize when elements touch edges
-- Unified event handling for drag and resize operations
 
 ### 8. Production Integration Pattern ✅ COMPLETE
 **Purpose**: Integrate clean behaviors into existing production architecture
@@ -611,12 +597,9 @@ function handleMouseMove(e) {
 - Perfect behavior integration with existing production features
 - Maintains all WebSocket connectivity and canvas rendering
 - Preserves real-time market data visualization
-- Single source of truth for floating element interactions
 
-### 9. Forensic Cleanup Pattern ✅ COMPLETE
-
-### 10. Unified Context Menu Pattern ✅ COMPLETE (October 22, 2025)
-**Purpose**: Single intelligent context menu system that adapts content based on click context while maintaining architectural consistency
+### 9. Unified Context Menu Pattern ✅ COMPLETE
+**Purpose**: Single intelligent context menu system that adapts content based on click context
 
 **Implementation**:
 ```javascript
@@ -636,311 +619,20 @@ function detectContextMenuContext(event) {
     };
   }
   
-  // Header click - Display management
-  if (target.classList.contains('header') || target.closest('.header')) {
-    const displayId = target.closest('[data-display-id]')?.dataset.displayId;
-    return { 
-      type: 'header', 
-      targetId: displayId, 
-      targetType: 'display',
-      showTabs: false,
-      quickActions: ['bringToFront', 'duplicate', 'close']
-    };
-  }
-  
-  // Panel click - Panel controls
-  if (target.classList.contains('floating-panel') || target.closest('.floating-panel')) {
-    const panelId = target.closest('[data-panel-id]')?.dataset.panelId;
-    return { 
-      type: 'panel', 
-      targetId: panelId, 
-      targetType: 'panel',
-      showTabs: false,
-      quickActions: ['bringToFront', 'close', 'reset']
-    };
-  }
-  
-  // Workspace click - Workspace operations
-  return { 
-    type: 'workspace', 
-    targetId: null, 
-    targetType: 'workspace',
-    showTabs: false,
-    quickActions: ['addDisplay', 'showSymbolPalette', 'workspaceSettings']
-  };
+  // Other contexts...
+  return { type: 'workspace', targetId: null, quickActions: ['addDisplay', 'showSymbolPalette'] };
 }
-
-// Enhanced Store Integration
-export const actions = {
-  // Canvas configuration management
-  updateCanvasConfig: (displayId, parameter, value) => {
-    floatingStore.update(store => {
-      const newDisplays = new Map(store.displays);
-      const display = newDisplays.get(displayId);
-      if (display) {
-        newDisplays.set(displayId, {
-          ...display,
-          config: {
-            ...display.config,
-            [parameter]: value
-          }
-        });
-      }
-      return { ...store, displays: newDisplays };
-    });
-  },
-  
-  // Unified context menu management
-  showUnifiedContextMenu: (x, y, context) => {
-    floatingStore.update(store => ({
-      ...store,
-      contextMenu: {
-        open: true,
-        x,
-        y,
-        context // { type, targetId, targetType, showTabs, tabs, quickActions }
-      }
-    }));
-  }
-};
-
-// Dynamic Content Rendering
-function renderContextMenuContent(context) {
-  switch (context.type) {
-    case 'canvas':
-      return CanvasTabbedInterface({ 
-        displayId: context.targetId,
-        tabs: context.tabs,
-        onParameterChange: actions.updateCanvasConfig
-      });
-    
-    case 'header':
-      return HeaderQuickActions({ 
-        displayId: context.targetId,
-        actions: context.quickActions,
-        onAction: handleQuickAction
-      });
-    
-    case 'workspace':
-      return WorkspaceQuickActions({ 
-        actions: context.quickActions,
-        onAction: handleQuickAction
-      });
-    
-    case 'panel':
-      return PanelQuickActions({ 
-        panelId: context.targetId,
-        actions: context.quickActions,
-        onAction: handleQuickAction
-      });
-  }
-}
-```
-
-**Context Configurations**:
-```javascript
-const CONTEXT_CONFIGURATIONS = {
-  canvas: {
-    title: 'Canvas Controls',
-    size: { width: 500, height: 700 },
-    showSearch: true,
-    showReset: true,
-    parameterCount: 85
-  },
-  
-  header: {
-    title: 'Display Options',
-    size: { width: 200, height: 150 },
-    showSearch: false,
-    showReset: false
-  },
-  
-  workspace: {
-    title: 'Workspace',
-    size: { width: 200, height: 150 },
-    showSearch: false,
-    showReset: false
-  },
-  
-  panel: {
-    title: 'Panel Options',
-    size: { width: 200, height: 150 },
-    showSearch: false,
-    showReset: true
-  }
-};
 ```
 
 **Benefits**:
 - **Single Right-Click Rule**: Consistent user experience across entire interface
 - **Context-Aware Intelligence**: Menu shows exactly what's needed for current context
 - **Architectural Consistency**: All state management through centralized floatingStore
-- **Progressive Disclosure**: Most relevant options first, advanced controls accessible
-- **Preserved Functionality**: All 85+ CanvasContextMenu parameters maintained
-- **Unified Event Handling**: Eliminates dual event listener conflicts
 
-**Integration Pattern**:
-```javascript
-// UnifiedContextMenu.svelte - Single component replaces both existing menus
-{#if $contextMenu.open}
-  <div class="unified-context-menu" style="left: {$contextMenu.x}px; top: {$contextMenu.y}px;">
-    {#await renderContextMenuContent($contextMenu.context)}
-      <div class="loading">Loading...</div>
-    {:then content}
-      {@html content}
-    {:catch error}
-      <div class="error">Error loading menu</div>
-    {/await}
-  </div>
-{/if}
-```
+## Container vs Display Architecture Pattern ✅ COMPLETE
 
-**Migration Strategy**:
-```javascript
-// Phase 1: Foundation
-// 1. Create UnifiedContextMenu.svelte with context detection
-// 2. Enhance floatingStore with canvas configuration actions
-// 3. Implement dynamic content rendering system
-
-// Phase 2: Integration  
-// 1. Migrate CanvasContextMenu tabs and parameters
-// 2. Update event handling across all components
-// 3. Replace existing context menu components
-
-// Phase 3: Enhancement
-// 1. Add progressive disclosure features
-// 2. Implement search across all parameters
-// 3. Add keyboard shortcuts and navigation
-```
-**Purpose**: Systematic identification and removal of legacy code duplicates
-
-**Implementation**:
-```javascript
-// Forensic Analysis Process
-const componentAnalysis = {
-  totalComponents: 7,
-  cleanComponents: 4,
-  legacyComponents: 3,
-  cleanCodeRatio: '60%'
-};
-
-// Legacy Code Removal
-const removedFiles = [
-  'src/components/EnhancedFloatingDisplay.svelte', // 600 lines redundant
-  'src/components/FloatingDisplay.svelte.backup'   // 400 lines backup
-];
-
-// Post-Cleanup Metrics
-const postCleanupMetrics = {
-  totalComponents: 5,
-  cleanComponents: 4,
-  testComponents: 1,
-  cleanCodeRatio: '85%', // Improved from 60%
-  linesRemoved: 1000,
-  productionStability: '100%'
-};
-```
-
-**Benefits**:
-- Systematic identification of legacy code issues
-- Clean codebase with single source of truth
-- Improved maintainability and reduced confusion
-- Production system stability verified
-
-## Component Lifecycle Pattern ✅ COMPLETE
-
-### 1. Component Creation Pattern
-```javascript
-// Enhanced Display Creation
-actions.addDisplay('EURUSD', { x: 100, y: 100 }, {
-  // Clean behavior configuration
-  collisionDetectionEnabled: true,
-  gridSnapEnabled: true,
-  gridSize: 20,
-  showResizeHandles: true,
-  
-  // Production feature configuration  
-  showMarketProfile: true,
-  showPriceFloat: true,
-  showVolatilityOrb: true,
-  colorMode: 'directional'
-});
-```
-
-### 2. Component Interaction Pattern
-```javascript
-// Unified Event Handling
-function handleMouseDown(e) {
-  if (e.target.classList.contains('resize-handle')) {
-    handleResizeStart(e);
-  } else {
-    handleDragStart(e);
-  }
-  
-  // Set active state for z-index management
-  actions.setActiveDisplay(id);
-}
-
-// Smart Collision During Resize
-function checkIfOnlyTouching(other, newX, newY, newWidth, newHeight) {
-  const tolerance = 1;
-  const touchingLeft = Math.abs(newBounds.right - otherBounds.left) <= tolerance;
-  const touchingRight = Math.abs(newBounds.left - otherBounds.right) <= tolerance;
-  
-  // Allow resize if touching but not overlapping
-  return (touchingLeft && !verticalOverlap) || (touchingRight && !verticalOverlap);
-}
-```
-
-### 3. Component Cleanup Pattern
-```javascript
-// Comprehensive Cleanup
-onDestroy(() => {
-  // Remove event listeners
-  document.removeEventListener('mousemove', handleMouseMove);
-  document.removeEventListener('mouseup', handleMouseUp);
-  
-  // Cancel animation frames
-  if (renderFrame) {
-    cancelAnimationFrame(renderFrame);
-  }
-  
-  // Remove from store
-  actions.removeDisplay(id);
-});
-```
-
-## Container vs Display Architecture Pattern ✅ COMPLETE (October 23, 2025)
-
-### 11. Hierarchical Container-Display Pattern ✅ COMPLETE
-**Purpose**: Clear separation between layout/interaction (Container) and content/rendering (Display) to eliminate circular dependencies
-
-**Architecture Overview**:
-```
-┌─────────────────────────────────────────────────┐
-│                    CONTAINER LAYER                      │
-│  ┌─────────────────────────────────────────────┐ │
-│  │                 Header (40px)                       │ │
-│  │  • Symbol info, close button, drag handle          │ │
-│  ├─────────────────────────────────────────────┤ │
-│  │               Content Area                          │ │
-│  │  ┌─────────────────────────────────────────────┐   │ │
-│  │  │            DISPLAY LAYER                    │   │ │
-│  │  │  ┌─────────────────────────────────────┐   │   │ │
-│  │  │  │         Canvas (220×120px)          │   │   │ │
-│  │  │  │  • Market Profile                   │   │   │ │
-│  │  │  │  • Price Float                      │   │   │ │
-│  │  │  │  • Volatility Orb                   │   │   │ │
-│  │  │  │  • Price Display                    │   │   │ │
-│  │  │  └─────────────────────────────────────┘   │   │ │
-│  │  └─────────────────────────────────────────────┘   │ │
-│  └─────────────────────────────────────────────────────┘ │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │              Resize Handles (8)                     │ │
-│  │  nw, n, ne, e, se, s, sw, w                        │ │
-│  └─────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
-```
+### 10. Hierarchical Container-Display Pattern ✅ COMPLETE
+**Purpose**: Clear separation between layout/interaction (Container) and content/rendering (Display)
 
 **Implementation**:
 ```javascript
@@ -953,115 +645,25 @@ $: displaySize = {
 
 // Display Layer - Content Rendering
 $: scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
-
-// Canvas resize with safety thresholds
-$: if (canvas && ctx && displaySize) {
-  const currentWidth = canvas.width;
-  const currentHeight = canvas.height;
-  const newWidth = displaySize.width;
-  const newHeight = displaySize.height - 40;
-  
-  // STABILITY: 5px threshold prevents micro-updates
-  const widthDiff = Math.abs(currentWidth - newWidth);
-  const heightDiff = Math.abs(currentHeight - newHeight);
-  
-  if (widthDiff > 5 || heightDiff > 5) {
-    updateCanvasSize(newWidth, newHeight);
-  }
-}
 ```
 
 **Separation of Concerns**:
+- **Container**: Position, size, user interaction, visual styling, layout constraints
+- **Display**: Content rendering, data processing, visual scaling, performance, canvas interactions
 
-**Container Responsibilities**:
-- **✅ Position Management**: `displayPosition.x`, `displayPosition.y`
-- **✅ Size Management**: `displaySize.width`, `displaySize.height`
-- **✅ User Interaction**: Drag, resize, hover, click events
-- **✅ Visual Styling**: Borders, shadows, headers, resize handles
-- **✅ Layout Constraints**: Minimum/maximum sizes, viewport boundaries
-
-**Display Responsibilities**:
-- **✅ Content Rendering**: All trading visualizations
-- **✅ Data Processing**: Market data visualization
-- **✅ Visual Scaling**: Adapting to container size
-- **✅ Performance**: Optimized rendering pipeline
-- **✅ Canvas Interactions**: Hover indicators, markers, clicks
-
-**Data Flow Chain**:
-```javascript
-USER ACTION → CONTAINER → DISPLAY → VISUALIZATIONS
-     ↓              ↓           ↓             ↓
-Resize handle → Container → Canvas → Scaled rendering
-    drag         resizes     resizes      proportions
-```
-
-### 12. Reference Canvas Pattern ✅ COMPLETE
+### 11. Reference Canvas Pattern ✅ COMPLETE
 **Purpose**: Percentage-based storage with runtime scaling for responsive behavior
 
 **Three-Layer System**:
+- **Storage Layer**: Percentages relative to 220×120px reference canvas
+- **Container Layer**: Direct calculation from config percentages
+- **Display Layer**: Scaled to actual canvas dimensions
 
-**Storage Layer (Percentages)**:
-```javascript
-// Store: percentages relative to 220×120px reference canvas
-config.visualizationsContentWidth = 110;  // 110% of 220px = 242px
-config.meterHeight = 100;                 // 100% of 120px = 120px
-config.centralAxisXPosition = 50;         // 50% of 220px = 110px (center)
-```
-
-**Container Layer (Layout)**:
-```javascript
-// Container: direct calculation from config percentages
-displaySize.width = (config.visualizationsContentWidth / 100) * REFERENCE_CANVAS.width;     // 242px
-displaySize.height = ((config.meterHeight / 100) * REFERENCE_CANVAS.height) + 40;             // 160px total
-```
-
-**Display Layer (Rendering)**:
-```javascript
-// Rendering: scaled to actual canvas dimensions
-scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
-// Result: All visualizations scale proportionally to 242×120px canvas
-```
-
-**Scale Function**:
-```javascript
-function scaleToCanvas(config, currentCanvasWidth, currentCanvasHeight) {
-  const scaleX = currentCanvasWidth / REFERENCE_CANVAS.width;
-  const scaleY = currentCanvasHeight / REFERENCE_CANVAS.height;
-  
-  return {
-    // Layout parameters (percentage-based)
-    visualizationsContentWidth: (config.visualizationsContentWidth / 100) * currentCanvasWidth,
-    meterHeight: (config.meterHeight / 100) * currentCanvasHeight,
-    centralAxisXPosition: (config.centralAxisXPosition / 100) * currentCanvasWidth,
-    
-    // Price display parameters (percentage-based)
-    priceFloatWidth: (config.priceFloatWidth / 100) * currentCanvasWidth,
-    priceFloatHeight: (config.priceFloatHeight / 100) * currentCanvasHeight,
-    priceFontSize: (config.priceFontSize / 100) * currentCanvasHeight,
-    
-    // Pass through non-scaled parameters unchanged
-    ...Object.fromEntries(
-      Object.entries(config).filter(([key]) => ![
-        'visualizationsContentWidth', 'meterHeight', 'centralAxisXPosition',
-        'priceFloatWidth', 'priceFloatHeight', 'priceFontSize'
-      ].includes(key))
-    )
-  };
-}
-```
-
-### 13. Reactive Independence Pattern ✅ COMPLETE
+### 12. Reactive Independence Pattern ✅ COMPLETE
 **Purpose**: Eliminate circular dependencies through independent reactive statements
 
 **Circular Dependency Prevention**:
 ```javascript
-// ❌ BEFORE (Circular Dependency):
-$: displaySize = { width: scaledConfig.visualizationsContentWidth, ... };
-$: scaledConfig = scaleToCanvas(config, canvasWidth, canvasHeight);
-$: canvasWidth = canvas.width;  // Updated by displaySize
-$: canvasHeight = canvas.height; // Updated by displaySize
-// Result: infinite loop → exponential growth
-
 // ✅ AFTER (Independent Reactive Statements):
 $: displaySize = { 
   width: (config.visualizationsContentWidth / 100) * REFERENCE_CANVAS.width,
@@ -1070,307 +672,51 @@ $: displaySize = {
 
 $: scaledConfig = scaleToCanvas(config, displaySize.width, displaySize.height - 40);
 // Uses container dimensions, not canvas dimensions
-
-// Canvas resize only when displaySize changes significantly
-$: if (canvas && ctx && displaySize) {
-  const widthDiff = Math.abs(canvas.width - displaySize.width);
-  const heightDiff = Math.abs(canvas.height - (displaySize.height - 40));
-  
-  if (widthDiff > 5 || heightDiff > 5) {
-    updateCanvasSize(displaySize.width, displaySize.height - 40);
-  }
-} // Threshold-based, no circular dependency
 ```
 
-**Safety Mechanisms**:
-```javascript
-// 1. Reactive Independence: Each statement has unique dependencies
-// 2. Threshold Filtering: Prevents micro-changes from triggering updates
-const widthThreshold = 5; // Minimum 5px change required
-const heightThreshold = 5; // Minimum 5px change required
-
-// 3. Hard Bounds: Absolute limits prevent edge case explosions
-const safeWidth = Math.min(2000, Math.max(100, newWidth));
-const safeHeight = Math.min(2000, Math.max(80, newHeight));
-
-// 4. Debug Logging: Comprehensive logging for troubleshooting
-console.log(`[CANVAS_RESIZE] Size check: current=${currentWidth}x${currentHeight}, new=${newWidth}x${newHeight}, diff=${widthDiff}x${heightDiff}`);
-```
-
-### 14. Resize Handle Pattern ✅ COMPLETE
+### 13. Resize Handle Pattern ✅ COMPLETE
 **Purpose**: 8-handle resize system with proper coordinate calculations and constraints
 
-**Handle Types and Behaviors**:
-```javascript
-// Corner Handles (resize width + height + position)
-const handleBehaviors = {
-  nw: { // Northwest: Adjust top-left corner
-    widthDelta: -deltaX, heightDelta: -deltaY,
-    positionX: deltaX, positionY: deltaY
-  },
-  ne: { // Northeast: Adjust top-right corner  
-    widthDelta: deltaX, heightDelta: -deltaY,
-    positionY: deltaY
-  },
-  se: { // Southeast: Adjust bottom-right corner
-    widthDelta: deltaX, heightDelta: deltaY,
-    positionChange: false
-  },
-  sw: { // Southwest: Adjust bottom-left corner
-    widthDelta: -deltaX, heightDelta: deltaY,
-    positionX: deltaX
-  },
-  
-  // Edge Handles (resize single dimension + position)
-  n: { heightDelta: -deltaY, positionY: deltaY },      // North: Top edge
-  s: { heightDelta: deltaY, positionChange: false },   // South: Bottom edge
-  e: { widthDelta: deltaX, positionChange: false },    // East: Right edge
-  w: { widthDelta: -deltaX, positionX: deltaX }       // West: Left edge
-};
-```
+**Handle Types**:
+- **Corner Handles**: nw, ne, se, sw (resize width + height + position)
+- **Edge Handles**: n, s, e, w (resize single dimension + position)
 
-**Resize Implementation**:
-```javascript
-function handleResize(e, handleType) {
-  const { startSize, startPosition, startMousePos } = resizeState;
-  const deltaX = e.clientX - startMousePos.x;
-  const deltaY = e.clientY - startMousePos.y;
-  
-  const behavior = handleBehaviors[handleType];
-  let newWidth = startSize.width;
-  let newHeight = startSize.height;
-  let newPosition = { ...startPosition };
-  
-  // Apply handle-specific behavior
-  if (behavior.widthDelta) newWidth = Math.max(MIN_WIDTH, startSize.width + behavior.widthDelta);
-  if (behavior.heightDelta) newHeight = Math.max(MIN_HEIGHT, startSize.height + behavior.heightDelta);
-  if (behavior.positionX) newPosition.x = startPosition.x + behavior.positionX;
-  if (behavior.positionY) newPosition.y = startPosition.y + behavior.positionY;
-  
-  // Apply viewport constraints
-  const maxX = window.innerWidth - newWidth;
-  const maxY = window.innerHeight - newHeight;
-  newPosition.x = Math.max(0, Math.min(newPosition.x, maxX));
-  newPosition.y = Math.max(0, Math.min(newPosition.y, maxY));
-  
-  // Update display
-  actions.updateDisplayPosition(id, newPosition);
-  actions.resizeDisplay(id, newWidth, newHeight);
-}
-```
-
-**Minimum Constraints**:
-```javascript
-const MIN_WIDTH = GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.width;   // 240px
-const MIN_HEIGHT = GEOMETRY.COMPONENTS.FloatingDisplay.defaultSize.height;  // 160px
-```
-
-### 15. Stability Assurance Pattern ✅ COMPLETE
+### 14. Stability Assurance Pattern ✅ COMPLETE
 **Purpose**: Multiple safety mechanisms to prevent exponential growth and system instability
 
 **Multi-Layer Protection**:
-```javascript
-// Layer 1: Input Validation
-function validateResizeDimensions(width, height) {
-  return {
-    width: Math.min(2000, Math.max(100, width)),
-    height: Math.min(2000, Math.max(80, height))
-  };
-}
+- Input validation, change detection, state consistency check, performance monitoring
 
-// Layer 2: Change Detection
-function shouldResizeCanvas(currentWidth, currentHeight, newWidth, newHeight) {
-  const widthDiff = Math.abs(currentWidth - newWidth);
-  const heightDiff = Math.abs(currentHeight - newHeight);
-  const threshold = 5; // 5px minimum change
-  
-  return widthDiff > threshold || heightDiff > threshold;
-}
+## Price Display Foundation Patterns ✅ COMPLETE
 
-// Layer 3: State Consistency Check
-function validateSystemState() {
-  const displays = $floatingStore.displays;
-  for (const [id, display] of displays) {
-    const { width, height } = display.config;
-    if (width > 500 || height > 500) {
-      console.warn(`[VALIDATION] Display ${id} has unusual dimensions: ${width}x${height}`);
-    }
-  }
-}
-
-// Layer 4: Performance Monitoring
-let resizeCount = 0;
-const MAX_RESIZE_PER_SECOND = 10;
-
-function trackResizeActivity() {
-  resizeCount++;
-  if (resizeCount > MAX_RESIZE_PER_SECOND) {
-    console.warn('[PERFORMANCE] Excessive resize activity detected');
-    resizeCount = 0;
-  }
-}
-```
-
-**Debug Logging System**:
-```javascript
-const DEBUG_LOGGING = {
-  canvasResize: true,
-  configUpdates: true,
-  performanceWarnings: true
-};
-
-function debugLog(category, message, data) {
-  if (DEBUG_LOGGING[category]) {
-    console.log(`[${category.toUpperCase()}] ${message}`, data);
-  }
-}
-```
-
-## Price Display Foundation Patterns ✅ COMPLETE (November 5, 2025)
-
-### 17. Enhanced Price Formatting Pattern ✅ COMPLETE
-**Purpose**: Robust price component separation with comprehensive validation and configurable sizing
+### 15. Enhanced Price Formatting Pattern ✅ COMPLETE
+**Purpose**: Robust price component separation with comprehensive validation
 
 **Key Features**:
 - Multi-level input validation with graceful null returns
-- FX convention handling for different digit counts (3/5 digit pairs)
+- FX convention handling for different digit counts
 - Critical percentage-to-decimal conversion with fallbacks
-- Component sizing with configurable ratios
 
-**Pattern Template**:
-```javascript
-function formatPrice(price, digits, config) {
-  // Comprehensive input validation
-  if (price === undefined || price === null || isNaN(price)) return null;
-  
-  const safeDigits = digits || 5;
-  const priceStr = price.toFixed(safeDigits);
-  const parts = priceStr.split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1] || '';
-
-  // Enhanced component separation with FX conventions
-  let bigFigure = integerPart;
-  let pips = '';
-  let pipette = '';
-
-  if (digits === 5 || digits === 3) {
-    const pipsIndex = digits - 3;
-    bigFigure += '.' + decimalPart.substring(0, pipsIndex);
-    pips = decimalPart.substring(pipsIndex, pipsIndex + 2);
-    pipette = decimalPart.substring(pipsIndex + 2);
-  } else if (digits > 0) {
-    bigFigure += '.' + decimalPart;
-  }
-
-  // Critical: Convert percentage ratios to decimals (displayStore saves as 80, 100, 70)
-  const bigFigureRatio = (config.bigFigureFontSizeRatio || 80) / 100;     // 80 → 0.8
-  const pipsRatio = (config.pipFontSizeRatio || 100) / 100;               // 100 → 1.0
-  const pipetteRatio = (config.pipetteFontSizeRatio || 70) / 100;         // 70 → 0.7
-  
-  return {
-    text: { bigFigure, pips, pipette },
-    sizing: { bigFigureRatio, pipsRatio, pipetteRatio }
-  };
-}
-```
-
-**Benefits**:
-- **Production-Ready Validation**: Handles all edge cases with graceful fallbacks
-- **FX Convention Support**: Proper handling for different instrument digit counts
-- **Configuration Flexibility**: Independent sizing ratios for each component
-- **Critical Conversion**: Essential percentage-to-decimal conversion pattern
-
-### 18. Dual Positioning Mode Pattern ✅ COMPLETE
+### 16. Dual Positioning Mode Pattern ✅ COMPLETE
 **Purpose**: Flexible positioning with runtime selection and percentage conversion
 
 **Key Features**:
 - Runtime mode selection (ADR axis vs canvas-relative)
 - Percentage-to-decimal conversion for all positioning parameters
 - Content-relative dimension calculations
-- Configurable offsets with percentage-based values
 
-**Pattern Template**:
-```javascript
-const calculateRenderData = (contentArea, adrAxisX, config, state, y) => {
-  const priceY = y(state.currentPrice);
-  const inBounds = boundsUtils.isYInBounds(priceY, config, { canvasArea: contentArea });
-  
-  // Percentage-to-decimal conversion (FOUNDATION PATTERN)
-  const fontSizePercentage = (config.priceFontSize || 40) / 100;
-  const baseFontSize = contentArea.height * fontSizePercentage;
-  
-  // Dual positioning modes with runtime selection
-  const positioningMode = config.priceDisplayPositioning || 'canvasRelative';
-  let startX;
-  
-  if (positioningMode === 'adrAxis') {
-    const xOffsetPercentage = (config.priceDisplayXOffset || 0) / 100;
-    const xOffset = contentArea.width * xOffsetPercentage;
-    startX = adrAxisX + xOffset;
-  } else {
-    const horizontalPosition = (config.priceDisplayHorizontalPosition || 2) / 100;
-    const xOffsetPercentage = (config.priceDisplayXOffset || 0) / 100;
-    const xOffset = contentArea.width * xOffsetPercentage;
-    startX = contentArea.width * horizontalPosition + xOffset;
-  }
-
-  return { startX, startY: priceY, baseFontSize, positioningMode };
-};
-```
-
-**Benefits**:
-- **Flexible Positioning**: Two distinct modes for different use cases
-- **Runtime Selection**: Configuration-driven mode switching
-- **Percentage Conversion**: Consistent sizing across display dimensions
-- **Content-Relative**: Proper scaling with container size
-
-### 19. Optimized Text Rendering Pattern ✅ COMPLETE
+### 17. Optimized Text Rendering Pattern ✅ COMPLETE
 **Purpose**: Single-pass measurement with separated rendering for performance
 
 **Key Features**:
 - Single text measurement pass for all components
 - Cached metrics reuse for background and text rendering
 - Independent background/box control
-- Early returns for disabled features
 
-**Pattern Template**:
-```javascript
-// Performance-optimized text measurement and rendering
-const textMetrics = calculateTextMetrics(ctx, formattedPrice, baseFontSize);
-drawBackground(ctx, renderData, config, state, contentArea, digits); // Independent control
-drawPriceText(ctx, renderData, config, state, digits);              // Core requirement
-addEnhancements(ctx, renderData, config, state, contentArea, digits); // Selective rendering
-```
-
-**Enhancement Pattern**:
-```javascript
-// Optional features with bounds checking
-function addEnhancements(ctx, renderData, config, state, contentArea, digits) {
-  // Apply bounds checking ONLY to enhancements (foundation pattern)
-  if (boundsUtils.isYInBounds(renderData.startY, config, { canvasArea: contentArea })) {
-    drawBoundingBox(ctx, renderData, config, state, contentArea, digits);
-  }
-}
-```
-
-**Benefits**:
-- **Single-Pass Performance**: Measure once, render multiple times
-- **Independent Control**: Background and box rendered separately
-- **Selective Rendering**: Enhancements only when in bounds
-- **Cache Reuse**: Metrics shared between rendering functions
-
-### 20. Comprehensive Error Handling Pattern ✅ COMPLETE
+### 18. Comprehensive Error Handling Pattern ✅ COMPLETE
 **Purpose**: Multi-level validation with graceful fallbacks and debugging support
 
-**Key Features**:
-- Level 1: Parameter validation at function entry
-- Level 2: Data validation for critical fields
-- Level 3: Formatting validation with null returns
-- Console logging for debugging without breaking rendering
-- Early returns to prevent cascade failures
-
-**Pattern Template**:
+**Implementation**:
 ```javascript
 export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
   // Level 1: Parameter validation
@@ -1378,52 +724,45 @@ export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
     console.warn('[PriceDisplay] Missing required parameters, skipping render');
     return;
   }
-
-  // Level 2: Data validation
-  if (currentPrice === undefined || currentPrice === null) {
-    console.warn('[PriceDisplay] Missing currentPrice, skipping render');
-    return;
-  }
-
-  // Level 3: Formatting validation
-  const formattedPrice = formatPrice(state.currentPrice, digits, config);
-  if (!formattedPrice) {
-    console.warn('[PriceDisplay] Price formatting failed, skipping render');
-    return;
-  }
+  // Additional validation levels...
 }
 ```
 
-**Benefits**:
-- **Multi-Level Protection**: Comprehensive validation at multiple layers
-- **Graceful Degradation**: System continues operating with missing data
-- **Debug Support**: Clear logging for troubleshooting
-- **Cascade Prevention**: Early returns stop error propagation
-
-### 21. Enhancement Pattern ✅ COMPLETE
+### 19. Enhancement Pattern ✅ COMPLETE
 **Purpose**: Optional features with selective bounds checking for performance
 
 **Key Features**:
 - Core elements always render (trader requirements)
 - Enhancements only render when in bounds (performance optimization)
 - Independent feature control via configuration flags
-- Bounds checking applied selectively
 
-**Pattern Template**:
-```javascript
-function addEnhancements(ctx, renderData, config, state, contentArea, digits) {
-  // Apply bounds checking ONLY to enhancements (foundation pattern)
-  if (boundsUtils.isYInBounds(renderData.startY, config, { canvasArea: contentArea })) {
-    drawBoundingBox(ctx, renderData, config, state, contentArea, digits);
-  }
-}
-```
+## Market Profile Delta Visualization Patterns ✅ COMPLETE
+
+### 20. Delta Calculation Pattern ✅ COMPLETE
+**Purpose**: Sophisticated market pressure analysis through buy/sell volume differential
+
+**Key Innovation**: Goes beyond traditional volume distribution to show market pressure dynamics
+- **Delta Formula**: `delta = buyVolume - sellVolume` per price level
+- **Pressure Visualization**: Positive/negative delta with color coding
+- **Six Rendering Modes**: Three delta modes complementing existing volume modes
+
+### 21. Six-Mode Rendering Pattern ✅ COMPLETE
+**Purpose**: Flexible delta visualization with six distinct rendering approaches
+
+**Three Volume Modes**: `separate`, `combinedLeft`, `combinedRight`
+**Three Delta Modes**: `deltaBoth`, `deltaLeft`, `deltaRight`
+
+### 22. Worker Integration Pattern ✅ COMPLETE
+**Purpose**: Efficient delta visualization using existing processed data structures
 
 **Benefits**:
-- **Performance Optimization**: Core elements always visible, enhancements optimized
-- **Selective Bounds Checking**: Applied only where needed
-- **Independent Control**: Each enhancement has separate flag
-- **Trader Priority**: Essential features always render
+- Performance efficiency, data consistency, memory optimization, maintainability
+
+### 23. Configuration Integration Pattern ✅ COMPLETE
+**Purpose**: Seamless integration of delta modes with existing configuration system
+
+**Benefits**:
+- Seamless integration, backward compatibility, enhanced functionality
 
 ## Configuration Architecture Patterns
 
@@ -1436,21 +775,7 @@ function addEnhancements(ctx, renderData, config, state, contentArea, digits) {
 const bigFigureRatio = (config.bigFigureFontSizeRatio || 80) / 100;     // 80 → 0.8
 const pipsRatio = (config.pipFontSizeRatio || 100) / 100;               // 100 → 1.0
 const pipetteRatio = (config.pipetteFontSizeRatio || 70) / 100;         // 70 → 0.7
-
-// Positioning conversion
-const xOffsetPercentage = (config.priceDisplayXOffset || 0) / 100;
-const xOffset = contentArea.width * xOffsetPercentage;
-
-// Font size conversion
-const fontSizePercentage = (config.priceFontSize || 40) / 100;
-const baseFontSize = contentArea.height * fontSizePercentage;
 ```
-
-**Benefits**:
-- **Standardization**: Consistent conversion across all parameters
-- **Intuitive Configuration**: Users think in percentages, system handles decimals
-- **Safe Defaults**: Fallback values prevent undefined parameters
-- **Maintainable**: Single conversion pattern for entire system
 
 ### Feature Flag Independence Pattern ✅ COMPLETE
 **Purpose**: Independent control over individual display features
@@ -1463,286 +788,11 @@ const config = {
   showPriceBoundingBox: false,    // Border outline control
   showPipetteDigit: true,        // Pipette digit visibility
   priceUseStaticColor: false,     // Directional vs static coloring
-  
-  // Independent sizing ratios
-  bigFigureFontSizeRatio: 80,    // Big figure size
-  pipFontSizeRatio: 100,          // Pips size
-  pipetteFontSizeRatio: 70         // Pipette size
 };
 ```
 
-**Benefits**:
-- **Granular Control**: Each feature independently configurable
-- **User Flexibility**: Mix and match features as needed
-- **Performance**: Disable unused features for optimization
-- **Testing**: Individual feature testing and validation
+---
 
-These Container vs Display architecture patterns provide a robust foundation for stable, responsive resize functionality while maintaining clear separation of concerns and preventing circular dependencies. The hierarchical structure ensures that layout interactions (Container) are completely independent from content rendering (Display), allowing for scalable and maintainable code architecture. The Price Display Foundation patterns (17-21) establish production-ready templates for all future visualization components. These patterns demonstrate sophisticated error handling, performance optimization, configurable rendering, and modular design that serve as a template for all future visualization development in NeuroSense FX ecosystem.
+These system patterns provide an architectural foundation for NeuroSense FX's radical floating architecture, ensuring performance, maintainability, and scalability while supporting complex requirements of professional trading interfaces. The patterns represent current active approaches used in production, with historical details archived for reference.
 
-## Market Profile Delta Visualization Patterns ✅ COMPLETE (November 8, 2025)
-
-### 22. Delta Calculation Pattern ✅ COMPLETE
-**Purpose**: Sophisticated market pressure analysis through buy/sell volume differential calculation and visualization
-
-**Key Innovation**: Goes beyond traditional volume distribution to show market pressure dynamics
-- **Delta Formula**: `delta = buyVolume - sellVolume` per price level
-- **Pressure Visualization**: Positive delta (buy pressure) and negative delta (sell pressure) with color coding
-- **Six Rendering Modes**: Three delta modes complementing existing volume modes for comprehensive analysis
-
-**Implementation**:
-```javascript
-// Delta Calculation Engine
-function calculateMaxDelta(marketProfileLevels) {
-  let maxDelta = 0;
-  marketProfileLevels.forEach((level, index) => {
-    if (level.delta !== undefined && level.delta !== null) {
-      maxDelta = Math.max(maxDelta, Math.abs(level.delta));
-    }
-  });
-  return maxDelta;
-}
-
-// Delta Scaling for Visualization
-function calculateDeltaBarWidth(level, maxDelta, maxBarWidth) {
-  const absoluteDelta = Math.abs(level.delta || 0);
-  return maxDelta > 0 ? (absoluteDelta / maxDelta) * maxBarWidth : 0;
-}
-
-// Color Coding Based on Delta Sign
-function getDeltaColor(delta, config) {
-  const isPositiveDelta = delta > 0;
-  return isPositiveDelta 
-    ? (config.marketProfileUpColor || '#10B981')  // Green for positive delta
-    : (config.marketProfileDownColor || '#EF4444'); // Red for negative delta
-}
-```
-
-**Benefits**:
-- **Market Pressure Insight**: Direct visualization of buying vs selling pressure
-- **Trend Analysis**: Delta accumulation shows market momentum and reversals
-- **Support/Resistance Identification**: Delta extremes indicate key price levels
-- **Professional Trading Tools**: Advanced analysis beyond traditional volume profiles
-
-### 23. Six-Mode Rendering Pattern ✅ COMPLETE
-**Purpose**: Flexible delta visualization with six distinct rendering approaches
-
-**Three Volume Modes (Existing)**:
-- `separate`: Sell left, buy right from ADR axis
-- `combinedLeft`: Both buy+sell extend left from ADR axis
-- `combinedRight`: Both buy+sell extend right from ADR axis
-
-**Three Delta Modes (New)**:
-- `deltaBoth`: Positive delta extends right, negative delta extends left from ADR axis
-- `deltaLeft`: Both positive and negative delta extend left from ADR axis
-- `deltaRight`: Both positive and negative delta extend right from ADR axis
-
-**Implementation**:
-```javascript
-// Mode Configuration and Rendering Logic
-function configureDeltaRendering(config, contentArea, adrAxisX, mode) {
-  const availableWidth = calculateAvailableWidth(config, contentArea, adrAxisX, mode);
-  const xOffset = calculateXOffset(config, contentArea.width);
-  
-  switch (mode) {
-    case 'deltaBoth':
-      return {
-        leftStartX: adrAxisX + xOffset,  // Right for positive delta
-        rightStartX: adrAxisX - xOffset,  // Left for negative delta
-        direction: 'deltaBoth'
-      };
-      
-    case 'deltaLeft':
-      return {
-        leftStartX: adrAxisX - xOffset,  // Both extend left
-        rightStartX: adrAxisX - xOffset, // Both extend left
-        direction: 'deltaLeft'
-      };
-      
-    case 'deltaRight':
-      return {
-        leftStartX: adrAxisX + xOffset,  // Both extend right
-        rightStartX: adrAxisX + xOffset, // Both extend right
-        direction: 'deltaRight'
-      };
-      
-    default:
-      // Fallback to volume modes
-      return configureVolumeRendering(config, contentArea, adrAxisX, mode);
-  }
-}
-
-// Bidirectional Delta Rendering
-function renderDeltaBoth(ctx, level, renderData, config) {
-  const { delta } = level;
-  const isPositiveDelta = delta > 0;
-  const deltaBarWidth = renderData.deltaBarWidth;
-  const color = getDeltaColor(delta, config);
-  
-  if (isPositiveDelta) {
-    // Positive delta extends right from ADR axis
-    ctx.fillStyle = color;
-    ctx.fillRect(renderData.leftStartX, level.priceY - 0.5, deltaBarWidth, 1);
-  } else {
-    // Negative delta extends left from ADR axis
-    ctx.fillStyle = color;
-    ctx.fillRect(renderData.rightStartX - deltaBarWidth, level.priceY - 0.5, deltaBarWidth, 1);
-  }
-}
-```
-
-**Benefits**:
-- **Comprehensive Analysis**: Six modes provide complete market analysis
-- **Flexible Visualization**: Traders can choose optimal presentation for their strategy
-- **Intuitive Design**: Bidirectional delta follows natural market pressure flow
-- **Workspace Optimization**: Different modes accommodate different layout constraints
-
-### 24. Responsive Width Management Pattern ✅ COMPLETE
-**Purpose**: Intelligent width calculation for delta modes using available space optimization
-
-**Implementation**:
-```javascript
-// Available Space Calculation for Delta Modes
-function calculateAvailableWidth(config, contentArea, adrAxisX, mode) {
-  const minBarWidth = config.marketProfileMinWidth || 5; // Minimum width constraint
-  
-  if (mode.startsWith('delta')) {
-    // Delta modes use available space from edges to ADR axis
-    const leftAvailableSpace = adrAxisX;  // Distance from left edge to axis
-    const rightAvailableSpace = contentArea.width - adrAxisX;  // Distance from axis to right edge
-    
-    return mode === 'deltaLeft' 
-      ? Math.max(minBarWidth, leftAvailableSpace)     // Use left space
-      : Math.max(minBarWidth, rightAvailableSpace);  // Use right space for deltaBoth/deltaRight
-  }
-  
-  // Volume modes use existing logic
-  return calculateVolumeAvailableWidth(config, contentArea, adrAxisX);
-}
-```
-
-**Benefits**:
-- **Optimal Space Usage**: Delta modes maximize available canvas space
-- **Responsive Behavior**: Width adapts to different display sizes and ADR axis positions
-- **Performance Optimization**: Pre-calculated widths prevent runtime calculations
-- **Visual Consistency**: All modes maintain proper scaling relationships
-
-### 25. Worker Integration Pattern ✅ COMPLETE
-**Purpose**: Efficient delta visualization using existing processed data structures
-
-**Implementation**:
-```javascript
-// Direct Use of Existing Worker Data Structure
-function renderDeltaProfile(ctx, renderingContext, config, state) {
-  const { marketProfile } = state;
-  
-  // Use existing worker-processed levels directly
-  if (!marketProfile?.levels || !Array.isArray(marketProfile.levels)) {
-    console.warn('[MarketProfile] Missing or invalid marketProfile data');
-    return;
-  }
-  
-  // Pre-calculate max delta for consistent scaling
-  const maxDelta = calculateMaxDelta(marketProfile.levels);
-  
-  // Process each level with delta calculation
-  marketProfile.levels.forEach((level, index) => {
-    const delta = level.delta;
-    
-    if (delta !== undefined && delta !== null) {
-      const deltaBarWidth = calculateDeltaBarWidth(level, maxDelta, config.maxBarWidth);
-      const renderData = configureDeltaRendering(config, renderingContext.contentArea, renderingContext.adrAxisX, config.marketProfileView);
-      
-      renderDeltaBars(ctx, level, renderData, deltaBarWidth, config);
-    }
-  });
-}
-
-// Performance Optimization: Early Exit for Empty Data
-function renderDeltaBars(ctx, level, renderData, deltaBarWidth, config) {
-  if (!level.volume || level.volume === 0) {
-    return; // Skip empty levels for performance
-  }
-  
-  // Render delta bar with pre-calculated width
-  const { delta } = level;
-  const color = getDeltaColor(delta, config);
-  ctx.fillStyle = color;
-  
-  // Apply mode-specific rendering logic
-  switch (renderData.direction) {
-    case 'deltaBoth':
-      renderBidirectionalDelta(ctx, level, renderData, deltaBarWidth);
-      break;
-    case 'deltaLeft':
-    case 'deltaRight':
-      renderAggregatedDelta(ctx, level, renderData, deltaBarWidth, renderData.direction);
-      break;
-  }
-}
-```
-
-**Benefits**:
-- **Performance Efficiency**: Eliminates redundant data processing
-- **Data Consistency**: Uses same data source as volume modes
-- **Memory Optimization**: No additional data structures needed
-- **Maintainability**: Single source of truth for all market profile data
-
-### 26. Configuration Integration Pattern ✅ COMPLETE
-**Purpose**: Seamless integration of delta modes with existing configuration system
-
-**Implementation**:
-```javascript
-// Enhanced marketProfileView Options
-const MARKET_PROFILE_VIEW_OPTIONS = [
-  'separate', 'combinedLeft', 'combinedRight',  // Existing volume modes
-  'deltaBoth', 'deltaLeft', 'deltaRight'           // New delta modes
-];
-
-// Configuration Schema Extension
-const DELTA_CONFIG_SCHEMA = {
-  // Delta mode inherits all existing volume configuration
-  ...VOLUME_CONFIG_SCHEMA,
-  
-  // Delta-specific enhancements
-  deltaThresholds: {
-    positiveDelta: 10,      // Minimum positive delta to show
-    negativeDelta: -10       // Minimum negative delta to show
-  },
-  deltaColoring: {
-    positiveDeltaColor: '#10B981',    // Custom positive delta color
-    negativeDeltaColor: '#EF4444'     // Custom negative delta color
-  },
-  deltaRendering: {
-    showDeltaOutline: false,           // Optional outline for delta bars
-    deltaOpacity: 0.8,                // Delta bar transparency
-    animationSpeed: 'normal'            // Delta change animation speed
-  }
-};
-```
-
-**UI Integration**:
-```javascript
-// Delta Mode Selection in Configuration Panel
-function renderDeltaModeSelector(config) {
-  return `
-    <select id="deltaModeSelector">
-      <option value="separate">Separate (Volume)</option>
-      <option value="combinedLeft">Combined Left (Volume)</option>
-      <option value="combinedRight">Combined Right (Volume)</option>
-      <option value="deltaBoth">Delta Both (New)</option>
-      <option value="deltaLeft">Delta Left (New)</option>
-      <option value="deltaRight">Delta Right (New)</option>
-    </select>
-  `;
-}
-```
-
-**Benefits**:
-- **Seamless Integration**: Delta modes work alongside existing volume modes
-- **Backward Compatibility**: All existing configuration remains functional
-- **Enhanced Functionality**: New delta-specific configuration options
-- **User Choice**: Traders can select optimal visualization mode for their analysis
-
-These Market Profile Delta Visualization patterns represent a significant advancement in market analysis capabilities, providing sophisticated pressure visualization while maintaining performance and architectural consistency. The six-mode system (3 volume + 3 delta) offers comprehensive market analysis tools that enhance trading decision-making and provide deeper insights into market dynamics.
-
-These system patterns provide an architectural foundation for NeuroSense FX's radical floating architecture, ensuring performance, maintainability, and scalability while supporting complex requirements of professional trading interfaces. The enhanced floating element patterns (7-9) represent latest innovations in perfect behavior implementation and production integration, achieving 85% clean code ratio with production stability. The Container vs Display patterns (11-15) represent a critical breakthrough in resolving exponential canvas growth issues through hierarchical architecture and reactive independence. The Price Display Foundation patterns (17-21) establish production-ready templates for all future visualization components. The Market Profile Delta Visualization patterns (22-26) provide sophisticated market pressure analysis tools that enhance trading decision-making capabilities while maintaining the highest standards of performance and architectural consistency.
+*For historical patterns and detailed evolution documentation, see `memory-bank/archive/`*
