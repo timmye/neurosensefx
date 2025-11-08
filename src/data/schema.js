@@ -57,6 +57,7 @@ export const MarketProfileLevelSchema = z.object({
   volume: z.number(),
   buy: z.number(),
   sell: z.number(),
+  delta: z.number(),
 });
 
 export const MarketProfileSchema = z.object({

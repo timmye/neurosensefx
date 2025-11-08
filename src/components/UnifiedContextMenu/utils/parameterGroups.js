@@ -292,7 +292,7 @@ export const marketProfileGroup = {
     pHighLowLabelShowBoxOutline: 'PH/PL Box Outline'
   },
   controlOptions: {
-    marketProfileView: ['separate', 'combinedLeft', 'combinedRight'],
+    marketProfileView: ['separate', 'combinedLeft', 'combinedRight', 'deltaBoth', 'deltaLeft', 'deltaRight'],
     distributionDepthMode: ['all', 'percentage', 'custom'],
     marketProfileWidthMode: ['responsive', 'fixed'], // NEW: Width mode options
     pHighLowLabelSide: ['left', 'right'],

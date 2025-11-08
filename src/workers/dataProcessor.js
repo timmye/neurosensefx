@@ -165,6 +165,7 @@ function generateMarketProfile() {
             volume: data.volume,
             buy: data.buy,
             sell: data.sell,
+            delta: data.buy - data.sell, // Calculate delta for delta modes
         })).sort((a, b) => a.price - b.price),
         tickCount: relevantTicks.reduce((sum, t) => sum + t.ticks, 0)
     };

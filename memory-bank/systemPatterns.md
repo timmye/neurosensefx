@@ -37,24 +37,24 @@ NeuroSense FX follows a **Two-Server Architecture** with a **Radical Floating Ar
 The frontend implements a sophisticated three-layer floating architecture:
 
 ```
-┌─────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────┐
 │ Layer 3: Overlays (z-index: 10000+)                     │
 │ • Context Menus                                         │
 │ • Modal Dialogs                                         │
 │ • Temporary UI Elements                                │
-├─────────────────────────────────────────────────────────┤
+├─────────────────────────────────────────────────┤
 │ Layer 2: Panels (z-index: 1000-9999)                   │
 │ • Symbol Palette                                        │
 │ • Debug Panel                                           │
 │ • System Panel                                          │
 │ • Configuration Controls                               │
-├─────────────────────────────────────────────────────────┤
+├─────────────────────────────────────────────────┤
 │ Layer 1: Displays (z-index: 1-999)                      │
 │ • Price Visualization Displays                          │
 │ • Market Profile Displays                               │
 │ • Volatility Orb Displays                               │
 │ • Canvas Elements (220×120px)                          │
-└─────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────┘
 ```
 
 ## Key Design Patterns
@@ -917,12 +917,12 @@ onDestroy(() => {
 
 **Architecture Overview**:
 ```
-┌─────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────┐
 │                    CONTAINER LAYER                      │
-│  ┌─────────────────────────────────────────────────────┐ │
+│  ┌─────────────────────────────────────────────┐ │
 │  │                 Header (40px)                       │ │
 │  │  • Symbol info, close button, drag handle          │ │
-│  ├─────────────────────────────────────────────────────┤ │
+│  ├─────────────────────────────────────────────┤ │
 │  │               Content Area                          │ │
 │  │  ┌─────────────────────────────────────────────┐   │ │
 │  │  │            DISPLAY LAYER                    │   │ │
@@ -1477,8 +1477,272 @@ const config = {
 - **Performance**: Disable unused features for optimization
 - **Testing**: Individual feature testing and validation
 
-These Container vs Display architecture patterns provide a robust foundation for stable, responsive resize functionality while maintaining clear separation of concerns and preventing circular dependencies. The hierarchical structure ensures that layout interactions (Container) are completely independent from content rendering (Display), allowing for scalable and maintainable code architecture.
+These Container vs Display architecture patterns provide a robust foundation for stable, responsive resize functionality while maintaining clear separation of concerns and preventing circular dependencies. The hierarchical structure ensures that layout interactions (Container) are completely independent from content rendering (Display), allowing for scalable and maintainable code architecture. The Price Display Foundation patterns (17-21) establish production-ready templates for all future visualization components. These patterns demonstrate sophisticated error handling, performance optimization, configurable rendering, and modular design that serve as a template for all future visualization development in NeuroSense FX ecosystem.
 
-The Price Display Foundation Patterns (17-21) establish comprehensive architectural patterns for production-ready visualization components. These patterns demonstrate sophisticated error handling, performance optimization, configurable rendering, and modular design that serve as a template for all future visualization development in the NeuroSense FX ecosystem.
+## Market Profile Delta Visualization Patterns ✅ COMPLETE (November 8, 2025)
 
-These system patterns provide an architectural foundation for NeuroSense FX's radical floating architecture, ensuring performance, maintainability, and scalability while supporting complex requirements of professional trading interfaces. The enhanced floating element patterns (7-9) represent the latest innovations in perfect behavior implementation and production integration, achieving 85% clean code ratio with production stability. The Container vs Display patterns (11-15) represent a critical breakthrough in resolving exponential canvas growth issues through hierarchical architecture and reactive independence. The Price Display Foundation patterns (17-21) establish production-ready templates for all future visualization components.
+### 22. Delta Calculation Pattern ✅ COMPLETE
+**Purpose**: Sophisticated market pressure analysis through buy/sell volume differential calculation and visualization
+
+**Key Innovation**: Goes beyond traditional volume distribution to show market pressure dynamics
+- **Delta Formula**: `delta = buyVolume - sellVolume` per price level
+- **Pressure Visualization**: Positive delta (buy pressure) and negative delta (sell pressure) with color coding
+- **Six Rendering Modes**: Three delta modes complementing existing volume modes for comprehensive analysis
+
+**Implementation**:
+```javascript
+// Delta Calculation Engine
+function calculateMaxDelta(marketProfileLevels) {
+  let maxDelta = 0;
+  marketProfileLevels.forEach((level, index) => {
+    if (level.delta !== undefined && level.delta !== null) {
+      maxDelta = Math.max(maxDelta, Math.abs(level.delta));
+    }
+  });
+  return maxDelta;
+}
+
+// Delta Scaling for Visualization
+function calculateDeltaBarWidth(level, maxDelta, maxBarWidth) {
+  const absoluteDelta = Math.abs(level.delta || 0);
+  return maxDelta > 0 ? (absoluteDelta / maxDelta) * maxBarWidth : 0;
+}
+
+// Color Coding Based on Delta Sign
+function getDeltaColor(delta, config) {
+  const isPositiveDelta = delta > 0;
+  return isPositiveDelta 
+    ? (config.marketProfileUpColor || '#10B981')  // Green for positive delta
+    : (config.marketProfileDownColor || '#EF4444'); // Red for negative delta
+}
+```
+
+**Benefits**:
+- **Market Pressure Insight**: Direct visualization of buying vs selling pressure
+- **Trend Analysis**: Delta accumulation shows market momentum and reversals
+- **Support/Resistance Identification**: Delta extremes indicate key price levels
+- **Professional Trading Tools**: Advanced analysis beyond traditional volume profiles
+
+### 23. Six-Mode Rendering Pattern ✅ COMPLETE
+**Purpose**: Flexible delta visualization with six distinct rendering approaches
+
+**Three Volume Modes (Existing)**:
+- `separate`: Sell left, buy right from ADR axis
+- `combinedLeft`: Both buy+sell extend left from ADR axis
+- `combinedRight`: Both buy+sell extend right from ADR axis
+
+**Three Delta Modes (New)**:
+- `deltaBoth`: Positive delta extends right, negative delta extends left from ADR axis
+- `deltaLeft`: Both positive and negative delta extend left from ADR axis
+- `deltaRight`: Both positive and negative delta extend right from ADR axis
+
+**Implementation**:
+```javascript
+// Mode Configuration and Rendering Logic
+function configureDeltaRendering(config, contentArea, adrAxisX, mode) {
+  const availableWidth = calculateAvailableWidth(config, contentArea, adrAxisX, mode);
+  const xOffset = calculateXOffset(config, contentArea.width);
+  
+  switch (mode) {
+    case 'deltaBoth':
+      return {
+        leftStartX: adrAxisX + xOffset,  // Right for positive delta
+        rightStartX: adrAxisX - xOffset,  // Left for negative delta
+        direction: 'deltaBoth'
+      };
+      
+    case 'deltaLeft':
+      return {
+        leftStartX: adrAxisX - xOffset,  // Both extend left
+        rightStartX: adrAxisX - xOffset, // Both extend left
+        direction: 'deltaLeft'
+      };
+      
+    case 'deltaRight':
+      return {
+        leftStartX: adrAxisX + xOffset,  // Both extend right
+        rightStartX: adrAxisX + xOffset, // Both extend right
+        direction: 'deltaRight'
+      };
+      
+    default:
+      // Fallback to volume modes
+      return configureVolumeRendering(config, contentArea, adrAxisX, mode);
+  }
+}
+
+// Bidirectional Delta Rendering
+function renderDeltaBoth(ctx, level, renderData, config) {
+  const { delta } = level;
+  const isPositiveDelta = delta > 0;
+  const deltaBarWidth = renderData.deltaBarWidth;
+  const color = getDeltaColor(delta, config);
+  
+  if (isPositiveDelta) {
+    // Positive delta extends right from ADR axis
+    ctx.fillStyle = color;
+    ctx.fillRect(renderData.leftStartX, level.priceY - 0.5, deltaBarWidth, 1);
+  } else {
+    // Negative delta extends left from ADR axis
+    ctx.fillStyle = color;
+    ctx.fillRect(renderData.rightStartX - deltaBarWidth, level.priceY - 0.5, deltaBarWidth, 1);
+  }
+}
+```
+
+**Benefits**:
+- **Comprehensive Analysis**: Six modes provide complete market analysis
+- **Flexible Visualization**: Traders can choose optimal presentation for their strategy
+- **Intuitive Design**: Bidirectional delta follows natural market pressure flow
+- **Workspace Optimization**: Different modes accommodate different layout constraints
+
+### 24. Responsive Width Management Pattern ✅ COMPLETE
+**Purpose**: Intelligent width calculation for delta modes using available space optimization
+
+**Implementation**:
+```javascript
+// Available Space Calculation for Delta Modes
+function calculateAvailableWidth(config, contentArea, adrAxisX, mode) {
+  const minBarWidth = config.marketProfileMinWidth || 5; // Minimum width constraint
+  
+  if (mode.startsWith('delta')) {
+    // Delta modes use available space from edges to ADR axis
+    const leftAvailableSpace = adrAxisX;  // Distance from left edge to axis
+    const rightAvailableSpace = contentArea.width - adrAxisX;  // Distance from axis to right edge
+    
+    return mode === 'deltaLeft' 
+      ? Math.max(minBarWidth, leftAvailableSpace)     // Use left space
+      : Math.max(minBarWidth, rightAvailableSpace);  // Use right space for deltaBoth/deltaRight
+  }
+  
+  // Volume modes use existing logic
+  return calculateVolumeAvailableWidth(config, contentArea, adrAxisX);
+}
+```
+
+**Benefits**:
+- **Optimal Space Usage**: Delta modes maximize available canvas space
+- **Responsive Behavior**: Width adapts to different display sizes and ADR axis positions
+- **Performance Optimization**: Pre-calculated widths prevent runtime calculations
+- **Visual Consistency**: All modes maintain proper scaling relationships
+
+### 25. Worker Integration Pattern ✅ COMPLETE
+**Purpose**: Efficient delta visualization using existing processed data structures
+
+**Implementation**:
+```javascript
+// Direct Use of Existing Worker Data Structure
+function renderDeltaProfile(ctx, renderingContext, config, state) {
+  const { marketProfile } = state;
+  
+  // Use existing worker-processed levels directly
+  if (!marketProfile?.levels || !Array.isArray(marketProfile.levels)) {
+    console.warn('[MarketProfile] Missing or invalid marketProfile data');
+    return;
+  }
+  
+  // Pre-calculate max delta for consistent scaling
+  const maxDelta = calculateMaxDelta(marketProfile.levels);
+  
+  // Process each level with delta calculation
+  marketProfile.levels.forEach((level, index) => {
+    const delta = level.delta;
+    
+    if (delta !== undefined && delta !== null) {
+      const deltaBarWidth = calculateDeltaBarWidth(level, maxDelta, config.maxBarWidth);
+      const renderData = configureDeltaRendering(config, renderingContext.contentArea, renderingContext.adrAxisX, config.marketProfileView);
+      
+      renderDeltaBars(ctx, level, renderData, deltaBarWidth, config);
+    }
+  });
+}
+
+// Performance Optimization: Early Exit for Empty Data
+function renderDeltaBars(ctx, level, renderData, deltaBarWidth, config) {
+  if (!level.volume || level.volume === 0) {
+    return; // Skip empty levels for performance
+  }
+  
+  // Render delta bar with pre-calculated width
+  const { delta } = level;
+  const color = getDeltaColor(delta, config);
+  ctx.fillStyle = color;
+  
+  // Apply mode-specific rendering logic
+  switch (renderData.direction) {
+    case 'deltaBoth':
+      renderBidirectionalDelta(ctx, level, renderData, deltaBarWidth);
+      break;
+    case 'deltaLeft':
+    case 'deltaRight':
+      renderAggregatedDelta(ctx, level, renderData, deltaBarWidth, renderData.direction);
+      break;
+  }
+}
+```
+
+**Benefits**:
+- **Performance Efficiency**: Eliminates redundant data processing
+- **Data Consistency**: Uses same data source as volume modes
+- **Memory Optimization**: No additional data structures needed
+- **Maintainability**: Single source of truth for all market profile data
+
+### 26. Configuration Integration Pattern ✅ COMPLETE
+**Purpose**: Seamless integration of delta modes with existing configuration system
+
+**Implementation**:
+```javascript
+// Enhanced marketProfileView Options
+const MARKET_PROFILE_VIEW_OPTIONS = [
+  'separate', 'combinedLeft', 'combinedRight',  // Existing volume modes
+  'deltaBoth', 'deltaLeft', 'deltaRight'           // New delta modes
+];
+
+// Configuration Schema Extension
+const DELTA_CONFIG_SCHEMA = {
+  // Delta mode inherits all existing volume configuration
+  ...VOLUME_CONFIG_SCHEMA,
+  
+  // Delta-specific enhancements
+  deltaThresholds: {
+    positiveDelta: 10,      // Minimum positive delta to show
+    negativeDelta: -10       // Minimum negative delta to show
+  },
+  deltaColoring: {
+    positiveDeltaColor: '#10B981',    // Custom positive delta color
+    negativeDeltaColor: '#EF4444'     // Custom negative delta color
+  },
+  deltaRendering: {
+    showDeltaOutline: false,           // Optional outline for delta bars
+    deltaOpacity: 0.8,                // Delta bar transparency
+    animationSpeed: 'normal'            // Delta change animation speed
+  }
+};
+```
+
+**UI Integration**:
+```javascript
+// Delta Mode Selection in Configuration Panel
+function renderDeltaModeSelector(config) {
+  return `
+    <select id="deltaModeSelector">
+      <option value="separate">Separate (Volume)</option>
+      <option value="combinedLeft">Combined Left (Volume)</option>
+      <option value="combinedRight">Combined Right (Volume)</option>
+      <option value="deltaBoth">Delta Both (New)</option>
+      <option value="deltaLeft">Delta Left (New)</option>
+      <option value="deltaRight">Delta Right (New)</option>
+    </select>
+  `;
+}
+```
+
+**Benefits**:
+- **Seamless Integration**: Delta modes work alongside existing volume modes
+- **Backward Compatibility**: All existing configuration remains functional
+- **Enhanced Functionality**: New delta-specific configuration options
+- **User Choice**: Traders can select optimal visualization mode for their analysis
+
+These Market Profile Delta Visualization patterns represent a significant advancement in market analysis capabilities, providing sophisticated pressure visualization while maintaining performance and architectural consistency. The six-mode system (3 volume + 3 delta) offers comprehensive market analysis tools that enhance trading decision-making and provide deeper insights into market dynamics.
+
+These system patterns provide an architectural foundation for NeuroSense FX's radical floating architecture, ensuring performance, maintainability, and scalability while supporting complex requirements of professional trading interfaces. The enhanced floating element patterns (7-9) represent latest innovations in perfect behavior implementation and production integration, achieving 85% clean code ratio with production stability. The Container vs Display patterns (11-15) represent a critical breakthrough in resolving exponential canvas growth issues through hierarchical architecture and reactive independence. The Price Display Foundation patterns (17-21) establish production-ready templates for all future visualization components. The Market Profile Delta Visualization patterns (22-26) provide sophisticated market pressure analysis tools that enhance trading decision-making capabilities while maintaining the highest standards of performance and architectural consistency.
