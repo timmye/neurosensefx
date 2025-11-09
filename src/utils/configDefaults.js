@@ -60,8 +60,8 @@ export const FACTORY_DEFAULTS = {
   ohlLabelBoxOutlineOpacity: 1,
 
   // === PRICE FLOAT & DISPLAY (content-relative) ===
-  priceFloatWidth: 0.02,                             // 15% of content width (33px on 220px canvas) - converted to decimal
-  priceFloatHeight: 0.02,                            // 2% of content height (2.4px on 120px canvas) - converted to decimal
+  priceFloatWidth: 0.01,                             // 15% of content width (33px on 220px canvas) - converted to decimal
+  priceFloatHeight: 0.03,                            // 2% of content height (2.4px on 120px canvas) - converted to decimal
   priceFloatXOffset: 0,                               // 0% of content width
   priceFloatUseDirectionalColor: false,
   priceFloatColor: '#FFFFFF',
@@ -95,7 +95,7 @@ export const FACTORY_DEFAULTS = {
   // === VOLATILITY ORB (content-relative) ===
   showVolatilityOrb: true,
   volatilityColorMode: 'static',
-  volatilityOrbBaseWidth: 0.91,                        // 91% of content width
+  volatilityOrbBaseWidth: 0.1,                        
   volatilityOrbInvertBrightness: false,
   volatilitySizeMultiplier: 1.5,
   showVolatilityMetric: true,
@@ -121,7 +121,17 @@ export const FACTORY_DEFAULTS = {
   silhouetteOutlineWidth: 1,
   silhouetteFill: true,
   silhouetteFillOpacity: 0.3,
-  silhouetteOutlineColor: '#374151',
+  silhouetteOutlineColor: '#94b3e6ff',
+
+  // === SILHOUETTE VISUAL CONTROLS ===
+  silhouetteFillStyle: 'solid',            // 'solid' | 'gradient' | 'none'
+  silhouetteGradientDirection: 'horizontal', // 'horizontal' | 'vertical' | 'radial'
+
+  // === MARKET PROFILE SILHOUETTE ===
+  silhouetteSmoothing: true,               // Enable/disable silhouette edge smoothing
+  silhouetteSmoothingIntensity: 0.3,       // 0.0 = sharp, 1.0 = maximum smooth
+  silhouetteQuality: 'medium',             // 'low' | 'medium' | 'high' - performance/quality tradeoff
+  silhouetteAdaptiveQuality: true,         // Auto-adjust quality based on display count
 
   // === BAR-BASED RENDERING PROPERTIES ===
   barWidthRatio: 15,                      // Max bar width as % of canvas (not decimal)

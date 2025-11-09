@@ -152,9 +152,9 @@ function processMarketProfileData(levels, yScale, config) {
 }
 
 /**
- * Silhouette Rendering - Shape-based processing for instant market structure recognition
+ * Silhouette Rendering with KNN Concave Hull - Shape-based processing for instant market structure recognition
  * Implements cognitive design foundation leveraging brain's superior shape recognition
- * Creates separate outlines for left (negative/down) and right (positive/up) sides
+ * Creates separate organic outlines for left (negative/down) and right (positive/up) sides
  */
 function renderSilhouetteProfile(ctx, renderingContext, config, data) {
   const { processedLevels, maxDisplayValue } = data;
@@ -165,9 +165,9 @@ function renderSilhouetteProfile(ctx, renderingContext, config, data) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Separate levels by side for proper silhouette rendering
-  const leftSideLevels = [];
-  const rightSideLevels = [];
+  // Process levels into edge points for KNN algorithm
+  const leftSidePoints = [];
+  const rightSidePoints = [];
 
   processedLevels.forEach(level => {
     if (level.displayValue === 0) return;
@@ -179,221 +179,132 @@ function renderSilhouetteProfile(ctx, renderingContext, config, data) {
 
     switch (config.positioning) {
       case 'left':
-        // All levels extend to the left
-        leftSideLevels.push({ ...level, leftX: adrAxisX - barWidth, rightX: adrAxisX });
+        // All levels extend to the left - create edge points
+        leftSidePoints.push({
+          x: adrAxisX - barWidth,
+          y: level.priceY,
+          volume: level.volume,
+          delta: level.delta
+        });
+        leftSidePoints.push({
+          x: adrAxisX,
+          y: level.priceY,
+          volume: level.volume,
+          delta: level.delta
+        });
         break;
       case 'right':
-        // All levels extend to the right
-        rightSideLevels.push({ ...level, leftX: adrAxisX, rightX: adrAxisX + barWidth });
+        // All levels extend to the right - create edge points
+        rightSidePoints.push({
+          x: adrAxisX,
+          y: level.priceY,
+          volume: level.volume,
+          delta: level.delta
+        });
+        rightSidePoints.push({
+          x: adrAxisX + barWidth,
+          y: level.priceY,
+          volume: level.volume,
+          delta: level.delta
+        });
         break;
       case 'separate':
         // Negative to left, positive to right
         if (level.isPositive) {
-          rightSideLevels.push({ ...level, leftX: adrAxisX, rightX: adrAxisX + barWidth });
+          rightSidePoints.push({
+            x: adrAxisX,
+            y: level.priceY,
+            volume: level.volume,
+            delta: level.delta
+          });
+          rightSidePoints.push({
+            x: adrAxisX + barWidth,
+            y: level.priceY,
+            volume: level.volume,
+            delta: level.delta
+          });
         } else {
-          leftSideLevels.push({ ...level, leftX: adrAxisX - barWidth, rightX: adrAxisX });
+          leftSidePoints.push({
+            x: adrAxisX - barWidth,
+            y: level.priceY,
+            volume: level.volume,
+            delta: level.delta
+          });
+          leftSidePoints.push({
+            x: adrAxisX,
+            y: level.priceY,
+            volume: level.volume,
+            delta: level.delta
+          });
         }
         break;
       default:
         // Default to right positioning
-        rightSideLevels.push({ ...level, leftX: adrAxisX, rightX: adrAxisX + barWidth });
+        rightSidePoints.push({
+          x: adrAxisX,
+          y: level.priceY,
+          volume: level.volume,
+          delta: level.delta
+        });
+        rightSidePoints.push({
+          x: adrAxisX + barWidth,
+          y: level.priceY,
+          volume: level.volume,
+          delta: level.delta
+        });
         break;
     }
   });
 
   // Render left side silhouette (negative/down = red)
-  if (leftSideLevels.length > 0) {
-    renderSideSilhouette(ctx, leftSideLevels, config.marketProfileDownColor, config);
+  if (leftSidePoints.length >= 3) {
+    renderMarketProfileSilhouette(ctx, leftSidePoints, config.marketProfileDownColor, config);
   }
 
   // Render right side silhouette (positive/up = green)
-  if (rightSideLevels.length > 0) {
-    renderSideSilhouette(ctx, rightSideLevels, config.marketProfileUpColor, config);
+  if (rightSidePoints.length >= 3) {
+    renderMarketProfileSilhouette(ctx, rightSidePoints, config.marketProfileUpColor, config);
   }
 
   ctx.restore();
 }
 
 /**
- * Render silhouette for one side (left or right) with proper color
+ * Render market profile silhouette with proper edge following
  */
-function renderSideSilhouette(ctx, sideLevels, color, config) {
-  if (sideLevels.length === 0) return;
+function renderMarketProfileSilhouette(ctx, points, color, config) {
+  if (points.length < 2) return;
 
-  // Sort levels by Y coordinate (top to bottom)
-  const sortedLevels = [...sideLevels].sort((a, b) => a.priceY - b.priceY);
+  // Get silhouette configuration with defaults
+  const smoothingFactor = config.silhouetteSmoothingIntensity || 0.3;
+  const enableSmoothing = config.silhouetteSmoothing !== false;
 
-  // Build outline points for this side
-  const outlinePoints = [];
+  // Sort points by Y coordinate (top to bottom)
+  const sortedPoints = [...points].sort((a, b) => a.y - b.y);
 
-  // Start from top
-  outlinePoints.push({ x: sortedLevels[0].leftX, y: sortedLevels[0].priceY });
+  // Create market profile silhouette by following the outer edge
+  const silhouettePoints = createMarketProfileSilhouette(sortedPoints, enableSmoothing, smoothingFactor);
 
-  // Trace down the left edge (or inner edge for right side)
-  sortedLevels.forEach(level => {
-    outlinePoints.push({ x: level.leftX, y: level.priceY });
-  });
+  if (silhouettePoints.length < 3) return;
 
-  // Connect to bottom edge
-  const lastLevel = sortedLevels[sortedLevels.length - 1];
-  outlinePoints.push({ x: lastLevel.rightX, y: lastLevel.priceY });
-
-  // Trace up the right edge (or outer edge for right side)
-  for (let i = sortedLevels.length - 1; i >= 0; i--) {
-    outlinePoints.push({ x: sortedLevels[i].rightX, y: sortedLevels[i].priceY });
+  // Create gradient fill if configured
+  let fillColor = color;
+  if (config.silhouetteFillStyle === 'gradient') {
+    fillColor = createSilhouetteGradient(ctx, silhouettePoints, color, config);
   }
 
-  // Close path
-  outlinePoints.push({ x: sortedLevels[0].rightX, y: sortedLevels[0].priceY });
-
-  // Draw the silhouette
-  if (outlinePoints.length >= 4) {
-    ctx.beginPath();
-    ctx.moveTo(outlinePoints[0].x, outlinePoints[0].y);
-
-    for (let i = 1; i < outlinePoints.length; i++) {
-      ctx.lineTo(outlinePoints[i].x, outlinePoints[i].y);
-    }
-
-    ctx.closePath();
-
-    // Apply fill if enabled
-    if (config.silhouetteFill) {
-      ctx.fillStyle = color;
-      ctx.globalAlpha = config.silhouetteFillOpacity;
-      ctx.fill();
-    }
-
-    // Restore opacity for outline
-    ctx.globalAlpha = config.marketProfileOpacity;
-
-    // Draw outline if enabled
-    if (config.silhouetteOutline) {
-      ctx.strokeStyle = config.silhouetteOutlineColor;
-      ctx.lineWidth = config.silhouetteOutlineWidth;
-      ctx.stroke();
-    }
-  }
-}
-
-/**
- * Build profile outline by finding the outermost edges of all levels
- * Creates a continuous outline that represents the true market profile shape
- * (Kept for backward compatibility, but not used in new implementation)
- */
-function buildProfileOutline(processedLevels, maxDisplayValue, config, contentArea, adrAxisX) {
-  if (processedLevels.length === 0) return [];
-
-  // Sort levels by Y coordinate (top to bottom)
-  const sortedLevels = [...processedLevels].sort((a, b) => a.priceY - b.priceY);
-
-  // Calculate bar widths for all levels
-  const levelBars = sortedLevels.map(level => {
-    const normalizedWidth = (Math.abs(level.displayValue) / maxDisplayValue) * (config.barWidthRatio / 100);
-    const barWidth = Math.max(config.barMinWidth, normalizedWidth * contentArea.width);
-
-    let leftX, rightX;
-
-    switch (config.positioning) {
-      case 'left':
-        // All bars extend to the left of the axis
-        leftX = adrAxisX - barWidth;
-        rightX = adrAxisX;
-        break;
-      case 'right':
-        // All bars extend to the right of the axis
-        leftX = adrAxisX;
-        rightX = adrAxisX + barWidth;
-        break;
-      case 'separate':
-        // Negative/selling pressure to left, positive/buying to right
-        if (level.isPositive) {
-          leftX = adrAxisX;
-          rightX = adrAxisX + barWidth;
-        } else {
-          leftX = adrAxisX - barWidth;
-          rightX = adrAxisX;
-        }
-        break;
-      default:
-        // Default to right positioning
-        leftX = adrAxisX;
-        rightX = adrAxisX + barWidth;
-        break;
-    }
-
-    return {
-      y: level.priceY,
-      leftX,
-      rightX,
-      width: rightX - leftX,
-      isPositive: level.isPositive,
-      displayValue: level.displayValue
-    };
-  });
-
-  // Filter out zero-width bars
-  const validBars = levelBars.filter(bar => bar.displayValue !== 0 && bar.width > 0);
-  if (validBars.length === 0) return [];
-
-  // Create continuous outline points
-  const outlinePoints = [];
-
-  // Start from top-left corner
-  outlinePoints.push({ x: validBars[0].leftX, y: validBars[0].y });
-
-  // Trace down the left edge
-  validBars.forEach(bar => {
-    outlinePoints.push({ x: bar.leftX, y: bar.y });
-  });
-
-  // Connect to bottom-right corner
-  const lastBar = validBars[validBars.length - 1];
-  outlinePoints.push({ x: lastBar.rightX, y: lastBar.y });
-
-  // Trace up the right edge
-  for (let i = validBars.length - 1; i >= 0; i--) {
-    outlinePoints.push({ x: validBars[i].rightX, y: validBars[i].y });
-  }
-
-  // Close the path back to start
-  outlinePoints.push({ x: validBars[0].rightX, y: validBars[0].y });
-
-  return outlinePoints;
-}
-
-/**
- * Render continuous silhouette outline with proper color handling
- */
-function renderContinuousSilhouette(ctx, outlinePoints, config) {
-  if (outlinePoints.length < 4) return; // Need at least 4 points to create a shape
-
-  // Begin path
+  // Draw the filled silhouette
   ctx.beginPath();
+  ctx.moveTo(silhouettePoints[0].x, silhouettePoints[0].y);
 
-  // Move to first point
-  ctx.moveTo(outlinePoints[0].x, outlinePoints[0].y);
-
-  // Draw continuous outline
-  for (let i = 1; i < outlinePoints.length; i++) {
-    ctx.lineTo(outlinePoints[i].x, outlinePoints[i].y);
+  for (let i = 1; i < silhouettePoints.length; i++) {
+    ctx.lineTo(silhouettePoints[i].x, silhouettePoints[i].y);
   }
 
-  // Close path
   ctx.closePath();
 
-  // Apply fill if enabled
-  if (config.silhouetteFill) {
-    // For continuous silhouette, use a neutral color based on analysis type
-    let fillColor;
-    if (config.analysisType === 'deltaPressure') {
-      // Use a gradient or neutral color for delta pressure
-      fillColor = '#6B7280'; // Gray for neutral
-    } else {
-      // Use a neutral blue for volume distribution
-      fillColor = '#3B82F6'; // Blue for volume
-    }
-
+  // Apply fill
+  if (config.silhouetteFill && config.silhouetteFillStyle !== 'none') {
     ctx.fillStyle = fillColor;
     ctx.globalAlpha = config.silhouetteFillOpacity;
     ctx.fill();
@@ -409,6 +320,167 @@ function renderContinuousSilhouette(ctx, outlinePoints, config) {
     ctx.stroke();
   }
 }
+
+/**
+ * Create proper market profile silhouette from sorted edge points
+ */
+function createMarketProfileSilhouette(sortedPoints, enableSmoothing, smoothingFactor) {
+  if (sortedPoints.length < 2) return sortedPoints;
+
+  // Find the outermost edge points
+  const outermostPoints = findOutermostEdgePoints(sortedPoints);
+
+  if (outermostPoints.length < 3) return outermostPoints;
+
+  // Apply smoothing if enabled
+  if (enableSmoothing && outermostPoints.length >= 3) {
+    return smoothMarketProfileEdge(outermostPoints, smoothingFactor);
+  }
+
+  return outermostPoints;
+}
+
+/**
+ * Find outermost edge points from market profile data
+ */
+function findOutermostEdgePoints(sortedPoints) {
+  if (sortedPoints.length === 0) return [];
+
+  // Group points by similar Y coordinates (within tolerance)
+  const tolerance = 2; // pixels
+  const yGroups = [];
+
+  sortedPoints.forEach(point => {
+    // Find existing group or create new one
+    let group = yGroups.find(g => Math.abs(g.y - point.y) <= tolerance);
+    if (!group) {
+      group = { y: point.y, leftmost: point, rightmost: point };
+      yGroups.push(group);
+    } else {
+      // Update group boundaries
+      if (point.x < group.leftmost.x) {
+        group.leftmost = point;
+      }
+      if (point.x > group.rightmost.x) {
+        group.rightmost = point;
+      }
+    }
+  });
+
+  // Create silhouette path following outermost edges
+  const silhouettePoints = [];
+
+  // Start from top-left
+  silhouettePoints.push({ x: yGroups[0].leftmost.x, y: yGroups[0].y });
+
+  // Trace down the left edge
+  yGroups.forEach(group => {
+    silhouettePoints.push({ x: group.leftmost.x, y: group.y });
+  });
+
+  // Connect to bottom-right
+  const lastGroup = yGroups[yGroups.length - 1];
+  silhouettePoints.push({ x: lastGroup.rightmost.x, y: lastGroup.y });
+
+  // Trace up the right edge
+  for (let i = yGroups.length - 2; i >= 0; i--) {
+    silhouettePoints.push({ x: yGroups[i].rightmost.x, y: yGroups[i].y });
+  }
+
+  // Close back to top-right
+  silhouettePoints.push({ x: yGroups[0].rightmost.x, y: yGroups[0].y });
+
+  return silhouettePoints;
+}
+
+/**
+ * Smooth market profile edge while maintaining proper shape
+ */
+function smoothMarketProfileEdge(points, smoothingFactor) {
+  if (points.length < 3) return points;
+
+  const smoothedPoints = [];
+
+  for (let i = 0; i < points.length; i++) {
+    const prev = points[(i - 1 + points.length) % points.length];
+    const curr = points[i];
+    const next = points[(i + 1) % points.length];
+
+    // Add current point
+    smoothedPoints.push(curr);
+
+    // Add smoothed intermediate point
+    const controlX = curr.x + (next.x - prev.x) * smoothingFactor * 0.15;
+    const controlY = curr.y + (next.y - prev.y) * smoothingFactor * 0.15;
+
+    smoothedPoints.push({ x: controlX, y: controlY });
+  }
+
+  return smoothedPoints;
+}
+
+// =============================================================================
+// MARKET PROFILE SILHOUETTE ALGORITHM
+// =============================================================================
+
+/**
+ * Create gradient fill for silhouette based on configuration
+ */
+function createSilhouetteGradient(ctx, outlinePoints, baseColor, config) {
+  if (outlinePoints.length < 2) return baseColor;
+
+  // Calculate bounds of outline points
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+
+  outlinePoints.forEach(point => {
+    minX = Math.min(minX, point.x);
+    maxX = Math.max(maxX, point.x);
+    minY = Math.min(minY, point.y);
+    maxY = Math.max(maxY, point.y);
+  });
+
+  // Create gradient based on direction setting
+  let gradient;
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  switch (config.silhouetteGradientDirection) {
+    case 'horizontal':
+      gradient = ctx.createLinearGradient(minX, centerY, maxX, centerY);
+      break;
+    case 'vertical':
+      gradient = ctx.createLinearGradient(centerX, minY, centerX, maxY);
+      break;
+    case 'radial':
+      const radius = Math.max(maxX - minX, maxY - minY) / 2;
+      gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+      break;
+    default:
+      gradient = ctx.createLinearGradient(minX, centerY, maxX, centerY);
+      break;
+  }
+
+  // Create color stops with transparency variation
+  const colorAlpha = config.silhouetteFillOpacity;
+
+  if (config.silhouetteGradientDirection === 'radial') {
+    // Radial gradient: solid center, transparent edges
+    gradient.addColorStop(0, baseColor);
+    gradient.addColorStop(0.7, baseColor);
+    gradient.addColorStop(1, `${baseColor}00`); // Transparent at edge
+  } else {
+    // Linear gradient: solid to transparent
+    gradient.addColorStop(0, baseColor);
+    gradient.addColorStop(0.6, baseColor);
+    gradient.addColorStop(1, `${baseColor}88`); // Semi-transparent at end
+  }
+
+  return gradient;
+}
+
+
+
 
 /**
  * Render individual silhouette shape for pre-attentive processing
