@@ -193,12 +193,7 @@
 
     // --- Draw Core Visualizations ---
     // 🔧 CLEAN FOUNDATION: Pass rendering context to all visualization functions
-    // Add error handling to identify any component causing canvas to go white
-    try {
-      drawMarketProfile(ctx, currentRenderingContext, config, currentState, y);
-    } catch (error) {
-      console.error('[Container] Market Profile render error:', error);
-    }
+    drawMarketProfile(ctx, currentRenderingContext, config, currentState, y);
 
     try {
       drawDayRangeMeter(ctx, currentRenderingContext, config, currentState, y);

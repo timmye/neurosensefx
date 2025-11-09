@@ -14,14 +14,14 @@
   
   function getDefaultText(statusValue) {
     switch (statusValue) {
-      case 'connected': return 'Connected';
-      case 'disconnected': return 'Disconnected';
-      case 'connecting': return 'Connecting';
-      case 'ws-connecting': return 'WebSocket Connecting';
-      case 'ws-open': return 'WebSocket Open';
-      case 'error': return 'Error';
-      case 'ready': return 'Ready';
-      default: return 'Unknown';
+      case 'connected': return 'Connected ✅';
+      case 'disconnected': return 'Disconnected ❌';
+      case 'connecting': return 'Connecting...';
+      case 'ws-connecting': return 'WebSocket Connecting...';
+      case 'ws-open': return 'WebSocket Open 🌐';
+      case 'error': return 'Error ⚠️';
+      case 'ready': return 'Ready 🚀';
+      default: return 'Unknown ❓';
     }
   }
 </script>

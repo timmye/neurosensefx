@@ -6,7 +6,28 @@ A sophisticated financial trading visualization platform designed for profession
 
 **NeuroSense FX** is fundamentally designed as a human-centric trading interface that minimizes cognitive fatigue during extended trading sessions. The core philosophy works with human cognitive strengths rather than against them, applying principles from neuroscience, human factors, and military/aviation display design.
 
+### 🎯 **Project Technical Philosophy: "Simple, Performant, Maintainable"**
+
+Every development decision is guided by these three non-negotiable pillars:
+
+#### **SIMPLE**
+- Clear mental models and intuitive component design
+- Minimal complexity with predictable behavior patterns
+- Self-documenting code that explains its purpose through structure
+
+#### **PERFORMANT**
+- **60fps guarantee** - All rendering maintains smooth performance
+- **Sub-100ms latency** - Data-to-visual updates under 100ms threshold
+- **Memory efficiency** - Intelligent resource management with 20+ concurrent displays
+
+#### **MAINTAINABLE**
+- Single responsibility components with loose coupling
+- Extensible design that's easy to enhance without breaking existing functionality
+- Comprehensive documentation with clear decision rationale
+
 The system combines abstract visual metaphors with targeted numerical displays, leveraging the brain's superior ability to process visual patterns and spatial relationships while providing precise numerical information when needed.
+
+> **For LLM Developers**: Every implementation must satisfy all three pillars. If any solution is not simple, performant, AND maintainable, refactor until it is.
 
 ## Core Problem Solved
 
@@ -135,15 +156,38 @@ This repository uses a monorepo architecture to keep concerns separated while ma
 
 ## Commands & Development
 
-### Available Scripts
+### Development Workflow
+
+**Current Development Process:**
+```bash
+# Start development environment
+./run.sh start       # Start frontend (5173) + backend (8080)
+
+# Development URLs
+# Frontend: http://localhost:5173 (Vite dev server)
+# Backend: ws://localhost:8080 (WebSocket server)
+
+# Service management
+./run.sh stop        # Stop all services
+./run.sh status      # Check service health
+./run.sh logs        # View real-time logs
+```
+
+**Testing Approach:**
+- **Manual Testing**: Direct browser testing with user interaction
+- **Visual Verification**: Component rendering and behavior validation
+- **Performance Testing**: Manual monitoring of 60fps and memory usage
+- **User Workflow Testing**: Real trading scenario simulation
+
+### Available Scripts (Future)
 ```bash
 npm run dev          # Start development server
 npm run build        # Build for production
 npm run preview      # Preview production build
-npm run test         # Run Playwright tests
-npm run test:e2e     # End-to-end testing
-npm run lint         # Code linting
-npm run format       # Code formatting
+npm run test         # Run Playwright tests (when implemented)
+npm run test:e2e     # End-to-end testing (when implemented)
+npm run lint         # Code linting (when implemented)
+npm run format       # Code formatting (when implemented)
 ```
 
 ### Project Setup
@@ -189,10 +233,23 @@ npm run format       # Code formatting
 
 ## Documentation
 
-For detailed technical information, see:
-- **[Front-End Documentation](./docs/Front_End_Documentation.md):** Technical architecture guide
-- **[Design Intent](./docs/NeuroSense_FX_Design_Document.md):** Core design philosophy
-- **[Local Development Guide](./README_LOCAL_DEV.md):** Detailed setup instructions
+**📚 Comprehensive Documentation Hub**: [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md)
+
+### Key Documentation for Developers
+
+- **🎯 [UX Architecture](docs/DESIGN_UX_Architecture.md)** - **⭐ CENTRAL REFERENCE** - Understanding the "why" behind system design (15 min read)
+- **🔧 [Technical Architecture](CLAUDE.md)** - Implementation patterns and development guidelines (25 min read)
+- **📊 [Component Design Docs](docs/DOCUMENTATION_INDEX.md#component-documentation)** - Individual component specifications
+- **🚀 [Quick Start Guide](docs/DOCUMENTATION_INDEX.md#quick-start-for-developers)** - Get started in 45 minutes
+
+### Design & Architecture
+- **[NeuroSense FX Design Document](docs/NeuroSense_FX_Design_Document.md)** - High-level design philosophy and scientific foundations
+- **[Container-Display Architecture](docs/DESIGN_Container_Display_Architecture.md)** - Responsive layout and floating system
+- **[Unified Context Menu Architecture](docs/DESIGN_Unified_ContextMenu_Architecture.md)** - Configuration management system
+
+### Development Resources
+- **[Visualization Library](src/lib/viz/README.md)** - Component architecture and usage patterns
+- **[Local Development Guide](README_LOCAL_DEV.md)** - Detailed setup instructions
 
 ## Design Philosophy
 

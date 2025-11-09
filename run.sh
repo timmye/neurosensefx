@@ -27,16 +27,49 @@ stop() {
     log "Services stop initiated"
 }
 
+# Development mode with hot reload and visible logs
+dev() {
+    log "Starting development server with hot reload..."
+    log "🔄 HMR enabled - changes will auto-refresh browser"
+    log "📝 Logs will be visible in this terminal"
+    log "🛑 Use Ctrl+C to stop dev server"
+
+    # Stop existing services first
+    stop
+    sleep 2
+
+    # Start backend in background (still needs to be separate)
+    log "Starting backend service..."
+    cd services/tick-backend
+    nohup node server.js > ../../backend.log 2>&1 &
+    disown $! 2>/dev/null || true
+    cd - > /dev/null
+
+    # Wait a moment for backend to start
+    sleep 2
+
+    # Start frontend in foreground for development
+    log "Starting frontend development server with HMR..."
+    log "Frontend will be available at: http://localhost:5174"
+    log "Backend WebSocket at: ws://localhost:8080"
+    echo ""
+    log "🚀 Development server ready - open your browser to start coding!"
+    echo ""
+
+    # Run npm run dev in foreground (this will keep the terminal attached)
+    npm run dev
+}
+
 # Start with immediate return
 start() {
     log "Starting services..."
-    
+
     # Stop first (fire-and-forget)
     stop
-    
+
     # Small delay to let stop begin
     sleep 1
-    
+
     # Start backend with proper detachment
     log "Starting backend..."
     cd services/tick-backend
@@ -45,18 +78,18 @@ start() {
     # Disown the process to detach it from the shell
     disown $! 2>/dev/null || true
     cd - > /dev/null
-    
+
     # Start frontend with proper detachment
     log "Starting frontend..."
     # Use nohup with proper I/O redirection and disown
     nohup npm run dev > frontend.log 2>&1 &
     # Disown the process to detach it from the shell
     disown $! 2>/dev/null || true
-    
+
     # Return immediately - don't wait for services to start
     log "Services start initiated"
     log "Backend: http://localhost:8080"
-    log "Frontend: http://localhost:5173"
+    log "Frontend: http://localhost:5174"
     log "Check status with: ./run.sh status"
 }
 
@@ -82,7 +115,7 @@ status() {
     
     echo ""
     echo "=== Access URLs ==="
-    echo "Frontend: http://localhost:5173"
+    echo "Frontend: http://localhost:5174"
     echo "Backend:  ws://localhost:8080"
 }
 
@@ -132,22 +165,31 @@ restart() {
 
 # Show usage
 usage() {
-    echo "NeuroSense FX Service Management - Emergency Version"
+    echo "NeuroSense FX Service Management - Enhanced Version"
     echo ""
-    echo "Usage: $0 {start|stop|restart|status|logs}"
+    echo "Usage: $0 {dev|start|stop|restart|status|logs}"
     echo ""
     echo "Commands:"
-    echo "  start   - Start all services (immediate return)"
+    echo "  dev     - Start development server with hot reload (foreground)"
+    echo "  start   - Start all services in background (production mode)"
     echo "  stop    - Stop all services (immediate return)"
-    echo "  restart - Restart all services (immediate return)"
+    echo "  restart - Restart all services (background mode)"
     echo "  status  - Show service status"
     echo "  logs    - Show service logs (all|backend|frontend)"
     echo ""
-    echo "Note: All commands return immediately. Use status to check results."
+    echo "Development Workflow:"
+    echo "  ./run.sh dev       # Use while actively coding (HMR enabled)"
+    echo "  ./run.sh restart   # Use for testing/production simulation"
+    echo ""
+    echo "Note: 'dev' mode runs in foreground with visible logs."
+    echo "      'start' mode runs services in background like production."
 }
 
 # Main execution
 case "${1:-}" in
+    "dev")
+        dev
+        ;;
     "start")
         start
         ;;

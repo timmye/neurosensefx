@@ -64,7 +64,7 @@ function calculateRenderData(contentArea, adrAxisX, config, state, y) {
   const inBounds = boundsUtils.isYInBounds(priceY, config, { canvasArea: contentArea });
   
   // Calculate font size using simplified decimal format
-  const fontSize = config.priceFontSize || 0.05; // 5% default as decimal
+  const fontSize = config.priceFontSize || 0.2; // 20% default as decimal
   const baseFontSize = contentArea.height * fontSize;
 
   // Calculate positioning based on mode using simplified decimal format
@@ -181,29 +181,107 @@ function formatPrice(price, digits, config) {
   let pips = '';
   let pipette = '';
 
-  // Standard convention for FX pairs (e.g., EURUSD, USDJPY) with 3 or 5 digits
-  if (digits === 5 || digits === 3) {
-    const pipsIndex = digits - 3;
-    bigFigure += '.' + decimalPart.substring(0, pipsIndex);
-    pips = decimalPart.substring(pipsIndex, pipsIndex + 2);
-    pipette = decimalPart.substring(pipsIndex + 2);
-  } 
-  // Convention for other instruments
-  else if (digits > 0) {
-    bigFigure += '.' + decimalPart;
+  // NeuroSenseFX Dynamic Asset Classification System
+  // Pips are always the primary visual element (ratio = 1.0)
+  const classification = classifyPriceFormat(price, digits);
+
+  switch (classification.type) {
+    case 'HIGH_VALUE_CRYPTO': // BTCUSD: 100000.00
+      // Thousands = big figs, hundreds/tens = pips, ones = pipettes, decimals = meaningless
+      if (integerPart.length >= 6) {
+        const bigFigEnd = integerPart.length - 3; // Everything before last 3 digits
+        bigFigure = integerPart.substring(0, bigFigEnd);
+        pips = integerPart.substring(bigFigEnd, bigFigEnd + 2); // Hundreds/tens
+        pipette = integerPart.substring(bigFigEnd + 2, bigFigEnd + 3); // Ones
+      } else {
+        bigFigure = integerPart;
+      }
+      break;
+
+    case 'HIGH_VALUE_COMMODITY': // XAUUSD: 3000.00
+      // Thousands = big figs, hundreds/tens = pips, decimals meaningless
+      if (integerPart.length >= 4) {
+        const bigFigEnd = integerPart.length - 2; // Everything before last 2 digits
+        bigFigure = integerPart.substring(0, bigFigEnd);
+        pips = integerPart.substring(bigFigEnd, bigFigEnd + 2); // Hundreds/tens
+        // No pipettes for commodities
+      } else {
+        bigFigure = integerPart;
+        pips = decimalPart.substring(0, 2); // Fall back to decimals if needed
+      }
+      break;
+
+    case 'FX_JPY_STYLE': // USDJPY: 130.45 (2 digits)
+      // JPY convention: pips are both decimal places (45 in 130.45)
+      bigFigure = integerPart;
+      pips = decimalPart.substring(0, 2); // Both decimal places = pips
+      pipette = ''; // No pipettes for JPY style
+      break;
+
+    case 'FX_STANDARD': // EURUSD: 1.23456 (5 digits)
+      // Traditional FX convention
+      const pipsIndexStd = digits - 3;
+      bigFigure = integerPart + '.' + decimalPart.substring(0, pipsIndexStd);
+      pips = decimalPart.substring(pipsIndexStd, pipsIndexStd + 2);
+      pipette = decimalPart.substring(pipsIndexStd + 2);
+      break;
+
+    case 'STANDARD_DECIMAL': // Default fallback
+    default:
+      // For other instruments, use traditional decimal formatting
+      if (digits > 0) {
+        const lastTwoDigits = decimalPart.slice(-2);
+        const beforeLastTwo = decimalPart.slice(0, -2);
+        bigFigure = integerPart + (beforeLastTwo ? '.' + beforeLastTwo : '');
+        pips = lastTwoDigits;
+      } else {
+        bigFigure = integerPart;
+      }
+      break;
   }
 
-  // Use simplified decimal format for sizing ratios
-  // FIXED: Use correct parameter names and adjust ratios for user expectations
-  // When user sets 50%, visible text should be close to 50% of canvas height
-  const bigFigureRatio = config.bigFigureFontSizeRatio || 1.0;          // 100% of base size (main price component)
-  const pipsRatio = config.pipFontSizeRatio || 0.6;                     // 60% of base size (smaller but still readable)
-  const pipetteRatio = config.pipetteFontSizeRatio || 0.4;              // 40% of base size (smallest but visible)
-  
+  // NeuroSenseFX Philosophy: Pips are the primary visual element for traders
+  // All sizing uses user-configurable ratios with sensible defaults
+  const bigFigureRatio = config.bigFigureFontSizeRatio || 0.6;     // 60% of base (secondary)
+  const pipsRatio = config.pipFontSizeRatio || 1.0;               // 100% of base (PRIMARY - most important)
+  const pipetteRatio = config.pipetteFontSizeRatio || 0.4;        // 40% of base (tertiary)
+
   return {
     text: { bigFigure, pips, pipette },
-    sizing: { bigFigureRatio, pipsRatio, pipetteRatio }
+    sizing: { bigFigureRatio, pipsRatio, pipetteRatio },
+    classification // Include classification for debugging/analysis
   };
+}
+
+/**
+ * NeuroSenseFX Dynamic Asset Classification System
+ * Classifies price format based on magnitude and digit requirements
+ */
+function classifyPriceFormat(price, digits) {
+  const magnitude = Math.floor(Math.log10(Math.abs(price)));
+
+  // HIGH_VALUE_CRYPTO: 100,000+ (BTCUSD, ETHUSD, etc.)
+  if (magnitude >= 5) {
+    return { type: 'HIGH_VALUE_CRYPTO', magnitude, description: 'Crypto-style high-value pricing' };
+  }
+
+  // HIGH_VALUE_COMMODITY: 1,000-99,999 (XAUUSD, indices, etc.)
+  if (magnitude >= 3) {
+    return { type: 'HIGH_VALUE_COMMODITY', magnitude, description: 'Commodity-style high-value pricing' };
+  }
+
+  // FX_JPY_STYLE: 100-999 with 2 decimal places (USDJPY, etc.)
+  if (magnitude >= 2 && (digits === 2 || digits === 3)) {
+    return { type: 'FX_JPY_STYLE', magnitude, description: 'JPY-style FX pricing' };
+  }
+
+  // FX_STANDARD: 0.1-999 with 5 decimal places (EURUSD, GBPUSD, etc.)
+  if (digits === 5 || digits === 3) {
+    return { type: 'FX_STANDARD', magnitude, description: 'Standard FX pricing' };
+  }
+
+  // STANDARD_DECIMAL: Everything else
+  return { type: 'STANDARD_DECIMAL', magnitude, description: 'Standard decimal pricing' };
 }
 
 /**

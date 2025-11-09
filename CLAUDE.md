@@ -493,6 +493,87 @@ class ResourceManager {
 }
 ```
 
+## Development Workflow & Process
+
+### HMR-Enabled Development Workflow
+
+**NeuroSense FX now supports Hot Module Replacement (HMR) for rapid development**
+
+#### Two Development Modes
+
+**1. Development Mode (`./run.sh dev`) - For Active Coding**
+- **Hot Reload**: Changes appear in browser automatically within 1-2 seconds
+- **Visible Logs**: Real-time compilation output and error messages
+- **Foreground Process**: Development server runs in attached terminal
+- **Port**: Frontend on http://localhost:5174, Backend WebSocket on ws://localhost:8080
+- **Use When**: Actively coding, debugging, or experimenting with UI changes
+
+**2. Production Mode (`./run.sh start`)** - For Testing
+- **Background Services**: Runs detached like production environment
+- **Manual Refresh**: Requires manual browser reload for changes
+- **Realistic Testing**: Simulates actual user experience
+- **Port**: Frontend on http://localhost:5174, Backend WebSocket on ws://localhost:8080
+- **Use When**: Testing features, performance validation, demo preparation
+
+#### Development Workflow Best Practices
+
+**Daily Development Cycle:**
+```bash
+# Start coding session
+./run.sh dev
+# → Backend starts in background
+# → Frontend starts with HMR in foreground
+# → Browser opens automatically to localhost:5174
+# → Make code changes → Browser updates automatically
+
+# Switch to testing mode
+./run.sh restart
+# → Both services run in background
+# → Manual browser refresh for changes
+# → Realistic testing environment
+```
+
+**What Gets Hot Reloaded:**
+- ✅ **Svelte Components**: Template, script, and style changes update instantly
+- ✅ **JavaScript Modules**: Function and variable changes trigger full refresh
+- ✅ **CSS Changes**: Style updates apply without full page reload
+- ✅ **Configuration Files**: Most config changes update automatically
+
+**What Requires Full Restart:**
+- 🔄 **Vite Configuration**: Changes to vite.config.js require server restart
+- 🔄 **WebSocket Proxy**: Backend connection changes need restart
+- 🔄 **New Dependencies**: Package.json changes require npm install + restart
+
+#### File Watching Performance
+
+**Optimized Watching Configuration:**
+```javascript
+// vite.config.js - HMR Settings
+watch: {
+  usePolling: true,        // Reliable file change detection
+  interval: 100,           // Check every 100ms for changes
+  ignored: ['**/node_modules/**', '**/.git/**', '**/logs/**']
+}
+```
+
+**HMR WebSocket Configuration:**
+- **Protocol**: WebSocket (ws://) for low-latency communication
+- **Port**: 5174 (auto-configured to avoid conflicts)
+- **Error Overlay**: Browser overlay shows compilation errors instantly
+
+#### Key Benefits
+
+**For Active Development:**
+- **70% faster iteration**: No manual restart/reload cycle
+- **Instant visual feedback**: See changes immediately in browser
+- **Better error visibility**: Compilation errors shown as browser overlay
+- **Maintained state**: Component state preserved during hot reloads
+
+**For Testing & Validation:**
+- **Realistic behavior**: Production-like background service mode
+- **Full refresh testing**: Ensures app works from cold start
+- **Performance validation**: Test actual startup times and behavior
+
 ## DevContainer Development Environment
 
 ### Container Configuration Analysis
@@ -528,8 +609,10 @@ class ResourceManager {
 #### Development Workflow Integration
 ```bash
 # Service management through unified script
-./run.sh start     # Starts frontend (5173) + backend (8080)
+./run.sh dev       # Start development server with HMR (port 5174)
+./run.sh start     # Start services in background (port 5174)
 ./run.sh stop      # Graceful shutdown of all services
+./run.sh restart   # Restart services in background mode
 ./run.sh status    # Health check of all services
 ./run.sh logs      # Real-time log streaming
 

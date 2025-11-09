@@ -173,10 +173,15 @@
 
 <main>
   <!-- Workspace Background -->
-  <div 
+  <div
     class="workspace"
     on:contextmenu={handleWorkspaceContextMenu}
-  ></div>
+  >
+    <!-- HMR Test Badge -->
+    <div style="position: absolute; top: 10px; left: 10px; background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; z-index: 1000;">
+      🔥 HMR Working!
+    </div>
+  </div>
   
       <!-- Floating Icons (Layer 3) -->
       {#each iconList as icon (icon.id)}
