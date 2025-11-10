@@ -365,14 +365,14 @@
                       </div>
                     
                     {:else if metadata.type === 'select'}
-                      <select 
+                      <select
                         id={controlId}
                         class="select-input"
                         value={config[parameter] || metadata.defaultValue}
                         on:change={(e) => handleParameterChange(parameter, e.target.value)}
                       >
                         {#each metadata.options || [] as option}
-                          <option value={option}>{option}</option>
+                          <option value={option.value}>{option.label}</option>
                         {/each}
                       </select>
                     

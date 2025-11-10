@@ -57,11 +57,6 @@
 - **Validation**: Number between 0.0 and 1.0
 
 ### === BAR-BASED RENDERING PROPERTIES ===
-**barWidthRatio** (number, default: 15)
-- **Usage**: Maximum bar width as percentage of canvas width
-- **Requirement**: Essential - affects sizing calculations in all modes
-- **Validation**: Positive number, reasonable range (5-50)
-- **Note**: Used across all rendering modes for scaling
 
 **barMinWidth** (number, default: 5)
 - **Usage**: Minimum bar width constraint for visibility
@@ -130,7 +125,6 @@
 - analysisType
 - renderingStyle
 - positioning
-- barWidthRatio
 - barMinWidth
 - marketProfileOpacity
 - marketProfileUpColor

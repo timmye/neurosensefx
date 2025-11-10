@@ -317,7 +317,6 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
 
   // Bar-Based Rendering Properties
   barWidthMode: 'responsive',         // 'responsive' | 'fixed'
-  barWidthRatio: 15,                  // Max bar width as % of canvas
   barSpacing: 1,                      // Spacing between bars
   barMinWidth: 5,                     // Minimum bar width constraint
 

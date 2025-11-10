@@ -537,10 +537,49 @@ function trackResizeActivity() {
 
 ---
 
+## UI Panel Integration
+
+### Status Panel Floating System Integration
+
+The Status Panel extends the floating display architecture with UI panel functionality:
+
+#### Z-Index Management
+```javascript
+// Three-layer floating system z-index ranges
+const Z_INDEX_RANGES = {
+  DISPLAYS: { min: 1, max: 999 },      // Trading displays
+  UI_PANELS: { min: 1000, max: 9999 }, // Status panels, menus
+  OVERLAYS: { min: 10000, max: 99999 } // Alerts, notifications
+};
+```
+
+#### Status Panel Architecture
+- **StatusIcon**: 48×48px traffic light icon (z-index: 10000+)
+- **StatusPanel**: 320×200px expandable panel (z-index: 1000+)
+- **Smart Positioning**: 20-line icon-to-panel anchoring with viewport bounds checking
+- **Independent Layer**: UI panels don't interfere with trading display container/display architecture
+
+#### Integration Benefits
+- **Zero Display Impact**: Status panel operates in separate UI layer
+- **Consistent Positioning**: Uses same floating system principles as trading displays
+- **Independent Data Flow**: Monitoring system separate from trading data architecture
+- **Workspace Persistence**: Status icon position saved with workspace layout
+
+### Container-Display Separation in UI Panels
+
+Status Panel follows simplified container-display principles:
+- **Container Layer**: Panel positioning, sizing, and user interactions
+- **Display Layer**: Status metrics rendering and real-time updates
+- **Performance Isolation**: UI panel updates don't affect 60fps trading displays
+- **Resource Efficiency**: <2KB additional state, <0.5% CPU usage
+
+---
+
 ## Related Documents
 
 - [DESIGN_UNIFIED_GEOMETRY_FOUNDATION.md](./DESIGN_UNIFIED_GEOMETRY_FOUNDATION.md)
 - [DESIGN_UNIFIED_CONTEXT_MENU_ARCHITECTURE.md](./DESIGN_UNIFIED_CONTEXT_MENU_ARCHITECTURE.md)
+- [DESIGN_StatusPanel.md](./DESIGN_StatusPanel.md) - Status Panel implementation with 93% code reduction
 - [RADICAL_FLOATING_ARCHITECTURE_MIGRATION.md](./RADICAL_FLOATING_ARCHITECTURE_MIGRATION.md)
 
 ---

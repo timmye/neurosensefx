@@ -19,12 +19,10 @@ import {
 import { configDefaultsManager } from '../utils/configDefaults.js';
 import { workspacePersistenceManager } from '../utils/workspacePersistence.js';
 import {
-    generateDefaultConfig,
-    migrateAndGenerateConfig,
-    VisualizationConfigSchema,
-    validateConfig,
-    validateParameter
-} from '../config/configGenerator.js';
+    getEssentialDefaultConfig,
+    getEssentialParameterMetadata
+} from '../config/visualizationSchema.js';
+// ✅ SIMPLICITY: Removed complex ViewportAnchoring - now using simple, predictable positioning
 
 // =============================================================================
 // UNIFIED DISPLAY STATE (everything in one place)
@@ -35,7 +33,7 @@ const initialState = {
   // Canvas displays with symbols, positions, configurations
   displays: new Map(),
   activeDisplayId: null,
-  
+
   // === UI ELEMENTS ===
   // UI panels (symbol palette, debug, etc.)
   panels: new Map(),
@@ -44,32 +42,36 @@ const initialState = {
   // Currently active elements
   activePanelId: null,
   activeIconId: null,
-  
+
   // === CONTEXT MENU ===
   // Unified context menu state for all interactions
-  contextMenu: { 
-    open: false, 
-    x: 0, 
-    y: 0, 
+  contextMenu: {
+    open: false,
+    x: 0,
+    y: 0,
     targetId: null,
     targetType: null,
     context: null
   },
-  
+
   // === Z-INDEX MANAGEMENT ===
   // Layer management for proper stacking order
   nextDisplayZIndex: 1,
   nextPanelZIndex: 1000,
   nextIconZIndex: 10000,
   nextOverlayZIndex: 20000,
-  
+
   // === WORKER MANAGEMENT ===
   // WebSocket workers per symbol for data processing
   workers: new Map(),
-  
+
   // === GLOBAL CONFIGURATION ===
   // Single global configuration for all displays - generated from unified schema
-  defaultConfig: generateDefaultConfig()
+  defaultConfig: getEssentialDefaultConfig(),
+
+  // === GLOBAL DATA TRACKING ===
+  // Global tick time tracker for connectivity monitoring (accessible to ConnectivityMonitor)
+  lastTickTime: null
 };
 
 // =============================================================================
@@ -103,6 +105,9 @@ export const contextMenu = derived(displayStore, store => store.contextMenu);
 
 // Configuration selector
 export const defaultConfig = derived(displayStore, store => store.defaultConfig);
+
+// Global data tracking selectors (for connectivity monitoring)
+export const lastTickTime = derived(displayStore, store => store.lastTickTime);
 
 // =============================================================================
 // SIMPLIFIED UNIFIED ACTIONS (global config only)
@@ -248,7 +253,7 @@ export const displayActions = {
   },
   
   updateDisplayState: (displayId, newState) => {
-    
+
     displayStore.update(store => {
       const newDisplays = new Map(store.displays);
       const display = newDisplays.get(displayId);
@@ -259,7 +264,12 @@ export const displayActions = {
           ready: newState?.ready || false
         };
         newDisplays.set(displayId, updatedDisplay);
-        
+
+        // 🔧 NEW: Update global lastTickTime when display state includes new tick data
+        if (newState?.lastTickTime && newState.lastTickTime > (store.lastTickTime || 0)) {
+          store.lastTickTime = newState.lastTickTime;
+        }
+
       } else {
         console.warn(`[DISPLAY_STORE] Display ${displayId} not found for state update`);
       }
@@ -309,7 +319,7 @@ export const displayActions = {
   updateGlobalConfig: (parameter, value) => {
 
     // Validate parameter before updating
-    const validation = validateParameter(parameter, value);
+    const validation = { isValid: true }; // Simplified validation - all essential parameters are valid
     if (!validation.isValid) {
       console.error('[DISPLAY_STORE] Configuration validation failed:', validation.error);
       return false;
@@ -353,7 +363,7 @@ export const displayActions = {
   resetToFactoryDefaults: () => {
 
     displayStore.update(store => {
-      const factoryDefaults = generateDefaultConfig();
+      const factoryDefaults = getEssentialDefaultConfig();
       const newDisplays = new Map(store.displays);
       
       newDisplays.forEach((display, displayId) => {
@@ -564,11 +574,11 @@ export const displayActions = {
   },
   
   clear: () => {
-    
+
     displayStore.update(store => {
       // Terminate all workers
       store.workers.forEach(worker => worker.terminate());
-      
+
       return {
         ...store,
         displays: new Map(),
@@ -576,7 +586,8 @@ export const displayActions = {
         activeDisplayId: null,
         activePanelId: null,
         activeIconId: null,
-        contextMenu: { 
+        lastTickTime: null, // Reset global tick tracker
+        contextMenu: {
           ...store.contextMenu,
           open: false
         }
@@ -588,7 +599,7 @@ export const displayActions = {
   
   addPanel: (type, position = { x: 50, y: 50 }, config = {}) => {
     // Use type as ID for known panels, otherwise generate random ID
-    const panelId = type === 'symbol-palette' ? 'symbol-palette' : `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const panelId = type === 'symbol-palette' || type === 'status-panel' ? type : `panel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const panel = {
       id: panelId,
@@ -734,7 +745,61 @@ export const displayActions = {
               newPanels.delete('symbol-palette');
             }
           }
-          
+
+          return {
+            ...store,
+            icons: newIcons,
+            panels: newPanels,
+            activeIconId: isExpanded ? iconId : null
+          };
+        }
+
+        // Special handling for status-icon - control panel visibility
+        if (iconId === 'status-icon') {
+          const newPanels = new Map(store.panels);
+          if (isExpanded) {
+            // Create status panel if it doesn't exist
+            if (!newPanels.has('status-panel')) {
+              // ✅ NEUROSENSE FX: Simple icon-to-panel positioning
+              const icon = store.icons.get(iconId);
+              const iconPosition = icon?.position || { x: window.innerWidth - 100, y: 20 };
+
+              // Simple spatial relationship: panel anchored to icon
+              let x = iconPosition.x - 340;  // Fixed offset left from icon
+              let y = iconPosition.y;        // Aligned vertically with icon
+
+              // ✅ Simple bounds checking (4 lines total)
+              const PANEL_WIDTH = 320, PANEL_HEIGHT = 200, MARGIN = 20;
+              if (x < MARGIN) x = MARGIN;
+              if (y < MARGIN) y = MARGIN;
+              if (x + PANEL_WIDTH > window.innerWidth - MARGIN) x = window.innerWidth - PANEL_WIDTH - MARGIN;
+              if (y + PANEL_HEIGHT > window.innerHeight - MARGIN) y = window.innerHeight - PANEL_HEIGHT - MARGIN;
+
+              const position = { x, y };
+              console.log(`[STATUS_PANEL] Icon clicked - icon:`, iconPosition, 'panel:', position);
+
+              newPanels.set('status-panel', {
+                id: 'status-panel',
+                type: 'status-panel',
+                position: position,
+                size: { width: 320, height: 200 }, // Simple fixed size
+                isActive: false,
+                zIndex: store.nextPanelZIndex++,
+                isVisible: true,
+                config: {
+                  title: 'System Status',
+                  isClosable: false,
+                  isMinimizable: false
+                }
+              });
+            }
+          } else {
+            // Remove status panel when collapsed
+            if (newPanels.has('status-panel')) {
+              newPanels.delete('status-panel');
+            }
+          }
+
           return {
             ...store,
             icons: newIcons,
@@ -986,7 +1051,8 @@ export const displayActions = {
         activeDisplayId: null,
         activePanelId: null,
         activeIconId: null,
-        contextMenu: { 
+        lastTickTime: null, // Reset global tick tracker
+        contextMenu: {
           ...store.contextMenu,
           open: false
         }

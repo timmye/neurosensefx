@@ -2,7 +2,6 @@ import {
   TickSchema,
   MarketProfileSchema,
   VisualizationStateSchema,
-  VisualizationConfigSchema,
   ProcessedTickSchema
 } from '../data/schema.js';
 
@@ -93,6 +92,7 @@ function processTick(rawTick) {
     state.hasPrice = true; // 🔧 FIX: Update hasPrice when we receive a valid tick
     state.lastTickDirection = state.currentPrice > lastPrice ? 'up' : 'down';
     state.lastTick = tick;
+    state.lastTickTime = tick.timestamp; // TRADER-FOCUSED: Track real tick timestamp for data freshness
     state.todaysHigh = Math.max(state.todaysHigh, tick.bid);
     state.todaysLow = Math.min(state.todaysLow, tick.bid);
     

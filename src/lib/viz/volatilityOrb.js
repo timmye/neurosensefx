@@ -14,7 +14,6 @@
  */
 
 import { UnifiedVisualization, createVisualization } from './UnifiedVisualization.js';
-import { validateConfig, mergeConfig } from './UnifiedConfig.js';
 
 /**
  * Volatility Orb implementation using the unified foundation patterns

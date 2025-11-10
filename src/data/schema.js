@@ -107,7 +107,5 @@ export const VisualizationStateSchema = z.object({
 // VISUALIZATION CONFIGURATION SCHEMA
 // =================================================================================
 // Import the auto-generated visualization configuration schema
-import { VisualizationConfigSchema as GeneratedVisualizationConfigSchema } from '../config/configGenerator.js';
-
-// Re-export the generated schema for backward compatibility
-export const VisualizationConfigSchema = GeneratedVisualizationConfigSchema;
+// Simplified configuration schema - no longer needed as separate export
+// VisualizationConfigSchema is now handled directly by visualizationSchema.js

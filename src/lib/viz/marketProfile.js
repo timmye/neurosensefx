@@ -17,6 +17,8 @@ import {
  * Implements cognitive design foundation for pre-attentive market structure analysis
  */
 export function drawMarketProfile(ctx, renderingContext, config, state, y) {
+  // Debug: Log config to check what's being passed
+
   // Early exit for performance optimization
   if (!config.showMarketProfile) {
     return;
@@ -31,6 +33,7 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
   if (levels.length === 0) {
     return;
   }
+
 
   // Canvas context is already configured at container level
   // No need to call configureCanvasContext here
@@ -152,6 +155,73 @@ function processMarketProfileData(levels, yScale, config) {
 }
 
 /**
+ * Calculate maximum bar width based on distance to canvas edges
+ * Implements width-aware behavior: profile fills available space between ADR axis and nearest edge
+ */
+function getMaxBarWidth(contentArea, adrAxisX, positioning, barMinWidth) {
+  switch (positioning) {
+    case 'left':
+      // Distance from left edge to ADR axis
+      return Math.max(barMinWidth, adrAxisX);
+
+    case 'right':
+      // Distance from ADR axis to right edge
+      return Math.max(barMinWidth, contentArea.width - adrAxisX);
+
+    case 'separate':
+    default:
+      // Use smaller distance to either edge for balanced appearance
+      const leftSpace = adrAxisX;
+      const rightSpace = contentArea.width - adrAxisX;
+      const availableSpace = Math.min(leftSpace, rightSpace);
+      return Math.max(barMinWidth, availableSpace);
+  }
+}
+
+/**
+ * Get market profile color based on color mode configuration
+ * Supports buy/sell, left/right positioning, and custom color modes
+ */
+function getMarketProfileColor(config, level, side) {
+  switch (config.marketProfileColorMode) {
+    case 'leftRight':
+      return side === 'left' ? config.marketProfileLeftColor : config.marketProfileRightColor;
+    case 'custom':
+      return config.marketProfileCustomColor;
+    case 'buySell':
+    default:
+      return level.isPositive ? config.marketProfileUpColor : config.marketProfileDownColor;
+  }
+}
+
+/**
+ * Apply glow effects to canvas context if enabled in configuration
+ */
+function applyGlowEffect(ctx, config) {
+  if (config.marketProfileOutlineGlow) {
+    ctx.shadowColor = config.marketProfileGlowColor;
+    ctx.shadowBlur = config.marketProfileGlowSize * config.marketProfileGlowIntensity;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+  } else {
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+  }
+}
+
+/**
+ * Remove glow effects from canvas context
+ */
+function removeGlowEffect(ctx) {
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+}
+
+/**
  * Silhouette Rendering with KNN Concave Hull - Shape-based processing for instant market structure recognition
  * Implements cognitive design foundation leveraging brain's superior shape recognition
  * Creates separate organic outlines for left (negative/down) and right (positive/up) sides
@@ -161,9 +231,12 @@ function renderSilhouetteProfile(ctx, renderingContext, config, data) {
   const { contentArea, adrAxisX } = renderingContext;
 
   // Set global properties
-  ctx.globalAlpha = config.marketProfileOpacity;
+  ctx.globalAlpha = config.marketProfileOpacity || 0.8; // Fallback for missing config
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+
+  // Calculate width-aware maximum bar width
+  const maxBarWidth = getMaxBarWidth(contentArea, adrAxisX, config.positioning, config.barMinWidth);
 
   // Process levels into edge points for KNN algorithm
   const leftSidePoints = [];
@@ -172,12 +245,17 @@ function renderSilhouetteProfile(ctx, renderingContext, config, data) {
   processedLevels.forEach(level => {
     if (level.displayValue === 0) return;
 
-    const normalizedWidth = (Math.abs(level.displayValue) / maxDisplayValue) * (config.barWidthRatio / 100);
-    const barWidth = Math.max(config.barMinWidth, normalizedWidth * contentArea.width);
+    // Width-aware calculation: bar width relative to available space, not fixed canvas width
+    const normalizedWidth = Math.abs(level.displayValue) / maxDisplayValue;
+    const barWidth = Math.max(config.barMinWidth, normalizedWidth * maxBarWidth);
+
 
     let leftX, rightX;
 
-    switch (config.positioning) {
+    // Default to 'separate' positioning if not specified
+    const positioningMode = config.positioning || 'separate';
+
+    switch (positioningMode) {
       case 'left':
         // All levels extend to the left - create edge points
         leftSidePoints.push({
@@ -256,14 +334,16 @@ function renderSilhouetteProfile(ctx, renderingContext, config, data) {
     }
   });
 
-  // Render left side silhouette (negative/down = red)
+  // Render left side silhouette with color mode support
   if (leftSidePoints.length >= 3) {
-    renderMarketProfileSilhouette(ctx, leftSidePoints, config.marketProfileDownColor, config);
+    const leftColor = getMarketProfileColor(config, { isPositive: false }, 'left');
+    renderMarketProfileSilhouette(ctx, leftSidePoints, leftColor, config);
   }
 
-  // Render right side silhouette (positive/up = green)
+  // Render right side silhouette with color mode support
   if (rightSidePoints.length >= 3) {
-    renderMarketProfileSilhouette(ctx, rightSidePoints, config.marketProfileUpColor, config);
+    const rightColor = getMarketProfileColor(config, { isPositive: true }, 'right');
+    renderMarketProfileSilhouette(ctx, rightSidePoints, rightColor, config);
   }
 
   ctx.restore();
@@ -313,11 +393,17 @@ function renderMarketProfileSilhouette(ctx, points, color, config) {
   // Restore opacity for outline
   ctx.globalAlpha = config.marketProfileOpacity;
 
-  // Draw outline if enabled
+  // Draw outline if enabled with glow effect support
   if (config.silhouetteOutline) {
+    // Apply glow effect before drawing outline
+    applyGlowEffect(ctx, config);
+
     ctx.strokeStyle = config.silhouetteOutlineColor;
     ctx.lineWidth = config.silhouetteOutlineWidth;
     ctx.stroke();
+
+    // Remove glow effect after drawing
+    removeGlowEffect(ctx);
   }
 }
 
@@ -538,14 +624,20 @@ function renderBarBasedProfile(ctx, renderingContext, config, data) {
   ctx.globalAlpha = config.marketProfileOpacity;
   ctx.lineCap = 'round';
 
+  // Calculate width-aware maximum bar width
+  const maxBarWidth = getMaxBarWidth(contentArea, adrAxisX, config.positioning, config.barMinWidth);
+
   processedLevels.forEach(level => {
     if (level.displayValue === 0) return;
 
-    const normalizedWidth = (Math.abs(level.displayValue) / maxDisplayValue) * (config.barWidthRatio / 100);
-    const barWidth = Math.max(config.barMinWidth, normalizedWidth * contentArea.width);
+    // Width-aware calculation: bar width relative to available space, not fixed canvas width
+    const normalizedWidth = Math.abs(level.displayValue) / maxDisplayValue;
+    const barWidth = Math.max(config.barMinWidth, normalizedWidth * maxBarWidth);
 
     let x, width;
-    const color = level.isPositive ? config.marketProfileUpColor : config.marketProfileDownColor;
+    // Determine color based on color mode configuration
+    const side = (config.positioning === 'separate') ? (level.isPositive ? 'right' : 'left') : config.positioning;
+    const color = getMarketProfileColor(config, level, side);
 
     // Position based on configuration
     switch (config.positioning) {
@@ -576,11 +668,17 @@ function renderBarBasedProfile(ctx, renderingContext, config, data) {
       ctx.fillStyle = color;
       ctx.fillRect(x, level.priceY, width, 1);
 
-      // Add outline if enabled
+      // Add outline if enabled with glow effect support
       if (config.silhouetteOutline) {
+        // Apply glow effect before drawing outline
+        applyGlowEffect(ctx, config);
+
         ctx.strokeStyle = config.silhouetteOutlineColor;
         ctx.lineWidth = config.silhouetteOutlineWidth;
         ctx.strokeRect(x, level.priceY, width, 1);
+
+        // Remove glow effect after drawing
+        removeGlowEffect(ctx);
       }
     }
   });
@@ -647,9 +745,12 @@ function renderPointOfControlMarker(ctx, renderingContext, config, data) {
 
   const { contentArea, adrAxisX } = renderingContext;
 
-  // Calculate marker position
-  const normalizedWidth = (maxValue / data.maxDisplayValue) * (config.barWidthRatio / 100);
-  const barWidth = Math.max(config.barMinWidth, normalizedWidth * contentArea.width);
+  // Calculate width-aware maximum bar width
+  const maxBarWidth = getMaxBarWidth(contentArea, adrAxisX, config.positioning, config.barMinWidth);
+
+  // Calculate marker position using width-aware approach
+  const normalizedWidth = maxValue / data.maxDisplayValue;
+  const barWidth = Math.max(config.barMinWidth, normalizedWidth * maxBarWidth);
 
   let markerX;
   switch (config.positioning) {
@@ -672,8 +773,10 @@ function renderPointOfControlMarker(ctx, renderingContext, config, data) {
   if (boundsUtils.isPointInBounds(markerX, pocLevel.priceY, { canvasArea: renderingContext.contentArea })) {
     ctx.save();
 
-    // Render marker dot
-    ctx.fillStyle = pocLevel.isPositive ? config.marketProfileUpColor : config.marketProfileDownColor;
+    // Render marker dot with color mode support
+    const markerSide = (config.positioning === 'separate') ? (pocLevel.isPositive ? 'right' : 'left') : config.positioning;
+    const markerColor = getMarketProfileColor(config, pocLevel, markerSide);
+    ctx.fillStyle = markerColor;
     ctx.beginPath();
     ctx.arc(markerX, pocLevel.priceY, 3, 0, Math.PI * 2);
     ctx.fill();

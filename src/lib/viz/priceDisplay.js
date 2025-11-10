@@ -123,30 +123,31 @@ function drawPriceText(ctx, renderData, config, state, digits) {
     return;
   }
 
-  // Calculate text metrics once (PERFORMANCE OPTIMIZATION)
-  const textMetrics = calculateTextMetrics(ctx, formattedPrice, baseFontSize);
-  
-  // Determine color based on configuration
+  // Determine color and font weight based on configuration
   const color = determineColor(config, state);
+  const fontWeight = config.priceFontWeight || '600'; // Default to semibold
   ctx.fillStyle = color;
-  
+
+  // Calculate text metrics once (PERFORMANCE OPTIMIZATION)
+  const textMetrics = calculateTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight);
+
   let currentX = startX;
   
   // Draw bigFigure with configurable size
-  ctx.font = `${baseFontSize * formattedPrice.sizing.bigFigureRatio}px monospace`;
+  ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.bigFigureRatio}px monospace`;
   ctx.fillText(formattedPrice.text.bigFigure, currentX, startY);
   currentX += textMetrics.bigFigure.width;
-  
+
   // Draw pips with configurable size
   if (formattedPrice.text.pips) {
-    ctx.font = `${baseFontSize * formattedPrice.sizing.pipsRatio}px monospace`;
+    ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipsRatio}px monospace`;
     ctx.fillText(formattedPrice.text.pips, currentX, startY);
     currentX += textMetrics.pips.width;
   }
-  
+
   // Draw pipette with configurable size if enabled
   if (config.showPipetteDigit && formattedPrice.text.pipette) {
-    ctx.font = `${baseFontSize * formattedPrice.sizing.pipetteRatio}px monospace`;
+    ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipetteRatio}px monospace`;
     ctx.fillText(formattedPrice.text.pipette, currentX, startY);
   }
 
@@ -287,21 +288,21 @@ function classifyPriceFormat(price, digits) {
 /**
  * Calculate text metrics for all components in single pass (PERFORMANCE OPTIMIZATION)
  */
-function calculateTextMetrics(ctx, formattedPrice, baseFontSize) {
+function calculateTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight = '600') {
   const metrics = {};
-  
+
   // Measure bigFigure
-  ctx.font = `${baseFontSize * formattedPrice.sizing.bigFigureRatio}px monospace`;
+  ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.bigFigureRatio}px monospace`;
   metrics.bigFigure = ctx.measureText(formattedPrice.text.bigFigure);
-  
+
   // Measure pips
-  ctx.font = `${baseFontSize * formattedPrice.sizing.pipsRatio}px monospace`;
+  ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipsRatio}px monospace`;
   metrics.pips = ctx.measureText(formattedPrice.text.pips || '');
-  
+
   // Measure pipette
-  ctx.font = `${baseFontSize * formattedPrice.sizing.pipetteRatio}px monospace`;
+  ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipetteRatio}px monospace`;
   metrics.pipette = ctx.measureText(formattedPrice.text.pipette || '');
-  
+
   return metrics;
 }
 
@@ -310,15 +311,16 @@ function calculateTextMetrics(ctx, formattedPrice, baseFontSize) {
  */
 function drawBackground(ctx, renderData, config, state, contentArea, digits) {
   if (!config.showPriceBackground) return; // Early return if background disabled
-  
+
   const { startX, startY } = renderData;
-  const padding = config.priceDisplayPadding || 4;
-  
+  const padding = config.priceDisplayPadding;
+
   // Get formatted price and metrics
   const formattedPrice = formatPrice(state.currentPrice, digits, config);
   if (!formattedPrice) return;
-  
-  const textMetrics = calculateTextMetrics(ctx, formattedPrice, renderData.baseFontSize);
+
+  const fontWeight = config.priceFontWeight || '600'; // Default to semibold
+  const textMetrics = calculateTextMetrics(ctx, formattedPrice, renderData.baseFontSize, fontWeight);
   
   // Calculate total dimensions once (PERFORMANCE OPTIMIZATION)
   const totalWidth = textMetrics.bigFigure.width + textMetrics.pips.width + textMetrics.pipette.width;
@@ -345,15 +347,16 @@ function drawBackground(ctx, renderData, config, state, contentArea, digits) {
  */
 function drawBoundingBox(ctx, renderData, config, state, contentArea, digits) {
   if (!config.showPriceBoundingBox) return; // Early return if box disabled
-  
+
   const { startX, startY } = renderData;
-  const padding = config.priceDisplayPadding || 4;
-  
+  const padding = config.priceDisplayPadding;
+
   // Get formatted price and metrics
   const formattedPrice = formatPrice(state.currentPrice, digits, config);
   if (!formattedPrice) return;
-  
-  const textMetrics = calculateTextMetrics(ctx, formattedPrice, renderData.baseFontSize);
+
+  const fontWeight = config.priceFontWeight || '600'; // Default to semibold
+  const textMetrics = calculateTextMetrics(ctx, formattedPrice, renderData.baseFontSize, fontWeight);
   
   // Calculate total dimensions once (PERFORMANCE OPTIMIZATION)
   const totalWidth = textMetrics.bigFigure.width + textMetrics.pips.width + textMetrics.pipette.width;

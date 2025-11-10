@@ -6,6 +6,8 @@
   import FloatingIcon from './components/FloatingIcon.svelte';
   import UnifiedContextMenu from './components/UnifiedContextMenu.svelte';
   import SymbolPalette from './components/SymbolPalette.svelte';
+  import StatusPanel from './components/StatusPanel/StatusPanel.svelte';
+import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
   import symbolService from './services/symbolService.js';
   
   // Store subscriptions
@@ -119,22 +121,41 @@
     try {
       // Initialize workspace from persisted data first
       await displayActions.initializeWorkspace();
-      
+
+      // Ensure symbol palette starts collapsed (override any saved state)
+      setTimeout(() => {
+        // Force collapse and remove any existing panel
+        displayActions.collapseIcon('symbol-palette-icon');
+
+        // Remove any existing symbol palette panel from previous sessions
+        displayStore.update(store => {
+          const newPanels = new Map(store.panels);
+          newPanels.delete('symbol-palette');
+          return {
+            ...store,
+            panels: newPanels
+          };
+        });
+      }, 100);
+
       // Initialize symbol service
       await symbolService.initialize();
       const symbols = symbolService.getSymbols();
       const firstSymbol = symbolService.getFirstSymbol();
       
-      // Register symbol palette panel
-      displayActions.addPanel('symbol-palette', { x: 50, y: 50 }, {
-        title: 'Symbol Palette'
-      });
-      
-      // Create symbol palette floating icon
+      // Create symbol palette floating icon (panel is created when icon is clicked)
       displayActions.addIcon('symbol-palette-icon', 'symbol-palette', { x: 20, y: 20 }, {
         title: 'Symbol Palette',
         status: 'online'
       });
+
+      // Create status icon (following symbol palette pattern)
+      console.log('[APP] Creating status icon...');
+      displayActions.addIcon('status-icon', 'status-icon', { x: window.innerWidth - 100, y: 20 }, {
+        title: 'System Status',
+        status: 'online'
+      });
+      console.log('[APP] Status icon created');
 
     } catch (error) {
       console.error('[APP] Initialization failed:', error);
@@ -185,7 +206,7 @@
   
       <!-- Floating Icons (Layer 3) -->
       {#each iconList as icon (icon.id)}
-        <FloatingIcon 
+        <FloatingIcon
           id={icon.id}
           type={icon.type}
           position={icon.position}
@@ -199,7 +220,11 @@
               displayActions.collapseIcon(id);
             }
           }}
-        />
+        >
+          {#if icon.type === 'status-icon'}
+            <StatusIcon />
+          {/if}
+        </FloatingIcon>
       {/each}
   
   <!-- Floating Displays (Layer 1) -->
@@ -215,6 +240,13 @@
   {#each panelList as panel (panel.id)}
     {#if panel.id === 'symbol-palette'}
       <SymbolPalette bind:this={symbolPaletteRef} />
+    {/if}
+  {/each}
+
+  <!-- Status Panel (Layer 2 - Expanded when icon is clicked) -->
+  {#each panelList as panel (panel.id)}
+    {#if panel.id === 'status-panel'}
+      <StatusPanel position={panel.position} config={panel.config} isFromIconExpansion={true} />
     {/if}
   {/each}
   

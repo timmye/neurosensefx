@@ -53,6 +53,7 @@ Before writing any code, understand that every decision must satisfy these three
 | **[Day Range Meter](DESIGN_DayRangeMeter.md)** | ADR reference system, graduated markers | [src/lib/viz/dayRangeMeter.js](../src/lib/viz/dayRangeMeter.js) | ✅ Production Ready |
 | **[Price Display](DESIGN_PRICEDISPLAY.md)** | Crisp text rendering, monospace fonts | [src/lib/viz/priceDisplay.js](../src/lib/viz/priceDisplay.js) | ✅ Production Ready |
 | **[Price Float](DESIGN_PRICEFLOAT.md)** | Visual price tracking, smooth animations | [src/lib/viz/priceFloat.js](../src/lib/viz/priceFloat.js) | ✅ Production Ready |
+| **[Status Panel](DESIGN_StatusPanel.md)** | Real-time connectivity & data delay monitoring | [src/components/StatusPanel/](../src/components/StatusPanel/) | ✅ Production Ready |
 
 ### 🛠️ Development & Implementation
 
@@ -86,6 +87,7 @@ Before writing any code, understand that every decision must satisfy these three
 
 2. **Component Deep Dive** (30 min)
    - Choose one component from [Component Documentation](#component-documentation)
+   - **Recommended**: Start with [Status Panel](DESIGN_StatusPanel.md) for understanding system monitoring and data flow
    - Read design document + examine implementation
    - [Configuration System](../src/lib/viz/UnifiedConfig.js) - Understand parameters
 
@@ -158,6 +160,12 @@ Before writing any code, understand that every decision must satisfy these three
 - **Schema validation**: [Schema Definition](../src/data/schema.js)
 - **UI generation**: [Unified Context Menu](DESIGN_Unified_ContextMenu_Architecture.md)
 - **Real-time updates**: [Display Store](../src/stores/displayStore.js)
+
+### ❓ How does the Status Panel monitor system health?
+- **Real-time monitoring**: [Status Panel](DESIGN_StatusPanel.md) tracks internet, WebSocket, and data delay
+- **NeuroSense design**: Blue=good, Purple=warning, Red=disconnected (red only for connection loss)
+- **Trader-focused**: Millisecond data delay tracking from real tick timestamps
+- **Performance impact**: Sub-100ms response, zero impact on trading displays
 
 ### ❓ How do I debug performance issues?
 1. **Philosophy Check**: Are you maintaining 60fps? (**PERFORMANT** pillar)

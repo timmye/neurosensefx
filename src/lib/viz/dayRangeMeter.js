@@ -91,7 +91,21 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
   const dailyOpen = state.midPrice;  // This IS the daily open price
   const adrValue = state.projectedAdrHigh - state.projectedAdrLow;
 
-  const { showAdrRangeIndicatorLines, adrLabelType } = config;
+  const { showAdrRangeIndicatorLines, adrLabelType, adrLabelPosition } = config;
+
+  // Helper function to determine which side to draw markers on
+  function getMarkerSide(isHighSide) {
+    switch (adrLabelPosition) {
+      case 'left':
+        return 'left';
+      case 'right':
+        return 'right';
+      case 'both':
+      default:
+        // For both sides: high side markers on right, low side markers on left
+        return isHighSide ? 'right' : 'left';
+    }
+  }
 
   if (!dailyOpen || !adrValue) {
     console.log('[ADR_DEBUG] Missing essential data, returning');
@@ -123,7 +137,7 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
   ctx.font = '10px sans-serif';
   ctx.fillStyle = '#9CA3AF'; // Light gray for percentage markers
 
-  if (adrLabelType === 'staticPercentage') {
+  if (adrLabelType === 'static') {
     // Static: Draw fixed ADR percentage levels (25%, 50%, 75%, 100%)
     const adrLevels = [0.25, 0.5, 0.75, 1.0];
 
@@ -144,7 +158,8 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
           highInBounds
         });
         if (highInBounds) {
-          drawPercentageMarker(ctx, adrAxisX, highY, `${level * 100}%`, 'left');
+          const markerSide = getMarkerSide(true); // High side marker
+          drawPercentageMarker(ctx, adrAxisX, highY, `${level * 100}%`, markerSide);
         }
 
         // Low side marker
@@ -157,11 +172,12 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
           lowInBounds
         });
         if (lowInBounds) {
-          drawPercentageMarker(ctx, adrAxisX, lowY, `-${level * 100}%`, 'left');
+          const markerSide = getMarkerSide(false); // Low side marker
+          drawPercentageMarker(ctx, adrAxisX, lowY, `-${level * 100}%`, markerSide);
         }
       }
     });
-  } else if (adrLabelType === 'dynamicPercentage') {
+  } else if (adrLabelType === 'dynamic') {
     // Dynamic: Show actual percentage of ADR that today's high/low represent
     const { todaysHigh, todaysLow } = state;
 
@@ -184,7 +200,8 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
       });
 
       if (highInBounds) {
-        drawPercentageMarker(ctx, adrAxisX, highY, highLabel, 'left');
+        const markerSide = getMarkerSide(true); // High side marker
+        drawPercentageMarker(ctx, adrAxisX, highY, highLabel, markerSide);
       }
     }
 
@@ -204,7 +221,8 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
       });
 
       if (lowInBounds) {
-        drawPercentageMarker(ctx, adrAxisX, lowY, lowLabel, 'left');
+        const markerSide = getMarkerSide(false); // Low side marker
+        drawPercentageMarker(ctx, adrAxisX, lowY, lowLabel, markerSide);
       }
 
     }

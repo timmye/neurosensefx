@@ -177,11 +177,11 @@ export function normalizeConfig(config, canvasDimensions) {
     // Size-based values (always percentage-based)
     priceFloatWidth: config.priceFloatWidth
       ? percentageToPixels(config.priceFloatWidth, canvasArea.width)
-      : canvasArea.width * 0.8,
+      : canvasArea.width * 0.15,
     
     priceFloatHeight: config.priceFloatHeight
       ? percentageToPixels(config.priceFloatHeight, canvasArea.height)
-      : canvasArea.height * 0.1,
+      : canvasArea.height * 0.02,
     
     priceFloatXOffset: config.priceFloatXOffset
       ? percentageToPixels(config.priceFloatXOffset, canvasArea.width)
@@ -571,4 +571,19 @@ export const CANVAS_CONSTANTS = {
   DEFAULT_CONTAINER,
   MIN_DIMENSIONS: { width: 50, height: 50 },  // 🔧 FIX: Updated to match new minimums
   MAX_DIMENSIONS: { width: 4000, height: 4000 }
+};
+
+// Export percentage utilities for testing and external use
+export const isPercentage = (value) => {
+  return typeof value === 'number' && value <= 200;
+};
+
+export const percentageToPixels = (value, reference) => {
+  if (value <= 1) {
+    // Already in decimal format (0.15 = 15%)
+    return value * reference;
+  } else {
+    // Old percentage format (15 = 15%)
+    return (value / 100) * reference;
+  }
 };

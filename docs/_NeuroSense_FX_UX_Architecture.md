@@ -40,6 +40,7 @@ The workspace is the primary container for all trading activities. It provides:
 
 - **Symbol Palette**: Search and subscription interface for creating new trading displays
 - **Floating Display Management**: Drag-and-drop positioning, resizing, and organization
+- **System Status Monitoring**: Real-time connectivity and performance awareness through Status Panel
 - **Multi-Instrument Monitoring**: Simultaneous observation of multiple currency pairs
 - **Workspace Persistence**: Layout and preference memory between sessions
 
@@ -54,25 +55,35 @@ Each trading display is a self-contained visualization unit with:
 ### 1.3. Component Hierarchy
 
 ```
-FloatingDisplay
-├── Header
-│   ├── Symbol Name
-│   └── Close Controls
-├── Display Canvas
-│   ├── ADR Axis (Primary Reference System)
-│   │   ├── Day Range Meter
-│   │   ├── ADR Boundary Lines
-│   │   └── ADR Markers
-│   ├── Price Tracking System
-│   │   ├── Price Float (Visual position indicator)
-│   │   └── Price Display (Numeric representation)
-│   ├── Market Analysis Components
-│   │   ├── Market Profile (Price distribution)
-│   │   └── Volatility Orb (Market conditions)
-│   └── User Interaction Elements
-│       ├── Price Markers (User-placed references)
-│       └── Hover Indicators
-└── Context Menu Integration
+NeuroSense FX Trading Interface
+├── Workspace Management
+│   ├── Symbol Palette (Search & subscription)
+│   ├── Status Panel (System health monitoring)
+│   │   ├── StatusIcon (48×48px traffic light indicators - always visible)
+│   │   ├── StatusPanel (320×200px expandable detailed panel)
+│   │   ├── StatusMetrics (Reusable status display component)
+│   │   └── ConnectivityMonitor (Real-time monitoring engine)
+│   └── Floating Display Management
+└── Individual Trading Displays
+    └── FloatingDisplay
+        ├── Header
+        │   ├── Symbol Name
+        │   └── Close Controls
+        ├── Display Canvas
+        │   ├── ADR Axis (Primary Reference System)
+        │   │   ├── Day Range Meter
+        │   │   ├── ADR Boundary Lines
+        │   │   └── ADR Markers
+        │   ├── Price Tracking System
+        │   │   ├── Price Float (Visual position indicator)
+        │   │   └── Price Display (Numeric representation)
+        │   ├── Market Analysis Components
+        │   │   ├── Market Profile (Price distribution)
+        │   │   └── Volatility Orb (Market conditions)
+        │   └── User Interaction Elements
+        │       ├── Price Markers (User-placed references)
+        │       └── Hover Indicators
+        └── Context Menu Integration
 ```
 
 ---
@@ -88,6 +99,7 @@ Components are organized by visual priority to support progressive information d
 | **Critical** | Day Range Meter, Price Float, Price Display | 60fps | Low | Immediate market state |
 | **Important** | Market Profile | 30fps | Medium | Distribution analysis |
 | **Background** | Volatility Orb | 10fps | Very Low | Market context awareness |
+| **System** | Status Panel (monitoring only) | 1Hz | Minimal | System health awareness |
 
 ### 2.2. Spatial Organization
 
@@ -110,6 +122,22 @@ Canvas Layout (220px × 120px default):
 │ Price Float ─┼─── Current Price Position                │
 │ Price Display│    [digits track with price]             │
 └─────────────────────────────────────────────────────────┘
+
+Workspace Layout (Full Viewport):
+┌─────────────────────────────────────────────────────────┐
+│                    Status Icon                          │
+│                (Top-right corner)                       │
+│                                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │ Display 1   │  │ Display 2   │  │ Display 3   │     │
+│  │ EUR/USD     │  │ GBP/USD     │  │ USD/JPY     │     │
+│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│                                                         │
+│  ┌─────────────┐  ┌─────────────┐                       │
+│  │ Display 4   │  │ Symbol      │                       │
+│  │ AUD/USD     │  │ Palette     │                       │
+│  └─────────────┘  └─────────────┘                       │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ### 2.3. Data Flow Architecture
@@ -131,6 +159,11 @@ Display Store (State Management)
 │ • Price Display │ • Volatility Orb      │
 │ • Day Range     │                       │
 └─────────────────┴───────────────────────┘
+
+Real-time Monitoring Flow (Independent):
+Internet Connectivity → InternetMonitor → ConnectivityMonitor
+WebSocket Status → ServerMonitor → ConnectivityMonitor
+Trading Data (lastTickTime) → displayStore → ConnectivityMonitor → Status Panel Components
 ```
 
 ### 2.4. Interaction Patterns
@@ -140,16 +173,19 @@ Display Store (State Management)
    - Day Range Meter shows price context
    - Price Float indicates current position
    - Volatility Orb provides market sentiment
+   - StatusIcon shows system health (traffic light pattern)
 
 2. **Focus Level (5-10 seconds)**:
    - Price Display shows exact values
    - Market Profile reveals distribution patterns
    - Component relationships become apparent
+   - StatusPanel reveals detailed connectivity and data delay information
 
 3. **Analysis Level (30+ seconds)**:
    - Multi-display correlations
    - Pattern recognition across components
    - Detailed configuration adjustments
+   - System performance assessment through expanded status details
 
 ---
 
@@ -218,10 +254,12 @@ const PERFORMANCE_BUDGET = {
     important: ['MarketProfile'],
     background: ['VolatilityOrb']
   },
+  monitoring: ['StatusPanel'], // Independent 1Hz updates, zero display impact
   latencyTargets: {
     dataToVisual: 100,     // ms maximum
     userInteraction: 16,   // ms (1 frame)
-    configurationUpdate: 50 // ms
+    configurationUpdate: 50, // ms
+    statusPanelResponse: 100 // ms icon-to-panel expansion
   }
 };
 ```
@@ -428,6 +466,7 @@ Follow the established patterns from existing components, always applying the te
 - **[Container-Display Architecture](docs/DESIGN_Container_Display_Architecture.md)**: Responsive behavior and layout management
 - **[Unified Context Menu Architecture](docs/DESIGN_Unified_ContextMenu_Architecture.md)**: Configuration management across 85+ parameters
 - **[Geometry Foundation](docs/DESIGN_Geometry_Foundation.md)**: Unified coordinate systems and spatial relationships
+- **[Status Panel Design](docs/DESIGN_StatusPanel.md)**: System health monitoring with 93% code reduction
 - **[Market Profile Design](docs/DESIGN_MARKETPROFILE.md)**: Price distribution visualization
 - **[Volatility Orb Design](docs/DESIGN_Volatility_Orb.md)**: Market condition visualization
 - **[Day Range Meter Design](docs/DESIGN_DayRangeMeter.md)**: ADR reference system
@@ -439,6 +478,7 @@ Follow the established patterns from existing components, always applying the te
 - **[Visualization Container](src/components/viz/Container.svelte)**: Rendering orchestration
 - **[Unified Configuration](src/lib/viz/UnifiedConfig.js)**: Parameter management
 - **[Performance Monitor](src/lib/viz/PerformanceMonitor.js)**: System performance tracking
+- **[Status Panel Components](src/components/StatusPanel/)**: System health monitoring
 
 ---
 
