@@ -32,7 +32,8 @@
   
   // Get display config from store
   $: if (displayId && $displays.has(displayId)) {
-    config = $displays.get(displayId).config || {};
+    const displayConfig = $displays.get(displayId).config;
+    config = displayConfig || {};
   }
   
   // Tab components mapping
@@ -346,10 +347,10 @@
                           id={controlId}
                           type="range"
                           class="range-input"
-                          min={percentageMeta?.isPercentage ? (metadata.range?.min * 100) || 0 : (metadata.range?.min || 0)}
-                          max={percentageMeta?.isPercentage ? (metadata.range?.max * 100) || 100 : (metadata.range?.max || 100)}
-                          step={percentageMeta?.isPercentage ? (metadata.range?.step * 100) || 1 : (metadata.range?.step || 1)}
-                          value={percentageMeta?.isPercentage ? ((config[parameter] || metadata.defaultValue) * 100) : (config[parameter] || metadata.defaultValue)}
+                          min={percentageMeta?.isPercentage ? percentageMeta.range?.min : (metadata.range?.min ?? 0)}
+                          max={percentageMeta?.isPercentage ? percentageMeta.range?.max : (metadata.range?.max ?? 1)}
+                          step={percentageMeta?.isPercentage ? percentageMeta.range?.step : (metadata.range?.step ?? 0.01)}
+                          value={percentageMeta?.isPercentage ? ((config[parameter] ?? metadata.defaultValue) * 100) : (config[parameter] ?? metadata.defaultValue)}
                           on:input={(e) => {
                             const rawValue = parseFloat(e.target.value);
                             const finalValue = percentageMeta?.isPercentage ? (rawValue / 100) : rawValue;

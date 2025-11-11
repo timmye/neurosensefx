@@ -3,21 +3,18 @@
   import { displayActions, panels, icons } from '../stores/displayStore.js';
   import FloatingPanel from './FloatingPanel.svelte';
   import { displays } from '../stores/displayStore.js';
-  import { availableSymbols, subscribe, unsubscribe } from '../data/wsClient.js';
+  import { availableSymbols, subscribe } from '../data/wsClient.js';
   import { FuzzySearch } from '../utils/fuzzySearch.js';
   
   let symbols = [];
   let availableSyms = [];
-  let wsStatus = 'disconnected';
-  
+
   // Search state
   let searchQuery = '';
   let filteredSymbols = [];
   let selectedIndex = 0;
   let searchInput;
   let fuzzySearch;
-  let isSearchFocused = false;
-  let searchTimeout;
   let isSearching = false;
   
   // Store subscriptions
@@ -26,9 +23,26 @@
   });
   
   const unsubscribeAvailable = availableSymbols.subscribe(value => {
+    console.log('📦 Available symbols updated:', {
+      newCount: value.length,
+      symbols: value.slice(0, 10),
+      fuzzySearchExists: !!fuzzySearch
+    });
+
     availableSyms = value;
+
+    // Initialize fuzzySearch if it doesn't exist yet, or update if it does
     if (fuzzySearch) {
       fuzzySearch.updateItems(value);
+      console.log('🔧 Updated existing fuzzySearch with new symbols');
+    } else if (value.length > 0) {
+      // Initialize fuzzySearch as soon as we have symbols, don't wait for onMount
+      fuzzySearch = new FuzzySearch(value, {
+        threshold: 0.6,
+        includeScore: false,
+        maxResults: 50
+      });
+      console.log('🚀 Initialized fuzzySearch with symbols');
     }
   });
   
@@ -45,15 +59,26 @@
     }
   });
   
-  // Initialize fuzzy search
+  // Initialize fuzzy search with proper caching (per design spec)
   onMount(() => {
-    fuzzySearch = new FuzzySearch(availableSyms, {
-      threshold: 0.6,
-      includeScore: false,
-      maxResults: 30 // Reduced from 50 for faster rendering
+    console.log('🏗️ Component mounted:', {
+      availableSymsCount: availableSyms.length,
+      fuzzySearchExists: !!fuzzySearch
     });
-    
-    // Initial search if query exists
+
+    // Only initialize if not already initialized by subscription
+    if (!fuzzySearch) {
+      fuzzySearch = new FuzzySearch(availableSyms, {
+        threshold: 0.6,
+        includeScore: false,
+        maxResults: 50
+      });
+      console.log('🏗️ Initialized fuzzySearch in onMount');
+    } else {
+      console.log('🏗️ fuzzySearch already initialized, skipping');
+    }
+
+    // Initial search if query exists (using reactive pattern)
     if (searchQuery) {
       performSearch(searchQuery);
     }
@@ -64,55 +89,189 @@
     unsubscribeDisplays();
     unsubscribeAvailable();
     unsubscribePanels();
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
+    clearPendingSearch();
   });
   
-  // Handle search input with proper debouncing
-  function handleSearchInput() {
-    // Clear any existing timeout
+  // Reactive search with improved progressive debouncing
+  $: {
+    console.log('🔄 Reactive statement triggered:', {
+      searchQuery,
+      fuzzySearchExists: !!fuzzySearch,
+      currentFilteredCount: filteredSymbols.length,
+      isSearching
+    });
+
+    if (fuzzySearch) {
+      if (searchQuery) {
+        isSearching = true;
+        progressiveDebouncedSearch(searchQuery);
+      } else {
+        filteredSymbols = [];
+        selectedIndex = 0;
+        isSearching = false;
+        clearPendingSearch();
+      }
+    }
+  }
+
+  // Progressive debouncing with proper scope (industry standard)
+  let searchTimeout;
+  let lastInputTime = 0;
+
+  function progressiveDebouncedSearch(query) {
+    const now = performance.now();
+    const timeSinceLastInput = now - lastInputTime;
+
+    console.log('🔍 Search debug:', {
+      query,
+      queryLength: query.length,
+      availableSymsCount: availableSyms.length,
+      fuzzySearchExists: !!fuzzySearch,
+      isSearching,
+      timeSinceLastInput
+    });
+
+    // Clear any pending search
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
-    
-    if (!searchQuery || !fuzzySearch) {
+
+    // Show immediate feedback for all query lengths
+    performImmediateSearch(query);
+
+    // Calculate delay based on input patterns (industry standard)
+    let delay;
+    if (query.length === 1) {
+      delay = 150; // Faster feedback for first character
+    } else if (query.length === 2) {
+      delay = 120; // Slightly faster for short queries
+    } else if (timeSinceLastInput < 100) {
+      // Rapid typing - longer delay to wait for completion
+      delay = 150;
+    } else {
+      // Normal typing or refinement - shorter delay
+      delay = 100;
+    }
+
+    // Schedule full search with progressive delay
+    searchTimeout = setTimeout(() => {
+      performSearch(query);
+      isSearching = false;
+    }, delay);
+
+    lastInputTime = now;
+  }
+
+  function clearPendingSearch() {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+      searchTimeout = null;
+    }
+  }
+
+  function performImmediateSearch(query) {
+    // Handle case where symbols might not be loaded yet
+    if (!availableSyms || availableSyms.length === 0) {
+      console.log('⚠️ No symbols available for immediate search');
+      filteredSymbols = [];
+      selectedIndex = 0;
+      return;
+    }
+
+    // Show immediate results for better UX feedback
+    const queryLower = query.toLowerCase();
+    let immediateResults = [];
+
+    console.log('⚡ Immediate search debug:', {
+      query,
+      queryLower,
+      availableSymsCount: availableSyms.length,
+      sampleSyms: availableSyms.slice(0, 5)
+    });
+
+    if (query.length === 1) {
+      // Single character: show exact matches and popular symbols
+      const exactMatches = availableSyms.filter(symbol =>
+        symbol.toLowerCase().startsWith(queryLower)
+      ).slice(0, 8);
+
+      const popularMatches = availableSyms.filter(symbol => {
+        const popularSymbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'BTCUSD'];
+        return popularSymbols.includes(symbol) &&
+               symbol.toLowerCase().includes(queryLower);
+      });
+
+      immediateResults = [...exactMatches, ...popularMatches].slice(0, 10);
+    } else {
+      // Multi-character: show exact and prefix matches immediately
+      const exactMatches = availableSyms.filter(symbol =>
+        symbol.toLowerCase() === queryLower
+      );
+
+      const prefixMatches = availableSyms.filter(symbol =>
+        symbol.toLowerCase().startsWith(queryLower) &&
+        !exactMatches.includes(symbol)
+      ).slice(0, 8);
+
+      const containsMatches = availableSyms.filter(symbol =>
+        symbol.toLowerCase().includes(queryLower) &&
+        !exactMatches.includes(symbol) &&
+        !prefixMatches.includes(symbol)
+      ).slice(0, 5);
+
+      immediateResults = [...exactMatches, ...prefixMatches, ...containsMatches].slice(0, 15);
+    }
+
+    console.log('📝 Immediate search results:', {
+      query,
+      resultsCount: immediateResults.length,
+      results: immediateResults.slice(0, 5)
+    });
+
+    filteredSymbols = immediateResults;
+    selectedIndex = 0;
+  }
+
+  function performSearch(query) {
+    if (!fuzzySearch || !query) {
+      isSearching = false;
+      return;
+    }
+
+    // Handle case where fuzzy search exists but has no items
+    if (!availableSyms || availableSyms.length === 0) {
+      console.log('⚠️ No symbols available for fuzzy search');
       filteredSymbols = [];
       selectedIndex = 0;
       isSearching = false;
       return;
     }
-    
-    // Improved progressive delay: give users time to type comfortably
-    let delay;
-    if (searchQuery.length === 1) {
-      delay = 300; // Allow time for second character
-    } else if (searchQuery.length === 2) {
-      delay = 250; // Slightly shorter but still comfortable
-    } else if (searchQuery.length <= 4) {
-      delay = 200; // Moderate delay for short queries
-    } else {
-      delay = 150; // Shorter delay for longer queries (user likely refining)
-    }
-    
-    isSearching = true;
-    searchTimeout = setTimeout(() => {
-      performSearch(searchQuery);
-      isSearching = false;
-    }, delay);
-  }
-  
-  function performSearch(query) {
-    if (!fuzzySearch || !query) return;
-    
+
     const startTime = performance.now();
-    filteredSymbols = fuzzySearch.search(query);
-    selectedIndex = 0;
-    
-    // Track performance
-    const duration = performance.now() - startTime;
-    if (duration > 100) {
-      console.warn(`Slow search detected: ${duration.toFixed(2)}ms for ${filteredSymbols.length} results`);
+
+    try {
+      const results = fuzzySearch.search(query);
+      filteredSymbols = results;
+      selectedIndex = 0;
+
+      console.log('🔍 Fuzzy search completed:', {
+        query,
+        resultsCount: results.length,
+        duration: (performance.now() - startTime).toFixed(2) + 'ms',
+        results: results.slice(0, 5)
+      });
+
+      // Track performance and log slow searches (per design spec)
+      const duration = performance.now() - startTime;
+      if (duration > 100) {
+        console.warn(`Slow search detected: ${duration.toFixed(2)}ms for ${filteredSymbols.length} results`);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      filteredSymbols = [];
+      selectedIndex = 0;
+    } finally {
+      isSearching = false;
     }
   }
   
@@ -192,16 +351,28 @@
   }
   
   function highlightMatch(symbol, query) {
-    if (!query || !fuzzySearch) return symbol;
-    return fuzzySearch.highlightMatch(symbol, query);
+    if (!query || !symbol) return symbol;
+
+    try {
+      // Create a simple highlight function that doesn't depend on fuzzySearch instance
+      const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+      return symbol.replace(regex, '<mark>$1</mark>');
+    } catch (error) {
+      console.warn('Highlight error:', error);
+      return symbol;
+    }
+  }
+
+  function escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
   
   // Create display from search
   async function createDisplayFromSearch(symbol) {
     console.log('Creating display for symbol:', symbol);
-    
+
     // Create display first
-    const displayId = displayActions.addDisplay(symbol, {
+    displayActions.addDisplay(symbol, {
       x: 100 + Math.random() * 200,
       y: 100 + Math.random() * 100
     });
@@ -269,26 +440,40 @@
           bind:value={searchQuery}
           class="search-input"
           placeholder="Search symbols... (Ctrl+K)"
-          on:input={handleSearchInput}
+          on:input={() => {}}
           on:keydown={handleSearchKeydown}
-          on:focus={() => isSearchFocused = true}
-          on:blur={() => isSearchFocused = false}
+          on:focus={() => {}}
         />
         <div class="search-shortcut">Ctrl+K</div>
         {#if isSearching}
           <div class="search-loading">Searching...</div>
         {/if}
+
+        <!-- Debug info (remove in production) -->
+        {#if searchQuery}
+          <div class="debug-info" style="font-size: 10px; color: #666; margin-top: 4px;">
+            Query: "{searchQuery}" | Results: {filteredSymbols.length} | Symbols: {availableSyms.length} | FuzzySearch: {fuzzySearch ? '✓' : '✗'}
+          </div>
+        {/if}
       </div>
       
       <!-- Search Results -->
       {#if searchQuery && filteredSymbols.length > 0}
-        <div class="search-results">
+        <div class="search-results" role="listbox">
           {#each filteredSymbols as symbol, index}
-            <div 
+            <div
               class="search-result"
               class:selected={index === selectedIndex}
+              role="option"
+              aria-selected={index === selectedIndex}
               on:click={() => createDisplayFromSearch(symbol)}
               on:mouseenter={() => selectedIndex = index}
+              on:keydown={(e) => {
+                if (e.key === 'Enter') {
+                  createDisplayFromSearch(symbol);
+                }
+              }}
+              tabindex="0"
             >
               <span class="symbol-number">{index + 1}</span>
               <span class="symbol-name">{@html highlightMatch(symbol, searchQuery)}</span>
@@ -313,9 +498,20 @@
       {#if availableSyms.length > 0}
         <div class="section">
           <div class="section-title">Available Symbols ({availableSyms.length})</div>
-          <div class="symbol-list">
+          <div class="symbol-list" role="list">
             {#each availableSyms.slice(0, 10) as symbol}
-              <div class="symbol-item" on:click={() => handleSymbolClick(symbol)}>
+              <div
+                class="symbol-item"
+                role="button"
+                tabindex="0"
+                aria-label={`Create display for ${symbol}`}
+                on:click={() => handleSymbolClick(symbol)}
+                on:keydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleSymbolClick(symbol);
+                  }
+                }}
+              >
                 <span class="symbol-name">{symbol}</span>
                 <span class="symbol-action">+</span>
               </div>
@@ -334,9 +530,20 @@
       {#if symbols.length > 0}
         <div class="section">
           <div class="section-title">Active Displays ({symbols.length})</div>
-          <div class="symbol-list">
+          <div class="symbol-list" role="list">
             {#each symbols as symbol}
-              <div class="symbol-item active" on:click={() => handleSymbolClick(symbol)}>
+              <div
+                class="symbol-item active"
+                role="button"
+                tabindex="0"
+                aria-label={`Create another display for ${symbol}`}
+                on:click={() => handleSymbolClick(symbol)}
+                on:keydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleSymbolClick(symbol);
+                  }
+                }}
+              >
                 <span class="symbol-name">{symbol}</span>
                 <span class="symbol-action">+</span>
               </div>

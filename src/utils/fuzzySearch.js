@@ -402,4 +402,37 @@ export function createCachedSearch(items, options = {}) {
   };
 }
 
+/**
+ * Symbol fuzzy matching function for compatibility
+ */
+export function fuzzyMatchSymbols(searchTerm, symbols) {
+  const fuzzySearch = new FuzzySearch(symbols, {
+    threshold: 0.6,
+    includeScore: false,
+    maxResults: 50
+  });
+
+  return fuzzySearch.search(searchTerm);
+}
+
+/**
+ * Get detailed match information for highlighting
+ */
+export function getMatchInfo(symbol, query) {
+  const fuzzySearch = new FuzzySearch([symbol]);
+  const results = fuzzySearch.search(query);
+
+  if (results.length > 0) {
+    return {
+      match: true,
+      highlighted: fuzzySearch.highlightMatch(symbol, query)
+    };
+  }
+
+  return {
+    match: false,
+    highlighted: symbol
+  };
+}
+
 export default FuzzySearch;

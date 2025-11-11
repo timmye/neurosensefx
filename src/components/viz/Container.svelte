@@ -137,8 +137,23 @@
     draw(state, renderingContext, markers); // Pass rendering context and markers array to draw function
   }
 
+  // Frame-throttled mouse move handler for optimal 60fps performance
+  let lastHoverFrame = 0;
+  let pendingHoverUpdate = null;
+
   function handleMouseMove(event) {
     if (!y) return; // Guard clause: Don't run if y scale hasn't been initialized yet
+
+    const now = performance.now();
+
+    // Throttle to 60fps (16.67ms intervals)
+    if (now - lastHoverFrame < 16.67) {
+      // Store the latest mouse position but don't process yet
+      pendingHoverUpdate = event;
+      return;
+    }
+
+    lastHoverFrame = now;
 
     const rect = canvas.getBoundingClientRect();
     // 1. Calculate mouse Y relative to element's CSS position
@@ -147,6 +162,14 @@
     const calculatedPrice = y.invert(cssY);
 
     hoverState.set({ y: cssY, price: calculatedPrice }); // Store cssY for drawing, as drawing functions operate in CSS space
+
+    // Process any pending hover update after the frame
+    requestAnimationFrame(() => {
+      if (pendingHoverUpdate && pendingHoverUpdate !== event) {
+        handleMouseMove(pendingHoverUpdate);
+      }
+      pendingHoverUpdate = null;
+    });
   }
   function handleMouseLeave() {
     hoverState.set(null);
@@ -251,7 +274,7 @@
     drawPriceMarkers(ctx, currentRenderingContext, config, currentState, y, currentMarkers);
     
     // --- Draw Hover Indicator (must be last to be on top) ---
-    drawHoverIndicator(ctx, currentRenderingContext, config, currentState, y, $hoverState);
+    drawHoverIndicator(ctx, currentRenderingContext, config, currentState, yScale, $hoverState);
 
     // --- Draw Flash Overlay ---
     if (flashOpacity > 0) {

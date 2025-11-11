@@ -255,6 +255,58 @@ function formatPrice(price, digits, config) {
 }
 
 /**
+ * Simplified price formatting for hover indicators using NeuroSenseFX classification
+ * Returns properly formatted string WITHOUT pipettes for clean display
+ */
+export function formatPriceSimple(price, digits) {
+  if (price === undefined || price === null || isNaN(price)) {
+    return 'N/A';
+  }
+
+  const safeDigits = digits || 5;
+  const priceStr = price.toFixed(safeDigits);
+  const parts = priceStr.split('.');
+  const integerPart = parts[0];
+  const decimalPart = parts[1] || '';
+
+  // Apply NeuroSenseFX Dynamic Asset Classification System
+  const classification = classifyPriceFormat(price, digits);
+
+  switch (classification.type) {
+    case 'FX_JPY_STYLE': // USDJPY: 149.876 → 149.87 (show 2 decimal places, no pipettes)
+      const jpyDecimalPlaces = Math.min(2, decimalPart.length);
+      return `${integerPart}.${decimalPart.substring(0, jpyDecimalPlaces)}`;
+
+    case 'FX_STANDARD': // EURUSD: 1.23456 → 1.2345 (show 4 decimal places, no pipettes)
+      if (safeDigits === 5) {
+        // Remove the 5th digit (pipette) - show only 4 decimals
+        return `${integerPart}.${decimalPart.substring(0, 4)}`;
+      } else {
+        // For other digit counts, show all but the last digit
+        const displayDigits = Math.max(safeDigits - 1, 2);
+        return `${integerPart}.${decimalPart.substring(0, displayDigits)}`;
+      }
+
+    case 'HIGH_VALUE_COMMODITY': // XAUUSD: 3000.00 (show 2 decimals)
+      if (safeDigits >= 2) {
+        return `${integerPart}.${decimalPart.substring(0, 2)}`;
+      } else {
+        return `${integerPart}`;
+      }
+
+    case 'HIGH_VALUE_CRYPTO': // BTCUSD: 95000.00 → 95000 (no decimals for high values)
+      if (price >= 1000) {
+        return integerPart; // No decimals for high-value crypto
+      } else {
+        return priceStr; // Use standard formatting for lower values
+      }
+
+    default:
+      return priceStr;
+  }
+}
+
+/**
  * NeuroSenseFX Dynamic Asset Classification System
  * Classifies price format based on magnitude and digit requirements
  */

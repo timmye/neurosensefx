@@ -12,9 +12,7 @@ Seamless integration with UnifiedVisualisation foundation patterns while maintai
 
 Foundation Pattern Inheritance:
 
-// Standard UnifiedVisualization pattern usage
-export const drawVolatilityOrb = createVisualization('VolatilityOrb', volatilityOrbImplementation);
-Core Foundation Methods Leveraged:
+// Standard UnifiedVisualization pattern usageexport const drawVolatilityOrb = createVisualization(‘VolatilityOrb’, volatilityOrbImplementation);Core Foundation Methods Leveraged:
 
 validateRenderData(): Safety checks + percentage conversion + bounds validation
 
@@ -26,12 +24,8 @@ processVolatilityData(): Worker data processing with comprehensive validation
 
 ### DPR-Aware Rendering Implementation
 
-// UnifiedVisualization provides crisp rendering across all device densities
-ctx.save();
-ctx.translate(0.5, 0.5); // Crisp text rendering
-ctx.imageSmoothingEnabled = false; // Sharp pixel alignment
-// … rendering operations
-ctx.restore(); // UnifiedVisualization handles restoration
+// UnifiedVisualization provides crisp rendering across all device densitiesctx.save();ctx.translate(0.5, 0.5); // Crisp text renderingctx.imageSmoothingEnabled = false; // Sharp pixel alignment// … rendering operationsctx.restore(); // UnifiedVisualization handles restoration
+
 ### Performance Optimization Patterns
 
 Pre-calculation: All positions and dimensions calculated once per frame
@@ -144,12 +138,7 @@ Numeric display of volatility level - static position text allowing traders to r
 
 Cognitive Purpose: Immediate trend context recognition
 
-// Direction-aware color coding for trend recognition
-case 'directional':
-  return direction === 'up'
-    ? (config.priceUpColor || '#3b82f6') // Blue for upward movement
-    : (config.priceDownColor || '#a78bfa'); // Purple for downward movement
-Visual Characteristics:
+// Direction-aware color coding for trend recognitioncase ‘directional’:return direction === ‘up’? (config.priceUpColor || ‘#3b82f6’) // Blue for upward movement: (config.priceDownColor || ‘#a78bfa’); // Purple for downward movementVisual Characteristics:
 
 Pre-attentive Processing: Color instantly communicates trend direction
 
@@ -161,10 +150,7 @@ Background/Foreground Integration: Maintains visibility in both modes
 
 Cognitive Purpose: Extended session comfort through reduced cognitive load
 
-// Consistent color for reduced visual complexity
-case 'static':
-  return config.priceStaticColor || '#d1d5db'; // Neutral gray
-Visual Characteristics:
+// Consistent color for reduced visual complexitycase ‘static’:return config.priceStaticColor || ‘#d1d5db’; // Neutral grayVisual Characteristics:
 
 Cognitive Load Reduction: Eliminates directional processing overhead
 
@@ -176,12 +162,7 @@ Ambient Glow Compatibility: Enhanced visual softening available
 
 Cognitive Purpose: Perceptual color/brightness volatility scaling for pattern recognition
 
-// Logarithmic scaling for human-perceptible volatility mapping
-const rawIntensity = volatility &gt; 0
-  ? Math.log(Math.max(0.1, volatility + 0.1)) / Math.log(10)
-  : 0;
-const intensity = Math.min(1.0, rawIntensity);
-Visual Characteristics:
+// Logarithmic scaling for human-perceptible volatility mappingconst rawIntensity = volatility &gt; 0? Math.log(Math.max(0.1, volatility + 0.1)) / Math.log(10): 0;const intensity = Math.min(1.0, rawIntensity);Visual Characteristics:
 
 Logarithmic Scaling: Matches human perception of volatility changes
 
@@ -199,31 +180,18 @@ Data Source: Existing tick magnitude from data processorTrigger Logic: Price mov
 
 #### Simple Implementation
 
-// Foundation-aligned flash logic
-function shouldFlash(state, config) {
-  if (!config.showOrbFlash) return false;
+// Foundation-aligned flash logicfunction shouldFlash(state, config) {if (!config.showOrbFlash) return false;
 
-  const latestTick = state.ticks &amp;&amp; state.ticks.length &gt; 0
-    ? state.ticks[state.ticks.length - 1]
-    : null;
+const latestTick = state.ticks &amp;&amp; state.ticks.length &gt; 0? state.ticks[state.ticks.length - 1]: null;
 
-  const priceChange = latestTick?.magnitude || 0;
-  return priceChange &gt;= config.flashThreshold;
-}
+const priceChange = latestTick?.magnitude || 0;return priceChange &gt;= config.flashThreshold;}
 
-// Simple flash effect - orb only, not canvas background
-function applyOrbFlash(ctx, orbData, config) {
-  ctx.save();
-  ctx.globalAlpha = 0.6; // Fixed intensity for simplicity
-  ctx.fillStyle = '#FFFFFF';
+// Simple flash effect - orb only, not canvas backgroundfunction applyOrbFlash(ctx, orbData, config) {ctx.save();ctx.globalAlpha = 0.6; // Fixed intensity for simplicityctx.fillStyle = ‘#FFFFFF’;
 
-  // Apply flash only to orb area
-  ctx.beginPath();
-  ctx.arc(orbData.centerX, orbData.centerY, orbData.radius, 0, Math.PI * 2);
-  ctx.fill();
+// Apply flash only to orb areactx.beginPath();ctx.arc(orbData.centerX, orbData.centerY, orbData.radius, 0, Math.PI * 2);ctx.fill();
 
-  ctx.restore();
-}
+ctx.restore();}
+
 #### Cognitive Design Integration
 
 Non-Disruptive: Flash affects only the orb, preserving foreground analysisConfigurable Sensitivity: User controls threshold via flashThreshold parameterBackground Element: Flash supports rather than competes with primary trading informationExtended Session: Brief flash duration prevents cognitive fatigue
@@ -299,10 +267,6 @@ Directional color customization
 Total
 
 10 Essential Parameters
-
-
-
-
 
 #### Core Display Parameters
 
@@ -440,40 +404,20 @@ Single-Pass Rendering: One gradient operation per frameFixed Center Positioning:
 
 #### Implementation Optimization
 
-// Simple pre-calculation for background element
-function calculateOrbDimensions(canvas, config) {
-  const baseSize = Math.min(canvas.width, canvas.height) * config.volatilityOrbBaseWidth;
-  const centerX = canvas.width / 2;  // Fixed center positioning
-  const centerY = canvas.height / 2;
+// Simple pre-calculation for background elementfunction calculateOrbDimensions(canvas, config) {const baseSize = Math.min(canvas.width, canvas.height) * config.volatilityOrbBaseWidth;const centerX = canvas.width / 2; // Fixed center positioningconst centerY = canvas.height / 2;
 
-  return {
-    centerX,
-    centerY,
-    baseRadius: baseSize / 2
-  };
-}
+return {centerX,centerY,baseRadius: baseSize / 2};}
 
-// Efficient rendering with bounds checking
-function renderBackgroundOrb(ctx, orbData, config, volatility) {
-  if (!config.showVolatilityOrb) return;
+// Efficient rendering with bounds checkingfunction renderBackgroundOrb(ctx, orbData, config, volatility) {if (!config.showVolatilityOrb) return;
 
-  const volatilityScale = Math.min(2.0, volatility * 0.8);
-  const radius = orbData.baseRadius * volatilityScale * config.volatilitySizeMultiplier;
+const volatilityScale = Math.min(2.0, volatility * 0.8);const radius = orbData.baseRadius * volatilityScale * config.volatilitySizeMultiplier;
 
-  // Single gradient operation
-  const gradient = ctx.createRadialGradient(
-    orbData.centerX, orbData.centerY, 0,
-    orbData.centerX, orbData.centerY, radius * config.gradientSpread
-  );
+// Single gradient operationconst gradient = ctx.createRadialGradient(orbData.centerX, orbData.centerY, 0,orbData.centerX, orbData.centerY, radius * config.gradientSpread);
 
-  // Apply gradient with softness
-  gradient.addColorStop(0, getOrbColor(config, 1.0));
-  gradient.addColorStop(config.gradientSoftness, getOrbColor(config, 0.3));
-  gradient.addColorStop(1, 'transparent');
+// Apply gradient with softnessgradient.addColorStop(0, getOrbColor(config, 1.0));gradient.addColorStop(config.gradientSoftness, getOrbColor(config, 0.3));gradient.addColorStop(1, ‘transparent’);
 
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-}
+ctx.fillStyle = gradient;ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);}
+
 #### Realistic Performance Benchmarks
 
 Background Element Targets

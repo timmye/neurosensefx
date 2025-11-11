@@ -106,17 +106,47 @@
     displayActions.removeDisplay(id);
   }
   
+  // Frame-throttled hover updates
+  let hoverUpdateFrame = null;
+  let lastHoverState = null;
+
   function handleCanvasMouseMove(event) {
     if (!yScale) return;
-    
+
     const rect = canvas.getBoundingClientRect();
+    const cssX = event.clientX - rect.left;
     const cssY = event.clientY - rect.top;
     const calculatedPrice = yScale.invert(cssY);
-    
-    hoverState.set({ y: cssY, price: calculatedPrice });
+
+    const newHoverState = { x: cssX, y: cssY, price: calculatedPrice };
+
+    // Only update if state actually changed to avoid unnecessary renders
+    if (lastHoverState &&
+        Math.abs(lastHoverState.x - newHoverState.x) < 1 &&
+        Math.abs(lastHoverState.y - newHoverState.y) < 1) {
+      return;
+    }
+
+    // Cancel previous frame request if still pending
+    if (hoverUpdateFrame) {
+      cancelAnimationFrame(hoverUpdateFrame);
+    }
+
+    // Throttle update to next animation frame
+    hoverUpdateFrame = requestAnimationFrame(() => {
+      lastHoverState = newHoverState;
+      hoverState.set(newHoverState);
+      hoverUpdateFrame = null;
+    });
   }
   
   function handleCanvasMouseLeave() {
+    // Cancel any pending hover update
+    if (hoverUpdateFrame) {
+      cancelAnimationFrame(hoverUpdateFrame);
+      hoverUpdateFrame = null;
+    }
+    lastHoverState = null;
     hoverState.set(null);
   }
   
@@ -400,7 +430,7 @@
         drawPriceDisplay(ctx, renderingContext, config, state, yScale);
         drawVolatilityMetric(ctx, renderingContext, config, state);
         drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);
-        drawHoverIndicator(ctx, renderingContext, config, state, yScale, $hoverState);
+        drawHoverIndicator(ctx, renderingContext, config, state, yScale, lastHoverState);
       } catch (error) {
         console.error(`[RENDER] Error in visualization functions:`, error);
       }

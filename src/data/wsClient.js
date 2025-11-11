@@ -6,6 +6,24 @@ export const wsStatus = writable('disconnected');
 export const availableSymbols = writable([]);
 export const subscriptions = writable(new Set());
 
+// Cache symbols to persist across connection drops
+let cachedSymbols = [];
+const originalSet = availableSymbols.set;
+availableSymbols.set = (value) => {
+    if (value && value.length > 0) {
+        cachedSymbols = [...value];
+    }
+    return originalSet.call(availableSymbols, value);
+};
+
+// Restore cached symbols on subscription if available
+availableSymbols.subscribe((value) => {
+    if ((!value || value.length === 0) && cachedSymbols.length > 0) {
+        console.log('🔄 Restoring cached symbols:', cachedSymbols.length);
+        setTimeout(() => availableSymbols.set(cachedSymbols), 100);
+    }
+});
+
 let ws = null;
 let connectionMonitorInterval = null;
 
@@ -42,7 +60,8 @@ export function connect() {
             stopConnectionMonitor();
             ws = null;
             if (get(wsStatus) !== 'error') wsStatus.set('disconnected');
-            availableSymbols.set([]);
+            // Don't immediately clear symbols on disconnect - they might be cached
+            // availableSymbols.set([]);
         };
         ws.onerror = (err) => {
             console.error('[wsClient] WebSocket Error:', err);
