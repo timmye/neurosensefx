@@ -22,7 +22,6 @@ test.describe('Enhanced CanvasContextMenu - Parameter Controls', () => {
     // Test toggle controls
     const toggleControls = [
       'showMarketProfile',
-      'showVolatilityOrb',
       'showFlash',
       'showVolatilityMetric',
       'showAdrRangeIndicatorLines',
@@ -267,8 +266,6 @@ test.describe('Enhanced CanvasContextMenu - Parameter Controls', () => {
     
     // Test range controls
     const rangeControls = [
-      { param: 'volatilityOrbBaseWidth', testValue: 200 },
-      { param: 'volatilitySizeMultiplier', testValue: 1.5 },
       { param: 'flashThreshold', testValue: 2.0 },
       { param: 'flashIntensity', testValue: 0.5 },
       { param: 'adrRange', testValue: 100 }

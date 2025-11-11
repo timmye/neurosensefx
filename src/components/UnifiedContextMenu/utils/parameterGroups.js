@@ -2,7 +2,7 @@
 // SIMPLIFIED PARAMETER GROUPS FOR CONTEXT MENU
 // =============================================================================
 // Auto-generated from simplified configuration schema
-// 31 essential parameters organized into logical groups
+// 36 essential parameters organized into logical groups
 
 import {
   getParametersByGroup,

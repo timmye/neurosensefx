@@ -9,7 +9,6 @@
   // Import drawing functions
   import { drawMarketProfile } from '../lib/viz/marketProfile.js';
   import { drawDayRangeMeter } from '../lib/viz/dayRangeMeter.js';
-  import { drawVolatilityOrb } from '../lib/viz/volatilityOrb.js';
   import { drawPriceFloat } from '../lib/viz/priceFloat.js';
   import { drawPriceDisplay } from '../lib/viz/priceDisplay.js';
   import { drawPriceMarkers } from '../lib/viz/priceMarkers.js';
@@ -373,7 +372,6 @@
       try {
         drawMarketProfile(ctx, renderingContext, config, state, yScale);
         drawDayRangeMeter(ctx, renderingContext, config, state, yScale);
-        drawVolatilityOrb(ctx, renderingContext, config, state, yScale);
         drawPriceFloat(ctx, renderingContext, config, state, yScale);
         drawPriceDisplay(ctx, renderingContext, config, state, yScale);
         drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);

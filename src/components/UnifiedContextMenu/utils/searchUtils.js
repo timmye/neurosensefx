@@ -115,10 +115,8 @@ export function getPopularParameters(maxPopular = 10) {
   // For now, return some commonly used parameters
   const popularParams = [
     'showMarketProfile',
-    'showVolatilityOrb',
     'priceFloatWidth',
     'marketProfileOpacity',
-    'volatilityColorMode',
     'showFlash',
     'priceFontSize',
     'visualizationsContentWidth',

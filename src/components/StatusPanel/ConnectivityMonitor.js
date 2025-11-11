@@ -278,13 +278,13 @@ class ServerMonitor {
 
       if (dataAge <= 1000) {
         status = 'good';
-        details = `${dataAge}ms ago - Live data`;
+        details = `${dataAge}ms delay - Live data`;
       } else if (dataAge <= 5000) {
         status = 'warning';
-        details = `${dataAge}ms ago - Slightly delayed`;
+        details = `${dataAge}ms delay - Slightly delayed`;
       } else {
         status = 'warning'; // Changed: Use warning instead of error for stale data
-        details = `${dataAge}ms ago - Data delayed`;
+        details = `${dataAge}ms delay - Data delayed`;
       }
     } else {
       status = 'error';

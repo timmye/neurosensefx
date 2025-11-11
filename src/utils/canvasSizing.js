@@ -198,17 +198,13 @@ export function normalizeConfig(config, canvasDimensions) {
     priceDisplayPadding: config.priceDisplayPadding
       ? percentageToPixels(config.priceDisplayPadding, canvasArea.width)
       : canvasArea.width * 0.02,
-    
-    volatilityOrbBaseWidth: config.volatilityOrbBaseWidth
-      ? percentageToPixels(config.volatilityOrbBaseWidth, canvasArea.width)
-      : canvasArea.width * 0.15,
-    
+
     // Pass through non-scaled parameters unchanged
     ...Object.fromEntries(
       Object.entries(config).filter(([key]) => ![
         'visualizationsContentWidth', 'meterHeight', 'centralAxisXPosition', 'adrAxisXPosition',
         'priceFloatWidth', 'priceFloatHeight', 'priceFloatXOffset', 'priceFontSize',
-        'priceHorizontalOffset', 'priceDisplayPadding', 'volatilityOrbBaseWidth'
+        'priceHorizontalOffset', 'priceDisplayPadding'
       ].includes(key))
     )
   };

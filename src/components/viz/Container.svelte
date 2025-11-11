@@ -4,7 +4,6 @@
   import { drawDayRangeMeter } from '../../lib/viz/dayRangeMeter.js';
   import { drawPriceFloat } from '../../lib/viz/priceFloat.js';
   import { drawPriceDisplay } from '../../lib/viz/priceDisplay.js';
-  import { drawVolatilityOrb } from '../../lib/viz/volatilityOrb.js';
   import { drawMarketProfile } from '../../lib/viz/marketProfile.js';
   import { drawVolatilityMetric } from '../../lib/viz/volatilityMetric.js';
   import { drawHoverIndicator } from '../../lib/viz/hoverIndicator.js';
@@ -201,12 +200,7 @@
       console.error('[Container] Day Range Meter render error:', error);
     }
 
-    try {
-      drawVolatilityOrb(ctx, currentRenderingContext, config, currentState, y);
-    } catch (error) {
-      console.error('[Container] Volatility Orb render error:', error);
-    }
-
+    
     try {
       drawPriceFloat(ctx, currentRenderingContext, config, currentState, y);
     } catch (error) {

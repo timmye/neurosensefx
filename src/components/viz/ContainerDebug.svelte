@@ -4,7 +4,6 @@
   import { drawDayRangeMeter } from '../../lib/viz/dayRangeMeter.js';
   import { drawPriceFloat } from '../../lib/viz/priceFloat.js';
   import { drawPriceDisplay } from '../../lib/viz/priceDisplay.js';
-  import { drawVolatilityOrb } from '../../lib/viz/volatilityOrb.js';
   import { drawMarketProfile } from '../../lib/viz/marketProfile.js';
   import { drawVolatilityMetric } from '../../lib/viz/volatilityMetric.js';
   import { drawHoverIndicator } from '../../lib/viz/hoverIndicator.js';
@@ -39,7 +38,6 @@
     visualizationCalls: {
       marketProfile: false,
       dayRangeMeter: false,
-      volatilityOrb: false,
       priceFloat: false,
       priceDisplay: false,
       volatilityMetric: false,
@@ -245,10 +243,6 @@
       console.log('🔍 CONTAINER_DEBUG: Drawing day range meter');
       drawDayRangeMeter(ctx, currentConfig, currentState, y);
       debugInfo.visualizationCalls.dayRangeMeter = true;
-      
-      console.log('🔍 CONTAINER_DEBUG: Drawing volatility orb');
-      drawVolatilityOrb(ctx, currentConfig, currentState, visualizationsContentWidth, meterHeight);
-      debugInfo.visualizationCalls.volatilityOrb = true;
       
       console.log('🔍 CONTAINER_DEBUG: Drawing price float');
       drawPriceFloat(ctx, currentConfig, currentState, y);

@@ -2,751 +2,703 @@
 
 ## Executive Summary
 
-**🎯 IMPLEMENTATION PENDING**: Volatility Orb visualization re-design using foundation patterns from marketProfile.js and priceDisplay.js. Will deliver high-performance volatility indication with multiple visualization modes, comprehensive error handling, and cognitive-aware design aligned with NeuroSense FX principles.
+Volatility visualisation delivering real-time market volatility assessment through multi-mode rendering, and cognitive-aware design.
 
-**Core Achievement**: Foundation-first integration with existing infrastructure while maintaining volatility orb's role as background perceptual element supporting trader decision-making through intuitive volatility visualization.
+Seamless integration with UnifiedVisualisation foundation patterns while maintaining volatility orb’s role as a perceptual background element that supports trader decision-making through intuitive volatility visualization without cognitive overhead.
 
----
+## 1. Foundation Architecture: UnifiedVisualization Integration
 
-## 1. Foundation Strategy: Leverage Proven Patterns
+### UnifiedVisualization Base Class Implementation
 
-### Market Profile & Price Display Foundation Analysis
+Foundation Pattern Inheritance:
 
-**Proven Foundation Patterns to Leverage**:
-- **DPR-Aware Rendering**: `ctx.translate(0.5, 0.5)` and `ctx.imageSmoothingEnabled = false`
-- **RenderingContext Integration**: Uses `{ contentArea, adrAxisX }` from unified system
-- **Content-Relative Positioning**: All calculations based on contentArea dimensions
-- **Bounds Checking**: `boundsUtils.isYInBounds()` for safety and performance
-- **Modular Architecture**: Clean separation with focused functions
-- **Percentage-to-Decimal Conversion**: Standard pattern for config parameters
-- **Comprehensive Error Handling**: Multi-level validation with graceful fallbacks
-- **Performance Optimization**: Pre-calculation, early exits, selective rendering
+// Standard UnifiedVisualization pattern usage
+export const drawVolatilityOrb = createVisualization('VolatilityOrb', volatilityOrbImplementation);
+Core Foundation Methods Leveraged:
 
-**Critical Foundation Pattern: Cognitive-Aware Background Rendering**
-```javascript
-// Standard rendering context usage
-const { contentArea, adrAxisX } = renderingContext;
+validateRenderData(): Safety checks + percentage conversion + bounds validation
 
-// Standard bounds checking for performance
-const inBounds = boundsUtils.isYInBounds(orbY, config, { canvasArea: contentArea });
+drawCore(): Main orb rendering with DPR-aware transformations
 
-// Standard DPR configuration for crisp rendering
+addEnhancements(): Bounds-checked enhancements (flash, metrics, ambient effects)
+
+processVolatilityData(): Worker data processing with comprehensive validation
+
+### DPR-Aware Rendering Implementation
+
+// UnifiedVisualization provides crisp rendering across all device densities
 ctx.save();
-ctx.translate(0.5, 0.5);
-ctx.imageSmoothingEnabled = false;
-```
+ctx.translate(0.5, 0.5); // Crisp text rendering
+ctx.imageSmoothingEnabled = false; // Sharp pixel alignment
+// … rendering operations
+ctx.restore(); // UnifiedVisualization handles restoration
+### Performance Optimization Patterns
 
-### 🎯 IMPLEMENTATION PENDING: Critical Foundation Integration
+Pre-calculation: All positions and dimensions calculated once per frame
 
-**Foundation Integration Requirements**:
-- **Missing**: renderingContext parameter usage
-- **Missing**: DPR-aware crisp rendering
-- **Missing**: Comprehensive error handling with guard clauses
-- **Missing**: Percentage-to-decimal conversion for all parameters
-- **Missing**: Performance optimization for 60fps with 20+ displays
-- **Missing**: Bounds checking for selective rendering
-- **Missing**: Integration with unified coordinate system
+Early Exit Validation: Skip rendering when disabled or data invalid
 
----
+Selective Enhancement: Core always renders, enhancements have bounds checking
 
-## 2. Architecture Requirements
+Object Reuse: Minimal allocation in render loops for 60fps performance
 
-### Current Legacy Issues Analysis
-- **150+ lines** with mixed responsibilities (rendering, styling, configuration, data processing)
-- **No foundation integration** - missing renderingContext, bounds checking, DPR awareness
-- **Configuration inconsistencies** - mixed parameter naming and percentage handling
-- **Performance bottlenecks** - redundant calculations, no optimization for multi-display scenarios
-- **Cognitive design gaps** - not aligned with background element role from design document
-- **Missing error handling** - no guard clauses or validation patterns
+## 2. Cognitive-Aware User Experience Architecture
 
-### 🎯 IMPLEMENTATION PENDING Architecture
+### Core Design Principles Embedded
 
-```
-src/lib/viz/volatilityOrb.js (foundation-based redesign)
-├── drawVolatilityOrb()           // Main orchestration with cognitive-aware rendering
-├── validateRenderData()         // Safety checks + percentage conversion
-├── configureRenderContext()      // DPR setup for crisp rendering
-├── processVolatilityData()       // Worker data processing with validation
-├── addEnhancements()            // Bounds-checked enhancements (flash, metrics)
-├── drawVolatilityOrb()          // Core orb rendering with gradients
-├── drawVolatilityMetric()        // Optional numerical display
-├── applyVolatilityFlash()        // Alert system integration
-├── calculateOrbDimensions()      // Content-relative sizing
-└── hexToRgba()                  // Safe color conversion (reuse from marketProfile)
-```
+#### Perceptual Processing Support
 
-**Key Achievement**: Foundation-first integration while maintaining cognitive-aware background positioning and flash system integration.
+Visual cortex processes parallel information many times faster than sequential
 
-### Standard Function Signature Pattern
+Pre-attentive visual attributes (color, size, motion) for instant volatility recognition
 
-```javascript
-export function drawVolatilityOrb(ctx, renderingContext, config, state, y) {
-  // Foundation-first pattern with comprehensive guard clauses
-  // ctx: Canvas 2D context
-  // renderingContext: { contentArea, adrAxisX } - unified coordinate system
-  // config: Configuration with percentage-to-decimal conversion and cognitive-aware flags
-  // state: Market data with volatility, currentPrice, lastTickDirection
-  // y: D3 scale function for price positioning
-  
-  // Guard clauses for safety (FOUNDATION PATTERN)
-  if (!ctx || !renderingContext || !config || !state || !y) {
-    console.warn('[VolatilityOrb] Missing required parameters, skipping render');
-    return;
-  }
-}
-```
+Progressive disclosure from glanceable to analytical information layers
 
----
+#### Cognitive Load Management
 
-## 3. User Experience Architecture (Cognitive-Aware Design)
+Background element positioning reduces attention competition
 
-### Core User Purpose (from Design Document)
-- **Perceptual Volatility Indication**: Visual representation without cognitive load
-- **Background Context Support**: Supports foreground elements without competing for attention
-- **Alert System Integration**: Flash mechanisms for significant market events
-- **Pattern Recognition Support**: Provides volatility context for market condition understanding
-- **Extended Session Comfort**: Cognitive fatigue reduction through intuitive visualization
+Working memory preservation (4±1 chunk limit under stress)
 
-### Essential User Interactions
-- **Visualization Modes**: Directional color mode, static color mode, intensity-based sizing
-- **Alert Integration**: Flash on significant volatility changes or price movements
-- **Environmental Adaptation**: Brightness inversion for different lighting conditions
-- **Metric Display**: Optional numerical volatility information for precise analysis
-- **Multi-Display Consistency**: Cohesive behavior across multiple simultaneous displays
+Extended session comfort through reduced visual complexity
 
-### Visual Hierarchy (Cognitive-Aware)
-1. **Background Orb**: Primary information - volatility intensity through size and color
-2. **Flash Effects**: Secondary - significant event alerts without disruption
-3. **Numerical Metrics**: Tertiary - optional precise information when needed
-4. **Glow Effects**: Quaternary - environmental adaptation and visual enhancement
+#### Environmental Adaptation
 
----
+Configurable intensity scaling for user preference
 
-## 4. 🎯 IMPLEMENTATION PENDING: Worker Integration Pattern
+### Essential User Interactions &amp; Cognitive Purpose
 
-### Data Structure Reality Check
+#### Fundamental Mechanisms
 
-**✅ CORRECT**: Use worker's existing structure directly
-```javascript
-// Worker provides processed data efficiently
-const { 
-  volatility,
-  currentPrice,
-  lastTickDirection
-} = state;
+Size: The size responds to market volatility, allowing traders to instantly perceive volatility levels via orb size relative to canvas.
 
-// Process worker's volatility data with validation
-const orbData = processVolatilityData(volatility, currentPrice, lastTickDirection, config, y);
-```
+#### Color / Brightness
 
-**Worker Data Format**: Existing structure
-```javascript
-{
-  volatility: 25.5,           // Volatility percentage
-  currentPrice: 1.0845,       // Current FX price
-  lastTickDirection: 'up'      // Direction of last price change
-}
-```
+Directional Color Mode: Offers traders the ability to customize up/down volatility colors and transparency
 
-### Processing Strategy: Leverage Worker Efficiency
+Intensity Mode: Adjusts color rendering intensity and/or transparency modifiers
 
-**Key Decision**: Direct worker data usage with validation layer
-```javascript
-// ✅ IMPLEMENTATION PENDING: Direct worker data processing
-function processVolatilityData(volatility, currentPrice, lastTickDirection, config, y) {
-  // Validate worker data
-  const safeVolatility = volatility || 0;
-  const safePrice = currentPrice || 0;
-  const safeDirection = lastTickDirection || 'up';
-  
-  // Pre-calculate Y position for performance (FOUNDATION PATTERN)
-  const priceY = y(safePrice);
-  
-  return {
-    volatility: safeVolatility,
-    priceY,
-    direction: safeDirection,
-    isValid: safeVolatility >= 0 && safePrice > 0
-  };
-}
-```
+#### Combinations
 
-**Performance Optimization**: Early validation and pre-calculation
-```javascript
-// ✅ IMPLEMENTATION PENDING: Early exit for performance
-if (!orbData.isValid) {
-  console.warn('[VolatilityOrb] Invalid data, skipping render');
-  return;
-}
+Traders can choose any combination of the fundamental mechanisms to suit their unique cognitive needs.
 
-// ✅ IMPLEMENTATION PENDING: Skip rendering when disabled
-if (!config.showVolatilityOrb) {
-  return;
-}
-```
+### Flash
 
----
+Flash modifier is offered as an option for traders to have an instant visual change, allowing customized tick flash threshold. Flash can be the orb itself or the full canvas background.
 
-## 5. 🎯 IMPLEMENTATION PENDING: Cognitive-Aware Rendering Modes
+#### Interaction Modes
 
-### Mode 1: `directional` (Default)
-**Direction-Aware Color Coding** - Supports trend recognition
-```javascript
-// Color based on tick direction for immediate trend context
-let orbColor;
-if (config.volatilityColorMode === 'directional') {
-  orbColor = orbData.direction === 'up' ? config.priceUpColor : config.priceDownColor;
-} else {
-  orbColor = config.priceStaticColor;
-}
-```
+Mode
 
-### Mode 2: `static`
-**Consistent Color** - Reduces cognitive load during extended sessions
-```javascript
-// Single color regardless of direction for reduced visual complexity
-orbColor = config.priceStaticColor;
-```
+Cognitive Purpose
 
-### Mode 3: `intensity`
-**Volatility-Based Color Intensity** - Perceptual volatility scaling
-```javascript
-// Color intensity based on volatility level
-const intensity = Math.min(1.0, orbData.volatility / 100);
-orbColor = adjustColorIntensity(baseColor, intensity);
-```
+Implementation
 
-### Background Positioning System
+Directional Mode
 
-**Cognitive-Aware Positioning**: Background element placement
-```javascript
-// Background positioning relative to ADR axis (design document requirement)
-const calculateOrbPosition = (config, contentArea, adrAxisX) => {
-  // Position orb at ADR axis (primary reference point)
-  const orbX = adrAxisX;
-  
-  // Vertical positioning follows current price
-  const orbY = y(currentPrice);
-  
-  // Size based on content area and volatility
-  const baseWidth = contentArea.width * config.volatilityOrbBaseWidth;
-  const orbRadius = (baseWidth / 2) * (volatility / 100) * config.volatilitySizeMultiplier;
-  
-  return { orbX, orbY, orbRadius };
-};
-```
+Enables color changes for color recognition
 
----
+Color based on tick direction
 
-## 6. 🎯 IMPLEMENTATION PENDING: Configuration Fixes & Foundation Integration
+Static Mode
 
-### Critical Parameter Corrections
+Cognitive load reduction
 
-**✅ FIXED**: Percentage-to-decimal conversion for all parameters
-```javascript
-// ✅ CORRECT: Convert percentages to decimals
-const baseWidthRatio = (config.volatilityOrbBaseWidth || 0.91) / 100;
-const sizeMultiplier = parseFloat(config.volatilitySizeMultiplier) || 1.5;
-const xOffsetPercentage = (config.priceDisplayXOffset || 0) / 100;
-```
+Single color regardless of direction
 
-**✅ FIXED**: Comprehensive parameter validation
-```javascript
-// ✅ IMPLEMENTATION PENDING: Type-safe validation with fallbacks
-function validateVolatilityConfig(config) {
-  const validatedConfig = {
-    showVolatilityOrb: Boolean(config.showVolatilityOrb),
-    volatilityColorMode: ['directional', 'static', 'intensity'].includes(config.volatilityColorMode) 
-      ? config.volatilityColorMode 
-      : 'directional',
-    volatilityOrbBaseWidth: Math.max(0.1, Math.min(1.0, parseFloat(config.volatilityOrbBaseWidth) || 0.91)),
-    volatilityOrbInvertBrightness: Boolean(config.volatilityOrbInvertBrightness),
-    volatilitySizeMultiplier: Math.max(0.1, Math.min(5.0, parseFloat(config.volatilitySizeMultiplier) || 1.5)),
-    showVolatilityMetric: Boolean(config.showVolatilityMetric)
-  };
-  
-  return validatedConfig;
-}
-```
+Intensity Mode
 
-### Working Configuration Pattern
-```javascript
-function validateRenderData(contentArea, adrAxisX, config) {
-  // ✅ FIXED: Comprehensive percentage-to-decimal conversion
-  const baseWidthRatio = parseFloat(config.volatilityOrbBaseWidth) || 0.91;
-  const sizeMultiplier = parseFloat(config.volatilitySizeMultiplier) || 1.5;
-  
-  // ✅ FIXED: Validate calculations before use
-  if (isNaN(baseWidthRatio) || isNaN(sizeMultiplier)) {
-    return { shouldRender: false, error: 'Invalid parameter calculations' };
-  }
-  
-  // ✅ FIXED: Content-relative calculations
-  const orbBaseWidth = contentArea.width * baseWidthRatio;
-  const orbX = adrAxisX;
-  
-  return {
-    shouldRender: config.showVolatilityOrb,
-    orbBaseWidth,
-    orbX,
-    sizeMultiplier,
-    ...validateVolatilityConfig(config)
-  };
-}
-```
+Perceptual volatility using color rendering intensity instead of size
 
-### Production Configuration
-```javascript
-const workingConfig = {
-  // ✅ WORKING: Cognitive-aware defaults
-  showVolatilityOrb: true,
-  volatilityColorMode: 'directional',      // 'directional' | 'static' | 'intensity'
-  volatilityOrbBaseWidth: 0.91,           // 91% of content width
-  volatilityOrbInvertBrightness: false,
-  volatilitySizeMultiplier: 1.5,           // Size scaling based on volatility
-  
-  // ✅ WORKING: Alert system integration
-  showVolatilityMetric: true,
-  showOrbFlash: true,
-  orbFlashThreshold: 2.0,
-  orbFlashIntensity: 0.8,
-  
-  // ✅ WORKING: Visual styling
-  priceUpColor: '#3b82f6',             // Blue for up direction
-  priceDownColor: '#ef4444',           // Red for down direction
-  priceStaticColor: '#d1d5db',          // Gray for static mode
-  
-  // ✅ WORKING: Environmental adaptation
-  priceFloatGlowColor: '#9333ea',
-  priceFloatGlowStrength: 8
-};
-```
+Logarithmic color intensity mapping
 
----
+### Visual Hierarchy (Cognitive-Aware Priority System)
 
-## 7. 🎯 IMPLEMENTATION PENDING: Performance Optimization Patterns
+Priority
 
-### Critical Performance Discoveries
+Component
 
-**✅ PRE-CALCULATION PATTERN**: All positions and dimensions calculated once
-```javascript
-// ✅ IMPLEMENTATION PENDING: Pre-calculate for performance
-function calculateOrbDimensions(contentArea, adrAxisX, volatility, config) {
-  const baseWidth = contentArea.width * config.volatilityOrbBaseWidth;
-  const orbRadius = (baseWidth / 2) * (volatility / 100) * config.sizeMultiplier;
-  
-  return {
-    orbX: adrAxisX,
-    orbRadius,
-    baseWidth
-  };
-}
-```
+Purpose
 
-**✅ EARLY EXIT PATTERN**: Skip rendering immediately when disabled
-```javascript
-// ✅ IMPLEMENTATION PENDING: Performance first
-if (!config.showVolatilityOrb) {
-  return; // Early exit - major performance gain
-}
+Primary
 
-if (!volatility || volatility <= 0) {
-  return; // Skip invalid volatility data
-}
-```
+Orb
 
-**✅ SELECTIVE RENDERING**: Core always renders, enhancements have bounds checking
-```javascript
-// ✅ IMPLEMENTATION PENDING: Foundation pattern
-function addEnhancements(ctx, renderData, config, state, contentArea) {
-  // Core orb always renders (trader requirement)
-  
-  // Apply bounds checking ONLY to enhancements (foundation pattern)
-  if (config.showVolatilityMetric && renderData.orbData) {
-    const orbY = renderData.orbData.priceY;
-    if (boundsUtils.isYInBounds(orbY, config, { canvasArea: contentArea })) {
-      drawVolatilityMetric(ctx, renderData, config);
-    }
-  }
-  
-  // Flash effects with bounds checking
-  if (config.showOrbFlash && shouldFlash(state, config)) {
-    applyVolatilityFlash(ctx, renderData, config);
-  }
-}
-```
+Primary volatility information through size and color
 
-### Memory Efficiency Patterns
+Secondary
 
-**✅ NO OBJECT CREATION IN RENDER LOOP**: Use existing data structures
-```javascript
-// ✅ IMPLEMENTATION PENDING: Memory efficient
-function drawVolatilityOrb(ctx, renderData, config) {
-  const { orbX, orbY, orbRadius } = renderData;
-  
-  // Render using pre-calculated data, no new allocations
-  // Gradient creation optimized to happen once per frame
-}
-```
+Flash Effects
 
-**✅ CONTEXT STATE MANAGEMENT**: Proper save/restore patterns
-```javascript
-// ✅ IMPLEMENTATION PENDING: Context safety
-function configureRenderContext(ctx) {
-  ctx.save();
-  
-  // Apply DPR-aware transformations
-  ctx.translate(0.5, 0.5);
-  ctx.imageSmoothingEnabled = false;
-  
-  // Context will be restored by caller
-}
-```
+Event significance notification through flash effects on significant price movements
 
-### Performance Monitoring Implementation
+Tertiary
 
-**✅ FORENSIC TIMING**: Built-in performance tracking with detailed logging
-```javascript
-console.log(`[VolatilityOrb] RENDERING CHAIN - Processing volatility: ${volatility}%`);
-console.log(`[VolatilityOrb] DRAWING - Completed orb render with radius: ${orbRadius}px`);
+Volatility Metric
 
-// Development mode performance warnings
-if (performance.now() - renderStart > 16.67) {
-  console.warn(`[VolatilityOrb] Performance: ${renderTime.toFixed(2)}ms (> 16.67ms)`);
-}
-```
+Numeric display of volatility level - static position text allowing traders to read exact volatility state
 
----
+## 3. Advanced Multi-Mode Visualization System
 
-## 8. Integration Architecture
+### Mode 1: Directional (Default)
 
-### Rendering Pipeline Integration
+Cognitive Purpose: Immediate trend context recognition
 
-**Standard Integration Pattern**:
-```javascript
-// FloatingDisplay.svelte rendering pipeline
-drawDayRangeMeter(ctx, renderingContext, config, state, y);
-drawMarketProfile(ctx, renderingContext, config, state, y);
-drawVolatilityOrb(ctx, renderingContext, config, state, y); // Foundation integration
-drawPriceFloat(ctx, renderingContext, config, state, y);
-drawPriceDisplay(ctx, renderingContext, config, state, y);
-```
+// Direction-aware color coding for trend recognition
+case 'directional':
+  return direction === 'up'
+    ? (config.priceUpColor || '#3b82f6') // Blue for upward movement
+    : (config.priceDownColor || '#a78bfa'); // Purple for downward movement
+Visual Characteristics:
 
-### Data Flow Foundation
+Pre-attentive Processing: Color instantly communicates trend direction
 
-**Unified Data Architecture**:
-```javascript
-// WebSocket → Data Processor → Rendering Context
-state.volatility           // Processed volatility percentage
-state.currentPrice         // Current FX price for positioning
-state.lastTickDirection     // Direction for color mode
-renderingContext          // Unified coordinate system and dimensions
-```
+Brightness Inversion Support: Adapts to environmental lighting
 
-### Alert System Integration
+Background/Foreground Integration: Maintains visibility in both modes
 
-**Flash Integration Pattern**:
-```javascript
-// Integration with global alert system
+### Mode 2: Static
+
+Cognitive Purpose: Extended session comfort through reduced cognitive load
+
+// Consistent color for reduced visual complexity
+case 'static':
+  return config.priceStaticColor || '#d1d5db'; // Neutral gray
+Visual Characteristics:
+
+Cognitive Load Reduction: Eliminates directional processing overhead
+
+Extended Session Comfort: Reduced mental fatigue during long trading sessions
+
+Ambient Glow Compatibility: Enhanced visual softening available
+
+### Mode 3: Intensity
+
+Cognitive Purpose: Perceptual color/brightness volatility scaling for pattern recognition
+
+// Logarithmic scaling for human-perceptible volatility mapping
+const rawIntensity = volatility &gt; 0
+  ? Math.log(Math.max(0.1, volatility + 0.1)) / Math.log(10)
+  : 0;
+const intensity = Math.min(1.0, rawIntensity);
+Visual Characteristics:
+
+Logarithmic Scaling: Matches human perception of volatility changes
+
+Smooth Perceptual Gradients: HSL color space for natural intensity transitions
+
+## 6. Simple Flash Alert System
+
+### Foundation-Based Flash Architecture
+
+Foundation Justification: “Flash modifier is offered as an option for traders to have an instant visual change, allowing customised tick flash threshold” (Section 2)
+
+#### Core Flash Mechanism
+
+Data Source: Existing tick magnitude from data processorTrigger Logic: Price movement exceeds user-defined thresholdVisual Effect: Brief white overlay on the orb itself
+
+#### Simple Implementation
+
+// Foundation-aligned flash logic
 function shouldFlash(state, config) {
   if (!config.showOrbFlash) return false;
-  
-  const priceChange = Math.abs(state.tickDelta || 0);
-  const threshold = config.orbFlashThreshold || 2.0;
-  
-  return priceChange >= threshold;
+
+  const latestTick = state.ticks &amp;&amp; state.ticks.length &gt; 0
+    ? state.ticks[state.ticks.length - 1]
+    : null;
+
+  const priceChange = latestTick?.magnitude || 0;
+  return priceChange &gt;= config.flashThreshold;
 }
 
-function applyVolatilityFlash(ctx, renderData, config) {
-  const intensity = config.orbFlashIntensity || 0.8;
-  
-  // Apply flash overlay without disrupting base rendering
+// Simple flash effect - orb only, not canvas background
+function applyOrbFlash(ctx, orbData, config) {
   ctx.save();
-  ctx.globalAlpha = intensity;
+  ctx.globalAlpha = 0.6; // Fixed intensity for simplicity
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, renderData.contentArea.width, renderData.contentArea.height);
+
+  // Apply flash only to orb area
+  ctx.beginPath();
+  ctx.arc(orbData.centerX, orbData.centerY, orbData.radius, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.restore();
 }
-```
+#### Cognitive Design Integration
 
----
+Non-Disruptive: Flash affects only the orb, preserving foreground analysisConfigurable Sensitivity: User controls threshold via flashThreshold parameterBackground Element: Flash supports rather than competes with primary trading informationExtended Session: Brief flash duration prevents cognitive fatigue
 
-## 9. 🎯 IMPLEMENTATION COMPLETE: Foundation-First Volatility Orb
+#### Simplified Configuration
 
-### What Will Be Built
+showOrbFlash: boolean toggle for flash systemflashThreshold: number (0.5-5.0) - price movement sensitivity
 
-**✅ PRODUCTION-READY**: Volatility Orb visualization with foundation patterns
-- **3 Rendering Modes**: `directional`, `static`, `intensity` for different cognitive needs
-- **Background Positioning**: Cognitive-aware placement supporting foreground elements
-- **Worker Integration**: Leverages existing data processing with validation
-- **60fps Performance**: Pre-calculated positions, early exits, selective rendering
-- **Comprehensive Error Handling**: Multi-level validation with graceful fallbacks
-- **Alert System Integration**: Flash mechanisms for significant market events
-- **Environmental Adaptation**: Brightness inversion and visual comfort features
+Removed Complexity (from over-engineered sections):
 
-### Key Technical Achievements
+Multiple intensity levels (fixed 60% opacity sufficient)
 
-**✅ FOUNDATION INTEGRATION**: DPR-aware rendering, renderingContext, bounds checking
-**✅ PERFORMANCE OPTIMIZATION**: Pre-calculation, early exits, memory efficiency
-**✅ ROBUST CONFIGURATION**: Type-safe validation, proper percentage handling
-**✅ COGNITIVE-AWARE DESIGN**: Background positioning, reduced cognitive load
-**✅ ENHANCEMENT ISOLATION**: Core always renders, enhancements have bounds checking
+Canvas background flash (disrupts foreground analysis)
 
-### Production Implementation Pattern
+Complex parameter ranges (simple threshold approach matches foundation)
 
-```javascript
-// ✅ WORKING: Complete foundation pattern implementation
-export function drawVolatilityOrb(ctx, renderingContext, config, state, y) {
-  // 1. Guard clauses (FOUNDATION PATTERN)
-  if (!ctx || !renderingContext || !config || !state || !y) return;
-  
-  // 2. Early exit for performance (COGNITIVE PATTERN)
+## 7. Essential Configuration System
+
+### Core Parameter Architecture
+
+Foundation-Based Configuration: All parameters justified by Sections 1-2 or essential cognitive needs
+
+#### Parameter Summary
+
+Category
+
+Parameters
+
+Total
+
+Foundation Basis
+
+Core Display
+
+showVolatilityOrb, volatilityColorMode
+
+2
+
+Background element, cognitive design
+
+Size &amp; Scaling
+
+volatilityOrbBaseWidth, volatilitySizeMultiplier
+
+2
+
+Size response mechanism
+
+Gradient Controls
+
+gradientSoftness, gradientSpread
+
+2
+
+Cognitive need for soft glow
+
+Alert System
+
+showOrbFlash, flashThreshold
+
+2
+
+Flash modifier option
+
+Color Config
+
+priceUpColor, priceDownColor, priceStaticColor
+
+3
+
+Directional color customization
+
+Total
+
+10 Essential Parameters
+
+
+
+
+
+#### Core Display Parameters
+
+showVolatilityOrb: boolean
+
+Foundation Justification: Implied by background element design
+
+Purpose: Toggle orb visibility for user preference
+
+Default: true
+
+volatilityColorMode: ‘directional’ | ‘static’ | ‘intensity’
+
+Foundation Justification: Explicitly defined in Section 2 cognitive design
+
+Purpose: Three core visualization modes for different cognitive needs
+
+Default: ‘directional’
+
+#### Size &amp; Scaling Parameters
+
+volatilityOrbBaseWidth: number (0.05-0.5)
+
+Foundation Justification: Supports “size responds to market volatility” (Section 2)
+
+Purpose: Base orb size relative to canvas dimensions
+
+Default: 0.15
+
+volatilitySizeMultiplier: number (0.5-3.0)
+
+Foundation Justification: Enhances size response mechanism from Section 2
+
+Purpose: Scaling factor for volatility size response
+
+Default: 1.0
+
+#### Essential Gradient Controls (Cognitive Need Justification)
+
+gradientSoftness: number (0.0-1.0)
+
+Foundation Justification: Supports “color intensity and transparency modifiers” (Section 2)
+
+Cognitive Need: Traders require gradient control for soft glow appearance
+
+Purpose: Controls edge softness for comfortable extended viewing
+
+Default: 0.7
+
+gradientSpread: number (0.8-2.0)
+
+Foundation Justification: Enhances background element positioning (Section 2)
+
+Cognitive Need: Essential for creating soft glow vs harsh circle
+
+Purpose: Controls how far the glow extends from center
+
+Default: 1.2
+
+#### Alert System Integration
+
+showOrbFlash: boolean
+
+Foundation Justification: “Flash modifier is offered as an option” (Section 2)
+
+Purpose: Toggle flash alerts for significant market events
+
+Default: false
+
+flashThreshold: number (0.5-5.0)
+
+Foundation Justification: “customised tick flash threshold” (Section 2)
+
+Purpose: Price movement magnitude that triggers flash
+
+Default: 2.0
+
+#### Color Configuration (Directional Mode Support)
+
+priceUpColor: string
+
+Foundation Justification: “customise up/down volatility colour” (Section 2)
+
+Purpose: Color for upward price movements
+
+Default: ‘#3b82f6’
+
+priceDownColor: string
+
+Foundation Justification: “customise up/down volatility colour” (Section 2)
+
+Purpose: Color for downward price movements
+
+Default: ‘#a78bfa’
+
+priceStaticColor: string
+
+Foundation Justification: Single color for static mode (Section 2)
+
+Purpose: Neutral color for static intensity mode
+
+Default: ‘#d1d5db’
+
+### Simplified Positioning System
+
+Fixed Center Positioning: The orb is always positioned at canvas center
+
+Rationale: Eliminates coordinate system complexity from later sections
+
+Foundation Alignment: Supports “background element positioning” (Section 2)
+
+Cognitive Benefit: Consistent reference point reduces cognitive load
+
+Implementation: No positioning parameters required
+
+### Configuration Validation Patterns
+
+Type-Safe Validation:
+
+validateRenderData(contentArea, adrAxisX, config, state) {// Early exit for performanceif (!config.showVolatilityOrb) {return { shouldRender: false, error: ‘Volatility orb disabled’ };}
+
+// Validate essential data with cognitive awarenessconst { volatility, currentPrice } = state;if (currentPrice === undefined || currentPrice === null ||volatility === undefined || volatility === null) {return { shouldRender: false, error: ‘Missing essential data’ };}
+
+// Continue with comprehensive validation…}
+
+## 8. Realistic Performance Architecture
+
+### Background Element Performance Targets
+
+Foundation-Aligned Performance: Optimized for background element role, not foreground complexity
+
+#### Core Performance Strategy
+
+Single-Pass Rendering: One gradient operation per frameFixed Center Positioning: Eliminates coordinate calculation overheadSimple Flash System: Single overlay operation when triggeredMinimal State Management: Limited configuration reduces memory footprint
+
+#### Implementation Optimization
+
+// Simple pre-calculation for background element
+function calculateOrbDimensions(canvas, config) {
+  const baseSize = Math.min(canvas.width, canvas.height) * config.volatilityOrbBaseWidth;
+  const centerX = canvas.width / 2;  // Fixed center positioning
+  const centerY = canvas.height / 2;
+
+  return {
+    centerX,
+    centerY,
+    baseRadius: baseSize / 2
+  };
+}
+
+// Efficient rendering with bounds checking
+function renderBackgroundOrb(ctx, orbData, config, volatility) {
   if (!config.showVolatilityOrb) return;
-  
-  // 3. Extract rendering context (FOUNDATION PATTERN)
-  const { contentArea, adrAxisX } = renderingContext;
-  
-  // 4. Validate data with foundation integration (IMPLEMENTATION PATTERN)
-  const renderData = validateRenderData(contentArea, adrAxisX, config, state, y);
-  if (!renderData.shouldRender) return;
-  
-  // 5. Configure context (FOUNDATION PATTERN)
-  configureRenderContext(ctx);
-  
-  // 6. Process worker data (IMPLEMENTATION PATTERN)
-  const orbData = processVolatilityData(state.volatility, state.currentPrice, state.lastTickDirection, y);
-  
-  // 7. Draw core orb (COGNITIVE PATTERN - background element)
-  drawVolatilityOrbCore(ctx, renderData, orbData, config);
-  
-  // 8. Add enhancements with bounds checking (FOUNDATION PATTERN)
-  addEnhancements(ctx, renderData, config, state, contentArea);
-  
-  // 9. Restore context (FOUNDATION PATTERN)
-  ctx.restore();
+
+  const volatilityScale = Math.min(2.0, volatility * 0.8);
+  const radius = orbData.baseRadius * volatilityScale * config.volatilitySizeMultiplier;
+
+  // Single gradient operation
+  const gradient = ctx.createRadialGradient(
+    orbData.centerX, orbData.centerY, 0,
+    orbData.centerX, orbData.centerY, radius * config.gradientSpread
+  );
+
+  // Apply gradient with softness
+  gradient.addColorStop(0, getOrbColor(config, 1.0));
+  gradient.addColorStop(config.gradientSoftness, getOrbColor(config, 0.3));
+  gradient.addColorStop(1, 'transparent');
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
-```
+#### Realistic Performance Benchmarks
 
----
+Background Element Targets
 
-## 10. Success Criteria (Foundation-Based & Cognitive-Aware)
+Metric
 
-### Functional Requirements
-- ✅ Real-time volatility visualization with multiple display modes
-- ✅ Background positioning supporting foreground elements without competition
-- ✅ Alert system integration with flash mechanisms
-- ✅ Environmental adaptation (brightness inversion, color modes)
-- ✅ Optional numerical metrics for precise analysis
+Target
 
-### Quality Requirements
-- ✅ 60fps performance with 20+ displays
-- ✅ Crisp rendering across all DPI settings
-- ✅ Professional trading interface appearance with cognitive awareness
-- ✅ Zero visual artifacts or rendering issues during extended sessions
+Rationale
 
-### Performance Requirements
-- ✅ <100ms data-to-visual latency
-- ✅ <500MB memory usage increase vs current
-- ✅ Stable performance during rapid market updates
-- ✅ Efficient rendering with single-pass processing
+Render Time
 
-### Foundation Requirements
-- ✅ Integration with renderingContext coordinate system
-- ✅ Bounds checking for performance optimization
-- ✅ Percentage-to-decimal conversion for all parameters
-- ✅ Comprehensive error handling with graceful fallbacks
-- ✅ Modular architecture with clean function separation
+1-3ms per orb
 
-### Cognitive Requirements (Design Document Alignment)
-- ✅ Background element positioning without attention competition
-- ✅ Perceptual processing support for pattern recognition
-- ✅ Extended session comfort through reduced cognitive load
-- ✅ Alert system integration without disruption
-- ✅ Multi-display consistency for professional workflows
+Background element (not 10ms+ for foreground)
 
----
+Latency
 
-## 11. New Foundation Patterns for Volatility Orb
+&lt;100ms data-to-visual update
 
-### 1. Cognitive-Aware Background Rendering Pattern
-**Background Element Design**: Ensures volatility orb supports rather than competes with foreground elements.
+Maintains foundation requirement
 
-**Pattern Template**:
-```javascript
-// Foundation pattern for cognitive-aware background rendering
-const configureBackgroundRendering = (config, contentArea, foregroundElements) => {
-  // Position to avoid foreground element interference
-  const backgroundZIndex = -1;
-  const backgroundOpacity = 0.7; // Reduced opacity for background placement
-  
-  // Size calculated to not overwhelm foreground
-  const maxBackgroundSize = Math.min(contentArea.width, contentArea.height) * 0.3;
-  
-  return { backgroundZIndex, backgroundOpacity, maxBackgroundSize };
-};
-```
+Memory
 
-### 2. Alert-Integrated Enhancement Pattern
-**Flash System Integration**: Seamless integration with global alert mechanisms while maintaining performance.
+&lt;50MB per 20 displays
 
-**Pattern Template**:
-```javascript
-// Foundation pattern for alert-integrated enhancements
-const shouldTriggerFlash = (state, config) => {
-  if (!config.showOrbFlash) return false;
-  
-  const volatilityChange = Math.abs(state.volatilityChange || 0);
-  const priceChange = Math.abs(state.priceChange || 0);
-  
-  return (volatilityChange >= config.volatilityFlashThreshold) ||
-         (priceChange >= config.priceFlashThreshold);
-};
-```
+Background element efficiency
 
-### 3. Multi-Mode Volatility Visualization Pattern
-**Cognitive Flexibility**: Runtime selection between different visualization approaches for varied trading needs.
+CPU Impact
 
-**Pattern Template**:
-```javascript
-// Foundation pattern for configurable volatility visualization
-const calculateVolatilityVisualization = (data, mode, config) => {
-  switch (mode) {
-    case 'directional':
-      return {
-        color: data.direction === 'up' ? config.upColor : config.downColor,
-        intensity: data.volatility / 100
-      };
-    case 'static':
-      return {
-        color: config.staticColor,
-        intensity: data.volatility / 100
-      };
-    case 'intensity':
-      return {
-        color: interpolateColor(config.lowColor, config.highColor, data.volatility / 100),
-        intensity: data.volatility / 100
-      };
-    default:
-      return { color: config.defaultColor, intensity: 0.5 };
-  }
-};
-```
+&lt;2% per display
 
----
+Minimal foreground competition
 
-## Repository Analysis & Foundation Strategy
+Multi-Display Support
 
-### **EXISTING INFRASTRUCTURE INTEGRATION** ✅
+Metric
 
-**Data Flow Architecture Discovery**:
-Through comprehensive repository analysis, the existing infrastructure provides:
-- **Data Processor** (`src/workers/dataProcessor.js`) → generates `state.volatility` with percentage values
-- **State Structure**: `state.volatility`, `state.currentPrice`, `state.lastTickDirection` available
-- **Rendering Pipeline**: All visualizations use standard pattern in `FloatingDisplay.svelte`
-- **Configuration**: Unified `displayStore.js` with volatility-specific parameters included
+Target
 
-**Foundation Patterns Available for Integration**:
-- ✅ **marketProfile.js** - Perfect validation, percentage conversion, enhancement patterns
-- ✅ **priceDisplay.js** - Enhanced error handling, dual positioning modes, optimization patterns
-- ✅ **dayRangeMeter.js** - DPR-aware rendering, renderingContext integration
-- ✅ **FloatingDisplay.svelte** - Unified rendering pipeline with renderingContext
-- ✅ **displayStore.js** - Complete configuration management with volatility parameters
-- ✅ **boundsUtils.js** - Standard bounds checking for performance optimization
+Strategy
 
-### **LEGACY CODE APPROPRIATENESS ASSESSMENT** ✅
+Concurrent Displays
 
-**Legacy Approach Issues**:
-- **No Foundation Integration**: Missing renderingContext, boundsUtils, DPR patterns
-- **Configuration Inconsistencies**: Mixed parameter handling without percentage conversion
-- **Performance Gaps**: No optimization for multi-display scenarios
-- **Missing Error Handling**: No guard clauses or validation patterns
+15+ at 60fps
 
-**Reusable Legacy Patterns**:
-- ✅ **Gradient Rendering**: Sound approach to creating radial gradients for orb visualization
-- ✅ **Color Mode Logic**: Valid directional vs static color handling
-- ✅ **Glow Effects**: Proper shadow and glow implementation
-- ✅ **Brightness Inversion**: Correct environmental adaptation logic
+Optimized for background role
 
-### **FOUNDATION-INTEGRATED IMPLEMENTATION STRATEGY**
+Quality Management
 
-**Core Principle**: **Reuse validated legacy rendering** while **integrating with foundation patterns** and **aligning with cognitive design requirements**.
+Graceful degradation
 
-**Phase 1: Foundation Integration (System Consistency)**
-- **RenderingContext Integration**: Use `{ contentArea, adrAxisX }` from unified infrastructure
-- **DPR-Aware Rendering**: Apply `ctx.translate(0.5, 0.5)` and `ctx.imageSmoothingEnabled = false`
-- **Bounds Checking**: Apply `boundsUtils.isYInBounds()` for performance optimization
-- **Error Handling**: Implement multi-level validation with graceful fallbacks
-- **Percentage Conversion**: Apply standard percentage-to-decimal conversion patterns
+Reduced quality rather than framerate loss
 
-**Phase 2: Cognitive-Aware Design (User Experience)**
-- **Background Positioning**: Ensure orb supports rather than competes with foreground elements
-- **Alert Integration**: Seamless flash mechanism integration with global alert system
-- **Multi-Mode Support**: Implement directional, static, and intensity visualization modes
-- **Environmental Adaptation**: Maintain brightness inversion and visual comfort features
+Priority
 
-**Phase 3: Performance Optimization (Multi-Display Support)**
-- **Pre-Calculation**: All positions and dimensions calculated once per frame
-- **Early Exits**: Skip rendering when disabled or data is invalid
-- **Selective Enhancement**: Core always renders, enhancements have bounds checking
-- **Memory Efficiency**: Avoid object creation in render loops
+Background first
 
-### **ARCHITECTURAL DECISIONS**
+Sacrifices quality before impacting critical elements
 
-**Rendering Strategy Decision**:
-```javascript
-// ✅ CORRECT: Background-aware rendering
-drawVolatilityOrb() {
-  // Background element - rendered before foreground elements
-  // Supports price float, market profile, and price display
-  // Uses reduced opacity to avoid visual competition
-}
+#### Cognitive Performance Benefits
 
-// ❌ INCORRECT: Foreground competition
-drawVolatilityOrb() {
-  // Competes with primary trading information
-  // Overwhelms user attention
-  // Violates cognitive design principles
-}
-```
+Extended Session Support:
 
-**Configuration Decision**:
-- **DisplayStore Integration**: Use standard volatility parameters from unified configuration
-- **Parameter Validation**: Apply type-safe validation with fallbacks
-- **Percentage Conversion**: Standardize all percentage-based parameters
-- **Mode Selection**: Support cognitive flexibility with multiple visualization modes
+Low Cognitive Load: Simple rendering reduces mental fatigue
 
-**Performance Decision**:
-- **Multi-Display Optimization**: Target 60fps with 20+ simultaneous displays
-- **Memory Efficiency**: Minimal object allocation in render loops
-- **Bounds Checking**: Selective rendering only when elements are visible
-- **Early Validation**: Skip processing when disabled or data is invalid
+Consistent Performance: Predictable behavior during long sessions
 
----
+Background Awareness: Provides context without demanding attention
 
-## Conclusion
+Trader Workflow Support:
 
-This design establishes volatilityOrb as a **foundation-first, cognitive-aware visualization component** that **integrates seamlessly with existing infrastructure** while **honoring NeuroSense FX design principles**. Through comprehensive repository analysis, we identified that the existing data processing and rendering infrastructure is robust and well-designed.
+Non-Disruptive: Performance issues never impact critical trading components
 
-**Key Strategic Achievement**: volatilityOrb will deliver sophisticated volatility visualization by **integrating with proven foundation patterns** (DPR, renderingContext, bounds checking), **leveraging existing data processing** (worker's volatility calculations), and **reusing validated legacy rendering** (gradients, glow effects, color modes) while **maintaining cognitive-aware background positioning**.
+Reliable Context: Background information remains available during market activity
 
-**Foundation-First Implementation Demonstrates**:
-- **Strategic Integration**: Using existing infrastructure rather than rebuilding
-- **Pattern Leverage**: Applying proven foundation approaches consistently  
-- **Legacy Appropriateness**: Reusing validated rendering logic where it makes sense
-- **Cognitive Alignment**: Background element design supporting trader decision-making
-- **System Consistency**: Following established configuration and rendering patterns
+Progressive Enhancement: Core functionality preserved under system load
 
-The implementation delivers professional-grade volatility visualization while maintaining 60fps performance, visual consistency across the NeuroSense FX visualization ecosystem, and cognitive-aware design that supports extended trading sessions.
+## 9. Implementation Readiness
 
----
+### Foundation-Aligned Implementation Scope
 
-## Document Maintenance
+Based on Sections 1-2: The Volatility Orb is ready for implementation with a clear, focused scope that serves the background visualization role without over-engineering.
 
-This specification should be referenced when:
-- Building volatility visualization components (use foundation patterns)
-- Implementing background element design (use cognitive-aware patterns)
-- Integrating alert systems (use enhancement pattern)
-- Optimizing performance (use selective rendering pattern)
-- Maintaining system consistency (use integration patterns)
+#### Core Implementation Requirements
 
-All new visualization components should follow these foundation patterns to ensure system-wide consistency, performance standards, and professional trading interface quality while maintaining cognitive-aware design principles.
+Essential Features Only:
+
+Size response to market volatility
+
+Three color modes: directional, static, intensity
+
+Simple flash system with threshold control
+
+Fixed center positioning with soft gradient rendering
+
+Essential gradient controls for cognitive comfort
+
+Technical Implementation:
+
+UnifiedVisualization base class integration
+
+Single-pass gradient rendering (1-3ms per orb)
+
+Fixed center positioning eliminates coordinate complexity
+
+Simple configuration with 10 essential parameters
+
+Foundation-aligned performance targets
+
+#### Success Criteria
+
+Functional Requirements
+
+Requirement
+
+Status
+
+Foundation Reference
+
+Size indicates volatility level
+
+✅
+
+Section 2
+
+Three color modes for cognitive needs
+
+✅
+
+Section 2
+
+Background positioning without competition
+
+✅
+
+Section 2
+
+Simple flash alerts for significant events
+
+✅
+
+Section 2
+
+Performance Requirements
+
+Requirement
+
+Target
+
+Status
+
+Render time per orb
+
+1-3ms
+
+✅
+
+Data-to-visual latency
+
+&lt;100ms
+
+✅
+
+Concurrent displays
+
+15+ at 60fps
+
+✅
+
+CPU/memory impact
+
+Minimal background role
+
+✅
+
+Cognitive Requirements
+
+Requirement
+
+Status
+
+Benefit
+
+Background element supports rather than competes
+
+✅
+
+Reduced attention competition
+
+Pre-attentive visual attributes for instant recognition
+
+✅
+
+Faster pattern recognition
+
+Extended session comfort through reduced complexity
+
+✅
+
+Less mental fatigue
+
+Customizable gradients for individual cognitive needs
+
+✅
+
+Personalized visual comfort
+
+## 
+
+### Implementation Ready
+
+The simplified specification provides:
+
+Clear scope aligned with cognitive design principles
+
+Essential parameters serving specific user needs
+
+Realistic performance targets for background element role
+
+Implementation patterns following UnifiedVisualization foundation
+
+Cognitive focus on supporting rather than competing with foreground analysis
+
+This design embodies the “Simple, Performant, Maintainable” philosophy while honoring the human-centered design principles that make NeuroSense FX effective for professional trading workflows.
+
+The Volatility Orb is ready for implementation as a cognitive-aware background visualization element that extends trader capabilities without adding cognitive overhead.
+

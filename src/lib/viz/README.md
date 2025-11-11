@@ -154,10 +154,6 @@ const configs = createUnifiedConfiguration({
     marketProfileView: 'deltaBoth',
     marketProfileWidthRatio: 20,
     marketProfileOpacity: 0.8
-  },
-  volatilityOrb: {
-    volatilityColorMode: 'intensity',
-    showVolatilityMetric: true
   }
 });
 
