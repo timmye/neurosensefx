@@ -19,6 +19,7 @@ export { drawDayRangeMeter } from './dayRangeMeter.js';
 export { drawPriceFloat } from './priceFloat.js';
 export { drawPriceDisplay } from './priceDisplay.js';
 export { drawMarketProfile } from './marketProfile.js';
+export { drawVolatilityOrb } from './volatilityOrb.js';
 // Unified foundation systems
 export { UnifiedVisualization, createVisualization } from './UnifiedVisualization.js';
 export {
@@ -100,6 +101,15 @@ export const VISUALIZATION_COMPONENTS = {
     category: 'analysis',
     complexity: 'high',
     features: ['6 rendering modes', 'delta analysis', 'volume profiling', 'responsive sizing']
+  },
+
+  volatilityOrb: {
+    name: 'Volatility Orb',
+    description: 'Background volatility visualization with multi-mode rendering and flash alerts',
+    drawFunction: 'drawVolatilityOrb',
+    category: 'background',
+    complexity: 'medium',
+    features: ['3 color modes', 'volatility-responsive sizing', 'flash alerts', 'soft gradient rendering']
   }
 };
 

@@ -3,7 +3,7 @@ export function drawVolatilityMetric(ctx, renderingContext, config, state) {
 
   // 🔧 CLEAN FOUNDATION: Use rendering context instead of legacy config
   const { contentArea } = renderingContext;
-  
+
   // Extract configuration parameters
   const { showVolatilityMetric } = config;
 
@@ -11,7 +11,7 @@ export function drawVolatilityMetric(ctx, renderingContext, config, state) {
     return;
   }
 
-  const { volatility, volatilityIntensity } = state;
+  const { volatility } = state;
 
   ctx.save();
   ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
@@ -20,12 +20,9 @@ export function drawVolatilityMetric(ctx, renderingContext, config, state) {
   ctx.textBaseline = 'top';
 
   const safeVolatility = volatility || 0;
-  const safeIntensity = volatilityIntensity || 0;
-  const volatilityText = `Volatility: ${safeVolatility.toFixed(4)}`;
-  const intensityText = `Intensity: ${(safeIntensity * 100).toFixed(2)}%`;
+  const sigmaText = `σ ${safeVolatility.toFixed(2)}`;
 
-  // 🔧 CLEAN FOUNDATION: Use content area dimensions for positioning
-  ctx.fillText(volatilityText, 10, contentArea.height - 35);
-  ctx.fillText(intensityText, 10, contentArea.height - 20);
+  // 🔧 CLEAN FOUNDATION: Position sigma metric in bottom-left corner
+  ctx.fillText(sigmaText, 10, contentArea.height - 20);
   ctx.restore();
 }

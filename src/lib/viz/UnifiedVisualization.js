@@ -284,13 +284,19 @@ export class UnifiedVisualization {
  * Simplifies component creation and ensures consistent patterns
  */
 export function createVisualization(componentName, implementation) {
+  console.log(`[UnifiedVisualization] createVisualization called for: ${componentName}`);
+
   const viz = new UnifiedVisualization(componentName);
 
   // Override the abstract methods with the component-specific implementation
   Object.assign(viz, implementation);
 
   // Return the main render function that matches the established signature
-  return function drawComponent(ctx, renderingContext, config, state, y) {
+  const drawComponent = function drawComponent(ctx, renderingContext, config, state, y) {
+    console.log(`[UnifiedVisualization] ${componentName}.render() called`);
     return viz.render(ctx, renderingContext, config, state, y);
   };
+
+  console.log(`[UnifiedVisualization] Created draw function for: ${componentName}`);
+  return drawComponent;
 }

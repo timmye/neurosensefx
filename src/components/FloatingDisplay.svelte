@@ -11,9 +11,18 @@
   import { drawDayRangeMeter } from '../lib/viz/dayRangeMeter.js';
   import { drawPriceFloat } from '../lib/viz/priceFloat.js';
   import { drawPriceDisplay } from '../lib/viz/priceDisplay.js';
+  import { drawVolatilityOrb } from '../lib/viz/volatilityOrb.js';
+  import { drawVolatilityMetric } from '../lib/viz/volatilityMetric.js';
   import { drawPriceMarkers } from '../lib/viz/priceMarkers.js';
   import { drawHoverIndicator } from '../lib/viz/hoverIndicator.js';
-  
+
+  // Debug: Verify imports are working
+  console.log('[FloatingDisplay] Imports loaded:', {
+    drawVolatilityOrb: typeof drawVolatilityOrb,
+    drawDayRangeMeter: typeof drawDayRangeMeter,
+    drawMarketProfile: typeof drawMarketProfile
+  });
+
   // ✅ INTERACT.JS: Import interact.js for drag and resize
   import interact from 'interactjs';
   
@@ -370,10 +379,26 @@
     // Draw visualizations
     if (state.visualLow && state.visualHigh && yScale) {
       try {
+        // Draw Volatility Orb (Background Layer - MUST be first)
+        console.log('[FloatingDisplay] About to call drawVolatilityOrb:', {
+          drawVolatilityOrbExists: typeof drawVolatilityOrb,
+          hasCtx: !!ctx,
+          hasRenderingContext: !!renderingContext,
+          hasConfig: !!config,
+          hasState: !!state,
+          showVolatilityOrb: config?.showVolatilityOrb,
+          stateHasVolatility: 'volatility' in (state || {}),
+          stateVolatility: state?.volatility
+        });
+
+        drawVolatilityOrb(ctx, renderingContext, config, state, yScale);
+        console.log('[FloatingDisplay] drawVolatilityOrb completed successfully');
+
         drawMarketProfile(ctx, renderingContext, config, state, yScale);
         drawDayRangeMeter(ctx, renderingContext, config, state, yScale);
         drawPriceFloat(ctx, renderingContext, config, state, yScale);
         drawPriceDisplay(ctx, renderingContext, config, state, yScale);
+        drawVolatilityMetric(ctx, renderingContext, config, state);
         drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);
         drawHoverIndicator(ctx, renderingContext, config, state, yScale, $hoverState);
       } catch (error) {

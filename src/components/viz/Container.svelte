@@ -5,12 +5,20 @@
   import { drawPriceFloat } from '../../lib/viz/priceFloat.js';
   import { drawPriceDisplay } from '../../lib/viz/priceDisplay.js';
   import { drawMarketProfile } from '../../lib/viz/marketProfile.js';
+  import { drawVolatilityOrb } from '../../lib/viz/volatilityOrb.js';
   import { drawVolatilityMetric } from '../../lib/viz/volatilityMetric.js';
   import { drawHoverIndicator } from '../../lib/viz/hoverIndicator.js';
   import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js'; // Import drawPriceMarkers
   import { markerStore } from '../../stores/markerStore.js'; // Import markerStore
   import { writable } from 'svelte/store';
-  
+
+  // Debug: Verify imports are working
+  console.log('[Container] Imports loaded:', {
+    drawVolatilityOrb: typeof drawVolatilityOrb,
+    drawDayRangeMeter: typeof drawDayRangeMeter,
+    drawMarketProfile: typeof drawMarketProfile
+  });
+
   // 🔧 UNIFIED SIZING: Import canvas sizing utilities
   import { createCanvasSizingConfig, configureCanvasContext, CANVAS_CONSTANTS, boundsUtils, createZoomDetector } from '../../utils/canvasSizing.js';
 
@@ -192,6 +200,26 @@
 
     // --- Draw Core Visualizations ---
     // 🔧 CLEAN FOUNDATION: Pass rendering context to all visualization functions
+
+    // --- Draw Volatility Orb (Background Layer - MUST be first) ---
+    console.log('[Container] About to call drawVolatilityOrb:', {
+      drawVolatilityOrbExists: typeof drawVolatilityOrb,
+      hasCtx: !!ctx,
+      hasRenderingContext: !!currentRenderingContext,
+      hasConfig: !!config,
+      hasState: !!currentState,
+      showVolatilityOrb: config?.showVolatilityOrb,
+      stateHasVolatility: 'volatility' in (currentState || {}),
+      stateVolatility: currentState?.volatility
+    });
+
+    try {
+      drawVolatilityOrb(ctx, currentRenderingContext, config, currentState, y);
+      console.log('[Container] drawVolatilityOrb completed successfully');
+    } catch (error) {
+      console.error('[Container] Volatility Orb render error:', error);
+    }
+
     drawMarketProfile(ctx, currentRenderingContext, config, currentState, y);
 
     try {
