@@ -151,14 +151,20 @@ export const displayActions = {
     
     const displayId = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
+    // 🔧 HEADERLESS FIX: Create displays with correct headerless dimensions
+    const headerlessSize = { width: 220, height: 120 }; // ✅ HEADERLESS: No 40px header
     const display = {
       id: displayId,
       symbol,
       position,
-      size: { width: 220, height: 160 },  // Full display including header
+      size: headerlessSize,
       isActive: false,
       zIndex: initialState.nextDisplayZIndex++,
-      config: { ...initialState.defaultConfig }, // Use global config only
+      config: {
+        ...initialState.defaultConfig,
+        // 🔧 CRITICAL: Sync containerSize with display size for immediate canvas fill
+        containerSize: headerlessSize
+      },
       state: null,
       ready: false
     };

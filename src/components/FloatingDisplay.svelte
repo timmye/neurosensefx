@@ -5,8 +5,7 @@
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
-  import { Environment, EnvironmentConfig } from '../lib/utils/environmentUtils.js';
-  
+    
   // Import drawing functions
   import { drawMarketProfile } from '../lib/viz/marketProfile.js';
   import { drawDayRangeMeter } from '../lib/viz/dayRangeMeter.js';
@@ -50,14 +49,11 @@
   // Declare variables to avoid ReferenceError
   let displayPosition = position;
 
-  // 🌍 ENVIRONMENT AWARENESS: Environment state for subtle indicators
-  let showEnvironmentIndicator = false;
-  let environmentMode = '';
-  let config = {};
+    let config = {};
   let state = {};
   let isActive = false;
   let zIndex = 1;
-  let displaySize = { width: 220, height: 160 }; // ✅ FIXED: Add explicit displaySize variable
+  let displaySize = { width: 220, height: 120 }; // ✅ HEADERLESS: Correct display size (no header)
   
   // Local state for interact.js instance
   let interactable = null;
@@ -70,7 +66,7 @@
     state = display?.state || {}; // ✅ FIXED: Get state from unified displayStore
     isActive = display?.isActive || false;
     zIndex = display?.zIndex || 1;
-    displaySize = display?.size || { width: 220, height: 160 }; // ✅ FIXED: Extract size safely
+    displaySize = display?.size || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct fallback size
     
     }
   
@@ -79,19 +75,14 @@
     markers = $markerStore;
   }
 
-  // 🌍 ENVIRONMENT AWARENESS: Reactive environment indicators
-  $: if (EnvironmentConfig.current.showEnvironmentIndicator) {
-    showEnvironmentIndicator = Environment.isDevelopment;
-    environmentMode = Environment.current;
-  }
-  
-  // 🔧 CONTAINER-STYLE: Use contentArea approach like Container.svelte
-  let canvasWidth = 240;  // Default container width
-  let canvasHeight = 160; // Default container height
+    
+  // 🔧 CONTAINER-STYLE: Use contentArea approach like Container.svelte (headerless design)
+  let canvasWidth = 220;  // Default container width (no header)
+  let canvasHeight = 120; // Default container height (no header)
   let dpr = 1;
-  
-  // 🔧 CONTAINER-STYLE: contentArea calculations like Container.svelte
-  let contentArea = { width: 220, height: 120 }; // Default content area (220×160 container - 40px header)
+
+  // 🔧 CONTAINER-STYLE: contentArea calculations like Container.svelte (headerless design)
+  let contentArea = { width: 220, height: 120 }; // Full content area (220×120 container - no header)
   
   // yScale calculation using contentArea height
   $: yScale = state?.visualLow && state?.visualHigh && contentArea
@@ -102,19 +93,27 @@
   function handleContextMenu(e) {
     e.preventDefault();
     displayActions.setActiveDisplay(id);
-    
+
     const context = {
-      type: e.target.closest('canvas') ? 'canvas' : 
-            e.target.closest('.header') ? 'header' : 'workspace',
+      type: e.target.closest('canvas') ? 'canvas' : 'workspace',
       targetId: id,
       targetType: 'display'
     };
-    
+
     displayActions.showContextMenu(e.clientX, e.clientY, id, 'display', context);
   }
   
   function handleClose() {
     displayActions.removeDisplay(id);
+  }
+
+  function handleRefresh() {
+    const refreshDisplay = $displays.get(id);
+    if (refreshDisplay) {
+      import('../data/wsClient.js').then(({ subscribe }) => {
+        subscribe(refreshDisplay.symbol);
+      });
+    }
   }
   
   // Frame-throttled hover updates
@@ -131,10 +130,40 @@
 
     const newHoverState = { x: cssX, y: cssY, price: calculatedPrice };
 
+    // Check if hovering over refresh button (left of close button)
+    const refreshX = contentArea.width - 50;
+    const refreshY = 6;
+    const buttonSize = 20;
+    const newIsHoveringRefreshButton = cssX >= refreshX && cssX <= refreshX + buttonSize &&
+                                        cssY >= refreshY && cssY <= refreshY + buttonSize;
+
+    // Check if hovering over close button
+    const closeX = contentArea.width - 24;
+    const closeY = 6;
+    const newIsHoveringCloseButton = cssX >= closeX && cssX <= closeX + buttonSize &&
+                                     cssY >= closeY && cssY <= closeY + buttonSize;
+
+    // Update hover states if changed
+    if (isHovering !== true ||
+        isHoveringCloseButton !== newIsHoveringCloseButton ||
+        isHoveringRefreshButton !== newIsHoveringRefreshButton) {
+      isHovering = true;
+      isHoveringCloseButton = newIsHoveringCloseButton;
+      isHoveringRefreshButton = newIsHoveringRefreshButton;
+
+      // Trigger re-render for button visibility
+      if (renderFrame) {
+        cancelAnimationFrame(renderFrame);
+      }
+      renderFrame = requestAnimationFrame(render);
+    }
+
     // Only update if state actually changed to avoid unnecessary renders
     if (lastHoverState &&
         Math.abs(lastHoverState.x - newHoverState.x) < 1 &&
-        Math.abs(lastHoverState.y - newHoverState.y) < 1) {
+        Math.abs(lastHoverState.y - newHoverState.y) < 1 &&
+        isHoveringCloseButton === newIsHoveringCloseButton &&
+        isHoveringRefreshButton === newIsHoveringRefreshButton) {
       return;
     }
 
@@ -159,21 +188,60 @@
     }
     lastHoverState = null;
     hoverState.set(null);
+
+    // Reset hover states for buttons
+    const hadHoverState = isHovering || isHoveringCloseButton || isHoveringRefreshButton;
+    isHovering = false;
+    isHoveringCloseButton = false;
+    isHoveringRefreshButton = false;
+
+    // Trigger re-render to hide buttons
+    if (hadHoverState) {
+      if (renderFrame) {
+        cancelAnimationFrame(renderFrame);
+      }
+      renderFrame = requestAnimationFrame(render);
+    }
   }
   
   function handleCanvasClick(event) {
-    if (!yScale) return;
-    
+    if (!yScale || !canvas) return;
+
     const rect = canvas.getBoundingClientRect();
+    const cssX = event.clientX - rect.left;
     const cssY = event.clientY - rect.top;
-    
+
+    // Check if refresh button was clicked (left of close button)
+    const refreshX = contentArea.width - 50;
+    const refreshY = 6;
+    const buttonSize = 20;
+
+    if (cssX >= refreshX && cssX <= refreshX + buttonSize &&
+        cssY >= refreshY && cssY <= refreshY + buttonSize) {
+      // Refresh button clicked
+      handleRefresh();
+      return;
+    }
+
+    // Check if close button was clicked (top-right corner)
+    const closeX = contentArea.width - 24;
+    const closeY = 6;
+
+    if (cssX >= closeX && cssX <= closeX + buttonSize &&
+        cssY >= closeY && cssY <= closeY + buttonSize) {
+      // Close button clicked
+      displayActions.removeDisplay(id);
+      return;
+    }
+
+    // Handle marker clicks
     const hitThreshold = 5;
-    
+
     const clickedMarker = markers.find(marker => {
       const markerY = yScale(marker.price);
       return Math.abs(cssY - markerY) < hitThreshold;
     });
-    
+
     if (clickedMarker) {
       markerStore.remove(clickedMarker.id);
     } else {
@@ -215,7 +283,7 @@
           edges: { left: true, right: true, bottom: true, top: true },
           modifiers: [
             interact.modifiers.restrictSize({
-              min: { width: 240, height: 160 }
+              min: { width: 220, height: 120 }
             }),
             // ✅ GRID SNAPPING: Add grid snapping for resize
             ...(workspaceGrid.enabled ? [interact.modifiers.snap({
@@ -267,44 +335,44 @@
     };
   });
   
-  // 🔧 CONTAINER-STYLE: Update canvas with pixel-perfect dimensions
+  // 🔧 CONTAINER-STYLE: Update canvas with pixel-perfect dimensions (headerless design)
   $: if (canvas && ctx && config) {
-    // Calculate new contentArea from config (no padding reduction)
+    // Calculate new contentArea from config (full container, no header)
     const containerSize = config.containerSize || { width: 220, height: 120 };
     const newContentArea = {
-      width: containerSize.width,  // ✅ FIXED: No padding reduction
-      height: containerSize.height - config.headerHeight  // ✅ FIXED: Only subtract header
+      width: containerSize.width,  // ✅ HEADERLESS: Full container width
+      height: containerSize.height // ✅ HEADERLESS: Full container height
     };
-    
+
     // Only update if significant change
-    if (Math.abs(contentArea.width - newContentArea.width) > 5 || 
+    if (Math.abs(contentArea.width - newContentArea.width) > 5 ||
         Math.abs(contentArea.height - newContentArea.height) > 5) {
-      
+
       // Update contentArea for reactive use
       contentArea = newContentArea;
-      
+
       // 🔧 PIXEL-PERFIX: Use integer canvas dimensions for crisp rendering
       const integerCanvasWidth = Math.round(contentArea.width * dpr);
       const integerCanvasHeight = Math.round(contentArea.height * dpr);
-      
+
       // Calculate corresponding CSS dimensions
       const cssWidth = integerCanvasWidth / dpr;
       const cssHeight = integerCanvasHeight / dpr;
-      
+
       // Apply pixel-perfect dimensions
       canvas.width = integerCanvasWidth;
       canvas.height = integerCanvasHeight;
       canvas.style.width = cssWidth + 'px';
       canvas.style.height = cssHeight + 'px';
-      
+
       // 🔧 CRISP RENDERING: Reconfigure canvas context after resize
       ctx.scale(dpr, dpr);
       ctx.translate(0.5, 0.5); // Sub-pixel alignment
       ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
-      
+
       canvasWidth = contentArea.width;
       canvasHeight = contentArea.height;
-      
+
           }
   }
   
@@ -346,11 +414,11 @@
         }
       });
       
-      // 🔧 CONTAINER-STYLE: Calculate contentArea from config (no padding reduction)
+      // 🔧 CONTAINER-STYLE: Calculate contentArea from config (headerless design)
       const containerSize = config.containerSize || { width: 220, height: 120 };
       const newContentArea = {
-        width: containerSize.width,  // ✅ FIXED: No padding reduction
-        height: containerSize.height - config.headerHeight  // ✅ FIXED: Only subtract header
+        width: containerSize.width,  // ✅ HEADERLESS: Full container width
+        height: containerSize.height // ✅ HEADERLESS: Full container height
       };
       
       // Update contentArea for reactive use
@@ -384,24 +452,120 @@
   
   // 🔧 CLEAN FOUNDATION: Create rendering context for visualization functions
   let renderingContext = null;
-  
+
   // ✅ ULTRA-MINIMAL: Simple rendering - no complex dependencies
   let renderFrame;
-  
+
+  // Hover state for close button and refresh button
+  let isHovering = false;
+  let isHoveringCloseButton = false;
+  let isHoveringRefreshButton = false;
+
+  // Canvas overlay rendering for refresh and close buttons
+  function renderCanvasOverlays() {
+    if (!ctx || !contentArea) return;
+
+    // Save context state
+    ctx.save();
+
+    // Draw buttons (top-right) - only when hovering
+    if (isHovering || isHoveringCloseButton || isHoveringRefreshButton) {
+      const buttonSize = 20;
+      const refreshX = contentArea.width - 50;
+      const closeX = contentArea.width - 24;
+      const buttonY = 6;
+
+      // Draw refresh button
+      ctx.fillStyle = isHoveringRefreshButton ? 'rgba(59, 130, 246, 0.7)' : 'rgba(59, 130, 246, 0.2)';
+      ctx.fillRect(refreshX, buttonY, buttonSize, buttonSize);
+
+      // Refresh button icon (↻)
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      // Draw circular arrow for refresh
+      ctx.arc(refreshX + 10, buttonY + 10, 6, -Math.PI/2, Math.PI);
+      ctx.stroke();
+      // Arrow head
+      ctx.beginPath();
+      ctx.moveTo(refreshX + 15, buttonY + 4);
+      ctx.lineTo(refreshX + 10, buttonY + 4);
+      ctx.lineTo(refreshX + 10, buttonY + 9);
+      ctx.stroke();
+
+      // Draw close button
+      ctx.fillStyle = isHoveringCloseButton ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.2)';
+      ctx.fillRect(closeX, buttonY, buttonSize, buttonSize);
+
+      // Close button X
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(closeX + 5, buttonY + 5);
+      ctx.lineTo(closeX + 15, buttonY + 15);
+      ctx.moveTo(closeX + 15, buttonY + 5);
+      ctx.lineTo(closeX + 5, buttonY + 15);
+      ctx.stroke();
+    }
+
+    // Restore context state
+    ctx.restore();
+  }
+
+  // Function to render symbol as canvas background (drawn before other visualizations)
+  function renderSymbolBackground() {
+    if (!ctx || !contentArea) return;
+
+    // Save context state
+    ctx.save();
+
+    // Draw symbol background (top-left, behind other visualizations)
+    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(209, 213, 219, 0.15)'; // Very subtle - will be in background
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    const symbolText = symbol || '';
+    ctx.fillText(symbolText, 8, 8);
+
+    // Restore context state
+    ctx.restore();
+  }
+
+  // Function to render symbol overlay (drawn after visualizations, before buttons)
+  function renderSymbolOverlay() {
+    if (!ctx || !contentArea || !isHovering) return;
+
+    // Save context state
+    ctx.save();
+
+    // Draw symbol overlay (top-left, in front of visualizations but behind buttons)
+    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(209, 213, 219, 1.0)'; // Full opacity - crisp and visible
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    const symbolText = symbol || '';
+    ctx.fillText(symbolText, 8, 8);
+
+    // Restore context state
+    ctx.restore();
+  }
+
   function render() {
     if (!ctx || !state || !config || !canvas) {
       return;
     }
-    
-    // 🔧 CLEAN FOUNDATION: Create rendering context (no padding reduction)
+
+    // 🔧 CLEAN FOUNDATION: Create rendering context (headerless design)
     const containerSize = config.containerSize || { width: canvasWidth, height: canvasHeight };
     const contentArea = {
-      width: containerSize.width,  // ✅ FIXED: No padding reduction
-      height: containerSize.height - config.headerHeight  // ✅ FIXED: Only subtract header
+      width: containerSize.width,  // ✅ HEADERLESS: Full container width
+      height: containerSize.height // ✅ HEADERLESS: Full container height
     };
     const adrAxisX = contentArea.width * config.adrAxisPosition;
-    
-        
+
+
     renderingContext = {
       containerSize,
       contentArea,
@@ -411,12 +575,15 @@
       meterHeight: contentArea.height,
       adrAxisXPosition: adrAxisX
     };
-    
+
     // 🔧 CONTAINER-STYLE: Clear canvas using contentArea coordinates (CSS pixels)
     ctx.clearRect(0, 0, contentArea.width, contentArea.height);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, contentArea.width, contentArea.height);
-    
+
+    // Draw symbol background first (behind all other visualizations)
+    renderSymbolBackground();
+
     // Draw visualizations
     if (state.visualLow && state.visualHigh && yScale) {
       try {
@@ -446,6 +613,12 @@
         console.error(`[RENDER] Error in visualization functions:`, error);
       }
     }
+
+    // Draw symbol overlay when hovering (appears in front of visualizations but behind buttons)
+    renderSymbolOverlay();
+
+    // Draw canvas overlays on top of everything (buttons appear above symbol overlay)
+    renderCanvasOverlays();
   }
   
   // ✅ ULTRA-MINIMAL: Simple render trigger
@@ -463,186 +636,67 @@
   });
 </script>
 
-<div 
+<div
   bind:this={element}
-  class="enhanced-floating"
+  class="enhanced-floating headerless"
   class:active={isActive}
   style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: {displaySize.width}px; height: {displaySize.height}px; z-index: {zIndex};"
-  on:contextmenu={handleContextMenu}
   data-display-id={id}
+  on:contextmenu={handleContextMenu}
 >
-  <!-- Header -->
-  <div class="header">
-    <div class="symbol-info">
-      <span class="symbol">{symbol}</span>
-      {#if isActive}
-        <div class="active-indicator"></div>
-      {/if}
-      <!-- 🌍 Subtle Environment Indicator -->
-      {#if showEnvironmentIndicator && Environment.isDevelopment}
-        <div class="env-indicator env-dev" title="Development Environment"></div>
-      {/if}
+  <!-- Canvas fills entire container area (headerless design) -->
+  {#if state?.ready}
+    <canvas
+      bind:this={canvas}
+      class="full-canvas"
+      on:mousemove={handleCanvasMouseMove}
+      on:mouseleave={handleCanvasMouseLeave}
+      on:click={handleCanvasClick}
+    ></canvas>
+  {:else}
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      <p>Initializing {symbol}...</p>
     </div>
-    <button class="close-btn" on:click={handleClose}>×</button>
-  </div>
-  
-  <!-- Canvas Content -->
-  <div class="content">
-    {#if state?.ready}
-      <canvas 
-        bind:this={canvas}
-        on:mousemove={handleCanvasMouseMove}
-        on:mouseleave={handleCanvasMouseLeave}
-        on:click={handleCanvasClick}
-      ></canvas>
-    {:else}
-      <div class="loading">
-        <div class="loading-spinner"></div>
-        <p>Initializing {symbol}...</p>
-      </div>
-    {/if}
-  </div>
+  {/if}
 </div>
 
 <style>
-  /* ✅ ULTRA-MINIMAL: Clean CSS - no resize cursor complexity */
+  /* ✅ ULTRA-MINIMAL: Headerless design CSS - maximize trading data display */
   .enhanced-floating {
     position: fixed;
-    background: #1f2937;
+    background: #111827; /* Dark background for better contrast */
     border: 2px solid #374151;
-    border-radius: 8px;
+    border-radius: 6px; /* Slightly smaller radius for headerless design */
     cursor: grab;
     user-select: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden; /* Prevent canvas overflow */
   }
-  
+
   .enhanced-floating:hover {
     border-color: #4f46e5;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   }
-  
+
   .enhanced-floating.active {
     border-color: #4f46e5;
     box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
   }
-  
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: #374151;
-    border-bottom: 1px solid #4b5563;
-    cursor: grab;
-    border-radius: 6px 6px 0 0;
-  }
-  
-  .symbol-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .symbol {
-    font-weight: bold;
-    color: #d1d5db;
-    font-size: 14px;
-    font-family: 'Courier New', monospace;
-  }
-  
-  .active-indicator {
-    width: 8px;
-    height: 8px;
-    background: #10b981;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-  }
-  
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-  
-  .close-btn {
-    background: none;
-    border: none;
-    color: #ef4444;
-    cursor: pointer;
-    font-size: 18px;
-    padding: 0;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-  }
-  
-  .close-btn:hover {
-    background: rgba(239, 68, 68, 0.2);
-  }
 
-  /* 🌍 Environment Indicator Styles */
-  .env-indicator {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    margin-left: 6px;
-    flex-shrink: 0;
-    transition: all 0.2s ease;
-  }
-
-  .env-indicator.env-dev {
-    background: rgba(168, 85, 247, 0.7);
-    box-shadow: 0 0 4px rgba(168, 85, 247, 0.3);
-    animation: env-pulse 3s infinite ease-in-out;
-  }
-
-  @keyframes env-pulse {
-    0%, 100% {
-      opacity: 0.6;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.2);
-    }
-  }
-
-  /* Responsive adjustments for environment indicator */
-  @media (max-width: 768px) {
-    .env-indicator {
-      width: 5px;
-      height: 5px;
-      margin-left: 4px;
-    }
-  }
-
-  /* Reduced motion support */
-  @media (prefers-reduced-motion: reduce) {
-    .env-indicator {
-      transition: none;
-      animation: none;
-    }
-  }
-
-  .content {
-    background: #111827;
-    border-radius: 0 0 6px 6px;
-    height: calc(100% - 41px);
-    overflow: hidden;
-    box-sizing: border-box;
-  }
-  
-  canvas {
+  /* Full canvas fills entire container area (headerless design) */
+  .full-canvas {
     display: block;
-    background-color: #111827;
     width: 100%;
     height: 100%;
+    cursor: grab;
   }
-  
+
+  .full-canvas:active {
+    cursor: grabbing;
+  }
+
   .loading {
     display: flex;
     flex-direction: column;
@@ -651,8 +705,9 @@
     height: 100%;
     color: #6b7280;
     gap: 8px;
+    background: #111827;
   }
-  
+
   .loading-spinner {
     width: 24px;
     height: 24px;
@@ -661,9 +716,36 @@
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
-  
+
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+  }
+
+  /* Active state visual feedback (border glow instead of header dot) */
+  .enhanced-floating.active::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 6px;
+    background: linear-gradient(45deg, #4f46e5, #8b5cf6);
+    opacity: 0.3;
+    z-index: -1;
+    animation: activeGlow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes activeGlow {
+    0% { opacity: 0.2; }
+    100% { opacity: 0.4; }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .enhanced-floating.active::before {
+      animation: none;
+    }
   }
 </style>

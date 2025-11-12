@@ -14,10 +14,10 @@ export const REFERENCE_CANVAS = {
   height: 120
 };
 
-// Default container dimensions (include padding and header)
+// Default container dimensions (headerless design)
 export const DEFAULT_CONTAINER = {
-  width: 240,  // 220px canvas + 20px padding
-  height: 160   // 120px canvas + 40px header
+  width: 220,  // 220px canvas (no header, no padding)
+  height: 120   // 120px canvas (no header, no padding)
 };
 
 // Device pixel ratio handling with zoom awareness
@@ -57,23 +57,21 @@ export function createZoomDetector(callback) {
 }
 
 /**
- * Calculate canvas dimensions based on container size and reference canvas
+ * Calculate canvas dimensions based on container size and reference canvas (headerless design)
  * @param {Object} containerSize - Container dimensions {width, height}
  * @param {Object} options - Configuration options
  * @returns {Object} Canvas sizing information
  */
 export function getCanvasDimensions(containerSize, options = {}) {
   const {
-    includeHeader = true,
-    padding = 20,
-    headerHeight = 40,
+    padding = 0, // No padding in headerless design
     respectDpr = true
   } = options;
 
-  // Calculate available canvas area within container
+  // Calculate available canvas area within container (headerless design)
   const canvasArea = {
-    width: containerSize.width - (padding * 2),
-    height: containerSize.height - (includeHeader ? headerHeight + padding : padding)
+    width: containerSize.width,  // Full container width
+    height: containerSize.height // Full container height (no header)
   };
 
   // Calculate scaling factors relative to reference canvas

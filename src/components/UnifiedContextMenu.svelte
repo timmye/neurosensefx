@@ -4,7 +4,6 @@
   
   // Import context-specific components
   import CanvasTabbedInterface from './UnifiedContextMenu/CanvasTabbedInterface.svelte';
-  import HeaderQuickActions from './UnifiedContextMenu/HeaderQuickActions.svelte';
   import WorkspaceQuickActions from './UnifiedContextMenu/WorkspaceQuickActions.svelte';
   import PanelQuickActions from './UnifiedContextMenu/PanelQuickActions.svelte';
   
@@ -20,14 +19,6 @@
       showTabs: true,
       showSearch: true,
       showReset: true
-    },
-    header: {
-      title: 'Display Options',
-      width: 200,
-      height: 150,
-      showTabs: false,
-      showSearch: false,
-      showReset: false
     },
     workspace: {
       title: 'Workspace',
@@ -50,45 +41,34 @@
   // Context detection engine
   function detectContextMenuContext(event) {
     const target = event.target;
-    
+
     // Canvas click → Full 85+ parameter controls
     if (target.classList.contains('canvas-element') || target.closest('canvas')) {
       const displayElement = target.closest('[data-display-id]');
       const displayId = displayElement?.dataset.displayId;
-      return { 
-        type: 'canvas', 
-        targetId: displayId, 
-        targetType: 'display' 
+      return {
+        type: 'canvas',
+        targetId: displayId,
+        targetType: 'display'
       };
     }
-    
-    // Header click → Display management
-    if (target.classList.contains('header') || target.closest('.header')) {
-      const displayElement = target.closest('[data-display-id]');
-      const displayId = displayElement?.dataset.displayId;
-      return { 
-        type: 'header', 
-        targetId: displayId, 
-        targetType: 'display' 
-      };
-    }
-    
+
     // Panel click → Panel controls
     if (target.classList.contains('floating-panel') || target.closest('.floating-panel')) {
       const panelElement = target.closest('[data-panel-id]');
       const panelId = panelElement?.dataset.panelId;
-      return { 
-        type: 'panel', 
-        targetId: panelId, 
-        targetType: 'panel' 
+      return {
+        type: 'panel',
+        targetId: panelId,
+        targetType: 'panel'
       };
     }
-    
+
     // Workspace click → Workspace operations
-    return { 
-      type: 'workspace', 
-      targetId: null, 
-      targetType: 'workspace' 
+    return {
+      type: 'workspace',
+      targetId: null,
+      targetType: 'workspace'
     };
   }
   
@@ -174,7 +154,6 @@
     bind:this={menuElement}
     class="unified-context-menu"
     class:canvas-context={$contextMenu.context.type === 'canvas'}
-    class:header-context={$contextMenu.context.type === 'header'}
     class:workspace-context={$contextMenu.context.type === 'workspace'}
     class:panel-context={$contextMenu.context.type === 'panel'}
     style="left: {adjustedPosition.x}px; top: {adjustedPosition.y}px; width: {currentConfig.width}px; max-height: {currentConfig.height}px; z-index: {getZIndex('CONTEXT_MENU')};"
@@ -192,7 +171,7 @@
     <!-- Dynamic Content Based on Context -->
     <div class="menu-content">
       {#if $contextMenu.context.type === 'canvas'}
-        <CanvasTabbedInterface 
+        <CanvasTabbedInterface
           displayId={$contextMenu.context.targetId}
           onParameterChange={(parameter, value) => {
             // Update global config when canvas parameters change
@@ -206,39 +185,8 @@
           }}
           onReset={() => displayActions.resetToFactoryDefaults()}
         />
-      {:else if $contextMenu.context.type === 'header'}
-        <HeaderQuickActions 
-          displayId={$contextMenu.context.targetId}
-          onAction={(action) => {
-            // Handle header-specific actions
-            switch(action) {
-              case 'bringToFront':
-                displayActions.setActiveDisplay($contextMenu.context.targetId);
-                break;
-              case 'refresh':
-                // Refresh individual canvas using existing workspace restoration logic
-                const refreshDisplay = $displays.get($contextMenu.context.targetId);
-                if (refreshDisplay) {
-                  console.log(`[CONTEXT_MENU] Refreshing canvas for ${refreshDisplay.symbol}`);
-                  
-                  // Re-subscribe to symbol to trigger fresh data package
-                  // This will call updateExistingSymbol() through existing handleDataPackage() logic
-                  import('../data/wsClient.js').then(({ subscribe }) => {
-                    subscribe(refreshDisplay.symbol);
-                  }).catch(error => {
-                    console.error(`[CONTEXT_MENU] Failed to refresh symbol:`, error);
-                  });
-                }
-                break;
-              case 'close':
-                displayActions.removeDisplay($contextMenu.context.targetId);
-                break;
-            }
-            displayActions.hideContextMenu();
-          }}
-        />
       {:else if $contextMenu.context.type === 'workspace'}
-        <WorkspaceQuickActions 
+        <WorkspaceQuickActions
           onAction={(action) => {
             // Handle workspace-specific actions
             switch(action) {
@@ -257,7 +205,7 @@
           }}
         />
       {:else if $contextMenu.context.type === 'panel'}
-        <PanelQuickActions 
+        <PanelQuickActions
           panelId={$contextMenu.context.targetId}
           onAction={(action) => {
             // Handle panel-specific actions
@@ -394,7 +342,6 @@
     max-width: 700px;
   }
   
-  .header-context,
   .panel-context {
     min-width: 200px;
     max-width: 250px;

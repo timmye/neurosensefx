@@ -59,7 +59,7 @@
 
       // Recalculate canvas sizing with new DPR
       if (config) {
-        const containerSize = config.containerSize || { width: 240, height: 160 };
+        const containerSize = config.containerSize || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct default
         canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
           includeHeader: true,
           padding: config.padding,
@@ -90,7 +90,7 @@
   // 🔧 CLEAN FOUNDATION: Container → Content → Rendering pipeline
   $: if (canvas && config) {
     // 1. Container layer - physical dimensions
-    const containerSize = config.containerSize || { width: 240, height: 160 };
+    const containerSize = config.containerSize || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct default
     
     // 2. Content area - derived from container
     const contentArea = {
@@ -165,6 +165,11 @@
   let lastHoverFrame = 0;
   let pendingHoverUpdate = null;
 
+  // Drag detection state to prevent marker creation during drag operations
+  let isDragging = false;
+  let dragStartPos = null;
+  let dragThreshold = 5; // pixels - minimum movement to be considered a drag
+
   function handleMouseMove(event) {
     if (!y) return; // Guard clause: Don't run if y scale hasn't been initialized yet
 
@@ -178,6 +183,21 @@
     }
 
     lastHoverFrame = now;
+
+    // Check if this movement qualifies as a drag
+    if (dragStartPos) {
+      const rect = canvas.getBoundingClientRect();
+      const currentX = event.clientX - rect.left;
+      const currentY = event.clientY - rect.top;
+      const distance = Math.sqrt(
+        Math.pow(currentX - dragStartPos.x, 2) +
+        Math.pow(currentY - dragStartPos.y, 2)
+      );
+
+      if (distance > dragThreshold) {
+        isDragging = true;
+      }
+    }
 
     const rect = canvas.getBoundingClientRect();
     // 1. Calculate mouse Y relative to element's CSS position
@@ -195,18 +215,53 @@
       pendingHoverUpdate = null;
     });
   }
+
   function handleMouseLeave() {
     hoverState.set(null);
+    // Reset drag state when mouse leaves canvas
+    isDragging = false;
+    dragStartPos = null;
+  }
+
+  function handleMouseDown(event) {
+    if (!y) return; // Guard against accessing y before it's initialized
+
+    const rect = canvas.getBoundingClientRect();
+    dragStartPos = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+    isDragging = false;
   }
 
   function handleClick(event) {
     if (!y) return; // Guard against accessing y before it's initialized
 
+    // Prevent marker creation if this was a drag operation
+    if (isDragging) {
+      // Reset drag state for next interaction
+      isDragging = false;
+      dragStartPos = null;
+      return;
+    }
+
+    // Reset drag state for clean click handling
+    dragStartPos = null;
+    isDragging = false;
+
+    // Require modifier key (Ctrl/Cmd) for marker placement to avoid conflicts with display dragging
+    const hasModifier = event.ctrlKey || event.metaKey;
+
+    if (!hasModifier) {
+      // Don't create markers for regular clicks - these are for display dragging
+      return;
+    }
+
     const rect = canvas.getBoundingClientRect();
     const cssY = event.clientY - rect.top;
 
     // Hit detection threshold in CSS pixels
-    const hitThreshold = 5; 
+    const hitThreshold = 5;
 
     // Check if clicking on an existing marker
     const clickedMarker = $markerStore.find(marker => {
@@ -219,7 +274,7 @@
     } else {
       // If not clicking on a marker, add a new one
       const clickedPrice = y.invert(cssY);
-      markerStore.add(clickedPrice);      
+      markerStore.add(clickedPrice);
     }
   }
 
@@ -333,7 +388,7 @@
 </script>
 
 <div class="viz-container" style="width: {config.containerSize.width}px;">
-  <canvas bind:this={canvas} on:mousemove={handleMouseMove} on:mouseleave={handleMouseLeave} on:click={handleClick}></canvas>
+  <canvas bind:this={canvas} on:mousemove={handleMouseMove} on:mouseleave={handleMouseLeave} on:mousedown={handleMouseDown} on:click={handleClick}></canvas>
 
   {#if showEnvironmentIndicator && environmentDetails}
     <div
