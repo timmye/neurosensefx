@@ -27,7 +27,16 @@
     "test:add-display-menu": "playwright test e2e/add-display-menu/ --config=e2e/add-display-menu/add-display-menu.config.ts",
     "test:add-display-menu:ui": "playwright test e2e/add-display-menu/ --config=e2e/add-display-menu/add-display-menu.config.ts --ui",
     "test:add-display-menu:debug": "playwright test e2e/add-display-menu/ --config=e2e/add-display-menu/add-display-menu.config.ts --debug",
-    "test:add-display-menu:codegen": "playwright codegen --config=e2e/add-display-menu/add-display-menu.config.ts"
+    "test:add-display-menu:codegen": "playwright codegen --config=e2e/add-display-menu/add-display-menu.config.ts",
+    "test:unit": "node src/test/run-tests.js",
+    "test:fuzzy-search": "node src/test/run-tests.js",
+    "test:performance": "node src/test/performance.test.js",
+    "test:config": "node src/test/config.test.js",
+    "test:shorthand": "node src/test/shorthand.test.js",
+    "demo:shorthand": "node src/test/demo-shorthand.js",
+    "demo:relaxed": "node src/test/demo-relaxed-search.js",
+    "test:timing": "node src/test/test-debouncing.js",
+    "test:timing-fixed": "node src/test/test-timing-fixed.js"
   },
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",

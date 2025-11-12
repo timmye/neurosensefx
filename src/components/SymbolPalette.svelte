@@ -105,19 +105,12 @@
     clearPendingSearch();
   });
   
-  // Reactive search with improved progressive debouncing
+  // Reactive search with simple, consistent debouncing
   $: {
-    console.log('🔄 Reactive statement triggered:', {
-      searchQuery,
-      fuzzySearchExists: !!fuzzySearch,
-      currentFilteredCount: filteredSymbols.length,
-      isSearching
-    });
-
     if (fuzzySearch) {
       if (searchQuery) {
         isSearching = true;
-        progressiveDebouncedSearch(searchQuery);
+        debouncedSearch(searchQuery);
       } else {
         filteredSymbols = [];
         selectedIndex = 0;
@@ -127,23 +120,10 @@
     }
   }
 
-  // Progressive debouncing with proper scope (industry standard)
+  // Simple, consistent debouncing
   let searchTimeout;
-  let lastInputTime = 0;
 
-  function progressiveDebouncedSearch(query) {
-    const now = performance.now();
-    const timeSinceLastInput = now - lastInputTime;
-
-    console.log('🔍 Search debug:', {
-      query,
-      queryLength: query.length,
-      availableSymsCount: availableSyms.length,
-      fuzzySearchExists: !!fuzzySearch,
-      isSearching,
-      timeSinceLastInput
-    });
-
+  function debouncedSearch(query) {
     // Clear any pending search
     if (searchTimeout) {
       clearTimeout(searchTimeout);
@@ -152,27 +132,14 @@
     // Show immediate feedback for all query lengths
     performImmediateSearch(query);
 
-    // Calculate delay based on input patterns (industry standard)
-    let delay;
-    if (query.length === 1) {
-      delay = 150; // Faster feedback for first character
-    } else if (query.length === 2) {
-      delay = 120; // Slightly faster for short queries
-    } else if (timeSinceLastInput < 100) {
-      // Rapid typing - longer delay to wait for completion
-      delay = 150;
-    } else {
-      // Normal typing or refinement - shorter delay
-      delay = 100;
-    }
+    // Fixed delay for consistent behavior regardless of typing speed
+    const delay = 150; // Simple, predictable delay
 
-    // Schedule full search with progressive delay
+    // Schedule full search
     searchTimeout = setTimeout(() => {
       performSearch(query);
       isSearching = false;
     }, delay);
-
-    lastInputTime = now;
   }
 
   function clearPendingSearch() {
@@ -362,7 +329,8 @@
     }
     searchInput?.focus();
   }
-  
+
+    
   function highlightMatch(symbol, query) {
     if (!query || !symbol) return symbol;
 
@@ -413,7 +381,7 @@
       
       console.log('Successfully subscribed display to data');
       
-      // Clear search after successful creation
+      // Clear search after successful creation for quick symbol addition
       clearSearch();
       
       // Collapse symbol palette after a short delay

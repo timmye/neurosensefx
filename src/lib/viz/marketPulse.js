@@ -10,8 +10,8 @@ export function createMarketPulse(canvas, config) {
     let now = performance.now();
     let lastTime = now;
 
-    const timeWindow = (config.marketPulseTimeWindowMinutes || 5) * 60 * 1000; // Time window in milliseconds
-    const yRangePips = config.yRangePips || 10; // Configurable max price delta range for Y axis (in pips)
+    const timeWindow = (config.marketPulseTimeWindowMinutes ?? 5) * 60 * 1000; // Time window in milliseconds
+    const yRangePips = config.yRangePips ?? 10; // Configurable max price delta range for Y axis (in pips)
 
     // Scaling factor to convert pips to pixels
     // The baseline is at the bottom (y = height - 1).
@@ -60,7 +60,7 @@ export function createMarketPulse(canvas, config) {
             // A positive delta should decrease y (move up), negative should increase y (move down).
             y: (height - 1) - (priceDelta / 0.00001) * pipsToPixelsScale,
             radius: 1.5,
-            initialOpacity: config.marketPulseDotOpacity || 0.7,
+            initialOpacity: config.marketPulseDotOpacity ?? 0.7,
         };
         dots.push(newDot);
 

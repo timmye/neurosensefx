@@ -70,7 +70,7 @@
   function handleParameterChange(parameter, value) {
     // Update local config
     config = { ...config, [parameter]: value };
-    
+
     // Call parent handler
     onParameterChange(parameter, value);
   }
@@ -394,7 +394,7 @@
                           }}
                         />
                         <span class="range-value">
-                          {percentageMeta?.isPercentage ? ((config[parameter] || metadata.defaultValue) * 100).toFixed(1) : (config[parameter] || metadata.defaultValue)}
+                          {percentageMeta?.isPercentage ? ((config[parameter] ?? metadata.defaultValue) * 100).toFixed(1) : (config[parameter] ?? metadata.defaultValue)}
                           {#if percentageMeta?.isPercentage}
                             <span class="percentage-indicator">%</span>
                           {/if}
@@ -405,7 +405,7 @@
                       <select
                         id={controlId}
                         class="select-input"
-                        value={config[parameter] || metadata.defaultValue}
+                        value={config[parameter] ?? metadata.defaultValue}
                         on:change={(e) => handleParameterChange(parameter, e.target.value)}
                       >
                         {#each metadata.options || [] as option}
@@ -414,11 +414,11 @@
                       </select>
                     
                     {:else}
-                      <input 
+                      <input
                         id={controlId}
-                        type="text" 
+                        type="text"
                         class="text-input"
-                        value={config[parameter] || metadata.defaultValue}
+                        value={config[parameter] ?? metadata.defaultValue}
                         on:change={(e) => handleParameterChange(parameter, e.target.value)}
                       />
                     {/if}

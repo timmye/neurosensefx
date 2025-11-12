@@ -231,7 +231,7 @@ function renderSilhouetteProfile(ctx, renderingContext, config, data) {
   const { contentArea, adrAxisX } = renderingContext;
 
   // Set global properties
-  ctx.globalAlpha = config.marketProfileOpacity || 0.8; // Fallback for missing config
+  ctx.globalAlpha = config.marketProfileOpacity ?? 0.8; // Fallback for missing config
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
@@ -253,7 +253,7 @@ function renderSilhouetteProfile(ctx, renderingContext, config, data) {
     let leftX, rightX;
 
     // Default to 'separate' positioning if not specified
-    const positioningMode = config.positioning || 'separate';
+    const positioningMode = config.positioning ?? 'separate';
 
     switch (positioningMode) {
       case 'left':
@@ -356,7 +356,7 @@ function renderMarketProfileSilhouette(ctx, points, color, config) {
   if (points.length < 2) return;
 
   // Get silhouette configuration with defaults
-  const smoothingFactor = config.silhouetteSmoothingIntensity || 0.3;
+  const smoothingFactor = config.silhouetteSmoothingIntensity ?? 0.3;
   const enableSmoothing = config.silhouetteSmoothing !== false;
 
   // Sort points by Y coordinate (top to bottom)

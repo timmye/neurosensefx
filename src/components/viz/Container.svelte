@@ -56,7 +56,7 @@
     const cleanupZoomDetector = createZoomDetector((newDpr) => {
       console.log(`[CONTAINER_ZOOM_AWARENESS] DPR changed to ${newDpr}`);
       dpr = newDpr;
-      
+
       // Recalculate canvas sizing with new DPR
       if (config) {
         const containerSize = config.containerSize || { width: 240, height: 160 };
@@ -66,13 +66,12 @@
           headerHeight: config.headerHeight,
           respectDpr: true
         });
-        
-        // Update canvas with new dimensions
-        configureCanvasContext(ctx, canvasSizingConfig.dimensions);
+
+        // Update canvas with new dimensions (no configureCanvasContext call - scaling done in draw)
         const { canvas: canvasDims } = canvasSizingConfig.dimensions;
         canvas.width = canvasDims.width;
         canvas.height = canvasDims.height;
-        
+
         console.log(`[CONTAINER_ZOOM_AWARENESS] Canvas updated for new DPR:`, {
           newDpr,
           canvasDimensions: `${canvasDims.width}x${canvasDims.height}`
@@ -121,10 +120,7 @@
       respectDpr: true
     });
     
-    // Configure canvas with unified sizing
-    configureCanvasContext(ctx, canvasSizingConfig.dimensions);
-    
-    // Set canvas dimensions
+    // Set canvas dimensions first
     const { canvas: canvasDims } = canvasSizingConfig.dimensions;
     canvas.width = canvasDims.width;
     canvas.height = canvasDims.height;
@@ -230,12 +226,20 @@
   function draw(currentState, currentRenderingContext, currentMarkers) {
     if (!ctx || !currentState || !currentRenderingContext) return;
 
+    // 🔧 CLEAN FOUNDATION: Save context and apply DPR scaling each render frame
+    ctx.save();
+
+    // Apply DPR scaling for this render cycle only
+    if (canvasSizingConfig && canvasSizingConfig.dimensions.dpr > 1) {
+      ctx.scale(canvasSizingConfig.dimensions.dpr, canvasSizingConfig.dimensions.dpr);
+    }
+
     // 🔧 CLEAN FOUNDATION: Use rendering context for all operations
     const { contentArea, adrAxisX } = currentRenderingContext;
-    
+
     // Initialize/update y-scale for the current render frame
     y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([contentArea.height, 0]);
-    
+
     // Use canvas sizing config dimensions for clearing
     if (canvasSizingConfig) {
       const { canvasArea } = canvasSizingConfig.dimensions;
@@ -273,13 +277,23 @@
 
     drawMarketProfile(ctx, currentRenderingContext, config, currentState, y);
 
+    // --- Draw Volatility Metric (just in front of background) ---
+    try {
+      drawVolatilityMetric(ctx, currentRenderingContext, config, currentState);
+    } catch (error) {
+      console.error('[Container] Volatility Metric render error:', error);
+    }
+
     try {
       drawDayRangeMeter(ctx, currentRenderingContext, config, currentState, y);
     } catch (error) {
       console.error('[Container] Day Range Meter render error:', error);
     }
 
-    
+
+    // --- Draw Price Markers (behind Price Float and Price Display) ---
+    drawPriceMarkers(ctx, currentRenderingContext, config, currentState, y, currentMarkers);
+
     try {
       drawPriceFloat(ctx, currentRenderingContext, config, currentState, y);
     } catch (error) {
@@ -291,26 +305,17 @@
     } catch (error) {
       console.error('[Container] Price Display render error:', error);
     }
-
-    try {
-      drawVolatilityMetric(ctx, currentRenderingContext, config, currentState);
-    } catch (error) {
-      console.error('[Container] Volatility Metric render error:', error);
-    }
-
-    // --- Draw Price Markers (on top of core visuals, below hover/flash) ---
-    drawPriceMarkers(ctx, currentRenderingContext, config, currentState, y, currentMarkers);
     
     // --- Draw Hover Indicator (must be last to be on top) ---
-    drawHoverIndicator(ctx, currentRenderingContext, config, currentState, yScale, $hoverState);
+    drawHoverIndicator(ctx, currentRenderingContext, config, currentState, y, $hoverState);
 
     // --- Draw Flash Overlay ---
     if (flashOpacity > 0) {
       const elapsedTime = performance.now() - flashStartTime;
       const newOpacity = config.flashIntensity * (1 - (elapsedTime / flashDuration));
-      
+
       flashOpacity = Math.max(0, newOpacity);
-      
+
       if (flashOpacity > 0) {
         ctx.fillStyle = `rgba(200, 200, 220, ${flashOpacity})`;
         if (canvasSizingConfig) {
@@ -321,6 +326,9 @@
         }
       }
     }
+
+    // 🔧 CLEAN FOUNDATION: Restore context to prevent cumulative transformations
+    ctx.restore();
   }
 </script>
 

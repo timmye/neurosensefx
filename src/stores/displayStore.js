@@ -310,16 +310,20 @@ export const displayActions = {
   // === SIMPLIFIED CONFIGURATION OPERATIONS (global only) ===
   
   updateDisplayConfig: (displayId, parameter, value) => {
-    
+
     displayStore.update(store => {
-      const updatedConfig = { ...store.defaultConfig, [parameter]: value };
-      
+      // Get the existing config for this display and only update the specific parameter
+      const existingConfig = store.displays.get(displayId)?.config || store.defaultConfig;
+      const updatedConfig = { ...existingConfig, [parameter]: value };
+
       // Update all displays with this parameter (global-only approach)
       const newDisplays = new Map(store.displays);
       newDisplays.forEach((display, id) => {
+        const newConfig = { ...display.config, [parameter]: value };
+
         newDisplays.set(id, {
           ...display,
-          config: { ...display.config, [parameter]: value }
+          config: newConfig
         });
         
         // Notify worker of configuration change
@@ -356,14 +360,18 @@ export const displayActions = {
     }
 
     displayStore.update(store => {
-      const updatedConfig = { ...store.defaultConfig, [parameter]: value };
-      
+      // Use the current globalConfig and only update the specific parameter
+      const existingConfig = store.globalConfig || store.defaultConfig;
+      const updatedConfig = { ...existingConfig, [parameter]: value };
+
       // Update all displays with this parameter
       const newDisplays = new Map(store.displays);
       newDisplays.forEach((display, displayId) => {
+        const newDisplayConfig = { ...display.config, [parameter]: value };
+
         newDisplays.set(displayId, {
           ...display,
-          config: { ...display.config, [parameter]: value }
+          config: newDisplayConfig
         });
         
         // Notify worker of configuration change
@@ -955,6 +963,7 @@ export const displayActions = {
               ...displayData,
               config: {
                 ...initialState.defaultConfig,
+                ...displayData.config, // 🔧 CRITICAL FIX: Preserve saved config overrides
                 // 🔧 CRITICAL FIX: Ensure containerSize matches actual display size
                 ...(displayData.size ? { containerSize: displayData.size } : {})
               },

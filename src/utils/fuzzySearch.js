@@ -86,7 +86,7 @@ export class FuzzySearch {
     const candidate = indexed.lower;
     const candidateLength = candidate.length;
     const queryLength = query.length;
-    
+
     // Exact match - highest score
     if (candidate === query) {
       return 1000;
@@ -102,43 +102,69 @@ export class FuzzySearch {
       return 600 + (candidateLength - queryLength);
     }
 
-    // Fuzzy matching with scoring
+    // Check for abbreviation match (e.g., "eur" matches "eurusd")
+    const abbreviationBonus = this.calculateAbbreviationBonus(query, candidate);
+    if (abbreviationBonus > 0) {
+      return 400 + abbreviationBonus;
+    }
+
+    // Relaxed fuzzy matching with more generous scoring
     let score = 0;
     let queryIndex = 0;
     let candidateIndex = 0;
     let consecutiveMatches = 0;
     let maxConsecutiveMatches = 0;
+    let totalSkips = 0;
+    let matchedPositions = [];
 
     while (queryIndex < queryLength && candidateIndex < candidateLength) {
       if (query[queryIndex] === candidate[candidateIndex]) {
-        score += 10 + (consecutiveMatches * 5); // Bonus for consecutive matches
+        score += 15 + (consecutiveMatches * 8); // Increased bonuses for matches
         consecutiveMatches++;
         maxConsecutiveMatches = Math.max(maxConsecutiveMatches, consecutiveMatches);
+        matchedPositions.push(candidateIndex);
         queryIndex++;
       } else {
         consecutiveMatches = 0;
-        // Penalty for skipped characters
-        score -= 1;
+        // Much smaller penalty for skipped characters (very forgiving)
+        score -= 0.05; // Reduced from 0.2 to 0.05
+        totalSkips++;
       }
       candidateIndex++;
     }
 
-    // Bonus for matching all query characters
+    // Large bonus for matching all query characters
     if (queryIndex === queryLength) {
-      score += 50;
-      
+      score += 100; // Increased from 50
+
       // Additional bonus for high consecutive match ratio
       const consecutiveRatio = maxConsecutiveMatches / queryLength;
-      score += consecutiveRatio * 30;
+      score += consecutiveRatio * 50; // Increased from 30
+
+      // Minimal penalty for skips if we matched everything
+      score -= totalSkips * 0.02; // Reduced from 0.1 to 0.02
+
+      // Position-based bonus - reward characters that are close together
+      if (matchedPositions.length > 1) {
+        let totalDistance = 0;
+        for (let i = 1; i < matchedPositions.length; i++) {
+          totalDistance += matchedPositions[i] - matchedPositions[i-1];
+        }
+        const avgDistance = totalDistance / (matchedPositions.length - 1);
+        // Smaller distances get bigger bonuses
+        if (avgDistance < 3) score += 30;
+        else if (avgDistance < 5) score += 20;
+        else if (avgDistance < 8) score += 10;
+      }
     }
 
-    // Penalty for remaining unmatched characters
-    const unmatchedPenalty = (candidateLength - queryIndex) * 2;
+    // Very light penalty for remaining unmatched characters
+    const unmatchedPenalty = (candidateLength - queryIndex) * 0.5; // Reduced from 1.5
     score -= unmatchedPenalty;
 
-    // Length difference penalty (prefer similar lengths)
-    const lengthDifference = Math.abs(candidateLength - queryLength);
-    score -= lengthDifference;
+    // Very forgiving length difference penalty
+    const lengthRatio = Math.abs(candidateLength - queryLength) / Math.max(candidateLength, queryLength);
+    score -= lengthRatio * 10; // Reduced from 20
 
     // Bonus for common trading pairs
     const upperCandidate = indexed.original.toUpperCase();
@@ -151,7 +177,102 @@ export class FuzzySearch {
       score += 25;
     }
 
+    // Proximity bonus - reward characters that are close together
+    if (queryIndex === queryLength) {
+      const proximityScore = this.calculateProximityScore(query, candidate);
+      score += proximityScore;
+    }
+
     return Math.max(0, Math.round(score));
+  }
+
+  /**
+   * Calculate abbreviation bonus (e.g., "eur" matches "eurusd")
+   */
+  calculateAbbreviationBonus(query, candidate) {
+    if (query.length < 2 || query.length > 4) return 0;
+
+    // Check if query matches the beginning of candidate
+    if (candidate.startsWith(query)) {
+      // Bonus based on how much of the candidate we captured
+      const coverageRatio = query.length / candidate.length;
+      return Math.round(coverageRatio * 100);
+    }
+
+    // Check for common trading abbreviations
+    const abbreviations = {
+      'eur': ['euro', 'eurusd', 'eur', 'eurgbp'],
+      'gbp': ['pound', 'gbpusd', 'gbp', 'gbpjpy'],
+      'usd': ['dollar', 'eurusd', 'gbpusd', 'usdjpy'],
+      'jpy': ['yen', 'usdjpy', 'eurjpy', 'gbpjpy'],
+      'aud': ['aussie', 'audusd', 'aud', 'audjpy'],
+      'cad': ['loonie', 'usdcad', 'cad', 'cadjpy'],
+      'chf': ['swissy', 'usdchf', 'chf', 'eurchf'],
+      'nzd': ['kiwi', 'nzdusd', 'nzd', 'nzdjpy'],
+      'xau': ['gold', 'xauusd', 'goldusd'],
+      'xag': ['silver', 'xagusd', 'silverusd'],
+      'btc': ['bitcoin', 'btcusd', 'btcusdt'],
+      'eth': ['ethereum', 'ethusd', 'ethusdt']
+    };
+
+    const queryLower = query.toLowerCase();
+    if (abbreviations[queryLower]) {
+      const matches = abbreviations[queryLower].filter(abbr =>
+        candidate.includes(abbr) || abbr.includes(candidate)
+      );
+      if (matches.length > 0) {
+        return 80; // Strong bonus for abbreviation matches
+      }
+    }
+
+    return 0;
+  }
+
+  /**
+   * Calculate proximity bonus for characters that appear close together
+   */
+  calculateProximityScore(query, candidate) {
+    let proximityScore = 0;
+    let foundPositions = [];
+
+    // Find positions of all query characters in candidate
+    for (let i = 0; i < query.length; i++) {
+      const char = query[i];
+      let charPositions = [];
+
+      for (let j = 0; j < candidate.length; j++) {
+        if (candidate[j] === char) {
+          charPositions.push(j);
+        }
+      }
+
+      if (charPositions.length > 0) {
+        foundPositions.push(charPositions);
+      } else {
+        return 0; // Missing character, no proximity bonus
+      }
+    }
+
+    // Calculate score based on how close characters are to each other
+    if (foundPositions.length === query.length) {
+      // Find the best combination of positions
+      let minTotalDistance = Infinity;
+
+      // Simple heuristic: try first occurrence of each character
+      let totalDistance = 0;
+      for (let i = 1; i < foundPositions.length; i++) {
+        const distance = Math.abs(foundPositions[i][0] - foundPositions[i-1][0]);
+        totalDistance += distance;
+      }
+      minTotalDistance = Math.min(minTotalDistance, totalDistance);
+
+      // Convert distance to score (closer = higher score)
+      const maxPossibleDistance = candidate.length * 2;
+      const proximityRatio = 1 - (minTotalDistance / maxPossibleDistance);
+      proximityScore = Math.round(proximityRatio * 50);
+    }
+
+    return Math.max(0, proximityScore);
   }
 
   /**
@@ -161,7 +282,7 @@ export class FuzzySearch {
     // Common forex patterns: 6 characters (3+3) or with USD suffix
     const forexPattern = /^[A-Z]{3}[A-Z]{3}$/;
     const forexWithUsdPattern = /^[A-Z]{3}USD$/;
-    
+
     return forexPattern.test(symbol) || forexWithUsdPattern.test(symbol);
   }
 

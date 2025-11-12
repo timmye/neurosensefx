@@ -43,6 +43,7 @@ export const marketProfileGroup = generatedGroups.find(g => g.id === 'marketProf
 export const volatilityGroup = generatedGroups.find(g => g.id === 'volatility');
 export const quickActionsGroup = generatedGroups.find(g => g.id === 'quickActions');
 export const hoverIndicatorGroup = generatedGroups.find(g => g.id === 'hoverIndicator');
+export const priceMarkersGroup = generatedGroups.find(g => g.id === 'priceMarkers');
 
 // =============================================================================
 // BACKWARD COMPATIBILITY FUNCTIONS
@@ -127,9 +128,9 @@ export const getParameterMetadataWithPercentage = (parameterName) => {
     return {
       ...metadata,
       range: {
-        min: metadata.validation?.min !== undefined ? metadata.validation.min * 100 : 0,
-        max: metadata.validation?.max !== undefined ? metadata.validation.max * 100 : 100,
-        step: metadata.validation?.step !== undefined ? metadata.validation.step * 100 : 1
+        min: metadata.range?.min !== undefined ? metadata.range.min * 100 : 0,
+        max: metadata.range?.max !== undefined ? metadata.range.max * 100 : 100,
+        step: metadata.range?.step !== undefined ? metadata.range.step * 100 : 1
       },
       displayScale: 100, // Scale factor for UI display
       displayUnit: '%'
@@ -284,6 +285,7 @@ export default {
   volatilityGroup,
   quickActionsGroup,
   hoverIndicatorGroup,
+  priceMarkersGroup,
   getAllParameters,
   getParameterGroup,
   getParameterMetadata,

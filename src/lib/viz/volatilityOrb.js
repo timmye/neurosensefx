@@ -64,16 +64,16 @@ export function drawVolatilityOrb(ctx, renderingContext, config, state, y) {
  */
 function calculateRenderData(contentArea, config, state) {
   // Calculate orb center using new positioning parameters (decimal percentages)
-  const centerX = contentArea.width * (config.volatilityOrbXPosition || 0.5);
-  const centerY = contentArea.height * (config.volatilityOrbYPosition || 0.5);
+  const centerX = contentArea.width * (config.volatilityOrbXPosition ?? 0.5);
+  const centerY = contentArea.height * (config.volatilityOrbYPosition ?? 0.5);
 
   // Calculate base radius using smaller dimension for better fit
   const baseSize = Math.min(contentArea.width, contentArea.height);
-  const baseRadius = baseSize * (config.volatilityOrbBaseWidth || 0.4) / 2;
+  const baseRadius = baseSize * (config.volatilityOrbBaseWidth ?? 0.4) / 2;
 
   // Calculate size based on volatility with logarithmic scaling
   const volatilityScale = Math.min(2.0, Math.max(0.5, (state.volatility || 0) * 0.8));
-  const radius = baseRadius * volatilityScale * (config.volatilitySizeMultiplier || 1.0);
+  const radius = baseRadius * volatilityScale * (config.volatilitySizeMultiplier ?? 1.0);
 
   return {
     centerX,
@@ -102,18 +102,22 @@ function configureRenderContext(ctx) {
 function drawCoreOrb(ctx, renderData, config, state) {
   const { centerX, centerY, radius, contentArea } = renderData;
 
+  // Apply overall orb opacity
+  ctx.save();
+  ctx.globalAlpha = config.volatilityOrbOpacity ?? 0.9;
+
   // Create radial gradient for soft glow effect
   const gradient = ctx.createRadialGradient(
     centerX, centerY, 0,
-    centerX, centerY, radius * (config.gradientSpread || 1.2)
+    centerX, centerY, radius * (config.gradientSpread ?? 1.2)
   );
 
-  // Apply gradient colors based on color mode
+  // Apply gradient colors with full transparency control
   const centerColor = getOrbColor(config, renderData, 1.0);
   const midColor = getOrbColor(config, renderData, 0.3);
 
   gradient.addColorStop(0, centerColor);
-  gradient.addColorStop(config.gradientSoftness || 0.7, midColor);
+  gradient.addColorStop(config.gradientSoftness ?? 0.7, midColor);
   gradient.addColorStop(1, 'transparent');
 
   // Draw orb as background fill covering content area
@@ -124,27 +128,47 @@ function drawCoreOrb(ctx, renderData, config, state) {
 }
 
 /**
- * Get orb color based on color mode configuration
+ * Get orb color with full transparency control
  */
 function getOrbColor(config, renderData, intensity = 1.0) {
-  const { volatilityColorMode, priceUpColor, priceDownColor, priceStaticColor } = config;
+  const {
+    volatilityColorMode,
+    // New volatility-specific colors (take precedence)
+    volatilityUpColor, volatilityDownColor, volatilityStaticColor,
+    // Individual transparency controls
+    volatilityUpOpacity, volatilityDownOpacity, volatilityStaticOpacity,
+    // Fallback to existing price colors
+    priceUpColor, priceDownColor, priceStaticColor
+  } = config;
   const { direction, volatility } = renderData;
+
+  // Select base color and target opacity
+  let baseColor;
+  let targetOpacity;
 
   switch (volatilityColorMode) {
     case 'directional':
       // Use existing lastTickDirection for consistent direction detection
       const actualDirection = direction;
 
-      // Direction-aware color coding for trend recognition
-      return actualDirection === 'up'
-        ? hexToRgba(priceUpColor || '#3b82f6', intensity)
-        : actualDirection === 'down'
-        ? hexToRgba(priceDownColor || '#a78bfa', intensity)
-        : hexToRgba(priceStaticColor || '#d1d5db', intensity);
+      // Direction-aware color coding with custom colors and transparency
+      if (actualDirection === 'up') {
+        baseColor = volatilityUpColor || priceUpColor || '#3b82f6';
+        targetOpacity = volatilityUpOpacity || 0.8;
+      } else if (actualDirection === 'down') {
+        baseColor = volatilityDownColor || priceDownColor || '#a78bfa';
+        targetOpacity = volatilityDownOpacity || 0.8;
+      } else {
+        baseColor = volatilityStaticColor || priceStaticColor || '#d1d5db';
+        targetOpacity = volatilityStaticOpacity || 0.8;
+      }
+      break;
 
     case 'static':
-      // Single color for reduced cognitive load
-      return hexToRgba(priceStaticColor || '#d1d5db', intensity);
+      // Single color for reduced cognitive load with custom transparency
+      baseColor = volatilityStaticColor || priceStaticColor || '#d1d5db';
+      targetOpacity = volatilityStaticOpacity || 0.8;
+      break;
 
     case 'intensity':
       // Logarithmic intensity scaling for perceptual volatility mapping
@@ -152,13 +176,19 @@ function getOrbColor(config, renderData, intensity = 1.0) {
         ? Math.log(Math.max(0.1, volatility + 0.1)) / Math.log(10)
         : 0;
       const intensityValue = Math.min(1.0, rawIntensity);
-      // Use configuration-driven color instead of hardcoded blue
-      const baseColor = priceStaticColor || priceUpColor || '#d1d5db';
-      return hexToRgba(baseColor, intensityValue * intensity);
+      baseColor = volatilityStaticColor || priceStaticColor || priceUpColor || '#d1d5db';
+      targetOpacity = (volatilityStaticOpacity || 0.8) * intensityValue;
+      intensity = intensityValue; // Override intensity for mode consistency
+      break;
 
     default:
-      return hexToRgba(priceUpColor || '#3b82f6', intensity);
+      baseColor = volatilityUpColor || priceUpColor || '#3b82f6';
+      targetOpacity = volatilityUpOpacity || 0.8;
   }
+
+  // Apply intensity and target opacity (overall opacity applied in drawCoreOrb)
+  const finalOpacity = intensity * targetOpacity;
+  return hexToRgba(baseColor, finalOpacity);
 }
 
 /**
@@ -206,12 +236,13 @@ function shouldFlash(renderData, config) {
 }
 
 /**
- * Apply simple flash effect to orb area
+ * Apply simple flash effect to orb area with opacity control
  */
 function applyOrbFlash(ctx, renderData) {
   const { centerX, centerY, baseRadius } = renderData;
 
   ctx.save();
+  // Apply flash intensity with overall opacity consideration
   ctx.globalAlpha = 0.6; // Fixed intensity for simplicity
   ctx.fillStyle = '#FFFFFF';
 

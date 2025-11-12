@@ -45,7 +45,7 @@ export class EnhancementSystem {
       type,
       enabled: config.enabled !== false,
       boundsCheck: config.boundsCheck !== false,
-      priority: config.priority || 0,
+      priority: config.priority ?? 0,
       ...config
     });
   }

@@ -10,6 +10,147 @@
 
 import { boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
 
+// =============================================================================
+// PERFORMANCE-FIRST CACHING SYSTEM (NeuroSense FX Principle)
+// =============================================================================
+// Eliminates redundant calculations and memory allocations
+// Follows established hoverIndicator.js patterns for 60fps performance
+
+// Caching for expensive calculations to eliminate redundant operations
+const colorCache = new Map();
+const textMetricsCache = new Map();
+const formattedPriceCache = new Map();
+
+/**
+ * Cached color conversion to avoid string allocations
+ */
+function hexToRgba(hex, opacity) {
+  if (!hex) return 'rgba(0,0,0,0)';
+
+  const finalOpacity = (opacity === undefined || opacity === null) ? 1 : opacity;
+  const cacheKey = `${hex}-${finalOpacity}`;
+
+  if (colorCache.has(cacheKey)) {
+    return colorCache.get(cacheKey);
+  }
+
+  let r = 0, g = 0, b = 0;
+  if (hex.length === 4) {
+    r = parseInt(hex[1] + hex[1], 16);
+    g = parseInt(hex[2] + hex[2], 16);
+    b = parseInt(hex[3] + hex[3], 16);
+  } else if (hex.length === 7) {
+    r = parseInt(hex.substring(1, 3), 16);
+    g = parseInt(hex.substring(3, 5), 16);
+    b = parseInt(hex.substring(5, 7), 16);
+  }
+
+  const rgba = `rgba(${r},${g},${b},${finalOpacity})`;
+  colorCache.set(cacheKey, rgba);
+
+  // Prevent memory leaks - limit cache size
+  if (colorCache.size > 100) {
+    const firstKey = colorCache.keys().next().value;
+    colorCache.delete(firstKey);
+  }
+
+  return rgba;
+}
+
+/**
+ * Get cached formatted price to avoid expensive string operations
+ */
+function getCachedFormattedPrice(price, digits, config) {
+  const cacheKey = `${price}-${digits}-${JSON.stringify({
+    bigFigureRatio: config.bigFigureFontSizeRatio ?? 0.6,
+    pipsRatio: config.pipFontSizeRatio ?? 1.0,
+    pipetteRatio: config.pipetteFontSizeRatio ?? 0.4
+  })}`;
+
+  if (formattedPriceCache.has(cacheKey)) {
+    return formattedPriceCache.get(cacheKey);
+  }
+
+  const formattedPrice = formatPrice(price, digits, config);
+  if (!formattedPrice) return null;
+
+  formattedPriceCache.set(cacheKey, formattedPrice);
+
+  // Prevent memory leaks
+  if (formattedPriceCache.size > 200) {
+    const firstKey = formattedPriceCache.keys().next().value;
+    formattedPriceCache.delete(firstKey);
+  }
+
+  return formattedPrice;
+}
+
+/**
+ * Get cached text metrics to avoid expensive measureText calls (NeuroSense FX Pattern)
+ */
+function getCachedTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight) {
+  // Guard clause for safety
+  if (!ctx || !formattedPrice) {
+    return null;
+  }
+
+  const metrics = {};
+
+  // Cache bigFigure metrics
+  const bigFigFont = `${fontWeight} ${baseFontSize * formattedPrice.sizing.bigFigureRatio}px monospace`;
+  const bigFigKey = `${formattedPrice.text.bigFigure}-${bigFigFont}`;
+  if (!textMetricsCache.has(bigFigKey)) {
+    const originalFont = ctx.font;
+    ctx.font = bigFigFont;
+    textMetricsCache.set(bigFigKey, ctx.measureText(formattedPrice.text.bigFigure));
+    ctx.font = originalFont;
+  }
+  metrics.bigFigure = textMetricsCache.get(bigFigKey);
+
+  // Cache pips metrics
+  if (formattedPrice.text.pips) {
+    const pipsFont = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipsRatio}px monospace`;
+    const pipsKey = `${formattedPrice.text.pips}-${pipsFont}`;
+    if (!textMetricsCache.has(pipsKey)) {
+      const originalFont = ctx.font;
+      ctx.font = pipsFont;
+      textMetricsCache.set(pipsKey, ctx.measureText(formattedPrice.text.pips));
+      ctx.font = originalFont;
+    }
+    metrics.pips = textMetricsCache.get(pipsKey);
+  }
+
+  // Cache pipette metrics
+  if (formattedPrice.text.pipette) {
+    const pipetteFont = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipetteRatio}px monospace`;
+    const pipetteKey = `${formattedPrice.text.pipette}-${pipetteFont}`;
+    if (!textMetricsCache.has(pipetteKey)) {
+      const originalFont = ctx.font;
+      ctx.font = pipetteFont;
+      textMetricsCache.set(pipetteKey, ctx.measureText(formattedPrice.text.pipette));
+      ctx.font = originalFont;
+    }
+    metrics.pipette = textMetricsCache.get(pipetteKey);
+  }
+
+  // Prevent memory leaks
+  if (textMetricsCache.size > 300) {
+    const firstKey = textMetricsCache.keys().next().value;
+    textMetricsCache.delete(firstKey);
+  }
+
+  return metrics;
+}
+
+/**
+ * Clear all caches (useful for testing or memory management)
+ */
+export function clearPriceDisplayCache() {
+  colorCache.clear();
+  textMetricsCache.clear();
+  formattedPriceCache.clear();
+}
+
 export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
   // Guard clauses for safety (SAME PATTERN AS priceFloat.js)
   if (!ctx || !renderingContext || !config || !state || !y) {
@@ -33,61 +174,69 @@ export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
     return;
   }
 
-  // === FOUNDATION LAYER IMPLEMENTATION ===
-  // 1. Calculate render data (always calculate for core element)
+  // === FOUNDATION LAYER IMPLEMENTATION (NeuroSense FX Pattern) ===
+  // 1. Calculate render data with performance optimizations
   const renderData = calculateRenderData(contentArea, adrAxisX, config, state, y);
 
   // 2. Configure render context for crisp rendering
   configureRenderContext(ctx);
 
-  // 3. Draw background FIRST (behind text) - ✅ FIXED: Background behind text
-  drawBackground(ctx, renderData, config, state, contentArea);
+  // 3. Draw background FIRST (behind text) - Foundation First
+  drawBackground(ctx, renderData, config, contentArea);
 
-  // 4. ALWAYS draw core price text (trader requirement)
-  drawPriceText(ctx, renderData, config, state, digits);
+  // 4. ALWAYS draw core price text (trader requirement) - using cached data
+  drawPriceText(ctx, renderData, config, state);
 
   // 5. Apply bounds checking ONLY to enhancements (foundation pattern)
-  addEnhancements(ctx, renderData, config, state, contentArea, digits);
+  addEnhancements(ctx, renderData, config, state, contentArea);
 
   // 6. Restore context state (foundation pattern)
   ctx.restore();
 }
 
 /**
- * Calculate render data and check bounds
+ * Calculate render data with performance optimizations (NeuroSense FX Pattern)
+ * Pre-calculates all dimensions once, uses cached formatting and metrics
  */
 function calculateRenderData(contentArea, adrAxisX, config, state, y) {
   // Calculate price position using same scale as dayRangeMeter
   const priceY = y(state.currentPrice);
-  
+
   // Check if price display is within canvas bounds
   const inBounds = boundsUtils.isYInBounds(priceY, config, { canvasArea: contentArea });
-  
+
   // Calculate font size using simplified decimal format
-  const fontSize = config.priceFontSize || 0.2; // 20% default as decimal
+  const fontSize = config.priceFontSize ?? 0.2; // 20% default as decimal
   const baseFontSize = contentArea.height * fontSize;
 
   // Calculate positioning based on mode using simplified decimal format
-  const positioningMode = config.priceDisplayPositioning || 'canvasRelative';
+  const positioningMode = config.priceDisplayPositioning ?? 'canvasRelative';
   let startX;
 
   if (positioningMode === 'adrAxis') {
     // Mode 1: ADR Axis Aligned
-    const xOffset = config.priceDisplayXOffset || 0;
+    const xOffset = config.priceDisplayXOffset ?? 0;
     startX = adrAxisX + (contentArea.width * xOffset);
   } else {
     // Mode 2: Canvas Relative
-    const horizontalPosition = config.priceDisplayHorizontalPosition || 0.02; // 2% from left as decimal
-    const xOffset = config.priceDisplayXOffset || 0;
+    const horizontalPosition = config.priceDisplayHorizontalPosition ?? 0.02; // 2% from left as decimal
+    const xOffset = config.priceDisplayXOffset ?? 0;
     startX = contentArea.width * horizontalPosition + (contentArea.width * xOffset);
   }
+
+  // PERFORMANCE OPTIMIZATION: Pre-calculate cached data once (Foundation First)
+  const cachedFormattedPrice = getCachedFormattedPrice(state.currentPrice, state.digits, config);
+  const fontWeight = config.priceFontWeight ?? '600';
 
   return {
     shouldRender: inBounds,
     startX,
     startY: priceY,
     baseFontSize,
-    positioningMode
+    positioningMode,
+    // Pre-calculated data for rendering (no ctx dependency - Foundation First)
+    formattedPrice: cachedFormattedPrice,
+    fontWeight
   };
 }
 
@@ -110,43 +259,43 @@ function configureRenderContext(ctx) {
 }
 
 /**
- * Draw core price text with perfect alignment to dayRangeMeter
+ * Draw core price text with caching during rendering (NeuroSense FX Pattern)
+ * Calculates text metrics during rendering phase when ctx is available
  */
-function drawPriceText(ctx, renderData, config, state, digits) {
-  const { startX, startY, baseFontSize } = renderData;
-  
-  // Format price with configurable sizing
-  const formattedPrice = formatPrice(state.currentPrice, digits, config);
-  
+function drawPriceText(ctx, renderData, config, state) {
+  const { startX, startY, baseFontSize, formattedPrice, fontWeight } = renderData;
+
+  // Guard clause using cached formatted price
   if (!formattedPrice) {
-    console.warn('[PriceDisplay] Price formatting failed, skipping render');
+    console.warn('[PriceDisplay] Missing formatted price, skipping text render');
     return;
   }
 
-  // Determine color and font weight based on configuration
+  // Determine color based on configuration
   const color = determineColor(config, state);
-  const fontWeight = config.priceFontWeight || '600'; // Default to semibold
   ctx.fillStyle = color;
 
-  // Calculate text metrics once (PERFORMANCE OPTIMIZATION)
-  const textMetrics = calculateTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight);
+  // PERFORMANCE OPTIMIZATION: Calculate cached text metrics during rendering
+  const textMetrics = getCachedTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight);
 
   let currentX = startX;
-  
-  // Draw bigFigure with configurable size
-  ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.bigFigureRatio}px monospace`;
-  ctx.fillText(formattedPrice.text.bigFigure, currentX, startY);
-  currentX += textMetrics.bigFigure.width;
 
-  // Draw pips with configurable size
-  if (formattedPrice.text.pips) {
+  // Draw bigFigure with configurable size (using cached metrics)
+  if (textMetrics?.bigFigure) {
+    ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.bigFigureRatio}px monospace`;
+    ctx.fillText(formattedPrice.text.bigFigure, currentX, startY);
+    currentX += textMetrics.bigFigure.width;
+  }
+
+  // Draw pips with configurable size (using cached metrics)
+  if (formattedPrice.text.pips && textMetrics?.pips) {
     ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipsRatio}px monospace`;
     ctx.fillText(formattedPrice.text.pips, currentX, startY);
     currentX += textMetrics.pips.width;
   }
 
-  // Draw pipette with configurable size if enabled
-  if (config.showPipetteDigit && formattedPrice.text.pipette) {
+  // Draw pipette with configurable size if enabled (using cached metrics)
+  if (config.showPipetteDigit && formattedPrice.text.pipette && textMetrics?.pipette) {
     ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipetteRatio}px monospace`;
     ctx.fillText(formattedPrice.text.pipette, currentX, startY);
   }
@@ -155,13 +304,13 @@ function drawPriceText(ctx, renderData, config, state, digits) {
 }
 
 /**
- * Apply enhancements with bounds checking (foundation pattern)
+ * Apply enhancements with bounds checking using cached data (NeuroSense FX Pattern)
  */
-function addEnhancements(ctx, renderData, config, state, contentArea, digits) {
+function addEnhancements(ctx, renderData, config, state, contentArea) {
   // Apply bounds checking ONLY to enhancements
   if (boundsUtils.isYInBounds(renderData.startY, config, { canvasArea: contentArea })) {
     // Draw bounding box if enabled (background already drawn)
-    drawBoundingBox(ctx, renderData, config, state, contentArea, digits);
+    drawBoundingBox(ctx, renderData, config, state, contentArea);
   }
 }
 
@@ -243,9 +392,9 @@ function formatPrice(price, digits, config) {
 
   // NeuroSenseFX Philosophy: Pips are the primary visual element for traders
   // All sizing uses user-configurable ratios with sensible defaults
-  const bigFigureRatio = config.bigFigureFontSizeRatio || 0.6;     // 60% of base (secondary)
-  const pipsRatio = config.pipFontSizeRatio || 1.0;               // 100% of base (PRIMARY - most important)
-  const pipetteRatio = config.pipetteFontSizeRatio || 0.4;        // 40% of base (tertiary)
+  const bigFigureRatio = config.bigFigureFontSizeRatio ?? 0.6;     // 60% of base (secondary)
+  const pipsRatio = config.pipFontSizeRatio ?? 1.0;               // 100% of base (PRIMARY - most important)
+  const pipetteRatio = config.pipetteFontSizeRatio ?? 0.4;        // 40% of base (tertiary)
 
   return {
     text: { bigFigure, pips, pipette },
@@ -337,98 +486,126 @@ function classifyPriceFormat(price, digits) {
   return { type: 'STANDARD_DECIMAL', magnitude, description: 'Standard decimal pricing' };
 }
 
-/**
- * Calculate text metrics for all components in single pass (PERFORMANCE OPTIMIZATION)
- */
-function calculateTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight = '600') {
-  const metrics = {};
-
-  // Measure bigFigure
-  ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.bigFigureRatio}px monospace`;
-  metrics.bigFigure = ctx.measureText(formattedPrice.text.bigFigure);
-
-  // Measure pips
-  ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipsRatio}px monospace`;
-  metrics.pips = ctx.measureText(formattedPrice.text.pips || '');
-
-  // Measure pipette
-  ctx.font = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipetteRatio}px monospace`;
-  metrics.pipette = ctx.measureText(formattedPrice.text.pipette || '');
-
-  return metrics;
-}
 
 /**
- * Draw background/box with efficient calculation - ✅ FIXED: Background drawn first
+ * Draw background using EXACT text measurements (NeuroSense FX Pattern)
+ * Uses cached text metrics for pixel-perfect background sizing
  */
-function drawBackground(ctx, renderData, config, state, contentArea, digits) {
-  if (!config.showPriceBackground) return; // Early return if background disabled
+function drawBackground(ctx, renderData, config, contentArea) {
+  if (!config.showPriceBackground) return; // Early return if disabled
 
-  const { startX, startY } = renderData;
-  const padding = config.priceDisplayPadding;
+  const { startX, startY, formattedPrice, baseFontSize, fontWeight } = renderData;
 
-  // Get formatted price and metrics
-  const formattedPrice = formatPrice(state.currentPrice, digits, config);
-  if (!formattedPrice) return;
+  // FIX: Use config value properly, with fallback to contentArea percentage
+  const padding = (config.priceDisplayPadding !== undefined) ?
+    config.priceDisplayPadding :
+    contentArea.height * 0.02;
 
-  const fontWeight = config.priceFontWeight || '600'; // Default to semibold
-  const textMetrics = calculateTextMetrics(ctx, formattedPrice, renderData.baseFontSize, fontWeight);
-  
-  // Calculate total dimensions once (PERFORMANCE OPTIMIZATION)
-  const totalWidth = textMetrics.bigFigure.width + textMetrics.pips.width + textMetrics.pipette.width;
-  const totalHeight = Math.max(
-    textMetrics.bigFigure.actualBoundingBoxAscent + textMetrics.bigFigure.actualBoundingBoxDescent,
-    textMetrics.pips.actualBoundingBoxAscent + textMetrics.pips.actualBoundingBoxDescent,
-    textMetrics.pipette.actualBoundingBoxAscent + textMetrics.pipette.actualBoundingBoxDescent
-  );
-  
+  // Use EXACT text measurements for pixel-perfect background
+  let totalWidth = 0;
+  let totalHeight = 0;
+
+  if (formattedPrice) {
+    // Get exact text metrics (same as used in drawPriceText)
+    const textMetrics = getCachedTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight);
+
+    if (textMetrics) {
+      // Calculate total width using EXACT measurements
+      totalWidth += textMetrics.bigFigure?.width || 0;
+      totalWidth += textMetrics.pips?.width || 0;
+      totalWidth += textMetrics.pipette?.width || 0;
+
+      // FIX: Use ACTUAL text bounding box heights, not font size calculations
+      const bigFigHeight = (textMetrics.bigFigure?.actualBoundingBoxAscent || 0) +
+                          (textMetrics.bigFigure?.actualBoundingBoxDescent || 0);
+      const pipsHeight = (textMetrics.pips?.actualBoundingBoxAscent || 0) +
+                        (textMetrics.pips?.actualBoundingBoxDescent || 0);
+      const pipetteHeight = (textMetrics.pipette?.actualBoundingBoxAscent || 0) +
+                           (textMetrics.pipette?.actualBoundingBoxDescent || 0);
+
+      // Use the LARGEST actual text height
+      totalHeight = Math.max(bigFigHeight, pipsHeight, pipetteHeight, 1); // Minimum 1px
+    } else {
+      // Fallback to contentArea percentages if text metrics unavailable
+      totalWidth = contentArea.width * 0.12;
+      totalHeight = contentArea.height * 0.03;
+    }
+  } else {
+    // Fallback estimation
+    totalWidth = contentArea.width * 0.12;
+    totalHeight = contentArea.height * 0.03;
+  }
+
+  // Calculate background dimensions using EXACT measurements
   const backgroundWidth = totalWidth + (padding * 2);
   const backgroundHeight = totalHeight + (padding * 2);
   const backgroundX = startX - padding;
   const backgroundY = startY - (totalHeight / 2) - padding;
-  
-  // Draw background if enabled
-  if (config.showPriceBackground) {
-    ctx.fillStyle = hexToRgba(config.priceBackgroundColor || '#111827', config.priceBackgroundOpacity || 0.8);
-    ctx.fillRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
-  }
+
+  // Draw pixel-perfect background rectangle
+  ctx.fillStyle = hexToRgba(config.priceBackgroundColor ?? '#111827', config.priceBackgroundOpacity ?? 0.8);
+  ctx.fillRect(backgroundX, backgroundY, backgroundWidth, backgroundHeight);
 }
 
 /**
- * Draw bounding box outline separately from background - ✅ FIXED: Separate function
+ * Draw bounding box outline using EXACT text measurements (NeuroSense FX Pattern)
+ * Enhancement layer - perfectly aligned with background using same measurements
  */
-function drawBoundingBox(ctx, renderData, config, state, contentArea, digits) {
-  if (!config.showPriceBoundingBox) return; // Early return if box disabled
+function drawBoundingBox(ctx, renderData, config, state, contentArea) {
+  if (!config.showPriceBoundingBox) return; // Early return if disabled
 
-  const { startX, startY } = renderData;
-  const padding = config.priceDisplayPadding;
+  const { startX, startY, formattedPrice, baseFontSize, fontWeight } = renderData;
 
-  // Get formatted price and metrics
-  const formattedPrice = formatPrice(state.currentPrice, digits, config);
-  if (!formattedPrice) return;
+  // FIX: Use config value properly, with fallback to contentArea percentage
+  const padding = (config.priceDisplayPadding !== undefined) ?
+    config.priceDisplayPadding :
+    contentArea.height * 0.02;
 
-  const fontWeight = config.priceFontWeight || '600'; // Default to semibold
-  const textMetrics = calculateTextMetrics(ctx, formattedPrice, renderData.baseFontSize, fontWeight);
-  
-  // Calculate total dimensions once (PERFORMANCE OPTIMIZATION)
-  const totalWidth = textMetrics.bigFigure.width + textMetrics.pips.width + textMetrics.pipette.width;
-  const totalHeight = Math.max(
-    textMetrics.bigFigure.actualBoundingBoxAscent + textMetrics.bigFigure.actualBoundingBoxDescent,
-    textMetrics.pips.actualBoundingBoxAscent + textMetrics.pips.actualBoundingBoxDescent,
-    textMetrics.pipette.actualBoundingBoxAscent + textMetrics.pipette.actualBoundingBoxDescent
-  );
-  
+  // Use EXACT text measurements for perfect alignment with background
+  let totalWidth = 0;
+  let totalHeight = 0;
+
+  if (formattedPrice) {
+    // Get exact text metrics (same as background and drawPriceText)
+    const textMetrics = getCachedTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight);
+
+    if (textMetrics) {
+      // Calculate total width using EXACT measurements
+      totalWidth += textMetrics.bigFigure?.width || 0;
+      totalWidth += textMetrics.pips?.width || 0;
+      totalWidth += textMetrics.pipette?.width || 0;
+
+      // FIX: Use ACTUAL text bounding box heights, not font size calculations
+      const bigFigHeight = (textMetrics.bigFigure?.actualBoundingBoxAscent || 0) +
+                          (textMetrics.bigFigure?.actualBoundingBoxDescent || 0);
+      const pipsHeight = (textMetrics.pips?.actualBoundingBoxAscent || 0) +
+                        (textMetrics.pips?.actualBoundingBoxDescent || 0);
+      const pipetteHeight = (textMetrics.pipette?.actualBoundingBoxAscent || 0) +
+                           (textMetrics.pipette?.actualBoundingBoxDescent || 0);
+
+      // Use the LARGEST actual text height
+      totalHeight = Math.max(bigFigHeight, pipsHeight, pipetteHeight, 1); // Minimum 1px
+    } else {
+      // Fallback to contentArea percentages if text metrics unavailable
+      totalWidth = contentArea.width * 0.12;
+      totalHeight = contentArea.height * 0.03;
+    }
+  } else {
+    // Fallback estimation
+    totalWidth = contentArea.width * 0.12;
+    totalHeight = contentArea.height * 0.03;
+  }
+
+  // Calculate box dimensions (same as background for perfect alignment)
   const boxWidth = totalWidth + (padding * 2);
   const boxHeight = totalHeight + (padding * 2);
   const boxX = startX - padding;
   const boxY = startY - (totalHeight / 2) - padding;
-  
-  // Draw border if enabled
-  if (config.showPriceBoundingBox) {
-    ctx.strokeStyle = hexToRgba(config.priceBoxOutlineColor || '#4B5563', config.priceBoxOutlineOpacity || 1);
-    ctx.lineWidth = 1;
-    ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-  }
+
+  // Draw border outline (enhancement layer)
+  ctx.strokeStyle = hexToRgba(config.priceBoxOutlineColor ?? '#4B5563', config.priceBoxOutlineOpacity ?? 1);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
 }
 
 /**
@@ -457,24 +634,3 @@ function determineColor(config, state) {
   }
 }
 
-/**
- * Safely converts a HEX color to an RGBA string (UTILITY FUNCTION)
- */
-function hexToRgba(hex, opacity) {
-  if (!hex) return 'rgba(0,0,0,0)'; // Return transparent for invalid hex
-  
-  const finalOpacity = (opacity === undefined || opacity === null) ? 1 : opacity;
-
-  let r = 0, g = 0, b = 0;
-  if (hex.length === 4) {
-    r = parseInt(hex[1] + hex[1], 16);
-    g = parseInt(hex[2] + hex[2], 16);
-    b = parseInt(hex[3] + hex[3], 16);
-  } else if (hex.length === 7) {
-    r = parseInt(hex.substring(1, 3), 16);
-    g = parseInt(hex.substring(3, 5), 16);
-    b = parseInt(hex.substring(5, 7), 16);
-  }
-  
-  return `rgba(${r},${g},${b},${finalOpacity})`;
-}

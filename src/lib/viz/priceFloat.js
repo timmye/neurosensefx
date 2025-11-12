@@ -57,11 +57,11 @@ function calculateRenderData(contentArea, adrAxisX, config, state, y) {
   const inBounds = boundsUtils.isYInBounds(priceY, config, { canvasArea: contentArea });
   
   // Calculate content-relative dimensions using simplified decimal format
-  const floatWidth = contentArea.width * (config.priceFloatWidth || 0.15);
-  const floatHeight = Math.max(1, contentArea.height * (config.priceFloatHeight || 0.02));
+  const floatWidth = contentArea.width * (config.priceFloatWidth ?? 0.15);
+  const floatHeight = Math.max(1, contentArea.height * (config.priceFloatHeight ?? 0.02));
 
   // Calculate X offset from priceFloatXOffset parameter
-  const xOffset = contentArea.width * (config.priceFloatXOffset || 0);
+  const xOffset = contentArea.width * (config.priceFloatXOffset ?? 0);
   
   // Calculate start position: center on ADR axis, then apply offset
   const centeredStartX = adrAxisX - (floatWidth / 2);
@@ -106,7 +106,7 @@ function drawPriceLine(ctx, renderData, config, state) {
   
   // Apply glow effects if configured
   if (config.priceFloatGlowStrength > 0) {
-    ctx.shadowColor = config.priceFloatGlowColor || color;
+    ctx.shadowColor = config.priceFloatGlowColor ?? color;
     ctx.shadowBlur = config.priceFloatGlowStrength;
   }
   
