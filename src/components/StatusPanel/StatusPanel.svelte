@@ -4,6 +4,7 @@
   import FloatingPanel from '../FloatingPanel.svelte';
   import StatusMetrics from './StatusMetrics.svelte';
   import { displayStore, displayActions } from '../../stores/displayStore.js';
+  import { Environment, EnvironmentConfig, getEnvironmentInfo } from '../../lib/utils/environmentUtils.js';
 
   // Panel configuration
   export let position = { x: window.innerWidth - 300, y: 20 };
@@ -28,6 +29,11 @@
   let size = 'small';
   let lastResize = Date.now();
 
+  // 🌍 ENVIRONMENT AWARENESS: Environment state and configuration
+  let environmentInfo = null;
+  let showEnvironmentIndicator = false;
+  let environmentStatus = 'good';
+
   // NEW: Auto-show details when opened from icon expansion
   $: if (isFromIconExpansion && !showDetails) {
     showDetails = true;
@@ -40,6 +46,13 @@
   $: symbolDataStatus = $connectivityStore.symbolData;
   $: latencyData = $connectivityStore.latency;
   $: overallHealth = $systemHealth;
+
+  // 🌍 ENVIRONMENT AWARENESS: Reactive environment information
+  $: if (EnvironmentConfig.current.showEnvironmentIndicator) {
+    environmentInfo = getEnvironmentInfo();
+    showEnvironmentIndicator = true;
+    environmentStatus = Environment.isDevelopment ? 'warning' : 'good';
+  }
 
   // Handle window resize with debouncing
   function handleResize() {
@@ -124,6 +137,18 @@
           showDetails={showDetails}
           {size}
         />
+
+        <!-- 🌍 Environment Status (when enabled) -->
+        {#if showEnvironmentIndicator && !isMinimized}
+          <div class="environment-indicator" class:env-dev={Environment.isDevelopment} class:env-prod={Environment.isProduction}>
+            <div class="env-icon" title={environmentInfo?.current?.toUpperCase() || 'ENV'}>
+              {Environment.isDevelopment ? '🔧' : '🚀'}
+            </div>
+            {#if config.showLabels}
+              <span class="env-label">{Environment.current.toUpperCase()}</span>
+            {/if}
+          </div>
+        {/if}
       </div>
 
       <!-- Data Freshness Display -->
@@ -147,6 +172,11 @@
       <div class="status-details-section">
         <div class="details-header">
           <h4>System Health: {overallHealth}</h4>
+          {#if showEnvironmentIndicator}
+            <div class="environment-badge" class:env-dev={Environment.isDevelopment} class:env-prod={Environment.isProduction}>
+              {Environment.isDevelopment ? '🔧 DEV' : '🚀 PROD'}
+            </div>
+          {/if}
         </div>
 
         <div class="details-grid">
@@ -175,6 +205,32 @@
             </span>
           </div>
         </div>
+
+        <!-- 🌍 Environment Details Section -->
+        {#if showEnvironmentIndicator && environmentInfo}
+          <div class="environment-details">
+            <div class="env-detail-item">
+              <span class="detail-label">Environment:</span>
+              <span class="detail-value env-mode" class:env-dev={Environment.isDevelopment} class:env-prod={Environment.isProduction}>
+                {Environment.isDevelopment ? '🔧 Development' : '🚀 Production'}
+              </span>
+            </div>
+            {#if Environment.isDevelopment}
+              <div class="env-detail-item">
+                <span class="detail-label">Debug Mode:</span>
+                <span class="detail-value env-debug">
+                  {EnvironmentConfig.current.debugLogging ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <div class="env-detail-item">
+                <span class="detail-label">Hot Reload:</span>
+                <span class="detail-value env-feature">
+                  {EnvironmentConfig.current.hotReloadFeatures ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            {/if}
+          </div>
+        {/if}
 
         {#if latencyData.details}
           <div class="data-delay-info">
@@ -453,6 +509,138 @@
     .overall-status {
       border-width: 2px;
       background: #000;
+    }
+  }
+
+  /* 🌍 Environment Indicator Styles */
+  .environment-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid;
+    transition: all 0.2s ease;
+  }
+
+  .environment-indicator.env-dev {
+    background: rgba(168, 85, 247, 0.1);
+    border-color: rgba(168, 85, 247, 0.3);
+    color: #a855f7;
+  }
+
+  .environment-indicator.env-prod {
+    background: rgba(8, 145, 178, 0.1);
+    border-color: rgba(8, 145, 178, 0.3);
+    color: #0891b2;
+  }
+
+  .env-icon {
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .env-label {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Environment Badge in Header */
+  .environment-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid;
+  }
+
+  .environment-badge.env-dev {
+    background: rgba(168, 85, 247, 0.15);
+    border-color: rgba(168, 85, 247, 0.4);
+    color: #a855f7;
+  }
+
+  .environment-badge.env-prod {
+    background: rgba(8, 145, 178, 0.15);
+    border-color: rgba(8, 145, 178, 0.4);
+    color: #0891b2;
+  }
+
+  /* Environment Details Section */
+  .environment-details {
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(15, 23, 42, 0.3);
+    border: 1px solid rgba(51, 65, 85, 0.2);
+    border-radius: 4px;
+  }
+
+  .env-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  .env-detail-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .detail-value.env-mode {
+    font-weight: 600;
+  }
+
+  .detail-value.env-mode.env-dev {
+    color: #a855f7;
+  }
+
+  .detail-value.env-mode.env-prod {
+    color: #0891b2;
+  }
+
+  .detail-value.env-debug {
+    color: #f59e0b;
+  }
+
+  .detail-value.env-feature {
+    color: #10b981;
+  }
+
+  /* Responsive adjustments for environment indicators */
+  @media (max-width: 768px) {
+    .environment-indicator {
+      padding: 3px 6px;
+      font-size: 11px;
+    }
+
+    .env-icon {
+      font-size: 12px;
+    }
+
+    .environment-badge {
+      font-size: 10px;
+      padding: 3px 6px;
+    }
+
+    .env-detail-item {
+      font-size: 12px;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .environment-indicator,
+    .environment-badge {
+      transition: none;
     }
   }
 </style>

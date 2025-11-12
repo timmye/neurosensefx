@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { scaleLinear } from 'd3-scale';
   import { drawDayRangeMeter } from '../../lib/viz/dayRangeMeter.js';
   import { drawPriceFloat } from '../../lib/viz/priceFloat.js';
@@ -11,6 +11,7 @@
   import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js'; // Import drawPriceMarkers
   import { markerStore } from '../../stores/markerStore.js'; // Import markerStore
   import { writable } from 'svelte/store';
+  import { Environment, EnvironmentConfig } from '../../lib/utils/environmentUtils.js';
 
   // Debug: Verify imports are working
   console.log('[Container] Imports loaded:', {
@@ -41,6 +42,11 @@
   // 🔧 CLEAN FOUNDATION: Rendering context for clean parameter pipeline
   let renderingContext = null;
   let canvasSizingConfig = null;
+
+  // 🌍 ENVIRONMENT INDICATOR: Environment detection and display state
+  let showEnvironmentIndicator = false;
+  let environmentDetails = null;
+  let indicatorTooltip = '';
 
   onMount(() => {
     ctx = canvas.getContext('2d');
@@ -124,6 +130,28 @@
     canvas.height = canvasDims.height;
     
     console.log('[CONTAINER] Clean foundation renderingContext:', renderingContext);
+  }
+
+  // 🌍 ENVIRONMENT INDICATOR: Reactive environment detection and tooltip generation
+  $: {
+    const config = EnvironmentConfig.current;
+    showEnvironmentIndicator = config.showEnvironmentIndicator;
+
+    if (showEnvironmentIndicator) {
+      environmentDetails = {
+        mode: Environment.current,
+        isDevelopment: Environment.isDevelopment,
+        isProduction: Environment.isProduction,
+        config: config
+      };
+
+      // Generate descriptive tooltip
+      if (Environment.isDevelopment) {
+        indicatorTooltip = 'Development Mode - Hot reload enabled, debug logging active';
+      } else {
+        indicatorTooltip = 'Production Mode - Optimized for performance';
+      }
+    }
   }
 
   // This reactive block triggers a redraw whenever core data, config, hover state, or marker store changes
@@ -298,6 +326,23 @@
 
 <div class="viz-container" style="width: {config.containerSize.width}px;">
   <canvas bind:this={canvas} on:mousemove={handleMouseMove} on:mouseleave={handleMouseLeave} on:click={handleClick}></canvas>
+
+  {#if showEnvironmentIndicator && environmentDetails}
+    <div
+      class="environment-indicator {environmentDetails.mode}"
+      class:development={environmentDetails.isDevelopment}
+      class:production={environmentDetails.isProduction}
+      title={indicatorTooltip}
+      aria-label={indicatorTooltip}
+      role="status"
+      aria-live="polite"
+    >
+      <span class="indicator-dot"></span>
+      <span class="indicator-text">
+        {environmentDetails.isDevelopment ? 'DEV' : 'PROD'}
+      </span>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -310,5 +355,128 @@
     display: block;
     background-color: #111827;
     width: 100%;
+  }
+
+  /* 🌍 Environment Indicator Styles */
+  .environment-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    pointer-events: auto;
+    z-index: 10;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+    backdrop-filter: blur(4px);
+  }
+
+  .environment-indicator:hover {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+
+  .indicator-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  .indicator-text {
+    color: #ffffff;
+    font-family: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    white-space: nowrap;
+  }
+
+  /* Development mode styling - warning orange to indicate non-production */
+  .environment-indicator.development {
+    background: rgba(251, 146, 60, 0.15);
+    border: 1px solid rgba(251, 146, 60, 0.3);
+    color: #fb923c;
+  }
+
+  .environment-indicator.development .indicator-dot {
+    background-color: #fb923c;
+    box-shadow: 0 0 4px rgba(251, 146, 60, 0.5);
+  }
+
+  .environment-indicator.development:hover {
+    background: rgba(251, 146, 60, 0.25);
+    border-color: rgba(251, 146, 60, 0.5);
+  }
+
+  /* Production mode styling - calm green/blue to indicate stable environment */
+  .environment-indicator.production {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+  }
+
+  .environment-indicator.production .indicator-dot {
+    background-color: #22c55e;
+    box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+  }
+
+  .environment-indicator.production:hover {
+    background: rgba(34, 197, 94, 0.25);
+    border-color: rgba(34, 197, 94, 0.5);
+  }
+
+  /* Pulse animation for the indicator dot */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.2);
+    }
+  }
+
+  /* Responsive adjustments for smaller displays */
+  @media (max-width: 300px) {
+    .environment-indicator {
+      top: 4px;
+      right: 4px;
+      padding: 3px 4px;
+      font-size: 9px;
+    }
+
+    .indicator-dot {
+      width: 5px;
+      height: 5px;
+    }
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .environment-indicator {
+      opacity: 0.9;
+      border-width: 2px;
+    }
+
+    .environment-indicator:hover {
+      opacity: 1;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .environment-indicator {
+      transition: none;
+    }
+
+    .indicator-dot {
+      animation: none;
+    }
   }
 </style>

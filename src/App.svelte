@@ -7,8 +7,9 @@
   import UnifiedContextMenu from './components/UnifiedContextMenu.svelte';
   import SymbolPalette from './components/SymbolPalette.svelte';
   import StatusPanel from './components/StatusPanel/StatusPanel.svelte';
-import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
+  import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
   import symbolService from './services/symbolService.js';
+  import { Environment, EnvironmentConfig, initializeEnvironment, getEnvironmentInfo } from './lib/utils/environmentUtils.js';
   
   // Store subscriptions
   $: displayList = Array.from($displays.values());
@@ -16,6 +17,11 @@ import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
   $: panelList = Array.from($panels.values());
   
   let symbolPaletteRef;
+
+  // 🌍 ENVIRONMENT AWARENESS: Global environment state and initialization
+  let environmentInfo = null;
+  let showGlobalEnvironmentIndicator = false;
+  let environmentInitialized = false;
   
   
   // Enhanced keyboard shortcuts
@@ -119,6 +125,31 @@ import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
   // Initialize displays on mount
   onMount(async () => {
     try {
+      // 🌍 ENVIRONMENT AWARENESS: Initialize environment system first
+      console.log('[APP] Initializing environment system...');
+      const envInit = initializeEnvironment();
+      if (envInit.success) {
+        environmentInitialized = true;
+        environmentInfo = getEnvironmentInfo();
+        showGlobalEnvironmentIndicator = EnvironmentConfig.current.showEnvironmentIndicator;
+
+        console.log('[APP] Environment initialized successfully:', {
+          environment: Environment.current,
+          showIndicator: showGlobalEnvironmentIndicator,
+          config: EnvironmentConfig.current
+        });
+
+        // Show environment-specific console message
+        if (Environment.isDevelopment) {
+          console.log('%c🔧 NeuroSense FX Development Mode', 'color: #a855f7; font-weight: bold; font-size: 14px;');
+          console.log('%cDebug logging and development features are enabled', 'color: #a855f7; font-style: italic;');
+        } else {
+          console.log('%c🚀 NeuroSense FX Production Mode', 'color: #0891b2; font-weight: bold; font-size: 14px;');
+        }
+      } else {
+        console.warn('[APP] Environment initialization failed:', envInit);
+      }
+
       // Initialize workspace from persisted data first
       await displayActions.initializeWorkspace();
 
@@ -198,10 +229,23 @@ import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
     class="workspace"
     on:contextmenu={handleWorkspaceContextMenu}
   >
-    <!-- HMR Test Badge -->
-    <div style="position: absolute; top: 10px; left: 10px; background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; z-index: 1000;">
-      🔥 HMR Working!
-    </div>
+    <!-- 🌍 Global Environment Indicator -->
+    {#if showGlobalEnvironmentIndicator && environmentInfo}
+      <div class="global-environment-indicator" class:env-dev={Environment.isDevelopment} class:env-prod={Environment.isProduction}>
+        <div class="env-icon">
+          {Environment.isDevelopment ? '🔧' : '🚀'}
+        </div>
+        <div class="env-text">
+          <span class="env-mode">{Environment.current.toUpperCase()}</span>
+          {#if Environment.isDevelopment}
+            <span class="env-details">DEV MODE</span>
+          {/if}
+        </div>
+        {#if Environment.isDevelopment && EnvironmentConfig.current.debugLogging}
+          <div class="env-debug-indicator" title="Debug Logging Enabled"></div>
+        {/if}
+      </div>
+    {/if}
   </div>
   
       <!-- Floating Icons (Layer 3) -->
@@ -279,5 +323,145 @@ import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
       radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.1) 0%, transparent 50%),
       radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
       radial-gradient(circle at 40% 20%, rgba(239, 68, 68, 0.1) 0%, transparent 50%);
+  }
+
+  /* 🌍 Global Environment Indicator Styles */
+  .global-environment-indicator {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(12px);
+    z-index: 1000;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .global-environment-indicator.env-dev {
+    border-color: rgba(168, 85, 247, 0.4);
+    background: rgba(168, 85, 247, 0.15);
+    color: #a855f7;
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2);
+  }
+
+  .global-environment-indicator.env-prod {
+    border-color: rgba(8, 145, 178, 0.4);
+    background: rgba(8, 145, 178, 0.15);
+    color: #0891b2;
+    box-shadow: 0 4px 12px rgba(8, 145, 178, 0.2);
+  }
+
+  .env-icon {
+    font-size: 16px;
+    line-height: 1;
+    animation: env-icon-pulse 2s infinite ease-in-out;
+  }
+
+  @keyframes env-icon-pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+  }
+
+  .env-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .env-mode {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
+  }
+
+  .env-details {
+    font-size: 9px;
+    font-weight: 500;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .env-debug-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f59e0b;
+    flex-shrink: 0;
+    animation: debug-pulse 1.5s infinite ease-in-out;
+  }
+
+  @keyframes debug-pulse {
+    0%, 100% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* Responsive adjustments for global environment indicator */
+  @media (max-width: 768px) {
+    .global-environment-indicator {
+      top: 8px;
+      left: 8px;
+      padding: 6px 8px;
+      font-size: 11px;
+      gap: 6px;
+    }
+
+    .env-icon {
+      font-size: 14px;
+    }
+
+    .env-details {
+      font-size: 8px;
+    }
+
+    .env-debug-indicator {
+      width: 5px;
+      height: 5px;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .global-environment-indicator,
+    .env-icon,
+    .env-debug-indicator {
+      transition: none;
+      animation: none;
+    }
+  }
+
+  /* High contrast support */
+  @media (prefers-contrast: high) {
+    .global-environment-indicator {
+      border-width: 2px;
+      background: #000;
+    }
+
+    .global-environment-indicator.env-dev {
+      border-color: #a855f7;
+      color: #a855f7;
+    }
+
+    .global-environment-indicator.env-prod {
+      border-color: #0891b2;
+      color: #0891b2;
+    }
   }
 </style>

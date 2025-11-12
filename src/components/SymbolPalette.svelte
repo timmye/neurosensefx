@@ -5,6 +5,7 @@
   import { displays } from '../stores/displayStore.js';
   import { availableSymbols, subscribe } from '../data/wsClient.js';
   import { FuzzySearch } from '../utils/fuzzySearch.js';
+  import { Environment, EnvironmentConfig } from '../lib/utils/environmentUtils.js';
   
   let symbols = [];
   let availableSyms = [];
@@ -16,6 +17,10 @@
   let searchInput;
   let fuzzySearch;
   let isSearching = false;
+
+  // 🌍 ENVIRONMENT AWARENESS: Environment state and configuration
+  let showEnvironmentWarning = false;
+  let environmentWarningMessage = '';
   
   // Store subscriptions
   const unsubscribeDisplays = displays.subscribe(value => {
@@ -58,6 +63,14 @@
       }, 100);
     }
   });
+
+  // 🌍 ENVIRONMENT AWARENESS: Reactive environment warnings
+  $: if (EnvironmentConfig.current.showEnvironmentIndicator) {
+    showEnvironmentWarning = Environment.isDevelopment;
+    environmentWarningMessage = Environment.isDevelopment
+      ? 'Development Mode: Symbol changes may affect dev environment only'
+      : '';
+  }
   
   // Initialize fuzzy search with proper caching (per design spec)
   onMount(() => {
@@ -456,7 +469,18 @@
           </div>
         {/if}
       </div>
-      
+
+      <!-- 🌍 Environment Warning (when in development mode) -->
+      {#if showEnvironmentWarning && environmentWarningMessage}
+        <div class="environment-warning" class:env-dev={Environment.isDevelopment}>
+          <div class="warning-icon">⚠️</div>
+          <div class="warning-message">
+            <span class="warning-title">Development Environment</span>
+            <span class="warning-text">{environmentWarningMessage}</span>
+          </div>
+        </div>
+      {/if}
+
       <!-- Search Results -->
       {#if searchQuery && filteredSymbols.length > 0}
         <div class="search-results" role="listbox">
@@ -746,7 +770,80 @@
     font-size: 12px;
     color: #9ca3af;
   }
-  
+
+  /* 🌍 Environment Warning Styles */
+  .environment-warning {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    border-radius: 8px;
+    border: 1px solid;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+  }
+
+  .environment-warning.env-dev {
+    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.1);
+  }
+
+  .warning-icon {
+    font-size: 18px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .warning-message {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+  }
+
+  .warning-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #a855f7;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .warning-text {
+    font-size: 12px;
+    color: #d1d5db;
+    line-height: 1.4;
+  }
+
+  /* Responsive adjustments for environment warning */
+  @media (max-width: 768px) {
+    .environment-warning {
+      padding: 10px 12px;
+      gap: 8px;
+    }
+
+    .warning-icon {
+      font-size: 16px;
+    }
+
+    .warning-title {
+      font-size: 12px;
+    }
+
+    .warning-text {
+      font-size: 11px;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .environment-warning {
+      transition: none;
+    }
+  }
+
   /* Legacy Sections */
   .section {
     display: flex;

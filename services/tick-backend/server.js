@@ -10,7 +10,13 @@ console.log('[DEBUG] 5. WebSocketServer required successfully.');
 
 const path = require('path');
 
-const port = process.env.WS_PORT || 8080;
+// Environment-aware port configuration
+const port = process.env.WS_PORT || (process.env.NODE_ENV === 'production' ? 8081 : 8080);
+
+// Log environment configuration
+console.log(`🌍 Backend Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🚀 Backend WebSocket Port: ${port}`);
+console.log(`📡 WebSocket URL: ws://localhost:${port}`);
 
 console.log('[DEBUG] 6. Instantiating CTraderSession...');
 const session = new CTraderSession();

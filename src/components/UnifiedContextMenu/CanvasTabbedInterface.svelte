@@ -2,10 +2,12 @@
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { parameterGroups, getParameterMetadata, getParameterMetadataWithPercentage, isPercentageParameter } from './utils/parameterGroups.js';
   import { searchParameters } from './utils/searchUtils.js';
+  import CopyEnvironmentTab from './CopyEnvironmentTab.svelte';
+  import { Environment, EnvironmentConfig } from '../../lib/utils/environmentUtils.js';
   // Simple highlight function for search results
   function highlightMatch(text, query) {
     if (!query || !text) return text;
-    
+
     const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     return text.replace(regex, '<mark>$1</mark>');
   }
@@ -29,19 +31,36 @@
   let searchInput = null;
   let cleanupShortcuts = null;
   let config = {};
+
+  // 🌍 ENVIRONMENT AWARENESS: Environment state for configuration interface
+  let showEnvironmentBadge = false;
+  let environmentMode = '';
   
   // Get display config from store
   $: if (displayId && $displays.has(displayId)) {
     const displayConfig = $displays.get(displayId).config;
     config = displayConfig || {};
   }
+
+  // 🌍 ENVIRONMENT AWARENESS: Reactive environment state
+  $: if (EnvironmentConfig.current.showEnvironmentIndicator) {
+    showEnvironmentBadge = true;
+    environmentMode = Environment.current;
+  }
   
-  // Tab components mapping
-  const tabComponents = parameterGroups;
+  // Enhanced tab components with environment copy functionality
+  const environmentTab = {
+    id: 'environment',
+    title: 'Environment',
+    description: 'Copy workspace data between development and production',
+    type: 'environment'
+  };
+
+  const tabComponents = [...parameterGroups, environmentTab];
   
   // Handle tab navigation
   function switchTab(index) {
-    if (index >= 0 && index < parameterGroups.length) {
+    if (index >= 0 && index < tabComponents.length) {
       activeTab = index;
       clearSearch();
     }
@@ -80,13 +99,13 @@
   
   function selectSearchResult(result) {
     if (!result) return;
-    
+
     // Switch to the tab containing this parameter
-    const tabIndex = parameterGroups.findIndex(group => group.id === result.group);
+    const tabIndex = tabComponents.findIndex(group => group.id === result.group);
     if (tabIndex !== -1) {
       switchTab(tabIndex);
     }
-    
+
     clearSearch();
   }
   
@@ -114,10 +133,10 @@
     
     switch (action) {
       case 'nextTab':
-        switchTab((activeTab + 1) % parameterGroups.length);
+        switchTab((activeTab + 1) % tabComponents.length);
         break;
       case 'prevTab':
-        switchTab(activeTab === 0 ? parameterGroups.length - 1 : activeTab - 1);
+        switchTab(activeTab === 0 ? tabComponents.length - 1 : activeTab - 1);
         break;
       case 'goToTab':
         switchTab(params.tabIndex);
@@ -216,6 +235,13 @@
       {#if displayId}
         <span class="canvas-id">ID: {displayId}</span>
       {/if}
+      <!-- 🌍 Environment Badge -->
+      {#if showEnvironmentBadge}
+        <div class="config-environment-badge" class:env-dev={Environment.isDevelopment} class:env-prod={Environment.isProduction}>
+          <span class="env-icon">{Environment.isDevelopment ? '🔧' : '🚀'}</span>
+          <span class="env-text">{environmentMode.toUpperCase()}</span>
+        </div>
+      {/if}
     </div>
     <div class="header-right">
       <!-- Search Input -->
@@ -280,8 +306,8 @@
   
   <!-- Tab Navigation -->
   <div class="tab-navigation">
-    {#each parameterGroups as group, index}
-      <button 
+    {#each tabComponents as group, index}
+      <button
         class="tab-button {activeTab === index ? 'active' : ''}"
         on:click={() => switchTab(index)}
         title={group.description}
@@ -294,10 +320,20 @@
   
   <!-- Tab Content -->
   <div class="tab-content-container">
-    {#each parameterGroups as group, index}
+    {#each tabComponents as group, index}
       {#if activeTab === index}
         <div class="tab-content">
-          <div class="parameter-group">
+          {#if group.type === 'environment'}
+            <!-- Environment Copy Tab -->
+            <div class="environment-tab-container">
+              <CopyEnvironmentTab
+                onClose={() => dispatch('close')}
+                onShowNotification={(event) => dispatch('showNotification', event.detail)}
+              />
+            </div>
+          {:else}
+            <!-- Regular Parameter Group Tab -->
+            <div class="parameter-group">
             <h4>{group.title}</h4>
             <p class="group-description">{group.description}</p>
             
@@ -391,6 +427,7 @@
               {/each}
             </div>
           </div>
+          {/if}
         </div>
       {/if}
     {/each}
@@ -443,7 +480,43 @@
     font-size: 11px;
     font-family: 'Courier New', monospace;
   }
-  
+
+  /* 🌍 Configuration Environment Badge */
+  .config-environment-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border: 1px solid;
+    margin-left: 8px;
+  }
+
+  .config-environment-badge.env-dev {
+    background: rgba(168, 85, 247, 0.15);
+    border-color: rgba(168, 85, 247, 0.4);
+    color: #a855f7;
+  }
+
+  .config-environment-badge.env-prod {
+    background: rgba(8, 145, 178, 0.15);
+    border-color: rgba(8, 145, 178, 0.4);
+    color: #0891b2;
+  }
+
+  .config-environment-badge .env-icon {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .config-environment-badge .env-text {
+    font-weight: 700;
+  }
+
   .search-container {
     position: relative;
     width: 100%;
@@ -795,5 +868,131 @@
   .tab-content-container::-webkit-scrollbar-thumb:hover,
   .search-results::-webkit-scrollbar-thumb:hover {
     background: #6b7280;
+  }
+
+  /* Environment Tab Styles */
+  .environment-tab-container {
+    height: 100%;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e5e7eb;
+  }
+
+  .environment-tab-container :global(.copy-environment-container) {
+    background: transparent;
+    color: #e5e7eb;
+  }
+
+  .environment-tab-container :global(.section-tabs) {
+    border-bottom-color: #374151;
+  }
+
+  .environment-tab-container :global(.tab-button) {
+    color: #9ca3af;
+    border-bottom-color: transparent;
+  }
+
+  .environment-tab-container :global(.tab-button:hover) {
+    background-color: #374151;
+  }
+
+  .environment-tab-container :global(.tab-button.active) {
+    border-bottom-color: #3b82f6;
+    color: #3b82f6;
+  }
+
+  .environment-tab-container :global(.form-group label) {
+    color: #d1d5db;
+  }
+
+  .environment-tab-container :global(.preset-button) {
+    background: #374151;
+    border-color: #4b5563;
+    color: #e5e7eb;
+  }
+
+  .environment-tab-container :global(.preset-button:hover) {
+    border-color: #6b7280;
+    background: #4b5563;
+  }
+
+  .environment-tab-container :global(.preset-button.active) {
+    border-color: #3b82f6;
+    background-color: #1e3a8a;
+    color: #60a5fa;
+  }
+
+  .environment-tab-container :global(.item-checkbox) {
+    border-color: #4b5563;
+    background: #374151;
+  }
+
+  .environment-tab-container :global(.item-checkbox:hover) {
+    border-color: #6b7280;
+    background: #4b5563;
+  }
+
+  .environment-tab-container :global(.primary-button) {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+  }
+
+  .environment-tab-container :global(.secondary-button) {
+    background: #374151;
+    color: #e5e7eb;
+    border-color: #4b5563;
+  }
+
+  .environment-tab-container :global(.secondary-button:hover:not(:disabled)) {
+    background: #4b5563;
+  }
+
+  .environment-tab-container :global(.operation-result) {
+    background: #374151;
+    border-color: #4b5563;
+  }
+
+  .environment-tab-container :global(.result-summary.success) {
+    background: #064e3b;
+    color: #34d399;
+    border-color: #065f46;
+  }
+
+  .environment-tab-container :global(.result-summary.error) {
+    background: #7f1d1d;
+    color: #f87171;
+    border-color: #991b1b;
+  }
+
+  .environment-tab-container :global(.backup-item) {
+    background: #374151;
+    border-color: #4b5563;
+  }
+
+  .environment-tab-container :global(.comparison-summary) {
+    background: #374151;
+  }
+
+  .environment-tab-container :global(.env-comparison h5) {
+    color: #d1d5db;
+  }
+
+  .environment-tab-container :global(.comparison-item) {
+    border-bottom-color: #4b5563;
+  }
+
+  .environment-tab-container :global(.size-differences) {
+    background: #78350f;
+    border-color: #92400e;
+  }
+
+  .environment-tab-container :global(.size-differences h4) {
+    color: #fbbf24;
+  }
+
+  .environment-tab-container :global(.error-message) {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #f87171;
   }
 </style>

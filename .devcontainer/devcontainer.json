@@ -13,7 +13,8 @@
         "RooVeterinaryInc.roo-cline",
         "kilocode.kilo-code",
         "saoudrizwan.claude-dev",
-        "ms-playwright.playwright"
+        "ms-playwright.playwright",
+        "Anthropic.claude-code"
       ]
     }
   },

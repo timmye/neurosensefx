@@ -5,6 +5,7 @@
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
+  import { Environment, EnvironmentConfig } from '../lib/utils/environmentUtils.js';
   
   // Import drawing functions
   import { drawMarketProfile } from '../lib/viz/marketProfile.js';
@@ -48,6 +49,10 @@
   
   // Declare variables to avoid ReferenceError
   let displayPosition = position;
+
+  // 🌍 ENVIRONMENT AWARENESS: Environment state for subtle indicators
+  let showEnvironmentIndicator = false;
+  let environmentMode = '';
   let config = {};
   let state = {};
   let isActive = false;
@@ -72,6 +77,12 @@
   // Update markers from store
   $: if ($markerStore !== undefined) {
     markers = $markerStore;
+  }
+
+  // 🌍 ENVIRONMENT AWARENESS: Reactive environment indicators
+  $: if (EnvironmentConfig.current.showEnvironmentIndicator) {
+    showEnvironmentIndicator = Environment.isDevelopment;
+    environmentMode = Environment.current;
   }
   
   // 🔧 CONTAINER-STYLE: Use contentArea approach like Container.svelte
@@ -467,6 +478,10 @@
       {#if isActive}
         <div class="active-indicator"></div>
       {/if}
+      <!-- 🌍 Subtle Environment Indicator -->
+      {#if showEnvironmentIndicator && Environment.isDevelopment}
+        <div class="env-indicator env-dev" title="Development Environment"></div>
+      {/if}
     </div>
     <button class="close-btn" on:click={handleClose}>×</button>
   </div>
@@ -568,7 +583,51 @@
   .close-btn:hover {
     background: rgba(239, 68, 68, 0.2);
   }
-  
+
+  /* 🌍 Environment Indicator Styles */
+  .env-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-left: 6px;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .env-indicator.env-dev {
+    background: rgba(168, 85, 247, 0.7);
+    box-shadow: 0 0 4px rgba(168, 85, 247, 0.3);
+    animation: env-pulse 3s infinite ease-in-out;
+  }
+
+  @keyframes env-pulse {
+    0%, 100% {
+      opacity: 0.6;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+  }
+
+  /* Responsive adjustments for environment indicator */
+  @media (max-width: 768px) {
+    .env-indicator {
+      width: 5px;
+      height: 5px;
+      margin-left: 4px;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .env-indicator {
+      transition: none;
+      animation: none;
+    }
+  }
+
   .content {
     background: #111827;
     border-radius: 0 0 6px 6px;

@@ -22,7 +22,34 @@ import {
     getEssentialDefaultConfig,
     getEssentialParameterMetadata
 } from '../config/visualizationSchema.js';
+import {
+    EnvironmentStorage,
+    StorageKeys,
+    initializeEnvironment
+} from '../lib/utils/environmentUtils.js';
 // ✅ SIMPLICITY: Removed complex ViewportAnchoring - now using simple, predictable positioning
+
+// =============================================================================
+// ENVIRONMENT INITIALIZATION
+// =============================================================================
+
+// Initialize environment system on store initialization
+let environmentInitialized = false;
+
+const ensureEnvironmentInitialized = () => {
+  if (!environmentInitialized) {
+    const initResult = initializeEnvironment();
+    if (initResult.success) {
+      environmentInitialized = true;
+      console.log('[DISPLAY_STORE] Environment initialized successfully:', {
+        environment: initResult.environment,
+        migrationStatus: initResult.migration?.success ? 'completed' : 'not needed'
+      });
+    } else {
+      console.error('[DISPLAY_STORE] Environment initialization failed:', initResult.error);
+    }
+  }
+};
 
 // =============================================================================
 // UNIFIED DISPLAY STATE (everything in one place)
@@ -77,6 +104,9 @@ const initialState = {
 // =============================================================================
 // STORE CREATION
 // =============================================================================
+
+// Initialize environment system on store creation
+ensureEnvironmentInitialized();
 
 export const displayStore = writable(initialState);
 
@@ -902,12 +932,14 @@ export const displayActions = {
   },
 
   // === SIMPLIFIED WORKSPACE OPERATIONS ===
-  
+
   /**
    * Initialize workspace from persisted data
    */
   initializeWorkspace: async () => {
     try {
+      // Ensure environment system is initialized before loading workspace
+      ensureEnvironmentInitialized();
       
       const workspaceData = await workspacePersistenceManager.initializeWorkspace();
       

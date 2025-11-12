@@ -4,8 +4,8 @@
 // Centralized persistence system for workspace layouts, configurations, and defaults
 // Extends existing workspaceStorage.js patterns for unified workspace management
 
-import { 
-  saveWorkspaceSettings, 
+import {
+  saveWorkspaceSettings,
   loadWorkspaceSettings,
   saveDisplaySizes,
   loadDisplaySizes,
@@ -13,16 +13,22 @@ import {
   AutoSaver
 } from './workspaceStorage.js';
 import { configDefaultsManager } from './configDefaults.js';
+import {
+  EnvironmentStorage,
+  StorageKeys,
+  initializeEnvironment
+} from '../lib/utils/environmentUtils.js';
 
 // =============================================================================
 // STORAGE KEYS (extending existing workspaceStorage.js pattern)
 // =============================================================================
 
+// Use environment-aware storage keys
 const STORAGE_KEYS = {
-  WORKSPACE_LAYOUT: 'neurosensefx-workspace-layout',
-  GLOBAL_CONFIG: 'neurosensefx-global-config',
-  USER_PREFERENCES: 'neurosensefx-user-preferences',
-  WORKSPACE_METADATA: 'neurosensefx-workspace-metadata'
+  WORKSPACE_LAYOUT: StorageKeys.get('neurosensefx-workspace-layout'),
+  GLOBAL_CONFIG: StorageKeys.get('neurosensefx-global-config'),
+  USER_PREFERENCES: StorageKeys.get('neurosensefx-user-preferences'),
+  WORKSPACE_METADATA: StorageKeys.get('neurosensefx-workspace-metadata')
 };
 
 // =============================================================================
@@ -61,8 +67,29 @@ export class WorkspacePersistenceManager {
     this.globalConfigAutoSaver = null;
     this.currentLayout = null;
     this.isInitialized = false;
-    
+
+    // Initialize environment system
+    this.initializeEnvironment();
     this.initializeAutoSavers();
+  }
+
+  /**
+   * Initialize environment system for workspace persistence
+   */
+  initializeEnvironment() {
+    try {
+      const initResult = initializeEnvironment();
+      if (initResult.success) {
+        console.log('[WORKSPACE_PERSISTENCE] Environment initialized successfully:', {
+          environment: initResult.environment,
+          migrationStatus: initResult.migration?.success ? 'completed' : 'not needed'
+        });
+      } else {
+        console.error('[WORKSPACE_PERSISTENCE] Environment initialization failed:', initResult.error);
+      }
+    } catch (error) {
+      console.error('[WORKSPACE_PERSISTENCE] Failed to initialize environment:', error);
+    }
   }
 
   /**
@@ -100,11 +127,11 @@ export class WorkspacePersistenceManager {
    */
   loadWorkspaceLayout() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.WORKSPACE_LAYOUT);
+      const stored = EnvironmentStorage.getItem('neurosensefx-workspace-layout');
       if (stored) {
         const layout = JSON.parse(stored);
         const validation = this.validateWorkspaceLayout(layout);
-        
+
         if (validation.isValid) {
           return layout;
         } else {
@@ -150,11 +177,11 @@ export class WorkspacePersistenceManager {
    */
   loadGlobalConfig() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.GLOBAL_CONFIG);
+      const stored = EnvironmentStorage.getItem('neurosensefx-global-config');
       if (stored) {
         const config = JSON.parse(stored);
         const validation = this.validateGlobalConfig(config);
-        
+
         if (validation.isValid) {
           configDefaultsManager.importState(config);
           console.log('[WORKSPACE_PERSISTENCE] Global config loaded successfully');
@@ -235,7 +262,7 @@ export class WorkspacePersistenceManager {
   importWorkspace(jsonData) {
     try {
       const data = JSON.parse(jsonData);
-      
+
       if (!data.workspaceLayout || !data.globalConfig) {
         console.error('[WORKSPACE_PERSISTENCE] Invalid workspace export format');
         return false;
@@ -487,12 +514,12 @@ export class WorkspacePersistenceManager {
     try {
       // Clear existing workspace data
       clearWorkspaceData();
-      
-      // Clear new persistence data
-      localStorage.removeItem(STORAGE_KEYS.WORKSPACE_LAYOUT);
-      localStorage.removeItem(STORAGE_KEYS.GLOBAL_CONFIG);
-      localStorage.removeItem(STORAGE_KEYS.USER_PREFERENCES);
-      localStorage.removeItem(STORAGE_KEYS.WORKSPACE_METADATA);
+
+      // Clear new persistence data using environment-aware storage
+      EnvironmentStorage.removeItem('neurosensefx-workspace-layout');
+      EnvironmentStorage.removeItem('neurosensefx-global-config');
+      EnvironmentStorage.removeItem('neurosensefx-user-preferences');
+      EnvironmentStorage.removeItem('neurosensefx-workspace-metadata');
 
       // Reset in-memory state
       configDefaultsManager.resetToFactory();
@@ -518,10 +545,17 @@ export class WorkspacePersistenceManager {
         total: 0
       };
 
+      const baseKeys = {
+        workspaceLayout: 'neurosensefx-workspace-layout',
+        globalConfig: 'neurosensefx-global-config',
+        userPreferences: 'neurosensefx-user-preferences',
+        workspaceMetadata: 'neurosensefx-workspace-metadata'
+      };
+
       Object.keys(info).forEach(key => {
         if (key !== 'total') {
-          const storageKey = STORAGE_KEYS[key.toUpperCase()];
-          const data = localStorage.getItem(storageKey);
+          const baseKey = baseKeys[key];
+          const data = EnvironmentStorage.getItem(baseKey);
           info[key] = data ? data.length : 0;
           info.total += info[key];
         }
@@ -550,7 +584,7 @@ export class WorkspacePersistenceManager {
    */
   saveWorkspaceLayoutImmediate(layout) {
     try {
-      localStorage.setItem(STORAGE_KEYS.WORKSPACE_LAYOUT, JSON.stringify(layout));
+      EnvironmentStorage.setItem('neurosensefx-workspace-layout', JSON.stringify(layout));
     } catch (error) {
       console.error('[WORKSPACE_PERSISTENCE] Failed to save workspace layout immediately:', error);
     }
@@ -562,7 +596,7 @@ export class WorkspacePersistenceManager {
    */
   saveGlobalConfigImmediate(config) {
     try {
-      localStorage.setItem(STORAGE_KEYS.GLOBAL_CONFIG, JSON.stringify(config));
+      EnvironmentStorage.setItem('neurosensefx-global-config', JSON.stringify(config));
     } catch (error) {
       console.error('[WORKSPACE_PERSISTENCE] Failed to save global config immediately:', error);
     }
