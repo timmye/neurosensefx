@@ -1,0 +1,110 @@
+# Set default behavior for text files
+* text=auto
+
+# Explicitly declare text files you want normalized
+*.js text
+*.svelte text
+*.ts text
+*.md text
+*.json text
+*.yaml text
+*.yml text
+*.css text
+*.html text
+*.xml text
+*.txt text
+*.sh text
+*.cjs text
+*.mjs text
+
+# Configuration files
+*.config.js text
+*.config.ts text
+*.eslintrc* text
+*.gitignore text
+*.npmignore text
+*.prettierrc* text
+
+# Documentation files
+*.md text
+*.txt text
+*.rst text
+
+# Source code files
+*.js text
+*.ts text
+*.jsx text
+*.tsx text
+*.svelte text
+*.css text
+*.scss text
+*.less text
+*.html text
+*.xml text
+
+# Data files
+*.json text
+*.yaml text
+*.yml text
+*.toml text
+*.ini text
+*.conf text
+
+# Build and dependency files
+*.lock text
+package-lock.json text
+yarn.lock text
+
+# Declare files that should always be treated as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.svg binary
+
+*.webm binary
+*.mp4 binary
+*.avi binary
+*.mov binary
+
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+*.zip binary
+*.tar.gz binary
+*.rar binary
+*.7z binary
+
+# Protocol buffer files
+*.proto text
+
+# Test files that might be generated
+*.test.js text
+*.test.ts text
+*.spec.js text
+*.spec.ts text
+
+# Generated files that should be normalized
+*.d.ts text
+*.d.ts.map text
+*.js.map text
+
+# Environment files
+*.env* text
+
+# Log files
+*.log text
+
+# Certificate files (binary)
+*.pem binary
+*.crt binary
+*.key binary
+
+# Database files (binary)
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
