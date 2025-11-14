@@ -165,3 +165,26 @@ frontend.log
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# AI Assistant Tool Configurations
+.claude/
+.continue/
+.kilocode/
+.roo/
+.serena/
+.roomodes
+
+# AI Memory Banks
+memory-bank/
+_archive_memory-bank/
+
+# Backup directories
+.git_backup/
+backup/
+
+# Generated UI files
+services/*/UI/*.html
+test_*.html
+manual_*.md
+*TEST_REPORT.md
+*_TEST_*.md
