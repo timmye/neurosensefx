@@ -41,7 +41,13 @@
   let element;
   let canvas;
   let ctx;
-  
+
+  // Canvas state tracking
+  let canvasReady = false;
+  let canvasError = false;
+  let canvasRetries = 0;
+  const MAX_CANVAS_RETRIES = 3;
+
   // Hover and marker state
   const hoverState = writable(null);
   let markers = [];
@@ -103,17 +109,42 @@
     displayActions.showContextMenu(e.clientX, e.clientY, id, 'display', context);
   }
   
-  function handleClose() {
+  // Container-level event handlers (always work regardless of canvas state)
+  function handleContainerClose() {
     displayActions.removeDisplay(id);
   }
 
-  function handleRefresh() {
-    const refreshDisplay = $displays.get(id);
-    if (refreshDisplay) {
-      import('../data/wsClient.js').then(({ subscribe }) => {
-        subscribe(refreshDisplay.symbol);
+  function handleContainerRefresh() {
+    if (canvasError) {
+      // Retry canvas initialization
+      canvasRetries = 0;
+      canvasError = false;
+      canvasReady = false;
+      ctx = null;
+      // Trigger re-initialization on next tick
+      tick().then(() => {
+        if (canvas && state?.ready) {
+          initializeCanvas();
+        }
       });
+    } else {
+      // Normal refresh behavior
+      const refreshDisplay = $displays.get(id);
+      if (refreshDisplay) {
+        import('../data/wsClient.js').then(({ subscribe }) => {
+          subscribe(refreshDisplay.symbol);
+        });
+      }
     }
+  }
+
+  // Legacy canvas-specific handlers (for canvas-click detection)
+  function handleClose() {
+    handleContainerClose();
+  }
+
+  function handleRefresh() {
+    handleContainerRefresh();
   }
   
   // Frame-throttled hover updates
@@ -130,40 +161,15 @@
 
     const newHoverState = { x: cssX, y: cssY, price: calculatedPrice };
 
-    // Check if hovering over refresh button (left of close button)
-    const refreshX = contentArea.width - 50;
-    const refreshY = 6;
-    const buttonSize = 20;
-    const newIsHoveringRefreshButton = cssX >= refreshX && cssX <= refreshX + buttonSize &&
-                                        cssY >= refreshY && cssY <= refreshY + buttonSize;
-
-    // Check if hovering over close button
-    const closeX = contentArea.width - 24;
-    const closeY = 6;
-    const newIsHoveringCloseButton = cssX >= closeX && cssX <= closeX + buttonSize &&
-                                     cssY >= closeY && cssY <= closeY + buttonSize;
-
-    // Update hover states if changed
-    if (isHovering !== true ||
-        isHoveringCloseButton !== newIsHoveringCloseButton ||
-        isHoveringRefreshButton !== newIsHoveringRefreshButton) {
+    // Update hover state
+    if (!isHovering) {
       isHovering = true;
-      isHoveringCloseButton = newIsHoveringCloseButton;
-      isHoveringRefreshButton = newIsHoveringRefreshButton;
-
-      // Trigger re-render for button visibility
-      if (renderFrame) {
-        cancelAnimationFrame(renderFrame);
-      }
-      renderFrame = requestAnimationFrame(render);
     }
 
     // Only update if state actually changed to avoid unnecessary renders
     if (lastHoverState &&
         Math.abs(lastHoverState.x - newHoverState.x) < 1 &&
-        Math.abs(lastHoverState.y - newHoverState.y) < 1 &&
-        isHoveringCloseButton === newIsHoveringCloseButton &&
-        isHoveringRefreshButton === newIsHoveringRefreshButton) {
+        Math.abs(lastHoverState.y - newHoverState.y) < 1) {
       return;
     }
 
@@ -189,19 +195,8 @@
     lastHoverState = null;
     hoverState.set(null);
 
-    // Reset hover states for buttons
-    const hadHoverState = isHovering || isHoveringCloseButton || isHoveringRefreshButton;
+    // Reset hover state
     isHovering = false;
-    isHoveringCloseButton = false;
-    isHoveringRefreshButton = false;
-
-    // Trigger re-render to hide buttons
-    if (hadHoverState) {
-      if (renderFrame) {
-        cancelAnimationFrame(renderFrame);
-      }
-      renderFrame = requestAnimationFrame(render);
-    }
   }
   
   function handleCanvasClick(event) {
@@ -210,29 +205,6 @@
     const rect = canvas.getBoundingClientRect();
     const cssX = event.clientX - rect.left;
     const cssY = event.clientY - rect.top;
-
-    // Check if refresh button was clicked (left of close button)
-    const refreshX = contentArea.width - 50;
-    const refreshY = 6;
-    const buttonSize = 20;
-
-    if (cssX >= refreshX && cssX <= refreshX + buttonSize &&
-        cssY >= refreshY && cssY <= refreshY + buttonSize) {
-      // Refresh button clicked
-      handleRefresh();
-      return;
-    }
-
-    // Check if close button was clicked (top-right corner)
-    const closeX = contentArea.width - 24;
-    const closeY = 6;
-
-    if (cssX >= closeX && cssX <= closeX + buttonSize &&
-        cssY >= closeY && cssY <= closeY + buttonSize) {
-      // Close button clicked
-      displayActions.removeDisplay(id);
-      return;
-    }
 
     // Handle marker clicks
     const hitThreshold = 5;
@@ -281,6 +253,7 @@
         })
         .resizable({
           edges: { left: true, right: true, bottom: true, top: true },
+          margin: 6, // 6px tolerance zone for all resize edges (consistent middle ground)
           modifiers: [
             interact.modifiers.restrictSize({
               min: { width: 220, height: 120 }
@@ -376,78 +349,107 @@
           }
   }
   
-  // 🔧 CONTAINER-STYLE: Initialize canvas with pixel-perfect dimensions
-  $: if (state?.ready && canvas && !ctx) {
-    ctx = canvas.getContext('2d');
-    if (ctx) {
-      dpr = window.devicePixelRatio || 1;
-      
-      // 🔧 ZOOM AWARENESS: Initialize zoom detector
-      const cleanupZoomDetector = createZoomDetector((newDpr) => {
-        dpr = newDpr;
-        
-        // Recalculate canvas dimensions with new DPR
-        if (contentArea) {
-          const integerCanvasWidth = Math.round(contentArea.width * dpr);
-          const integerCanvasHeight = Math.round(contentArea.height * dpr);
-          const cssWidth = integerCanvasWidth / dpr;
-          const cssHeight = integerCanvasHeight / dpr;
-          
-          // Apply new pixel-perfect dimensions
-          canvas.width = integerCanvasWidth;
-          canvas.height = integerCanvasHeight;
-          canvas.style.width = cssWidth + 'px';
-          canvas.style.height = cssHeight + 'px';
-          
-          // Reconfigure canvas context for new DPR
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.scale(dpr, dpr);
-          ctx.translate(0.5, 0.5);
-          ctx.imageSmoothingEnabled = false;
-        }
-      });
-      
-      // Store cleanup function for onDestroy
-      onDestroy(() => {
-        if (cleanupZoomDetector) {
-          cleanupZoomDetector();
-        }
-      });
-      
-      // 🔧 CONTAINER-STYLE: Calculate contentArea from config (headerless design)
-      const containerSize = config.containerSize || { width: 220, height: 120 };
-      const newContentArea = {
-        width: containerSize.width,  // ✅ HEADERLESS: Full container width
-        height: containerSize.height // ✅ HEADERLESS: Full container height
-      };
-      
-      // Update contentArea for reactive use
-      contentArea = newContentArea;
-      
-      // 🔧 PIXEL-PERFECT: Use integer canvas dimensions for crisp rendering
-      const integerCanvasWidth = Math.round(contentArea.width * dpr);
-      const integerCanvasHeight = Math.round(contentArea.height * dpr);
-      
-      // Calculate corresponding CSS dimensions
-      const cssWidth = integerCanvasWidth / dpr;
-      const cssHeight = integerCanvasHeight / dpr;
-      
-      // Apply pixel-perfect dimensions
-      canvas.width = integerCanvasWidth;
-      canvas.height = integerCanvasHeight;
-      canvas.style.width = cssWidth + 'px';
-      canvas.style.height = cssHeight + 'px';
-      
-      // 🔧 CRISP RENDERING: Configure canvas context for crisp lines
-      ctx.scale(dpr, dpr);
-      ctx.translate(0.5, 0.5); // Sub-pixel alignment
-      ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
-      
-      canvasWidth = contentArea.width;
-      canvasHeight = contentArea.height;
-    } else {
-      console.error(`[FLOATING_DISPLAY] Failed to create canvas 2D context`);
+  // Canvas initialization function with retry logic
+  function initializeCanvas() {
+    if (!canvas) {
+      console.error('[FLOATING_DISPLAY] Canvas element not available');
+      return;
     }
+
+    canvasRetries++;
+
+    try {
+      ctx = canvas.getContext('2d');
+      if (ctx) {
+        canvasReady = true;
+        canvasError = false;
+        canvasRetries = 0;
+
+        dpr = window.devicePixelRatio || 1;
+
+        // 🔧 ZOOM AWARENESS: Initialize zoom detector
+        const cleanupZoomDetector = createZoomDetector((newDpr) => {
+          dpr = newDpr;
+
+          // Recalculate canvas dimensions with new DPR
+          if (contentArea) {
+            const integerCanvasWidth = Math.round(contentArea.width * dpr);
+            const integerCanvasHeight = Math.round(contentArea.height * dpr);
+            const cssWidth = integerCanvasWidth / dpr;
+            const cssHeight = integerCanvasHeight / dpr;
+
+            // Apply new pixel-perfect dimensions
+            canvas.width = integerCanvasWidth;
+            canvas.height = integerCanvasHeight;
+            canvas.style.width = cssWidth + 'px';
+            canvas.style.height = cssHeight + 'px';
+
+            // Reconfigure canvas context for new DPR
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+            ctx.translate(0.5, 0.5);
+            ctx.imageSmoothingEnabled = false;
+          }
+        });
+
+        // Store cleanup function for onDestroy
+        onDestroy(() => {
+          if (cleanupZoomDetector) {
+            cleanupZoomDetector();
+          }
+        });
+
+        // 🔧 CONTAINER-STYLE: Calculate contentArea from config (headerless design)
+        const containerSize = config.containerSize || { width: 220, height: 120 };
+        const newContentArea = {
+          width: containerSize.width,  // ✅ HEADERLESS: Full container width
+          height: containerSize.height // ✅ HEADERLESS: Full container height
+        };
+
+        // Update contentArea for reactive use
+        contentArea = newContentArea;
+
+        // 🔧 PIXEL-PERFECT: Use integer canvas dimensions for crisp rendering
+        const integerCanvasWidth = Math.round(contentArea.width * dpr);
+        const integerCanvasHeight = Math.round(contentArea.height * dpr);
+
+        // Calculate corresponding CSS dimensions
+        const cssWidth = integerCanvasWidth / dpr;
+        const cssHeight = integerCanvasHeight / dpr;
+
+        // Apply pixel-perfect dimensions
+        canvas.width = integerCanvasWidth;
+        canvas.height = integerCanvasHeight;
+        canvas.style.width = cssWidth + 'px';
+        canvas.style.height = cssHeight + 'px';
+
+        // 🔧 CRISP RENDERING: Configure canvas context for crisp lines
+        ctx.scale(dpr, dpr);
+        ctx.translate(0.5, 0.5); // Sub-pixel alignment
+        ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
+
+        canvasWidth = contentArea.width;
+        canvasHeight = contentArea.height;
+
+        console.log(`[FLOATING_DISPLAY] Canvas initialized successfully`);
+      } else {
+        throw new Error('Failed to get 2D context');
+      }
+    } catch (error) {
+      canvasReady = false;
+      canvasError = true;
+      ctx = null;
+      console.error(`[FLOATING_DISPLAY] Canvas initialization failed (attempt ${canvasRetries}/${MAX_CANVAS_RETRIES}):`, error);
+
+      if (canvasRetries >= MAX_CANVAS_RETRIES) {
+        console.error(`[FLOATING_DISPLAY] Maximum canvas initialization retries exceeded`);
+      }
+    }
+  }
+
+  // 🔧 CONTAINER-STYLE: Initialize canvas with pixel-perfect dimensions
+  $: if (state?.ready && canvas && !ctx && !canvasReady && !canvasError) {
+    initializeCanvas();
   }
   
   // 🔧 CLEAN FOUNDATION: Create rendering context for visualization functions
@@ -456,62 +458,10 @@
   // ✅ ULTRA-MINIMAL: Simple rendering - no complex dependencies
   let renderFrame;
 
-  // Hover state for close button and refresh button
+  // Hover state
   let isHovering = false;
-  let isHoveringCloseButton = false;
-  let isHoveringRefreshButton = false;
 
-  // Canvas overlay rendering for refresh and close buttons
-  function renderCanvasOverlays() {
-    if (!ctx || !contentArea) return;
-
-    // Save context state
-    ctx.save();
-
-    // Draw buttons (top-right) - only when hovering
-    if (isHovering || isHoveringCloseButton || isHoveringRefreshButton) {
-      const buttonSize = 20;
-      const refreshX = contentArea.width - 50;
-      const closeX = contentArea.width - 24;
-      const buttonY = 6;
-
-      // Draw refresh button
-      ctx.fillStyle = isHoveringRefreshButton ? 'rgba(59, 130, 246, 0.7)' : 'rgba(59, 130, 246, 0.2)';
-      ctx.fillRect(refreshX, buttonY, buttonSize, buttonSize);
-
-      // Refresh button icon (↻)
-      ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      // Draw circular arrow for refresh
-      ctx.arc(refreshX + 10, buttonY + 10, 6, -Math.PI/2, Math.PI);
-      ctx.stroke();
-      // Arrow head
-      ctx.beginPath();
-      ctx.moveTo(refreshX + 15, buttonY + 4);
-      ctx.lineTo(refreshX + 10, buttonY + 4);
-      ctx.lineTo(refreshX + 10, buttonY + 9);
-      ctx.stroke();
-
-      // Draw close button
-      ctx.fillStyle = isHoveringCloseButton ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.2)';
-      ctx.fillRect(closeX, buttonY, buttonSize, buttonSize);
-
-      // Close button X
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(closeX + 5, buttonY + 5);
-      ctx.lineTo(closeX + 15, buttonY + 15);
-      ctx.moveTo(closeX + 15, buttonY + 5);
-      ctx.lineTo(closeX + 5, buttonY + 15);
-      ctx.stroke();
-    }
-
-    // Restore context state
-    ctx.restore();
-  }
-
+  
   // Function to render symbol as canvas background (drawn before other visualizations)
   function renderSymbolBackground() {
     if (!ctx || !contentArea) return;
@@ -617,9 +567,7 @@
     // Draw symbol overlay when hovering (appears in front of visualizations but behind buttons)
     renderSymbolOverlay();
 
-    // Draw canvas overlays on top of everything (buttons appear above symbol overlay)
-    renderCanvasOverlays();
-  }
+      }
   
   // ✅ ULTRA-MINIMAL: Simple render trigger
   $: if (state && config && yScale) {
@@ -644,8 +592,42 @@
   data-display-id={id}
   on:contextmenu={handleContextMenu}
 >
+  <!-- Container Header - appears on hover -->
+  <div class="container-header" class:error={canvasError}>
+    <div class="symbol-info">
+      {#if canvasError}
+        <span class="error-symbol">⚠️ Failed to load {symbol}</span>
+      {:else}
+        <span class="symbol-name">{symbol}</span>
+      {/if}
+    </div>
+    <div class="header-controls">
+      <button
+        class="header-btn refresh-btn"
+        class:error={canvasError}
+        on:click={handleContainerRefresh}
+        title={canvasError ? "Retry canvas initialization" : "Refresh data"}
+        aria-label={canvasError ? "Retry canvas initialization" : "Refresh data"}
+      >
+        {#if canvasError}
+          ⚠️
+        {:else}
+          ↻
+        {/if}
+      </button>
+      <button
+        class="header-btn close-btn"
+        on:click={handleContainerClose}
+        title="Close display"
+        aria-label="Close display"
+      >
+        ×
+      </button>
+    </div>
+  </div>
+
   <!-- Canvas fills entire container area (headerless design) -->
-  {#if state?.ready}
+  {#if state?.ready && !canvasError}
     <canvas
       bind:this={canvas}
       class="full-canvas"
@@ -653,7 +635,7 @@
       on:mouseleave={handleCanvasMouseLeave}
       on:click={handleCanvasClick}
     ></canvas>
-  {:else}
+    {:else}
     <div class="loading">
       <div class="loading-spinner"></div>
       <p>Initializing {symbol}...</p>
@@ -685,16 +667,16 @@
     box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
   }
 
+  .enhanced-floating:active {
+    cursor: grabbing;
+  }
+
   /* Full canvas fills entire container area (headerless design) */
   .full-canvas {
     display: block;
     width: 100%;
     height: 100%;
-    cursor: grab;
-  }
-
-  .full-canvas:active {
-    cursor: grabbing;
+    /* cursor removed - let interact.js control resize cursors */
   }
 
   .loading {
@@ -742,10 +724,105 @@
     100% { opacity: 0.4; }
   }
 
+  /* Container Header - slide down on hover */
+  .container-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #374151;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 8px;
+    transform: translateY(-100%);
+    transition: transform 0.15s ease-out;
+    z-index: 100; /* Reduced to prevent resize interference, still above canvas */
+    border-radius: 6px 6px 0 0;
+  }
+
+  .enhanced-floating:hover .container-header {
+    transform: translateY(0);
+  }
+
+  .container-header.error {
+    background: rgba(127, 29, 29, 0.95);
+    border-bottom-color: #dc2626;
+  }
+
+  .symbol-info {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: #d1d5db;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .error-symbol {
+    color: #fbbf24;
+  }
+
+  .header-controls {
+    display: flex;
+    gap: 4px;
+  }
+
+  .header-btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    background: rgba(37, 99, 235, 0.9);
+    color: white;
+  }
+
+  .header-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .close-btn {
+    background: rgba(239, 68, 68, 0.9);
+  }
+
+  .refresh-btn.error {
+    background: rgba(251, 146, 60, 0.9);
+    color: white;
+  }
+
+  /* Ensure container maintains rounded corners when header is visible */
+  .enhanced-floating:hover {
+    border-radius: 6px;
+  }
+
   /* Reduced motion support */
   @media (prefers-reduced-motion: reduce) {
     .enhanced-floating.active::before {
       animation: none;
+    }
+
+    .container-header {
+      transition: none;
+    }
+
+    .header-btn {
+      transition: none;
+    }
+
+    .header-btn:hover {
+      transform: none;
     }
   }
 </style>

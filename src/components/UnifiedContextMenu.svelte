@@ -190,9 +190,6 @@
           onAction={(action) => {
             // Handle workspace-specific actions
             switch(action) {
-              case 'addDisplay':
-                displayActions.addDisplay('EURUSD', { x: 100, y: 100 });
-                break;
               case 'showSymbolPalette':
                 // Show symbol palette logic
                 break;

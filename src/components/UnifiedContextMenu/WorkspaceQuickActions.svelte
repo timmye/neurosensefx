@@ -4,9 +4,6 @@
 
 <div class="workspace-quick-actions">
   <div class="menu-section">
-    <div class="menu-item" on:click={() => onAction('addDisplay')}>
-      Add Display
-    </div>
     <div class="menu-item" on:click={() => onAction('showSymbolPalette')}>
       Show Symbol Palette
     </div>

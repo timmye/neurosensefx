@@ -1,1 +1,0 @@
-Serena MCP server is successfully installed and working in NeuroSense FX DevContainer. Demonstrated file listing, symbol overview, and memory functionality.
