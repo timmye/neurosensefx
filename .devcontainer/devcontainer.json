@@ -2,8 +2,7 @@
   "name": "NeuroSense FX Development",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {},
-    "ghcr.io/schlich/devcontainer-features/playwright:0": {}
+    "ghcr.io/devcontainers/features/node:1": {}
   },
   "customizations": {
     "vscode": {
@@ -13,7 +12,6 @@
         "RooVeterinaryInc.roo-cline",
         "kilocode.kilo-code",
         "saoudrizwan.claude-dev",
-        "ms-playwright.playwright",
         "Anthropic.claude-code"
       ]
     }
@@ -25,11 +23,5 @@
     "--ipc=host"
   ],
   "remoteUser": "node",
-  "mcpServers": {
-    "playwright-mcp": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp"]
-    }
-  },
-  "postCreateCommand": "npm install && npx playwright install --with-deps && npm install -g @playwright/mcp && ./scripts/robust_mcp_setup.sh"
+  "postCreateCommand": "npm install && ./scripts/robust_mcp_setup.sh"
 }

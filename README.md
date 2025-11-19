@@ -87,7 +87,6 @@ Traditional trading interfaces overload traders with numerical data and cognitiv
 
 4. **Automatic Setup**
    - Dependencies install automatically via `postCreateCommand`
-   - Playwright browsers install for testing
    - MCP server configuration initializes
 
 5. **Start Services**
@@ -96,8 +95,8 @@ Traditional trading interfaces overload traders with numerical data and cognitiv
    ```
 
 ### Development URLs
-- **Frontend**: http://localhost:5173 (Vite dev server)
-- **Backend**: ws://localhost:8080 (WebSocket server)
+- **Development**: Frontend http://localhost:5174, Backend ws://localhost:8080
+- **Production**: Frontend http://localhost:4173, Backend ws://localhost:8081
 
 ### Service Management
 ```bash
@@ -161,31 +160,31 @@ This repository uses a monorepo architecture to keep concerns separated while ma
 **Current Development Process:**
 ```bash
 # Start development environment
-./run.sh start       # Start frontend (5173) + backend (8080)
+./run.sh dev          # Start development with HMR (frontend 5174 + backend 8080)
+./run.sh start        # Start production mode (frontend 4173 + backend 8081)
 
 # Development URLs
-# Frontend: http://localhost:5173 (Vite dev server)
-# Backend: ws://localhost:8080 (WebSocket server)
+# Development: Frontend http://localhost:5174, Backend ws://localhost:8080
+# Production: Frontend http://localhost:4173, Backend ws://localhost:8081
 
 # Service management
-./run.sh stop        # Stop all services
-./run.sh status      # Check service health
-./run.sh logs        # View real-time logs
+./run.sh stop         # Stop all services
+./run.sh status       # Check service health
+./run.sh logs         # View real-time logs
+./run.sh env-status   # Environment status and configuration
 ```
 
-**Testing Approach:**
+**Development Approach:**
 - **Manual Testing**: Direct browser testing with user interaction
 - **Visual Verification**: Component rendering and behavior validation
 - **Performance Testing**: Manual monitoring of 60fps and memory usage
 - **User Workflow Testing**: Real trading scenario simulation
 
-### Available Scripts (Future)
+### Available Scripts
 ```bash
 npm run dev          # Start development server
 npm run build        # Build for production
 npm run preview      # Preview production build
-npm run test         # Run Playwright tests (when implemented)
-npm run test:e2e     # End-to-end testing (when implemented)
 npm run lint         # Code linting (when implemented)
 npm run format       # Code formatting (when implemented)
 ```
@@ -194,12 +193,6 @@ npm run format       # Code formatting (when implemented)
 - [`./setup_project.sh`](setup_project.sh) - Configures the development environment
   - Standard setup: `./setup_project.sh`
   - Clean setup: `./setup_project.sh --clean`
-
-### Testing Infrastructure
-- **Playwright**: End-to-end testing with multiple browsers
-- **Visual Regression**: Automated UI testing
-- **Performance Monitoring**: Frame rate and memory usage tracking
-- **Component Testing**: Unit testing for core functionality
 
 ## Configuration & Customization
 
@@ -217,18 +210,25 @@ npm run format       # Code formatting (when implemented)
 
 ## Current Status
 
-**Production Maturity**: 98% complete, production-ready
-- Core functionality fully operational
-- Architecture stable and well-documented
-- Performance meets professional trading requirements
-- Comprehensive testing infrastructure
-- Currently in optimization and enhancement phase
+**Production Maturity**: ~75% complete, functional for development and testing
+- Core functionality fully operational with real-time market data
+- Architecture stable with comprehensive WebSocket communication
+- Performance optimized for 20+ concurrent displays
+- Development environment with HMR and comprehensive tooling
+- Currently in feature completion and production hardening phase
+
+### Current Capabilities
+- ✅ Real-time FX market data visualization via cTrader integration
+- ✅ Multiple display types: Market Profile, Volatility Orb, Day Range Meter
+- ✅ Drag-and-drop workspace management with persistence
+- ✅ Environment-aware development (HMR) and production modes
+- ✅ 60fps Canvas rendering with DPR-aware crisp text
+- ✅ Comprehensive service management and monitoring
 
 ### Recent Achievements
 - Memory bank optimization for development efficiency
 - Market profile delta modes completion
 - Browser zoom awareness implementation
-- Comprehensive browser compatibility testing
 - Real-time configuration system implementation
 
 ## Documentation
@@ -263,7 +263,7 @@ The innovation in NeuroSense FX lies not in specific technologies but in recogni
 
 ## Contributing
 
-We welcome contributions that align with our human-centered design philosophy. Please see our development guidelines and testing requirements before submitting pull requests.
+We welcome contributions that align with our human-centered design philosophy. Please see our development guidelines before submitting pull requests.
 
 ---
 

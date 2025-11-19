@@ -159,12 +159,6 @@ config/
 backend.log
 frontend.log
 
-# Playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-/playwright/.auth/
 
 # AI Assistant Tool Configurations
 .claude/
@@ -184,7 +178,6 @@ backup/
 
 # Generated UI files
 services/*/UI/*.html
-test_*.html
 manual_*.md
 *TEST_REPORT.md
 *_TEST_*.md
