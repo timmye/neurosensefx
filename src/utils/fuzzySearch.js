@@ -374,7 +374,7 @@ export function debounce(func, wait) {
  */
 export function createDebouncedSearch(items, options = {}) {
   const fuzzySearch = new FuzzySearch(items, options);
-  const debouncedSearch = debounce(fuzzySearch.search.bind(fuzzySearch), 300);
+  const debouncedSearch = debounce(fuzzySearch.search.bind(fuzzySearch), 900);
   
   return {
     search: debouncedSearch,
