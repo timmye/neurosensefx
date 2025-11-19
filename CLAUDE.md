@@ -508,6 +508,24 @@ The DevContainer is configured with `/dist` folder persistence:
 - **Immediate Development**: Can resume work without rebuilding
 - **Stable Versions Protected**: Production snapshots remain available
 
+### Quick Snapshot Workflow
+
+**For stable versions and demos:**
+```bash
+npm run build:prod
+./run.sh snapshot_save      # Creates stable-YYYYMMDD-HHMMSS
+./run.sh start              # Deploy stable version
+```
+
+**Return to development:**
+```bash
+./run.sh back_to_work       # Return to main branch
+./run.sh dev                # Resume development with HMR
+```
+
+**Use snapshots for:** client demos, production deployments
+**Use regular dev for:** active coding, experiments
+
 ## DevContainer Development Environment
 
 ### Container Configuration Analysis
