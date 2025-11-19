@@ -586,6 +586,43 @@ back_to_work() {
     fi
 }
 
+# Check if you're on development branch
+am_i_dev() {
+    local current_branch
+    current_branch=$(git branch --show-current 2>/dev/null)
+
+    if [ -z "$current_branch" ]; then
+        # Detached HEAD - check if we're on a snapshot tag
+        local current_tag=$(git describe --tags --exact-match 2>/dev/null)
+        if [[ "$current_tag" =~ ^stable- ]]; then
+            echo "❌ NO - You're on snapshot ($current_tag)"
+            echo "💡 Run './run.sh back_to_work' to return to development"
+            return 1
+        else
+            echo "❌ NO - You're on detached HEAD (not on development branch)"
+            echo "💡 Run './run.sh back_to_work' to return to development"
+            return 1
+        fi
+    fi
+
+    case "$current_branch" in
+        "main"|"master")
+            echo "✅ YES - You're on development branch ($current_branch)"
+            return 0
+            ;;
+        "stable-"*)
+            echo "❌ NO - You're on snapshot branch ($current_branch)"
+            echo "💡 Run './run.sh back_to_work' to return to development"
+            return 1
+            ;;
+        *)
+            echo "⚠️  UNKNOWN - You're on branch: $current_branch"
+            echo "💡 Run './run.sh back_to_work' to return to main/master"
+            return 2
+            ;;
+    esac
+}
+
 # =============================================================================
 # BROWSER INTEGRATION
 # =============================================================================
@@ -1034,8 +1071,7 @@ dev() {
     log_info "Starting $env development environment..."
     update_environment_status "last_command" "dev"
 
-    # Set environment-specific ports
-    set_environment_ports "$env"
+    # Port environment-specific ports already set above for detection
 
     # Validate environment first
     if ! validate_environment; then
@@ -1052,7 +1088,36 @@ dev() {
     log_info "📝 Frontend logs: Terminal, Backend logs: $BACKEND_LOG"
     log_info "🛑 Use Ctrl+C to stop development server"
 
-    # Check for service conflicts before stopping anything
+    # Check for existing development services first
+    local existing_dev_backend=false
+    local existing_dev_frontend=false
+
+    # Check for existing development backend (port 8080)
+    if lsof -i :8080 2>/dev/null | grep -q "LISTEN"; then
+        existing_dev_backend=true
+    fi
+
+    # Check for existing development frontend (port 5174)
+    if lsof -i :5174 2>/dev/null | grep -q "LISTEN"; then
+        existing_dev_frontend=true
+    fi
+
+    # If dev services already running, inform user
+    if [ "$existing_dev_backend" = true ] && [ "$existing_dev_frontend" = true ]; then
+        log_success "✅ Development environment already running!"
+        log_info "    Frontend: http://localhost:5174"
+        log_info "    Backend:  ws://localhost:8080"
+        log_info "    HMR: Active (changes will auto-refresh)"
+        echo ""
+        echo "To restart development services:"
+        echo "  ./run.sh stop && ./run.sh dev"
+        echo ""
+        echo "To stop development services:"
+        echo "  ./run.sh stop"
+        return 0
+    fi
+
+    # Check for conflicts with other environments
     if ! check_running_services "$env"; then
         log_error "❌ Cannot start $env environment - conflicting services are running"
         echo ""
@@ -1641,6 +1706,7 @@ usage() {
     echo "  ${BLUE}snapshot_show${NC}          List all available snapshots"
     echo "  ${YELLOW}snapshot_use${NC} [tag]   Deploy specific snapshot"
     echo "  ${BLUE}back_to_work${NC}           Return to development branch"
+    echo "  ${PURPLE}am_i_dev${NC}             Check if you're on development branch"
     echo ""
 
     echo "${BOLD}EXAMPLES:${NC}"
@@ -1651,6 +1717,7 @@ usage() {
     echo "  ./run.sh snapshot_save                 # Save current build as stable"
     echo "  ./run.sh snapshot_use stable-20241119  # Deploy specific snapshot"
     echo "  ./run.sh back_to_work                  # Return to development"
+    echo "  ./run.sh am_i_dev                      # Check if you're on development branch"
     echo ""
 
     if [ "$env" = "$DEVELOPMENT_MODE" ]; then
@@ -1735,6 +1802,9 @@ case "${1:-}" in
         ;;
     "back_to_work")
         back_to_work
+        ;;
+    "am_i_dev")
+        am_i_dev
         ;;
 
     # Help and information
