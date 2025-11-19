@@ -4,23 +4,16 @@ This document provides comprehensive technical understanding of NeuroSense FX fo
 
 ## Design Foundation
 
-### Core Principles from Neuroscience & Human Factors
+### Design Principles
 
-**NeuroSense FX** is built on scientific principles from neuroscience, human factors research, and aviation/military display design. The technical architecture exists to serve human cognitive needs, not the other way around.
+**NeuroSense FX** is designed with attention to human factors and display design principles. The technical architecture focuses on creating an effective interface for market data visualization.
 
 **Project Technical Philosophy** "Simple, performant, maintainable" 
 
-#### Human-Cognitive Constraints Driving Technical Decisions:
-- **Cognitive Load Limitation**: Working memory can hold 4±1 chunks of information under stress
-- **Attention Span Degradation**: Decision-making quality declines after 2-3 hours of intense focus
-- **Pattern Recognition Superiority**: Visual cortex processes parallel information 60,000x faster than sequential processing
-- **Stress-Induced Tunnel Vision**: Under pressure, users rely on pre-attentive visual attributes
-
-#### Technical Manifestations:
-- **Sub-100ms Update Latency**: Matches perceptual threshold for smooth motion
-- **60fps Rendering**: Eliminates cognitive dissonance from stuttering displays
-- **Pre-attentive Visual Encoding**: Color, motion, size, position, shape for instant recognition
-- **Progressive Disclosure Architecture**: Information layers from glanceable to analytical
+#### Technical Design Principles:
+- **Responsive Updates**: Fast visual updates for market data changes
+- **Visual Encoding**: Color, motion, size, position, shape for information display
+- **Progressive Disclosure**: Information layers from glanceable to analytical
 
 ### Visual Processing Optimization Architecture
 
@@ -67,7 +60,7 @@ neurosensefx/                          # Root repository
 - Canvas rendering orchestrator using requestAnimationFrame
 - DPR (device pixel ratio) awareness for crisp text rendering
 - Multi-component rendering pipeline (Market Profile, Volatility Orb, Day Range Meter, etc.)
-- Mouse interaction handling with 60fps frame throttling
+- Mouse interaction handling with frame throttling for performance
 - Environment indicator display (DEV/PROD modes)
 
 **Display Components** (`src/components/FloatingDisplay.svelte`):
@@ -102,11 +95,10 @@ function renderCrispText(ctx, text, x, y, fontSize) {
 }
 ```
 
-**Performance Optimizations**:
-- **Dirty Rectangle Rendering**: Only redraw changed regions
-- **Object Pooling**: Reuse display objects to minimize GC pressure
+**Rendering Optimizations**:
+- **Dirty Rectangle Rendering**: Only redraw changed regions when possible
 - **Layered Canvas**: Separate canvases for different update frequencies
-- **Web Worker Offloading**: Heavy computation moved to background threads
+- **Web Worker Integration**: Heavy computation moved to background threads
 
 #### State Management Architecture
 
@@ -351,100 +343,6 @@ configStore.subscribe((newConfig) => {
 });
 ```
 
-## Performance Architecture
-
-### Sub-100ms Latency Implementation
-
-```javascript
-// High-performance rendering loop
-class HighPerformanceRenderer {
-  constructor() {
-    this.lastFrameTime = 0;
-    this.targetFrameTime = 16.67; // 60fps
-    this.frameBuffer = new Float32Array(1024);
-  }
-
-  render(currentTime) {
-    const deltaTime = currentTime - this.lastFrameTime;
-
-    if (deltaTime >= this.targetFrameTime) {
-      this.processFrameData();
-      this.renderFrame();
-      this.lastFrameTime = currentTime;
-    }
-
-    requestAnimationFrame((time) => this.render(time));
-  }
-
-  processFrameData() {
-    // Batch process market data updates
-    const dataBatch = this.collectPendingUpdates();
-    this.processBatch(dataBatch);
-  }
-}
-```
-
-### Memory Management Strategy
-
-```javascript
-// Object pooling for memory efficiency
-class DisplayObjectPool {
-  constructor(initialSize = 10) {
-    this.pool = [];
-    this.inUse = new Set();
-
-    for (let i = 0; i < initialSize; i++) {
-      this.pool.push(new DisplayObject());
-    }
-  }
-
-  acquire() {
-    let obj = this.pool.pop();
-    if (!obj) {
-      obj = new DisplayObject();
-    }
-
-    this.inUse.add(obj);
-    return obj.reset();
-  }
-
-  release(obj) {
-    if (this.inUse.has(obj)) {
-      this.inUse.delete(obj);
-      this.pool.push(obj);
-    }
-  }
-}
-```
-
-### Resource Allocation & Load Balancing
-
-```javascript
-// Intelligent resource management
-class ResourceManager {
-  constructor() {
-    this.displayBudget = 20; // Maximum concurrent displays
-    this.memoryThreshold = 500 * 1024 * 1024; // 500MB
-    this.cpuThreshold = 80; // 80% CPU usage
-  }
-
-  canAllocateNewDisplay() {
-    return this.activeDisplays.length < this.displayBudget &&
-           this.memoryUsage < this.memoryThreshold &&
-           this.cpuUsage < this.cpuThreshold;
-  }
-
-  optimizeResources() {
-    if (this.memoryUsage > this.memoryThreshold) {
-      this.reduceDisplayQuality();
-    }
-
-    if (this.cpuUsage > this.cpuThreshold) {
-      this.reduceUpdateFrequency();
-    }
-  }
-}
-```
 
 ## Development Workflow & Process
 
@@ -533,6 +431,82 @@ watch: {
 - **Realistic behavior**: Production-like background service mode
 - **Full refresh testing**: Ensures app works from cold start
 - **Performance validation**: Test actual startup times and behavior
+
+### Snapshot Management Workflow
+
+**NeuroSense FX includes git-based snapshot management for creating immutable stable builds**
+
+#### Snapshot Philosophy
+The snapshot system follows the project's "Simple, Performant, Maintainable" philosophy:
+- **Simple**: Uses existing git infrastructure, no new complexity
+- **Performant**: Instant rollback with `git checkout`, zero storage overhead
+- **Maintainable**: Git handles all complexity, no additional maintenance
+
+#### Core Commands
+
+**Create Stable Snapshot:**
+```bash
+# Build and protect current version
+npm run build:prod
+./run.sh snapshot_save
+# Output: ✅ Saved as: stable-20241119-143000
+```
+
+**List Available Snapshots:**
+```bash
+./run.sh snapshot_show
+# Output:
+# 📋 Available Stable Snapshots:
+#   🏷️ stable-20241119-143000
+#     Created: 2024-11-19 14:30:00
+```
+
+**Deploy Specific Snapshot:**
+```bash
+./run.sh snapshot_use stable-20241119-143000
+./run.sh start
+# Deploy stable version for client demo
+```
+
+**Return to Development:**
+```bash
+./run.sh back_to_work
+# Returns to main/master branch for continued development
+```
+
+#### Workflow Examples
+
+**Client Demo Preparation:**
+```bash
+# 1. Prepare stable build
+npm run build:prod
+./run.sh snapshot_save
+
+# 2. Deploy for demo
+./run.sh snapshot_use stable-20241119-143000
+./run.sh start
+
+# 3. Quick rollback if needed
+./run.sh back_to_work
+./run.sh start
+```
+
+**Development Continuation:**
+```bash
+# Development can continue immediately
+./run.sh back_to_work
+./run.sh dev
+
+# Container rebuilds are safe - /dist persists
+# No need to rebuild stable version
+```
+
+#### Container Rebuild Safety
+
+The DevContainer is configured with `/dist` folder persistence:
+- **No Rebuilding Required**: Build artifacts survive container restarts
+- **Immediate Development**: Can resume work without rebuilding
+- **Stable Versions Protected**: Production snapshots remain available
 
 ## DevContainer Development Environment
 
@@ -721,48 +695,14 @@ class ErrorHandler {
 - **Color Blindness**: Information must not rely solely on color differentiation
 - **High Contrast**: Support for high contrast display modes
 
-### Performance Characteristics (Current Implementation)
+### Rendering Approach
+The system uses Canvas 2D with DPR (Device Pixel Ratio) awareness for crisp text rendering. RequestAnimationFrame is used for smooth visual updates. The architecture supports multiple concurrent displays through efficient resource management and optimized rendering patterns.
 
-#### Observed Performance Metrics
-```javascript
-const CURRENT_PERFORMANCE = {
-  rendering: {
-    frameRate: "60fps target with requestAnimationFrame",
-    frameTime: "~8-12ms per frame (well under 16.67ms 60fps target)",
-    dprScaling: "Device pixel ratio awareness for crisp text"
-  },
-  latency: {
-    dataToVisual: "~15-45ms average (sub-100ms target achieved)",
-    userInteraction: "~16ms (1 frame at 60fps)",
-    configurationUpdate: "~50ms with reactive stores"
-  },
-  throughput: {
-    maxDisplays: "20-25 before performance degradation observed",
-    maxTicksPerSecond: "1000+ per symbol handled efficiently",
-    webSocketLatency: "15-45ms average connection latency"
-  },
-  resources: {
-    singleDisplayMemory: "~2MB",
-    tenDisplaysMemory: "~45MB",
-    twentyDisplaysMemory: "~180MB",
-    memoryTarget: "<500MB for 20+ displays (target achievable)",
-    cpuUsage: "~35% for 20 displays (well under 80% target)"
-  }
-};
-```
-
-#### Performance Optimizations Implemented
-- **Dirty Rectangle Rendering**: Only redraw changed regions
-- **Frame Throttling**: Mouse interactions throttled to 60fps
-- **Object Pooling**: Reuse display objects to minimize GC pressure
-- **Web Worker Integration**: Heavy computation moved to background threads
-- **DPR-Aware Rendering**: Crisp text rendering with device pixel ratio support
-
-#### Scalability Limits Observed
-- **Maximum Displays**: 20-25 simultaneous displays before performance degradation
-- **Memory Efficiency**: Linear memory growth with display count
-- **CPU Scaling**: CPU usage scales approximately linearly with active displays
-- **WebSocket Performance**: Handles 100+ concurrent client connections efficiently
+### Scalability Considerations
+- **Display Management**: System supports multiple floating displays with collision detection
+- **Memory Management**: Object lifecycle management to minimize memory pressure
+- **Update Frequency**: Market data updates are processed efficiently through WebSocket connections
+- **Resource Allocation**: Dynamic resource management based on active display count
 
 ## Historical Context & System Evolution
 
@@ -888,7 +828,7 @@ const preAttentiveColorForVolatilityLevel = calculateVolatilityColor(volatility)
 - **Unit Tests**: All utility functions must have unit tests
 - **Integration Tests**: WebSocket communication must be tested
 - **Visual Regression Tests**: All rendering components must have visual tests
-- **Performance Tests**: 60fps must be maintained with 20+ displays
+- **Performance Tests**: System should maintain responsive interaction with multiple displays
 
 ### Git Workflow & Commit Standards
 
@@ -915,4 +855,4 @@ docs(readme): update DevContainer setup instructions
 
 ---
 
-**NeuroSense FX Technical Philosophy**: Every technical decision serves the goal of reducing cognitive load and extending human capabilities. The architecture is designed to be invisible to the user, allowing traders to focus on market patterns rather than interface mechanics.
+**NeuroSense FX Technical Philosophy**: The architecture focuses on creating an efficient interface for market data visualization, allowing users to focus on market patterns rather than interface mechanics.

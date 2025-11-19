@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-Volatility visualisation delivering real-time market volatility assessment through multi-mode rendering, and cognitive-aware design.
+Volatility visualisation delivering real-time market volatility assessment through multi-mode rendering.
 
-Seamless integration with UnifiedVisualisation foundation patterns while maintaining volatility orb’s role as a perceptual background element that supports trader decision-making through intuitive volatility visualization without cognitive overhead.
+Seamless integration with UnifiedVisualisation foundation patterns while maintaining volatility orb's role as a background element that supports market analysis through clear volatility visualization.
 
 ## 1. Foundation Architecture: UnifiedVisualization Integration
 
@@ -34,139 +34,85 @@ Early Exit Validation: Skip rendering when disabled or data invalid
 
 Selective Enhancement: Core always renders, enhancements have bounds checking
 
-Object Reuse: Minimal allocation in render loops for 60fps performance
+Object Reuse: Minimal allocation in render loops for efficient performance
 
-## 2. Cognitive-Aware User Experience Architecture
+## 2. User Experience Design
 
-### Core Design Principles Embedded
-
-#### Perceptual Processing Support
-
-Visual cortex processes parallel information many times faster than sequential
-
-Pre-attentive visual attributes (color, size, motion) for instant volatility recognition
-
-Progressive disclosure from glanceable to analytical information layers
-
-#### Cognitive Load Management
-
-Background element positioning reduces attention competition
-
-Working memory preservation (4±1 chunk limit under stress)
-
-Extended session comfort through reduced visual complexity
-
-#### Environmental Adaptation
-
-Configurable intensity scaling for user preference
-
-### Essential User Interactions &amp; Cognitive Purpose
+### Essential User Interactions
 
 #### Fundamental Mechanisms
 
-Size: The size responds to market volatility, allowing traders to instantly perceive volatility levels via orb size relative to canvas.
+Size: The size responds to market volatility, allowing users to perceive volatility levels via orb size relative to canvas.
 
 #### Color / Brightness
 
-Directional Color Mode: Offers traders the ability to customize up/down volatility colors and transparency
+Directional Color Mode: Customizable up/down volatility colors and transparency
 
 Intensity Mode: Adjusts color rendering intensity and/or transparency modifiers
 
 #### Combinations
 
-Traders can choose any combination of the fundamental mechanisms to suit their unique cognitive needs.
+Users can choose any combination of the fundamental mechanisms.
 
 ### Flash
 
-Flash modifier is offered as an option for traders to have an instant visual change, allowing customized tick flash threshold. Flash can be the orb itself or the full canvas background.
+Flash modifier provides a visual change for significant price movements. Flash can be the orb itself or the full canvas background.
 
 #### Interaction Modes
 
-Mode
+**Directional Mode**
+- Color changes based on tick direction
+- Color based on price direction
 
-Cognitive Purpose
+**Static Mode**
+- Single color regardless of direction
+- Reduced visual complexity
 
-Implementation
+**Intensity Mode**
+- Color rendering intensity based on volatility
+- Logarithmic color intensity mapping
 
-Directional Mode
+### Visual Hierarchy
 
-Enables color changes for color recognition
+**Primary**
+- Orb: Main volatility information through size and color
 
-Color based on tick direction
+**Secondary**
+- Flash Effects: Visual notification for significant price movements
 
-Static Mode
-
-Cognitive load reduction
-
-Single color regardless of direction
-
-Intensity Mode
-
-Perceptual volatility using color rendering intensity instead of size
-
-Logarithmic color intensity mapping
-
-### Visual Hierarchy (Cognitive-Aware Priority System)
-
-Priority
-
-Component
-
-Purpose
-
-Primary
-
-Orb
-
-Primary volatility information through size and color
-
-Secondary
-
-Flash Effects
-
-Event significance notification through flash effects on significant price movements
-
-Tertiary
-
-Volatility Metric
-
-Numeric display of volatility level - static position text allowing traders to read exact volatility state
+**Tertiary**
+- Volatility Metric: Numeric display of volatility level
 
 ## 3. Advanced Multi-Mode Visualization System
 
 ### Mode 1: Directional (Default)
 
-Cognitive Purpose: Immediate trend context recognition
+Provides immediate trend context through color coding
 
 // Direction-aware color coding for trend recognitioncase ‘directional’:return direction === ‘up’? (config.priceUpColor || ‘#3b82f6’) // Blue for upward movement: (config.priceDownColor || ‘#a78bfa’); // Purple for downward movementVisual Characteristics:
 
-Pre-attentive Processing: Color instantly communicates trend direction
-
-Brightness Inversion Support: Adapts to environmental lighting
-
-Background/Foreground Integration: Maintains visibility in both modes
+- Color communicates trend direction
+- Brightness inversion support for different lighting conditions
+- Maintains visibility in both background and foreground modes
 
 ### Mode 2: Static
 
-Cognitive Purpose: Extended session comfort through reduced cognitive load
+Provides consistent color for reduced visual complexity
 
 // Consistent color for reduced visual complexitycase ‘static’:return config.priceStaticColor || ‘#d1d5db’; // Neutral grayVisual Characteristics:
 
-Cognitive Load Reduction: Eliminates directional processing overhead
-
-Extended Session Comfort: Reduced mental fatigue during long trading sessions
-
-Ambient Glow Compatibility: Enhanced visual softening available
+- Eliminates directional processing overhead
+- Reduced visual complexity during extended use
+- Compatible with ambient glow effects
 
 ### Mode 3: Intensity
 
-Cognitive Purpose: Perceptual color/brightness volatility scaling for pattern recognition
+Provides color/brightness scaling based on volatility levels
 
 // Logarithmic scaling for human-perceptible volatility mappingconst rawIntensity = volatility &gt; 0? Math.log(Math.max(0.1, volatility + 0.1)) / Math.log(10): 0;const intensity = Math.min(1.0, rawIntensity);Visual Characteristics:
 
-Logarithmic Scaling: Matches human perception of volatility changes
-
-Smooth Perceptual Gradients: HSL color space for natural intensity transitions
+- Logarithmic scaling for volatility mapping
+- Smooth color transitions using HSL color space
 
 ## 6. Simple Flash Alert System
 
@@ -192,9 +138,12 @@ const priceChange = latestTick?.magnitude || 0;return priceChange &gt;= config.f
 
 ctx.restore();}
 
-#### Cognitive Design Integration
+#### Design Integration
 
-Non-Disruptive: Flash affects only the orb, preserving foreground analysisConfigurable Sensitivity: User controls threshold via flashThreshold parameterBackground Element: Flash supports rather than competes with primary trading informationExtended Session: Brief flash duration prevents cognitive fatigue
+- Non-Disruptive: Flash affects only the orb, preserving foreground analysis
+- Configurable Sensitivity: User controls threshold via flashThreshold parameter
+- Background Element: Flash supports rather than competes with primary trading information
+- Brief flash duration for reduced visual interruption
 
 #### Simplified Configuration
 
@@ -472,25 +421,22 @@ Type-Safe Validation:
 
 validateRenderData(contentArea, adrAxisX, config, state) {// Early exit for performanceif (!config.showVolatilityOrb) {return { shouldRender: false, error: ‘Volatility orb disabled’ };}
 
-// Validate essential data with cognitive awarenessconst { volatility, currentPrice } = state;if (currentPrice === undefined || currentPrice === null ||volatility === undefined || volatility === null) {return { shouldRender: false, error: ‘Missing essential data’ };}
+// Validate essential dataconst { volatility, currentPrice } = state;if (currentPrice === undefined || currentPrice === null ||volatility === undefined || volatility === null) {return { shouldRender: false, error: ‘Missing essential data’ };}
 
 // Continue with comprehensive validation…}
 
-## 8. Realistic Performance Architecture
+## 8. Performance Architecture
 
-### Background Element Performance Targets
-
-Foundation-Aligned Performance: Optimized for background element role, not foreground complexity
+### Rendering Approach
 
 #### Core Performance Strategy
 
-Single-Pass Rendering: One gradient operation per frameFixed Center Positioning: Eliminates coordinate calculation overheadSimple Flash System: Single overlay operation when triggeredMinimal State Management: Limited configuration reduces memory footprint
+- Single-Pass Rendering: One gradient operation per frame
+- Fixed Center Positioning: Eliminates coordinate calculation overhead
+- Simple Flash System: Single overlay operation when triggered
+- Minimal State Management: Limited configuration reduces memory footprint
 
 #### Implementation Optimization
-
-// Simple pre-calculation for background elementfunction calculateOrbDimensions(canvas, config) {const baseSize = Math.min(canvas.width, canvas.height) * config.volatilityOrbBaseWidth;const centerX = canvas.width / 2; // Fixed center positioningconst centerY = canvas.height / 2;
-
-return {centerX,centerY,baseRadius: baseSize / 2};}
 
 // Efficient rendering with bounds checkingfunction renderBackgroundOrb(ctx, orbData, config, volatility) {if (!config.showVolatilityOrb) return;
 
@@ -498,87 +444,9 @@ const volatilityScale = Math.min(2.0, volatility * 0.8);const radius = orbData.b
 
 // Single gradient operationconst gradient = ctx.createRadialGradient(orbData.centerX, orbData.centerY, 0,orbData.centerX, orbData.centerY, radius * config.gradientSpread);
 
-// Apply gradient with softnessgradient.addColorStop(0, getOrbColor(config, 1.0));gradient.addColorStop(config.gradientSoftness, getOrbColor(config, 0.3));gradient.addColorStop(1, ‘transparent’);
+// Apply gradient with softnessgradient.addColorStop(0, getOrbColor(config, 1.0));gradient.addColorStop(config.gradientSoftness, getOrbColor(config, 0.3));gradient.addColorStop(1, 'transparent');
 
 ctx.fillStyle = gradient;ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);}
-
-#### Realistic Performance Benchmarks
-
-Background Element Targets
-
-Metric
-
-Target
-
-Rationale
-
-Render Time
-
-1-3ms per orb
-
-Background element (not 10ms+ for foreground)
-
-Latency
-
-&lt;100ms data-to-visual update
-
-Maintains foundation requirement
-
-Memory
-
-&lt;50MB per 20 displays
-
-Background element efficiency
-
-CPU Impact
-
-&lt;2% per display
-
-Minimal foreground competition
-
-Multi-Display Support
-
-Metric
-
-Target
-
-Strategy
-
-Concurrent Displays
-
-15+ at 60fps
-
-Optimized for background role
-
-Quality Management
-
-Graceful degradation
-
-Reduced quality rather than framerate loss
-
-Priority
-
-Background first
-
-Sacrifices quality before impacting critical elements
-
-#### Cognitive Performance Benefits
-
-Extended Session Support:
-
-Low Cognitive Load: Simple rendering reduces mental fatigue
-
-Consistent Performance: Predictable behavior during long sessions
-
-Background Awareness: Provides context without demanding attention
-
-Trader Workflow Support:
-
-Non-Disruptive: Performance issues never impact critical trading components
-
-Reliable Context: Background information remains available during market activity
-
-Progressive Enhancement: Core functionality preserved under system load
 
 ## 9. Implementation Readiness
 
@@ -604,13 +472,13 @@ Technical Implementation:
 
 UnifiedVisualization base class integration
 
-Single-pass gradient rendering (1-3ms per orb)
+Single-pass gradient rendering for efficient performance
 
 Fixed center positioning eliminates coordinate complexity
 
 Simple configuration with 10 essential parameters
 
-Foundation-aligned performance targets
+Foundation-aligned performance approach
 
 #### Success Criteria
 
@@ -646,37 +514,12 @@ Simple flash alerts for significant events
 
 Section 2
 
-Performance Requirements
+Performance Goals
 
-Requirement
-
-Target
-
-Status
-
-Render time per orb
-
-1-3ms
-
-✅
-
-Data-to-visual latency
-
-&lt;100ms
-
-✅
-
-Concurrent displays
-
-15+ at 60fps
-
-✅
-
-CPU/memory impact
-
-Minimal background role
-
-✅
+- Efficient rendering performance
+- Responsive data-to-visual updates
+- Support for multiple concurrent displays
+- Minimal CPU/memory impact
 
 Cognitive Requirements
 
@@ -720,7 +563,7 @@ Clear scope aligned with cognitive design principles
 
 Essential parameters serving specific user needs
 
-Realistic performance targets for background element role
+Efficient performance approach for background element role
 
 Implementation patterns following UnifiedVisualization foundation
 
@@ -815,9 +658,9 @@ targetOpacity = volatilityUpOpacity || 0.8;
 ### Performance & Quality Assurance
 
 #### Rendering Performance
-- **Sub-0.5ms Overhead**: Additional transparency calculations minimally impact performance
+- **Minimal Overhead**: Additional transparency calculations minimally impact performance
 - **No Memory Impact**: 7 new parameters (~100 bytes total memory footprint)
-- **60fps Maintained**: All transparency operations optimized for real-time rendering
+- **Efficient Performance**: All transparency operations optimized for real-time rendering
 
 #### Validation & Testing
 - **Schema Validation**: Type-safe validation prevents configuration errors

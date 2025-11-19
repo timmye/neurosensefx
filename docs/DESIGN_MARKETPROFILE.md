@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-Market Profile visualization provides real-time market structure analysis through volume distribution patterns, enabling traders to instantly recognize key support/resistance levels and gauge buying vs. selling pressure across price levels. The component delivers sophisticated analysis capabilities through six distinct rendering modes while maintaining the NeuroSense FX core philosophy of "Simple, Performant, Maintainable."
+Market Profile visualization provides real-time market structure analysis through volume distribution patterns, enabling users to recognize key support/resistance levels and gauge buying vs. selling pressure across price levels. The component provides analysis capabilities through six distinct rendering modes while maintaining the NeuroSense FX core philosophy of "Simple, Performant, Maintainable."
 
-**Core Achievement**: Production-ready visualization that translates complex market data into intuitive visual patterns, supporting both rapid market assessment (1-2 second glance) and deep structural analysis (30+ second examination) without cognitive overload.
+**Core Achievement**: Visualization that translates complex market data into visual patterns, supporting both rapid market assessment and detailed structural analysis.
 
 ---
 
@@ -18,19 +18,19 @@ Market Profile visualization provides real-time market structure analysis throug
 - **Market Sentiment Assessment**: Gauge buyer vs. seller conviction at different price levels
 - **Real-time Context**: Provide immediate structural context within price action
 
-**Cognitive Design Goals**
-- **Pre-attentive Processing**: Enable instant pattern recognition without conscious analysis
+**Design Goals**
+- **Clear Visualization**: Enable pattern recognition through visual representation
 - **Progressive Disclosure**: Support both quick glances and detailed analysis in the same interface
-- **Cognitive Load Reduction**: Minimize mental effort required for market structure assessment
-- **Pattern Recognition Advantage**: Leverage brain's superior visual processing over numerical analysis
+- **Simplified Analysis**: Minimize complexity required for market structure assessment
+- **Visual Processing**: Use visual elements to show patterns over numerical data
 
 ### User Journey & Interaction Patterns
 
-**Level 1: Glance Assessment (1-2 seconds)**
-- **Immediate Pattern Recognition**: Overall market structure at a glance
-- **Key Level Identification**: Instant spotting of high-activity price zones
-- **Market Direction Sense**: Quick understanding of buyer/seller pressure balance
-- **Visual Priority**: High - important information presented through pre-attentive attributes
+**Level 1: Glance Assessment**
+- **Pattern Recognition**: Overall market structure at a glance
+- **Key Level Identification**: High-activity price zones
+- **Market Direction Sense**: Understanding of buyer/seller pressure balance
+- **Visual Priority**: Important information presented through clear visual attributes
 
 **Level 2: Contextual Analysis (5-10 seconds)**
 - **Volume Distribution Details**: Relative volume levels across price hierarchy
@@ -58,35 +58,35 @@ Market Profile visualization provides real-time market structure analysis throug
 
 ---
 
-## 2. Cognitive Design Foundation
+## 2. Visual Design Foundation
 
-### Neuroscience-Based Visual Architecture
+### Visual Architecture
 
-**Pre-attentive Visual Attributes**
+**Visual Attributes**
 - **Color Coding**: Green (buying pressure) vs. Red (selling pressure) following trading conventions
-- **Position & Direction**: Left/right positioning relative to ADR axis for instant directional sense
+- **Position & Direction**: Left/right positioning relative to ADR axis for directional sense
 - **Size & Width**: Proportional representation for volume/delta significance
 - **Vertical Alignment**: Price level positioning supporting natural price reading patterns
 
-**Pattern Recognition Optimization**
-- **Spatial Memory Support**: Consistent positioning reinforces mental model formation
-- **Visual Hierarchy**: Most important information processed first through shape
+**Pattern Organization**
+- **Consistent Positioning**: Reinforces understanding through consistent layout
+- **Visual Hierarchy**: Most important information emphasized through visual design
 - **Grouping Principles**: Related elements grouped through proximity and similarity
-- **Figure-Ground Separation**: Clear distinction between foreground data and background context
+- **Clear Separation**: Distinction between foreground data and background context
 
-### Human Factors Integration
+### Usability Integration
 
-**Cognitive Load Management**
-- **Information Chunking**: Complex data presented in manageable visual groups
-- **Progressive Disclosure**: Additional detail revealed through extended viewing, not interface complexity
-- **Attention Guidance**: Visual cues guide focus to most relevant information
-- **Mental Model Alignment**: Visual metaphors match traders' conceptual understanding
+**Information Management**
+- **Information Grouping**: Complex data presented in manageable visual groups
+- **Progressive Disclosure**: Additional detail revealed through extended viewing
+- **Visual Guidance**: Visual cues guide focus to relevant information
+- **Clear Metaphors**: Visual representations match user understanding
 
-**Extended Usability Considerations**
-- **Visual Fatigue Prevention**: High contrast, clear boundaries, comfortable color palette
-- **Sustained Concentration Support**: Interface remains usable during extended focus periods
+**Extended Usability**
+- **Visual Comfort**: High contrast, clear boundaries, comfortable color palette
+- **Sustained Use**: Interface remains usable during extended periods
 - **Error Prevention**: Clear visual feedback prevents misinterpretation of data
-- **Recovery From Interruption**: Easy to re-establish context after breaks
+- **Easy Recovery**: Simple to re-establish context after breaks
 
 ---
 
@@ -101,8 +101,8 @@ Market Profile visualization provides real-time market structure analysis throug
 - **Consistent Patterns**: Predictable behavior across all modes and conditions
 
 **Performance Excellence**
-- **60fps Guarantee**: Smooth rendering regardless of market activity or display count
-- **Sub-100ms Latency**: Real-time response to market data updates
+- **Efficient Rendering**: Smooth rendering regardless of market activity or display count
+- **Responsive Updates**: Real-time response to market data updates
 - **Memory Efficiency**: Minimal resource usage allowing 20+ concurrent displays
 - **CPU Optimization**: Smart processing prevents system performance degradation
 
@@ -112,13 +112,13 @@ Market Profile visualization provides real-time market structure analysis throug
 - **Error Resilience**: Comprehensive validation with graceful fallback handling
 - **Future-Proof Design**: Architecture supports enhanced features without breaking changes
 
-### Technical Performance Standards
+### Technical Performance Approach
 
-**System-Wide Budgets**
-- **Frame Rate**: Steady 60fps with 20+ concurrent displays
-- **Latency**: <100ms from data update to visual rendering
-- **Memory**: <50MB per active display, <500MB total system usage
-- **CPU**: <5% per display at 60fps, linear scaling with display count
+**System Goals**
+- Efficient rendering with multiple concurrent displays
+- Responsive updates from data to visual rendering
+- Memory-efficient resource management
+- CPU optimization for smooth operation
 
 **Multi-Display Performance**
 - **Scalable Architecture**: Performance scales predictably with display count
@@ -198,7 +198,7 @@ Market Profile visualization provides real-time market structure analysis throug
 - **Visual Tuning**: Adjustable characteristics match individual cognitive preferences
 - **Workflow Adaptation**: Rendering style selection based on analysis requirements
 - **Comfort Optimization**: Extended session usability through personalized visual settings
-- **Performance Preservation**: All rendering approaches maintain 60fps performance targets
+- **Performance Preservation**: All rendering approaches maintain efficient performance
 
 ---
 
@@ -354,7 +354,7 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
 - **Cognitive Preference Tuning**: Visual characteristics adapted to individual processing styles
 - **Workflow Optimization**: Default configurations for different trading scenarios
 - **Extended Session Comfort**: Settings optimized for long-duration usage
-- **Performance Preservation**: All customization maintains 60fps performance targets
+- **Performance Preservation**: All customization maintains efficient performance
 
 ---
 
@@ -363,7 +363,7 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
 ### Performance Criteria
 
 **Frame Rate Requirements**
-- **60fps Guarantee**: Smooth animation regardless of display count
+- **Efficient Rendering**: Smooth animation regardless of display count
 - **Consistent Timing**: Stable frame times during market volatility
 - **Multi-Display Scaling**: Linear performance degradation with display count
 - **Resource Management**: Intelligent CPU and memory allocation
@@ -504,12 +504,12 @@ drawPriceDisplay(ctx, renderingContext, config, state, y);
 
 ## Conclusion
 
-The Market Profile component represents a sophisticated balance between advanced market analysis capabilities and human-centered design principles. Through flexible rendering approaches that adapt to user needs and cognitive preferences, it provides traders with comprehensive tools for market structure assessment while maintaining the NeuroSense FX core philosophy of simplicity, performance, and maintainability.
+The Market Profile component provides a balance between market analysis capabilities and design principles. Through flexible rendering approaches that adapt to user needs, it provides tools for market structure assessment while maintaining the NeuroSense FX core philosophy of simplicity, performance, and maintainability.
 
-The component's strength lies in its ability to translate complex market data into intuitive visual patterns that support both rapid assessment and detailed analysis. By leveraging pre-attentive visual processing, particularly the brain's superior shape and size recognition capabilities through silhouette rendering, it enables traders to make better decisions without cognitive overload.
+The component's strength lies in its ability to translate complex market data into visual patterns that support both rapid assessment and detailed analysis. The visual processing approach through silhouette rendering enables users to make decisions without information overload.
 
 The flexible architecture supports evolutionary development rather than restrictive feature sets. Silhouette rendering taps into fundamental cognitive processes for instant market structure recognition, while bar-based and hybrid approaches provide detailed analysis when needed. This adaptability ensures the component can grow with user requirements and advancing understanding of market visualization needs.
 
-The architecture ensures exceptional performance even with 20+ concurrent displays, while the modular design supports future enhancements without compromising stability. The emphasis on personalization and cognitive comfort supports extended trading sessions without fatigue, making this a professional-grade visualization tool that enhances trading effectiveness through superior information design and technical excellence.
+The architecture supports multiple concurrent displays, while the modular design supports future enhancements without compromising stability. The emphasis on personalization and user comfort supports extended use sessions.
 
 This specification provides the foundation for continued development and enhancement while preserving the core principles that make the Market Profile component an essential tool for modern trading analysis. The flexible, cognitively-grounded approach ensures the component will remain valuable as both market analysis techniques and user understanding evolve.

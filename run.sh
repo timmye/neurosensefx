@@ -493,6 +493,100 @@ clean_old_backups() {
 }
 
 # =============================================================================
+# SNAPSHOT MANAGEMENT FUNCTIONS
+# =============================================================================
+
+# Save current build as immutable snapshot
+snapshot_save() {
+    # Validate we have something to save
+    if [ ! -d "dist/" ] || [ -z "$(ls -A dist/)" ]; then
+        log_error "No valid build to save. Run 'npm run build:prod' first."
+        return 1
+    fi
+
+    local TAG="stable-$(date +%Y%m%d-%H%M%S)"
+
+    # Stage and commit current state
+    git add .
+    git commit -m "Stable snapshot $TAG" 2>/dev/null || true
+
+    # Create immutable tag
+    git tag -a "$TAG" -m "Stable build snapshot - $(date)"
+
+    log_success "Saved as: $TAG"
+    log_info "Build artifacts preserved in /dist/"
+    echo "$TAG"
+}
+
+# List all available stable snapshots
+snapshot_show() {
+    local tags=($(git tag -l "stable-*" --sort=-version:refname 2>/dev/null))
+
+    if [ ${#tags[@]} -eq 0 ]; then
+        log_info "No stable snapshots found"
+        log_info "Use './run.sh snapshot_save' to create one"
+        return 1
+    fi
+
+    echo ""
+    echo "${BOLD}Available Stable Snapshots:${NC}"
+    echo ""
+
+    for tag in "${tags[@]}"; do
+        local date=$(git log -1 --format=%ai "$tag" 2>/dev/null | cut -d' ' -f1,2 | cut -d'-' -f1-3)
+        echo "  ${BLUE}🏷️${NC} $tag"
+        echo "    ${DIM}Created: $date${NC}"
+        echo ""
+    done
+}
+
+# Deploy specific snapshot
+snapshot_use() {
+    local TAG="$1"
+
+    if [ -z "$TAG" ]; then
+        log_error "Please specify a snapshot"
+        log_info "Usage: ./run.sh snapshot_use stable-20241119-143000"
+        log_info "Available snapshots:"
+        snapshot_show
+        return 1
+    fi
+
+    if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+        log_error "Snapshot '$TAG' not found"
+        log_info "Use './run.sh snapshot_show' to list available snapshots"
+        return 1
+    fi
+
+    # Check for uncommitted changes
+    if ! git diff-index --quiet HEAD --; then
+        log_warning "You have uncommitted changes"
+        log_info "Changes will be preserved but not committed"
+    fi
+
+    git checkout "$TAG"
+
+    log_success "Now using: $TAG"
+    log_info "Run './run.sh start' to deploy this version"
+}
+
+# Return to development branch
+back_to_work() {
+    # Try main first, then master
+    if git rev-parse --verify main >/dev/null 2>&1; then
+        git checkout main
+        log_success "Back to development branch (main)"
+    elif git rev-parse --verify master >/dev/null 2>&1; then
+        git checkout master
+        log_success "Back to development branch (master)"
+    else
+        log_error "No main or master branch found"
+        log_info "Create a development branch first"
+        return 1
+    fi
+}
+
+# =============================================================================
 # BROWSER INTEGRATION
 # =============================================================================
 
@@ -1542,12 +1636,21 @@ usage() {
     echo "  ${BLUE}copy-prod-to-dev${NC}      Copy production → development"
     echo "  ${RED}copy-dev-to-prod${NC}       Copy development → production"
     echo ""
+    echo "${BOLD}SNAPSHOT MANAGEMENT:${NC}"
+    echo "  ${GREEN}snapshot_save${NC}         Save current build as stable snapshot"
+    echo "  ${BLUE}snapshot_show${NC}          List all available snapshots"
+    echo "  ${YELLOW}snapshot_use${NC} [tag]   Deploy specific snapshot"
+    echo "  ${BLUE}back_to_work${NC}           Return to development branch"
+    echo ""
 
     echo "${BOLD}EXAMPLES:${NC}"
     echo "  ./run.sh dev                           # Start development"
     echo "  ./run.sh start                         # Start production services"
     echo "  ./run.sh status                        # Check service health"
     echo "  ./run.sh logs backend                  # View backend logs"
+    echo "  ./run.sh snapshot_save                 # Save current build as stable"
+    echo "  ./run.sh snapshot_use stable-20241119  # Deploy specific snapshot"
+    echo "  ./run.sh back_to_work                  # Return to development"
     echo ""
 
     if [ "$env" = "$DEVELOPMENT_MODE" ]; then
@@ -1620,6 +1723,20 @@ case "${1:-}" in
         copy_dev_to_prod
         ;;
 
+    # Snapshot management commands
+    "snapshot_save")
+        snapshot_save
+        ;;
+    "snapshot_show")
+        snapshot_show
+        ;;
+    "snapshot_use")
+        snapshot_use "${2:-}"
+        ;;
+    "back_to_work")
+        back_to_work
+        ;;
+
     # Help and information
     "help"|"-h"|"--help")
         usage
@@ -1642,6 +1759,7 @@ case "${1:-}" in
         echo "  env-status, browser, clean-env"
         echo "  backup-env, restore-env, list-backups"
         echo "  copy-prod-to-dev, copy-dev-to-prod"
+        echo "  snapshot_save, snapshot_show, snapshot_use, back_to_work"
         echo "  help, version"
         echo ""
         echo "Use './run.sh help' for detailed information"

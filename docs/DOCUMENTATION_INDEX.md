@@ -18,7 +18,7 @@ This index provides a complete guide to NeuroSense FX documentation, organized b
 Before writing any code, understand that every decision must satisfy these three pillars:
 
 - **SIMPLE**: Clear mental models, minimal complexity, predictable behavior
-- **PERFORMANT**: 60fps guarantee, sub-100ms latency, memory efficiency
+- **PERFORMANT**: Efficient rendering, responsive updates, resource management
 - **MAINTAINABLE**: Single responsibility, loose coupling, extensible design
 
 > **LLM Developer Tip**: The UX Architecture document explains how to apply this philosophy to real development scenarios.
@@ -48,12 +48,12 @@ Before writing any code, understand that every decision must satisfy these three
 
 | Component | Design Doc | Implementation | Status |
 |-----------|------------|----------------|---------|
-| **[Market Profile](DESIGN_MARKETPROFILE.md)** | 6 rendering modes, delta analysis, color coding | [src/lib/viz/marketProfile.js](../src/lib/viz/marketProfile.js) | ✅ Production Ready |
-| **[Volatility Orb](DESIGN_VOLATILITYORB.md)** | Multi-mode visualization, market sentiment | [src/lib/viz/volatilityOrb.js](../src/lib/viz/volatilityOrb.js) | ✅ Production Ready |
-| **[Day Range Meter](DESIGN_DayRangeMeter.md)** | ADR reference system, graduated markers | [src/lib/viz/dayRangeMeter.js](../src/lib/viz/dayRangeMeter.js) | ✅ Production Ready |
-| **[Price Display](DESIGN_PRICEDISPLAY.md)** | Crisp text rendering, monospace fonts | [src/lib/viz/priceDisplay.js](../src/lib/viz/priceDisplay.js) | ✅ Production Ready |
-| **[Price Float](DESIGN_PRICEFLOAT.md)** | Visual price tracking, smooth animations | [src/lib/viz/priceFloat.js](../src/lib/viz/priceFloat.js) | ✅ Production Ready |
-| **[Status Panel](DESIGN_StatusPanel.md)** | Real-time connectivity & data delay monitoring | [src/components/StatusPanel/](../src/components/StatusPanel/) | ✅ Production Ready |
+| **[Market Profile](DESIGN_MARKETPROFILE.md)** | 6 rendering modes, delta analysis, color coding | [src/lib/viz/marketProfile.js](../src/lib/viz/marketProfile.js) | 🔄 In Development |
+| **[Volatility Orb](DESIGN_VOLATILITYORB.md)** | Multi-mode visualization, market sentiment | [src/lib/viz/volatilityOrb.js](../src/lib/viz/volatilityOrb.js) | 🔄 In Development |
+| **[Day Range Meter](DESIGN_DayRangeMeter.md)** | ADR reference system, graduated markers | [src/lib/viz/dayRangeMeter.js](../src/lib/viz/dayRangeMeter.js) | 🔄 In Development |
+| **[Price Display](DESIGN_PRICEDISPLAY.md)** | Crisp text rendering, monospace fonts | [src/lib/viz/priceDisplay.js](../src/lib/viz/priceDisplay.js) | 🔄 In Development |
+| **[Price Float](DESIGN_PRICEFLOAT.md)** | Visual price tracking, smooth animations | [src/lib/viz/priceFloat.js](../src/lib/viz/priceFloat.js) | 🔄 In Development |
+| **[Status Panel](DESIGN_StatusPanel.md)** | Real-time connectivity & data delay monitoring | [src/components/StatusPanel/](../src/components/StatusPanel/) | 🔄 In Development |
 
 ### 🛠️ Development & Implementation
 
@@ -149,10 +149,10 @@ Before writing any code, understand that every decision must satisfy these three
 5. **Integration**: Add to [Parameter Groups](../src/components/UnifiedContextMenu/utils/parameterGroups.js) and configuration system
 
 ### ❓ How do performance requirements work?
-- **Philosophy**: 60fps guarantee is a **PERFORMANT** pillar requirement
-- **System-wide**: [Performance Architecture](DESIGN_UX_Architecture.md#41-performance-architecture)
-- **Component-specific**: Each design document includes performance requirements
-- **Monitoring**: [Performance Monitor](../src/lib/viz/PerformanceMonitor.js)
+- **Philosophy**: Efficient rendering is a **PERFORMANT** pillar requirement
+- **System-wide**: Architecture supports responsive updates
+- **Component-specific**: Each design document includes implementation guidelines
+- **Monitoring**: System monitoring for resource management
 - **Guidelines**: [UX Architecture](DESIGN_UX_Architecture.md#51-understanding-the-system-mental-model)
 
 ### ❓ Where are user configuration options defined?
@@ -168,16 +168,16 @@ Before writing any code, understand that every decision must satisfy these three
 - **Performance impact**: Sub-100ms response, zero impact on trading displays
 
 ### ❓ How do I debug performance issues?
-1. **Philosophy Check**: Are you maintaining 60fps? (**PERFORMANT** pillar)
-2. **Performance Monitor**: Use [src/lib/viz/PerformanceMonitor.js](../src/lib/viz/PerformanceMonitor.js)
-3. **Performance Budgets**: Check [UX Architecture](DESIGN_UX_Architecture.md#41-performance-architecture)
+1. **Philosophy Check**: Is the system responsive? (**PERFORMANT** pillar)
+2. **Monitoring**: Use system monitoring tools and browser DevTools
+3. **Architecture**: Check [UX Architecture](DESIGN_UX_Architecture.md) for patterns
 4. **Component Patterns**: Review individual component design documents
 5. **Profiling Tools**: Use browser DevTools with component-specific guidance
 
 ### ❓ How do I know if my solution follows the technical philosophy?
 Before committing any code, ask:
 - **SIMPLE**: Is this solution clear, intuitive, and minimal complexity?
-- **PERFORMANT**: Does this maintain 60fps and sub-100ms latency?
+- **PERFORMANT**: Does this provide efficient rendering and responsive updates?
 - **MAINTAINABLE**: Does this have single responsibility and loose coupling?
 
 If any answer is "no," refactor until all three are satisfied.
@@ -217,14 +217,14 @@ When making changes to the system:
 
 ### 🎯 Mission Statement
 
-> **"Create a human-centric visual trading interface that reduces cognitive load and extends human capabilities for professional Foreign Exchange traders."**
+> **"Create a human-centric visual trading interface that reduces cognitive load and extends human capabilities for foreign exchange trading."**
 
 ### 📊 Current Project Status
 
-- **Overall Completion**: 98% Production Ready
-- **Core Features**: ✅ Complete (Market Profile, Volatility Orb, Day Range Meter, Price Display/Float)
-- **Architecture**: ✅ Complete (Three-layer floating system, unified configuration, workspace persistence)
-- **Performance**: ✅ Complete (60fps rendering, sub-100ms latency, 20+ display support)
+- **Overall Completion**: 65% Complete
+- **Core Features**: 🔄 In Progress (Market Profile, Volatility Orb, Day Range Meter, Price Display/Float)
+- **Architecture**: 🔄 In Progress (Three-layer floating system, unified configuration, workspace persistence)
+- **Performance**: 🔄 In Progress (Optimization for multiple display support)
 - **Documentation**: 🔄 In Progress (This index and UX Architecture integration)
 
 ### 🔮 Next Steps

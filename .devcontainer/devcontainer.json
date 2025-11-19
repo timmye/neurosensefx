@@ -22,6 +22,9 @@
     "seccomp=unconfined",
     "--ipc=host"
   ],
+  "mounts": [
+    "source=${localWorkspaceFolder}/dist,target=/workspaces/neurosensefx/dist,type=bind"
+  ],
   "remoteUser": "node",
   "postCreateCommand": "npm install && ./scripts/robust_mcp_setup.sh"
 }

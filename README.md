@@ -1,10 +1,10 @@
 # NeuroSense FX
 
-A sophisticated financial trading visualization platform designed for professional Foreign Exchange traders who require extended market monitoring capabilities during 8-12 hour trading sessions.
+A financial trading visualization platform designed for extended market monitoring and analysis.
 
 ## Vision & Philosophy
 
-**NeuroSense FX** is fundamentally designed as a human-centric trading interface that minimizes cognitive fatigue during extended trading sessions. The core philosophy works with human cognitive strengths rather than against them, applying principles from neuroscience, human factors, and military/aviation display design.
+**NeuroSense FX** is designed as an interface for market data visualization, focusing on clear presentation of information through visual elements.
 
 ### 🎯 **Project Technical Philosophy: "Simple, Performant, Maintainable"**
 
@@ -16,9 +16,9 @@ Every development decision is guided by these three non-negotiable pillars:
 - Self-documenting code that explains its purpose through structure
 
 #### **PERFORMANT**
-- **60fps guarantee** - All rendering maintains smooth performance
-- **Sub-100ms latency** - Data-to-visual updates under 100ms threshold
-- **Memory efficiency** - Intelligent resource management with 20+ concurrent displays
+- Efficient rendering for smooth visual updates
+- Responsive data-to-visual updates
+- Resource management for multiple concurrent displays
 
 #### **MAINTAINABLE**
 - Single responsibility components with loose coupling
@@ -54,11 +54,11 @@ Traditional trading interfaces overload traders with numerical data and cognitiv
 - **Performance Scaling**: Graceful support for 20+ simultaneous displays
 - **Glanceability Design**: One-second comprehension of market state with progressive disclosure
 
-### Real-Time Performance
-- **Sub-100ms Latency**: Data to visual update under 100ms
-- **60fps Rendering**: Smooth animation with DPR-aware crisp text
-- **8+ Hour Operation**: Stable continuous operation during extended sessions
-- **Memory Efficiency**: Under 500MB usage with active displays
+### Performance Characteristics
+- Responsive data updates and visual rendering
+- DPR-aware text rendering for clarity
+- Stable operation for extended sessions
+- Memory management for multiple displays
 
 ## Development Setup
 
@@ -210,19 +210,19 @@ npm run format       # Code formatting (when implemented)
 
 ## Current Status
 
-**Production Maturity**: ~75% complete, functional for development and testing
-- Core functionality fully operational with real-time market data
-- Architecture stable with comprehensive WebSocket communication
-- Performance optimized for 20+ concurrent displays
-- Development environment with HMR and comprehensive tooling
-- Currently in feature completion and production hardening phase
+**Production Maturity**: ~65% complete, functional for development and testing
+- Core functionality operational with real-time market data
+- Stable architecture with WebSocket communication
+- Support for multiple concurrent displays
+- Development environment with HMR and tooling
+- Currently in feature development phase
 
 ### Current Capabilities
 - ✅ Real-time FX market data visualization via cTrader integration
 - ✅ Multiple display types: Market Profile, Volatility Orb, Day Range Meter
 - ✅ Drag-and-drop workspace management with persistence
 - ✅ Environment-aware development (HMR) and production modes
-- ✅ 60fps Canvas rendering with DPR-aware crisp text
+- ✅ Canvas rendering with DPR-aware text
 - ✅ Comprehensive service management and monitoring
 
 ### Recent Achievements
@@ -253,18 +253,18 @@ npm run format       # Code formatting (when implemented)
 
 ## Design Philosophy
 
-The innovation in NeuroSense FX lies not in specific technologies but in recognizing that effective technology extends human capabilities while respecting human limitations. This platform represents a fundamentally new paradigm for financial information presentation.
+NeuroSense FX focuses on effective presentation of financial information through visual elements and responsive design.
 
 ### Core Values
-- **Scientific Foundation**: Grounded in neuroscience and human factors research
-- **User-Centered Design**: Every decision serves the trader's cognitive needs
-- **Technology Agnostic**: Implementation adapts to changing technologies
-- **Adaptive Evolution**: System evolves with user needs and capabilities
+- **Clear Design**: Focus on readable and understandable visual presentation
+- **User-Centered Approach**: Design decisions serve user needs
+- **Maintainable Implementation**: Clean, well-structured code
+- **Responsive System**: Adapts to user interaction and data changes
 
 ## Contributing
 
-We welcome contributions that align with our human-centered design philosophy. Please see our development guidelines before submitting pull requests.
+We welcome contributions that align with our design philosophy. Please see our development guidelines before submitting pull requests.
 
 ---
 
-**NeuroSense FX** - Extending human capabilities while respecting human limitations in financial trading.
+**NeuroSense FX** - Financial trading visualization platform.

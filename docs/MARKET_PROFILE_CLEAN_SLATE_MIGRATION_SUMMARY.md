@@ -43,7 +43,7 @@
 - **Pre-attentive Processing**: Shape-based recognition for instant market structure analysis
 - **Progressive Disclosure**: Simple silhouette at glance, detailed bars on examination
 - **Neuroscience-Based**: Leverages brain's superior visual processing capabilities
-- **Extended Session Support**: Optimized for 8-12 hour trading sessions
+- **Extended Session Support**: Optimized for extended use sessions
 
 ### 🎨 Advanced Rendering Approaches
 - **Silhouette Rendering**: Shape and size cognition with area fills and outline tracing
