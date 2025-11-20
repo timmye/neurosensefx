@@ -9,12 +9,19 @@
  */
 
 import { boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
+import {
+  formatPrice,
+  formatPriceSimple,
+  getTextMetricsCached,
+  clearPriceFormattingCache,
+  priceFormattingEngine
+} from '../utils/priceFormatting.js';
 
 // =============================================================================
 // PERFORMANCE-FIRST CACHING SYSTEM (NeuroSense FX Principle)
 // =============================================================================
 // Eliminates redundant calculations and memory allocations
-// Follows established hoverIndicator.js patterns for 60fps performance
+// Follows established performance patterns for 60fps rendering
 
 // Caching for expensive calculations to eliminate redundant operations
 const colorCache = new Map();
@@ -58,35 +65,15 @@ function hexToRgba(hex, opacity) {
 }
 
 /**
- * Get cached formatted price to avoid expensive string operations
+ * Get cached formatted price using the optimized central engine
  */
 function getCachedFormattedPrice(price, digits, config) {
-  const cacheKey = `${price}-${digits}-${JSON.stringify({
-    bigFigureRatio: config.bigFigureFontSizeRatio ?? 0.6,
-    pipsRatio: config.pipFontSizeRatio ?? 1.0,
-    pipetteRatio: config.pipetteFontSizeRatio ?? 0.4
-  })}`;
-
-  if (formattedPriceCache.has(cacheKey)) {
-    return formattedPriceCache.get(cacheKey);
-  }
-
-  const formattedPrice = formatPrice(price, digits, config);
-  if (!formattedPrice) return null;
-
-  formattedPriceCache.set(cacheKey, formattedPrice);
-
-  // Prevent memory leaks
-  if (formattedPriceCache.size > 200) {
-    const firstKey = formattedPriceCache.keys().next().value;
-    formattedPriceCache.delete(firstKey);
-  }
-
-  return formattedPrice;
+  // Use the central formatting engine with optimized caching
+  return priceFormattingEngine.formatPrice(price, digits, config);
 }
 
 /**
- * Get cached text metrics to avoid expensive measureText calls (NeuroSense FX Pattern)
+ * Get cached text metrics using the optimized central engine
  */
 function getCachedTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight) {
   // Guard clause for safety
@@ -96,47 +83,20 @@ function getCachedTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight) {
 
   const metrics = {};
 
-  // Cache bigFigure metrics
+  // Get bigFigure metrics using central cache
   const bigFigFont = `${fontWeight} ${baseFontSize * formattedPrice.sizing.bigFigureRatio}px monospace`;
-  const bigFigKey = `${formattedPrice.text.bigFigure}-${bigFigFont}`;
-  if (!textMetricsCache.has(bigFigKey)) {
-    const originalFont = ctx.font;
-    ctx.font = bigFigFont;
-    textMetricsCache.set(bigFigKey, ctx.measureText(formattedPrice.text.bigFigure));
-    ctx.font = originalFont;
-  }
-  metrics.bigFigure = textMetricsCache.get(bigFigKey);
+  metrics.bigFigure = getTextMetricsCached(ctx, formattedPrice.text.bigFigure, bigFigFont);
 
-  // Cache pips metrics
+  // Get pips metrics using central cache
   if (formattedPrice.text.pips) {
     const pipsFont = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipsRatio}px monospace`;
-    const pipsKey = `${formattedPrice.text.pips}-${pipsFont}`;
-    if (!textMetricsCache.has(pipsKey)) {
-      const originalFont = ctx.font;
-      ctx.font = pipsFont;
-      textMetricsCache.set(pipsKey, ctx.measureText(formattedPrice.text.pips));
-      ctx.font = originalFont;
-    }
-    metrics.pips = textMetricsCache.get(pipsKey);
+    metrics.pips = getTextMetricsCached(ctx, formattedPrice.text.pips, pipsFont);
   }
 
-  // Cache pipette metrics
+  // Get pipette metrics using central cache
   if (formattedPrice.text.pipette) {
     const pipetteFont = `${fontWeight} ${baseFontSize * formattedPrice.sizing.pipetteRatio}px monospace`;
-    const pipetteKey = `${formattedPrice.text.pipette}-${pipetteFont}`;
-    if (!textMetricsCache.has(pipetteKey)) {
-      const originalFont = ctx.font;
-      ctx.font = pipetteFont;
-      textMetricsCache.set(pipetteKey, ctx.measureText(formattedPrice.text.pipette));
-      ctx.font = originalFont;
-    }
-    metrics.pipette = textMetricsCache.get(pipetteKey);
-  }
-
-  // Prevent memory leaks
-  if (textMetricsCache.size > 300) {
-    const firstKey = textMetricsCache.keys().next().value;
-    textMetricsCache.delete(firstKey);
+    metrics.pipette = getTextMetricsCached(ctx, formattedPrice.text.pipette, pipetteFont);
   }
 
   return metrics;
@@ -144,11 +104,11 @@ function getCachedTextMetrics(ctx, formattedPrice, baseFontSize, fontWeight) {
 
 /**
  * Clear all caches (useful for testing or memory management)
+ * Now uses the central formatting engine's cache management
  */
 export function clearPriceDisplayCache() {
   colorCache.clear();
-  textMetricsCache.clear();
-  formattedPriceCache.clear();
+  clearPriceFormattingCache(); // Use central cache management
 }
 
 export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
@@ -314,177 +274,11 @@ function addEnhancements(ctx, renderData, config, state, contentArea) {
   }
 }
 
-/**
- * Enhanced price formatting with configurable component sizing ratios
- */
-function formatPrice(price, digits, config) {
-  // Base formatting
-  if (price === undefined || price === null || isNaN(price)) return null;
+// formatPrice function now imported from central formatting engine
 
-  const safeDigits = digits || 5;
-  const priceStr = price.toFixed(safeDigits);
-  const parts = priceStr.split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1] || '';
+// formatPriceSimple function now imported from central formatting engine
 
-  let bigFigure = integerPart;
-  let pips = '';
-  let pipette = '';
-
-  // NeuroSenseFX Dynamic Asset Classification System
-  // Pips are always the primary visual element (ratio = 1.0)
-  const classification = classifyPriceFormat(price, digits);
-
-  switch (classification.type) {
-    case 'HIGH_VALUE_CRYPTO': // BTCUSD: 100000.00
-      // Thousands = big figs, hundreds/tens = pips, ones = pipettes, decimals = meaningless
-      if (integerPart.length >= 6) {
-        const bigFigEnd = integerPart.length - 3; // Everything before last 3 digits
-        bigFigure = integerPart.substring(0, bigFigEnd);
-        pips = integerPart.substring(bigFigEnd, bigFigEnd + 2); // Hundreds/tens
-        pipette = integerPart.substring(bigFigEnd + 2, bigFigEnd + 3); // Ones
-      } else {
-        bigFigure = integerPart;
-      }
-      break;
-
-    case 'HIGH_VALUE_COMMODITY': // XAUUSD: 3000.00
-      // Thousands = big figs, hundreds/tens = pips, decimals meaningless
-      if (integerPart.length >= 4) {
-        const bigFigEnd = integerPart.length - 2; // Everything before last 2 digits
-        bigFigure = integerPart.substring(0, bigFigEnd);
-        pips = integerPart.substring(bigFigEnd, bigFigEnd + 2); // Hundreds/tens
-        // No pipettes for commodities
-      } else {
-        bigFigure = integerPart;
-        pips = decimalPart.substring(0, 2); // Fall back to decimals if needed
-      }
-      break;
-
-    case 'FX_JPY_STYLE': // USDJPY: 130.45 (2 digits)
-      // JPY convention: pips are both decimal places (45 in 130.45)
-      bigFigure = integerPart;
-      pips = decimalPart.substring(0, 2); // Both decimal places = pips
-      pipette = ''; // No pipettes for JPY style
-      break;
-
-    case 'FX_STANDARD': // EURUSD: 1.23456 (5 digits)
-      // Traditional FX convention
-      const pipsIndexStd = digits - 3;
-      bigFigure = integerPart + '.' + decimalPart.substring(0, pipsIndexStd);
-      pips = decimalPart.substring(pipsIndexStd, pipsIndexStd + 2);
-      pipette = decimalPart.substring(pipsIndexStd + 2);
-      break;
-
-    case 'STANDARD_DECIMAL': // Default fallback
-    default:
-      // For other instruments, use traditional decimal formatting
-      if (digits > 0) {
-        const lastTwoDigits = decimalPart.slice(-2);
-        const beforeLastTwo = decimalPart.slice(0, -2);
-        bigFigure = integerPart + (beforeLastTwo ? '.' + beforeLastTwo : '');
-        pips = lastTwoDigits;
-      } else {
-        bigFigure = integerPart;
-      }
-      break;
-  }
-
-  // NeuroSenseFX Philosophy: Pips are the primary visual element for traders
-  // All sizing uses user-configurable ratios with sensible defaults
-  const bigFigureRatio = config.bigFigureFontSizeRatio ?? 0.6;     // 60% of base (secondary)
-  const pipsRatio = config.pipFontSizeRatio ?? 1.0;               // 100% of base (PRIMARY - most important)
-  const pipetteRatio = config.pipetteFontSizeRatio ?? 0.4;        // 40% of base (tertiary)
-
-  return {
-    text: { bigFigure, pips, pipette },
-    sizing: { bigFigureRatio, pipsRatio, pipetteRatio },
-    classification // Include classification for debugging/analysis
-  };
-}
-
-/**
- * Simplified price formatting for hover indicators using NeuroSenseFX classification
- * Returns properly formatted string WITHOUT pipettes for clean display
- */
-export function formatPriceSimple(price, digits) {
-  if (price === undefined || price === null || isNaN(price)) {
-    return 'N/A';
-  }
-
-  const safeDigits = digits || 5;
-  const priceStr = price.toFixed(safeDigits);
-  const parts = priceStr.split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1] || '';
-
-  // Apply NeuroSenseFX Dynamic Asset Classification System
-  const classification = classifyPriceFormat(price, digits);
-
-  switch (classification.type) {
-    case 'FX_JPY_STYLE': // USDJPY: 149.876 → 149.87 (show 2 decimal places, no pipettes)
-      const jpyDecimalPlaces = Math.min(2, decimalPart.length);
-      return `${integerPart}.${decimalPart.substring(0, jpyDecimalPlaces)}`;
-
-    case 'FX_STANDARD': // EURUSD: 1.23456 → 1.2345 (show 4 decimal places, no pipettes)
-      if (safeDigits === 5) {
-        // Remove the 5th digit (pipette) - show only 4 decimals
-        return `${integerPart}.${decimalPart.substring(0, 4)}`;
-      } else {
-        // For other digit counts, show all but the last digit
-        const displayDigits = Math.max(safeDigits - 1, 2);
-        return `${integerPart}.${decimalPart.substring(0, displayDigits)}`;
-      }
-
-    case 'HIGH_VALUE_COMMODITY': // XAUUSD: 3000.00 (show 2 decimals)
-      if (safeDigits >= 2) {
-        return `${integerPart}.${decimalPart.substring(0, 2)}`;
-      } else {
-        return `${integerPart}`;
-      }
-
-    case 'HIGH_VALUE_CRYPTO': // BTCUSD: 95000.00 → 95000 (no decimals for high values)
-      if (price >= 1000) {
-        return integerPart; // No decimals for high-value crypto
-      } else {
-        return priceStr; // Use standard formatting for lower values
-      }
-
-    default:
-      return priceStr;
-  }
-}
-
-/**
- * NeuroSenseFX Dynamic Asset Classification System
- * Classifies price format based on magnitude and digit requirements
- */
-function classifyPriceFormat(price, digits) {
-  const magnitude = Math.floor(Math.log10(Math.abs(price)));
-
-  // HIGH_VALUE_CRYPTO: 100,000+ (BTCUSD, ETHUSD, etc.)
-  if (magnitude >= 5) {
-    return { type: 'HIGH_VALUE_CRYPTO', magnitude, description: 'Crypto-style high-value pricing' };
-  }
-
-  // HIGH_VALUE_COMMODITY: 1,000-99,999 (XAUUSD, indices, etc.)
-  if (magnitude >= 3) {
-    return { type: 'HIGH_VALUE_COMMODITY', magnitude, description: 'Commodity-style high-value pricing' };
-  }
-
-  // FX_JPY_STYLE: 100-999 with 2 decimal places (USDJPY, etc.)
-  if (magnitude >= 2 && (digits === 2 || digits === 3)) {
-    return { type: 'FX_JPY_STYLE', magnitude, description: 'JPY-style FX pricing' };
-  }
-
-  // FX_STANDARD: 0.1-999 with 5 decimal places (EURUSD, GBPUSD, etc.)
-  if (digits === 5 || digits === 3) {
-    return { type: 'FX_STANDARD', magnitude, description: 'Standard FX pricing' };
-  }
-
-  // STANDARD_DECIMAL: Everything else
-  return { type: 'STANDARD_DECIMAL', magnitude, description: 'Standard decimal pricing' };
-}
+// classifyPriceFormat function now handled by central formatting engine
 
 
 /**

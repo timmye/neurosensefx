@@ -13,6 +13,7 @@
  */
 
 import { boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
+import { formatPriceSimple } from '../utils/priceFormatting.js';
 
 export class UnifiedVisualization {
   constructor(componentName) {
@@ -216,13 +217,11 @@ export class UnifiedVisualization {
   }
 
   /**
-   * Format price with proper digits
+   * Format price using the optimized central formatting engine
+   * Provides consistent asset classification and performance optimization
    */
   formatPrice(price, digits = 5) {
-    if (price === undefined || price === null || isNaN(price)) {
-      return 'N/A';
-    }
-    return price.toFixed(digits);
+    return formatPriceSimple(price, digits);
   }
 
   /**

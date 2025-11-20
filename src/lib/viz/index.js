@@ -57,7 +57,6 @@ export {
 } from './PerformanceMonitor.js';
 
 // Additional visualization utilities
-export { default as hoverIndicator } from './hoverIndicator.js';
 export { default as priceMarkers } from './priceMarkers.js';
 export { default as volatilityMetric } from './volatilityMetric.js';
 export { default as marketPulse } from './marketPulse.js';

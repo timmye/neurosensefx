@@ -18,6 +18,10 @@ import {
   EnhancementSystem
 } from './EnhancementSystem.js';
 
+import {
+  formatPriceLabel as formatPriceLabelOptimized
+} from '../utils/priceFormatting.js';
+
 /**
  * Main price markers rendering function
  * Implements foundation pattern with guard clauses and error handling
@@ -254,12 +258,9 @@ function addGlowEnhancement(ctx, renderingContext, config, renderData) {
 }
 
 /**
- * Format price label with proper decimal handling
- * Utility function for consistent price formatting
+ * Format price label using the optimized central formatting engine
+ * Provides consistent asset classification and performance optimization
  */
 function formatPriceLabel(price, digits = 5) {
-  if (price === undefined || price === null || isNaN(price)) {
-    return 'N/A';
-  }
-  return price.toFixed(digits);
+  return formatPriceLabelOptimized(price, digits);
 }

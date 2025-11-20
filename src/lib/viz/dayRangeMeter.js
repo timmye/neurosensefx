@@ -1,5 +1,6 @@
 import { scaleLinear } from 'd3-scale';
 import { createCanvasSizingConfig, configureCanvasContext, boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
+import { formatPriceSimple } from '../utils/priceFormatting.js';
 
 /**
  * DPR-Aware Day Range Meter Implementation
@@ -481,11 +482,9 @@ function calculateMaxAdrPercentage(state) {
 }
 
 /**
- * Helper: Format price with proper digits
+ * Helper: Format price using the optimized central formatting engine
+ * Provides consistent asset classification and clean display without pipettes
  */
 function formatPrice(price, digits) {
-  if (price === undefined || price === null || isNaN(price)) {
-    return 'N/A';
-  }
-  return price.toFixed(digits);
+  return formatPriceSimple(price, digits);
 }
