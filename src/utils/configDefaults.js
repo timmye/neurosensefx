@@ -161,7 +161,17 @@ export class ConfigDefaultsManager {
 
       this.isActive = Boolean(state.isActive);
 
-      console.log('[CONFIG_DEFAULTS] State imported successfully');
+      // Handle fullRuntimeConfig for new format
+      if (state.fullRuntimeConfig && typeof state.fullRuntimeConfig === 'object') {
+        console.log('[CONFIG_DEFAULTS] Importing state with full runtime config');
+        // The fullRuntimeConfig will be handled by workspacePersistenceManager
+      }
+
+      console.log('[CONFIG_DEFAULTS] State imported successfully', {
+        hasFullRuntimeConfig: !!state.fullRuntimeConfig,
+        userDefaultsKeys: Object.keys(this.currentUserDefaults).length,
+        isActive: this.isActive
+      });
       return true;
     } catch (error) {
       console.error('[CONFIG_DEFAULTS] Failed to import state:', error);

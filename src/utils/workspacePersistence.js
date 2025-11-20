@@ -50,6 +50,7 @@ const WORKSPACE_LAYOUT_SCHEMA = {
 
 const GLOBAL_CONFIG_SCHEMA = {
   userDefaults: {},
+  fullRuntimeConfig: null, // New field for complete runtime configuration
   originalDefaults: {},
   isActive: false,
   version: '1.0.0',
@@ -108,7 +109,7 @@ export class WorkspacePersistenceManager {
   /**
    * Save complete workspace layout to localStorage
    * @param {Map} displays - Map of display objects
-   * @param {Map} panels - Map of panel objects  
+   * @param {Map} panels - Map of panel objects
    * @param {Map} icons - Map of icon objects
    */
   saveWorkspaceLayout(displays, panels, icons) {
@@ -118,6 +119,32 @@ export class WorkspacePersistenceManager {
       this.currentLayout = layout;
     } catch (error) {
       console.error('[WORKSPACE_PERSISTENCE] Failed to save workspace layout:', error);
+    }
+  }
+
+  /**
+   * Save complete workspace state including runtime defaults
+   * @param {Map} displays - Map of display objects
+   * @param {Map} panels - Map of panel objects
+   * @param {Map} icons - Map of icon objects
+   * @param {Object} defaultConfig - Current runtime default configuration
+   */
+  saveCompleteWorkspace(displays, panels, icons, defaultConfig) {
+    try {
+      // Save workspace layout
+      this.saveWorkspaceLayout(displays, panels, icons);
+
+      // Save complete runtime configuration
+      this.saveGlobalConfig({}, defaultConfig);
+
+      console.log('[WORKSPACE_PERSISTENCE] Complete workspace saved with runtime defaults:', {
+        displaysCount: displays.size,
+        panelsCount: panels.size,
+        iconsCount: icons.size,
+        configKeys: Object.keys(defaultConfig).length
+      });
+    } catch (error) {
+      console.error('[WORKSPACE_PERSISTENCE] Failed to save complete workspace:', error);
     }
   }
 
@@ -147,25 +174,58 @@ export class WorkspacePersistenceManager {
 
   /**
    * Save global configuration defaults
-   * @param {Object} userDefaults - User-modified defaults
+   * @param {Object} userDefaults - User-modified defaults (legacy support)
+   * @param {Object} fullRuntimeConfig - Complete runtime configuration from displayStore
    */
-  saveGlobalConfig(userDefaults = {}) {
+  saveGlobalConfig(userDefaults = {}, fullRuntimeConfig = null) {
     try {
-      const config = {
-        userDefaults,
-        originalDefaults: configDefaultsManager.getFactoryDefaults(),
-        isActive: Object.keys(userDefaults).length > 0,
-        version: GLOBAL_CONFIG_SCHEMA.version,
-        timestamp: Date.now()
-      };
+      // If full runtime config is provided, use it for complete persistence
+      if (fullRuntimeConfig) {
+        const factoryDefaults = configDefaultsManager.getFactoryDefaults();
 
-      this.globalConfigAutoSaver.save(config);
-      configDefaultsManager.importState(config);
-      
-      console.log('[WORKSPACE_PERSISTENCE] Global config saved:', {
-        hasUserModifications: config.isActive,
-        modifiedParameters: Object.keys(userDefaults)
-      });
+        // Extract only the differences from factory defaults for efficient storage
+        const effectiveOverrides = {};
+        Object.keys(fullRuntimeConfig).forEach(key => {
+          if (fullRuntimeConfig[key] !== factoryDefaults[key]) {
+            effectiveOverrides[key] = fullRuntimeConfig[key];
+          }
+        });
+
+        const config = {
+          userDefaults: effectiveOverrides,
+          fullRuntimeConfig: fullRuntimeConfig, // Store complete config for seamless restoration
+          originalDefaults: factoryDefaults,
+          isActive: Object.keys(effectiveOverrides).length > 0,
+          version: GLOBAL_CONFIG_SCHEMA.version,
+          timestamp: Date.now()
+        };
+
+        this.globalConfigAutoSaver.save(config);
+        configDefaultsManager.importState(config);
+
+        console.log('[WORKSPACE_PERSISTENCE] Global config saved with full runtime config:', {
+          hasUserModifications: config.isActive,
+          modifiedParameters: Object.keys(effectiveOverrides),
+          configSize: JSON.stringify(fullRuntimeConfig).length
+        });
+      } else {
+        // Legacy mode - backward compatibility
+        const config = {
+          userDefaults,
+          originalDefaults: configDefaultsManager.getFactoryDefaults(),
+          isActive: Object.keys(userDefaults).length > 0,
+          version: GLOBAL_CONFIG_SCHEMA.version,
+          timestamp: Date.now()
+        };
+
+        this.globalConfigAutoSaver.save(config);
+        configDefaultsManager.importState(config);
+
+        console.log('[WORKSPACE_PERSISTENCE] Global config saved (legacy mode):', {
+          hasUserModifications: config.isActive,
+          modifiedParameters: Object.keys(userDefaults)
+        });
+      }
     } catch (error) {
       console.error('[WORKSPACE_PERSISTENCE] Failed to save global config:', error);
     }
@@ -173,7 +233,7 @@ export class WorkspacePersistenceManager {
 
   /**
    * Load global configuration defaults
-   * @returns {Object|null} Global configuration or null if not found
+   * @returns {Object|null} Global configuration with fullRuntimeConfig if available
    */
   loadGlobalConfig() {
     try {
@@ -184,7 +244,14 @@ export class WorkspacePersistenceManager {
 
         if (validation.isValid) {
           configDefaultsManager.importState(config);
-          console.log('[WORKSPACE_PERSISTENCE] Global config loaded successfully');
+
+          // Handle migration from legacy to new format
+          if (config.fullRuntimeConfig) {
+            console.log('[WORKSPACE_PERSISTENCE] Global config loaded with full runtime config');
+          } else {
+            console.log('[WORKSPACE_PERSISTENCE] Global config loaded (legacy format - will be migrated on save)');
+          }
+
           return config;
         } else {
           console.warn('[WORKSPACE_PERSISTENCE] Invalid global config data:', validation.errors);
@@ -232,6 +299,7 @@ export class WorkspacePersistenceManager {
 
       const globalConfig = {
         userDefaults: configDefaultsManager.getUserDefaults(),
+        fullRuntimeConfig: null, // Will be populated by caller if needed
         isActive: configDefaultsManager.isActive,
         version: GLOBAL_CONFIG_SCHEMA.version
       };
@@ -285,9 +353,13 @@ export class WorkspacePersistenceManager {
       // Save imported data
       this.saveWorkspaceLayoutImmediate(data.workspaceLayout);
       configDefaultsManager.importState(data.globalConfig);
+
+      // Save the imported global config with full runtime config support
       this.saveGlobalConfigImmediate(data.globalConfig);
 
-      console.log('[WORKSPACE_PERSISTENCE] Workspace imported successfully');
+      console.log('[WORKSPACE_PERSISTENCE] Workspace imported successfully', {
+        hasFullRuntimeConfig: !!data.globalConfig?.fullRuntimeConfig
+      });
       return true;
     } catch (error) {
       console.error('[WORKSPACE_PERSISTENCE] Failed to import workspace:', error);
@@ -438,6 +510,11 @@ export class WorkspacePersistenceManager {
       errors.push('Global config userDefaults must be an object');
     }
 
+    // fullRuntimeConfig is optional for backward compatibility
+    if (config.fullRuntimeConfig !== null && config.fullRuntimeConfig !== undefined && typeof config.fullRuntimeConfig !== 'object') {
+      errors.push('Global config fullRuntimeConfig must be an object or null');
+    }
+
     if (typeof config.isActive !== 'boolean') {
       errors.push('Global config isActive must be a boolean');
     }
@@ -450,7 +527,7 @@ export class WorkspacePersistenceManager {
 
   /**
    * Initialize workspace on app startup
-   * @returns {Object} Initial workspace state
+   * @returns {Object} Initial workspace state with runtime defaults
    */
   async initializeWorkspace() {
     try {
@@ -458,29 +535,43 @@ export class WorkspacePersistenceManager {
 
       // Load global configuration first
       const globalConfig = this.loadGlobalConfig();
-      
+
       // Load workspace layout
       const layout = this.loadWorkspaceLayout();
 
       this.isInitialized = true;
 
+      // Determine runtime defaults - prioritize fullRuntimeConfig, then fall back to effective defaults
+      let runtimeDefaults;
+      if (globalConfig?.fullRuntimeConfig) {
+        runtimeDefaults = globalConfig.fullRuntimeConfig;
+        console.log('[WORKSPACE_PERSISTENCE] Using full runtime config from saved workspace');
+      } else {
+        runtimeDefaults = configDefaultsManager.getEffectiveDefaults();
+        console.log('[WORKSPACE_PERSISTENCE] Using effective defaults (legacy or factory)');
+      }
+
       console.log('[WORKSPACE_PERSISTENCE] Workspace initialized:', {
         hasGlobalConfig: !!globalConfig,
         hasLayout: !!layout,
-        globalConfigActive: globalConfig?.isActive || false
+        globalConfigActive: globalConfig?.isActive || false,
+        hasFullRuntimeConfig: !!globalConfig?.fullRuntimeConfig,
+        runtimeDefaultsKeys: Object.keys(runtimeDefaults).length
       });
 
       return {
         globalConfig,
         layout,
-        defaults: configDefaultsManager.getEffectiveDefaults()
+        defaults: runtimeDefaults,
+        isLegacyFormat: !globalConfig?.fullRuntimeConfig
       };
     } catch (error) {
       console.error('[WORKSPACE_PERSISTENCE] Failed to initialize workspace:', error);
       return {
         globalConfig: null,
         layout: null,
-        defaults: configDefaultsManager.getFactoryDefaults()
+        defaults: configDefaultsManager.getFactoryDefaults(),
+        isLegacyFormat: true
       };
     }
   }

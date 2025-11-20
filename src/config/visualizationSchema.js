@@ -57,13 +57,7 @@ export const CONFIG_GROUPS = {
     order: 7,
     icon: 'zap'
   },
-  hoverIndicator: {
-    title: 'Hover Indicator',
-    description: 'Interactive hover display settings',
-    order: 8,
-    icon: 'crosshair'
-  },
-  priceMarkers: {
+    priceMarkers: {
     title: 'Price Markers',
     description: 'Horizontal price line markers with labels',
     order: 9,
@@ -963,129 +957,7 @@ export const ESSENTIAL_PARAMETERS = {
     }
   },
 
-  // === HOVER INDICATOR ===
-  showHoverIndicator: {
-    type: 'boolean',
-    default: false,
-    group: 'hoverIndicator',
-    ui: {
-      control: 'toggle',
-      label: 'Show Hover Indicator',
-      description: 'Enable/disable the entire hover indicator display'
-    }
-  },
-  showHoverLabel: {
-    type: 'boolean',
-    default: false,
-    group: 'hoverIndicator',
-    ui: {
-      control: 'toggle',
-      label: 'Show Label',
-      description: 'Show/hide the price label while keeping crosshair lines'
-    }
-  },
-  markerLineColor: {
-    type: 'string',
-    default: '#FFFFFF',
-    group: 'hoverIndicator',
-    validation: { format: 'color' },
-    ui: {
-      control: 'color',
-      label: 'Marker Line Color',
-      description: 'Color for hover indicator crosshair lines'
-    }
-  },
-  markerLineThickness: {
-    type: 'number',
-    default: 2,
-    group: 'hoverIndicator',
-    validation: { min: 0.5, max: 5, step: 0.5 },
-    ui: {
-      control: 'range',
-      label: 'Line Thickness',
-      description: 'Thickness of hover indicator lines',
-      unit: 'px'
-    }
-  },
-  hoverLabelShowBackground: {
-    type: 'boolean',
-    default: true,
-    group: 'hoverIndicator',
-    ui: {
-      control: 'toggle',
-      label: 'Show Label Background',
-      description: 'Display background behind hover price label'
-    }
-  },
-  hoverLabelBackgroundColor: {
-    type: 'string',
-    default: '#000000',
-    group: 'hoverIndicator',
-    validation: { format: 'color' },
-    ui: {
-      control: 'color',
-      label: 'Label Background Color',
-      description: 'Background color for hover price label'
-    }
-  },
-  hoverLabelBackgroundOpacity: {
-    type: 'number',
-    default: 0.7,
-    group: 'hoverIndicator',
-    validation: { min: 0.1, max: 1.0, step: 0.1 },
-    ui: {
-      control: 'range',
-      label: 'Label Background Opacity',
-      description: 'Opacity of hover label background',
-      unit: '%'
-    }
-  },
-  priceHorizontalOffset: {
-    type: 'number',
-    default: 0.05,
-    group: 'hoverIndicator',
-    validation: { min: 0, max: 0.5, step: 0.01 },
-    ui: {
-      control: 'range',
-      label: 'Price Horizontal Offset',
-      description: 'Horizontal offset for hover price label from ADR axis',
-      unit: '%'
-    }
-  },
-  priceUseStaticColor: {
-    type: 'boolean',
-    default: false,
-    group: 'hoverIndicator',
-    ui: {
-      control: 'toggle',
-      label: 'Use Static Price Color',
-      description: 'Use static color instead of direction-based coloring'
-    }
-  },
-  hoverTextSteadyColor: {
-    type: 'string',
-    default: '#FFFFFF',
-    group: 'hoverIndicator',
-    validation: { format: 'color' },
-    ui: {
-      control: 'color',
-      label: 'Steady Text Color',
-      description: 'Custom steady color for hover price text'
-    }
-  },
-  hoverTextSteadyColorOpacity: {
-    type: 'number',
-    default: 1.0,
-    group: 'hoverIndicator',
-    validation: { min: 0.1, max: 1.0, step: 0.1 },
-    ui: {
-      control: 'range',
-      label: 'Steady Color Opacity',
-      description: 'Opacity for steady text color',
-      unit: '%'
-    }
-  },
-
+  
   // === PRICE MARKERS ===
   showPriceMarkers: {
     type: 'boolean',

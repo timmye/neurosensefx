@@ -148,11 +148,19 @@ export const displayActions = {
   // === DISPLAY OPERATIONS ===
   
   addDisplay: (symbol, position = { x: 100, y: 100 }, config = {}) => {
-    
+
     const displayId = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     // 🔧 HEADERLESS FIX: Create displays with correct headerless dimensions
     const headerlessSize = { width: 220, height: 120 }; // ✅ HEADERLESS: No 40px header
+
+    // 🔧 CONFIGURATION INHERITANCE FIX: Get current runtime config instead of stale defaults
+    let currentRuntimeConfig;
+    displayStore.update(store => {
+      currentRuntimeConfig = store.defaultConfig;
+      return store;
+    });
+
     const display = {
       id: displayId,
       symbol,
@@ -161,7 +169,8 @@ export const displayActions = {
       isActive: false,
       zIndex: initialState.nextDisplayZIndex++,
       config: {
-        ...initialState.defaultConfig,
+        ...currentRuntimeConfig,
+        ...config, // Allow override via parameter
         // 🔧 CRITICAL: Sync containerSize with display size for immediate canvas fill
         containerSize: headerlessSize
       },
@@ -178,11 +187,12 @@ export const displayActions = {
         activeDisplayId: displayId
       };
       
-      // Persist workspace layout after adding display
-      workspacePersistenceManager.saveWorkspaceLayout(
+      // Persist complete workspace after adding display
+      workspacePersistenceManager.saveCompleteWorkspace(
         newStore.displays,
         newStore.panels,
-        newStore.icons
+        newStore.icons,
+        newStore.defaultConfig
       );
       
       return newStore;
@@ -219,11 +229,12 @@ export const displayActions = {
           activeDisplayId: store.activeDisplayId === displayId ? null : store.activeDisplayId
         };
         
-        // Persist workspace layout after removing display
-        workspacePersistenceManager.saveWorkspaceLayout(
+        // Persist complete workspace after removing display
+        workspacePersistenceManager.saveCompleteWorkspace(
           newStore.displays,
           newStore.panels,
-          newStore.icons
+          newStore.icons,
+          newStore.defaultConfig
         );
         
         return newStore;
@@ -242,11 +253,12 @@ export const displayActions = {
           position
         });
         
-        // Persist workspace layout after moving display
-        workspacePersistenceManager.saveWorkspaceLayout(
+        // Persist complete workspace after moving display
+        workspacePersistenceManager.saveCompleteWorkspace(
           newDisplays,
           store.panels,
-          store.icons
+          store.icons,
+          store.defaultConfig
         );
       }
       return { ...store, displays: newDisplays };
@@ -268,11 +280,12 @@ export const displayActions = {
           }
         });
         
-        // Persist workspace layout after resizing display
-        workspacePersistenceManager.saveWorkspaceLayout(
+        // Persist complete workspace after resizing display
+        workspacePersistenceManager.saveCompleteWorkspace(
           newDisplays,
           store.panels,
-          store.icons
+          store.icons,
+          store.defaultConfig
         );
       }
       return { ...store, displays: newDisplays };
@@ -351,12 +364,23 @@ export const displayActions = {
       
       return newStore;
     });
-    
-    // Auto-save global config change
-    workspacePersistenceManager.saveGlobalConfig({ [parameter]: value });
+
+    // Auto-save global config change with full runtime config
+    displayStore.update(store => {
+      workspacePersistenceManager.saveGlobalConfig({ [parameter]: value }, store.defaultConfig);
+      return store;
+    });
   },
-  
+
   updateGlobalConfig: (parameter, value) => {
+
+    // DEBUG: Log configuration parameter changes
+    console.log('[CONFIG DEBUG] updateGlobalConfig called:', {
+      parameter,
+      value,
+      valueType: typeof value,
+      timestamp: new Date().toISOString()
+    });
 
     // Validate parameter before updating
     const validation = { isValid: true }; // Simplified validation - all essential parameters are valid
@@ -366,9 +390,18 @@ export const displayActions = {
     }
 
     displayStore.update(store => {
-      // Use the current globalConfig and only update the specific parameter
-      const existingConfig = store.globalConfig || store.defaultConfig;
+      // Use the current runtime defaultConfig and only update the specific parameter
+      const existingConfig = store.defaultConfig;
       const updatedConfig = { ...existingConfig, [parameter]: value };
+
+      // DEBUG: Log configuration update in store
+      console.log('[CONFIG DEBUG] Store update:', {
+        parameter,
+        oldValue: existingConfig[parameter],
+        newValue: value,
+        totalDisplays: store.displays.size,
+        timestamp: new Date().toISOString()
+      });
 
       // Update all displays with this parameter
       const newDisplays = new Map(store.displays);
@@ -399,11 +432,14 @@ export const displayActions = {
       
       return newStore;
     });
-    
-    // Auto-save global config change
-    workspacePersistenceManager.saveGlobalConfig({ [parameter]: value });
+
+    // Auto-save global config change with full runtime config
+    displayStore.update(store => {
+      workspacePersistenceManager.saveGlobalConfig({ [parameter]: value }, store.defaultConfig);
+      return store;
+    });
   },
-  
+
   resetToFactoryDefaults: () => {
 
     displayStore.update(store => {
@@ -436,8 +472,11 @@ export const displayActions = {
       return newStore;
     });
     
-    // Reset persistence to factory defaults
-    workspacePersistenceManager.resetToFactoryDefaults();
+    // Reset persistence to factory defaults with empty runtime config
+    displayStore.update(store => {
+      workspacePersistenceManager.saveGlobalConfig({}, factoryDefaults);
+      return store;
+    });
   },
   
   // === WORKER OPERATIONS ===
@@ -954,21 +993,38 @@ export const displayActions = {
     try {
       // Ensure environment system is initialized before loading workspace
       ensureEnvironmentInitialized();
-      
+
       const workspaceData = await workspacePersistenceManager.initializeWorkspace();
-      
+
+      // 🔧 CRITICAL FIX: Update the store's defaultConfig with restored runtime defaults
+      if (workspaceData.defaults) {
+        displayStore.update(store => ({
+          ...store,
+          defaultConfig: workspaceData.defaults
+        }));
+
+        console.log('[DISPLAY_STORE] Runtime defaults restored from workspace:', {
+          defaultsKeys: Object.keys(workspaceData.defaults).length,
+          isLegacyFormat: workspaceData.isLegacyFormat || false
+        });
+      }
+
       if (workspaceData.layout) {
         // Restore workspace layout
         displayStore.update(store => {
           let newStore = { ...store };
-          
-          // Restore displays
+
+          // Restore displays using the restored runtime defaults
           const newDisplays = new Map();
+
+          // 🔧 CONFIGURATION INHERITANCE FIX: Use restored runtime defaults for workspace restoration
+          const restoredRuntimeDefaults = store.defaultConfig;
+
           workspaceData.layout.displays.forEach(displayData => {
             const display = {
               ...displayData,
               config: {
-                ...initialState.defaultConfig,
+                ...restoredRuntimeDefaults, // 🔧 CRITICAL FIX: Use restored runtime defaults
                 ...displayData.config, // 🔧 CRITICAL FIX: Preserve saved config overrides
                 // 🔧 CRITICAL FIX: Ensure containerSize matches actual display size
                 ...(displayData.size ? { containerSize: displayData.size } : {})
@@ -979,7 +1035,7 @@ export const displayActions = {
             newDisplays.set(displayData.id, display);
           });
           newStore.displays = newDisplays;
-          
+
           // Restore panels
           const newPanels = new Map();
           workspaceData.layout.panels.forEach(panelData => {
@@ -989,7 +1045,7 @@ export const displayActions = {
             });
           });
           newStore.panels = newPanels;
-          
+
           // Restore icons
           const newIcons = new Map();
           workspaceData.layout.icons.forEach(iconData => {
@@ -999,12 +1055,12 @@ export const displayActions = {
             });
           });
           newStore.icons = newIcons;
-          
+
           // Set active elements
           newStore.activeDisplayId = null;
           newStore.activePanelId = null;
           newStore.activeIconId = null;
-          
+
           return newStore;
         });
 
@@ -1023,7 +1079,7 @@ export const displayActions = {
 
         }, 2000); // 2 second initial delay to allow WebSocket connection
       }
-      
+
       return workspaceData;
     } catch (error) {
       console.error('[DISPLAY_STORE] Failed to initialize workspace:', error);
@@ -1035,6 +1091,20 @@ export const displayActions = {
    * Save current workspace state
    */
   saveWorkspace: () => {
+    displayStore.subscribe(store => {
+      workspacePersistenceManager.saveCompleteWorkspace(
+        store.displays,
+        store.panels,
+        store.icons,
+        store.defaultConfig
+      );
+    })();
+  },
+
+  /**
+   * Save workspace layout only (for backwards compatibility)
+   */
+  saveWorkspaceLayout: () => {
     displayStore.subscribe(store => {
       workspacePersistenceManager.saveWorkspaceLayout(
         store.displays,
@@ -1050,13 +1120,25 @@ export const displayActions = {
   exportWorkspace: (metadata = {}) => {
     return new Promise((resolve) => {
       displayStore.subscribe(store => {
-        const exportData = workspacePersistenceManager.exportWorkspace(
+        // Create workspace export with runtime defaults
+        const exportDataRaw = workspacePersistenceManager.exportWorkspace(
           store.displays,
           store.panels,
           store.icons,
           metadata
         );
-        resolve(exportData);
+
+        // Parse and inject the runtime defaults into the export
+        try {
+          const exportData = JSON.parse(exportDataRaw);
+          if (exportData.globalConfig) {
+            exportData.globalConfig.fullRuntimeConfig = store.defaultConfig;
+          }
+          resolve(JSON.stringify(exportData, null, 2));
+        } catch (error) {
+          console.error('[DISPLAY_STORE] Failed to process workspace export:', error);
+          resolve(exportDataRaw);
+        }
       })();
     });
   },

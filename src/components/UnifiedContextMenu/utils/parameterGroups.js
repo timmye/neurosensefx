@@ -42,7 +42,6 @@ export const priceFloatGroup = generatedGroups.find(g => g.id === 'priceFloat');
 export const marketProfileGroup = generatedGroups.find(g => g.id === 'marketProfile');
 export const volatilityGroup = generatedGroups.find(g => g.id === 'volatility');
 export const quickActionsGroup = generatedGroups.find(g => g.id === 'quickActions');
-export const hoverIndicatorGroup = generatedGroups.find(g => g.id === 'hoverIndicator');
 export const priceMarkersGroup = generatedGroups.find(g => g.id === 'priceMarkers');
 
 // =============================================================================
@@ -284,7 +283,6 @@ export default {
   marketProfileGroup,
   volatilityGroup,
   quickActionsGroup,
-  hoverIndicatorGroup,
   priceMarkersGroup,
   getAllParameters,
   getParameterGroup,
