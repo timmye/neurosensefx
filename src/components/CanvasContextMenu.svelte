@@ -6,7 +6,7 @@
   import { highlightMatch } from '../utils/fuzzySearch.js';
   import { createShortcutHandler, defaultShortcuts } from './CanvasContextMenu/utils/keyboardShortcuts.js';
   import { getZIndex } from '../constants/zIndex.js';
-  
+    
   // Import tab components
   import QuickActionsTab from './CanvasContextMenu/tabs/QuickActionsTab.svelte';
   import PriceDisplayTab from './CanvasContextMenu/tabs/PriceDisplayTab.svelte';

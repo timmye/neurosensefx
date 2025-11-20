@@ -27,46 +27,52 @@
     zIndex = panel?.zIndex || 1000;
   }
   
-  // Event handlers
-  function handleContextMenu(e) {
-    e.preventDefault();
-    displayActions.setActivePanel(id);
     
-    const context = {
-      type: 'panel',
-      targetId: id,
-      targetType: 'panel'
-    };
-    
-    displayActions.showContextMenu(e.clientX, e.clientY, id, 'panel', context);
-  }
-  
   function handleClose(e) {
     e?.stopPropagation();
     e?.preventDefault();
     console.log(`[FLOATING_PANEL] Close button clicked for panel ${id}`);
     displayActions.removePanel(id);
   }
+
+  function handleContextMenu(e) {
+    console.log('🎨 [FLOATING_PANEL] Panel context menu triggered');
+    e.preventDefault();
+    e.stopPropagation();
+
+    displayActions.setActivePanel(id);
+
+    const context = {
+      type: 'panel',
+      targetId: id,
+      targetType: 'panel'
+    };
+
+    displayActions.showContextMenu(e.clientX, e.clientY, id, 'panel', context);
+  }
   
-  // ✅ ULTRA-MINIMAL: Simple interact.js setup
+  // ✅ SIMPLE APPROACH: Direct interact.js integration
   onMount(() => {
     console.log(`[FLOATING_PANEL] Mounting panel ${id} of type ${type}`);
-    
-    // ✅ INTERACT.JS: Ultra-minimal setup
+
+    // ✅ INTERACT.JS: Keep for drag and resize functionality only
     if (element) {
       interact(element)
         .draggable({
           inertia: true,
           modifiers: [
             interact.modifiers.restrictEdges({
-              outer: { 
-                left: 0, 
-                top: 0, 
+              outer: {
+                left: 0,
+                top: 0,
                 right: window.innerWidth - element.offsetWidth,
                 bottom: window.innerHeight - element.offsetHeight
               }
             })
           ],
+          onstart: () => {
+            console.log(`[INTERACT_JS] Drag started for panel ${id}`);
+          },
           onmove: (event) => {
             // ✅ DIRECT: Use interact.js rect directly
             displayActions.movePanel(id, {
@@ -78,15 +84,10 @@
             console.log(`[INTERACT_JS] Drag ended for panel ${id}`);
           }
         });
-      
-      // Click to activate
-      interact(element).on('tap', (event) => {
-        displayActions.setActivePanel(id);
-      });
     }
-    
+
     return () => {
-      // ✅ CLEANUP: Simple interact.js cleanup
+      // ✅ CLEANUP: interact.js cleanup
       if (element) {
         interact(element).unset();
       }
@@ -100,12 +101,12 @@
 </script>
 
 {#if isVisible}
-  <div 
+  <div
     bind:this={element}
     class="enhanced-floating-panel"
     class:active={isActive}
     style="left: {panelPosition.x}px; top: {panelPosition.y}px; z-index: {zIndex};"
-    on:contextmenu={handleContextMenu}
+    on:contextmenu|preventDefault|stopPropagation={handleContextMenu}
     data-panel-id={id}
   >
     <div class="panel-header">
