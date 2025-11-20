@@ -140,10 +140,11 @@ Subtle perceptual alerts rather than disruptive notifications:
 - **Layer 3**: Overlays (z-index: 10000+)
 
 ### Component Architecture
-- **Unified Configuration**: Schema-driven parameter management
+- **Unified Configuration**: Schema-driven parameter management with runtime inheritance
 - **Auto-Generated Controls**: Dynamic UI from configuration schema
 - **Real-time Updates**: Live configuration changes without restart
-- **Workspace Persistence**: Layout and preference storage
+- **Workspace Persistence**: Complete layout and configuration storage with restoration
+- **Configuration Inheritance**: New displays automatically inherit current user settings
 
 ## Monorepo Structure
 
@@ -196,17 +197,41 @@ npm run format       # Code formatting (when implemented)
 
 ## Configuration & Customization
 
+### Configuration Inheritance System (November 2024)
+NeuroSense FX now implements a robust configuration inheritance system where new displays automatically inherit current runtime settings:
+
+**Key Features**:
+- **Runtime Configuration Inheritance**: New displays inherit user-modified settings instead of factory defaults
+- **Workspace Persistence**: Complete runtime configuration is saved and restored across sessions
+- **Factory Reset**: One-click restoration to original factory defaults
+- **Real-time Updates**: Configuration changes apply immediately to all existing displays
+
+**Configuration Management Classes**:
+- **ConfigDefaultsManager**: Handles factory defaults, user overrides, and effective defaults
+- **WorkspacePersistenceManager**: Manages complete workspace state with runtime configuration
+- **Unified Store Architecture**: Centralized configuration management with reactive updates
+
 ### Display Customization
-- **Layout Management**: Drag-and-drop display positioning
-- **Visual Preferences**: Customizable colors, sizes, and modes
-- **Workspace Profiles**: Save and restore different layouts
+- **Layout Management**: Drag-and-drop display positioning with grid snapping
+- **Visual Preferences**: Customizable colors, sizes, and rendering modes
+- **Workspace Profiles**: Save and restore different layouts with configuration
 - **Accessibility**: Support for diverse user abilities
+- **Configuration Testing**: Built-in browser console testing functions for validation
 
 ### Advanced Settings
 - **Performance Tuning**: Adjustable quality vs. performance settings
 - **Data Sources**: Configurable market data providers
 - **Alert Preferences**: Customizable notification thresholds
 - **Keyboard Shortcuts**: Fully configurable key bindings
+
+**Configuration Testing**:
+The system includes comprehensive testing functions accessible via browser console:
+```javascript
+// Test configuration inheritance and workspace persistence
+window.testConfigInheritance();
+window.validateWorkspaceRestoration();
+window.testFactoryReset();
+```
 
 ## Current Status
 
@@ -226,10 +251,12 @@ npm run format       # Code formatting (when implemented)
 - ✅ Comprehensive service management and monitoring
 
 ### Recent Achievements
-- Memory bank optimization for development efficiency
-- Market profile delta modes completion
-- Browser zoom awareness implementation
-- Real-time configuration system implementation
+- **Configuration Inheritance System**: Fixed canvas configuration inheritance for new displays
+- **Runtime Configuration Persistence**: Complete workspace state saved and restored correctly
+- **Memory bank optimization** for development efficiency
+- **Market profile delta modes** completion
+- **Browser zoom awareness** implementation
+- **Real-time configuration system** implementation with comprehensive testing
 
 ## Documentation
 

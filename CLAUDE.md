@@ -65,9 +65,27 @@ neurosensefx/                          # Root repository
 
 **Display Components** (`src/components/FloatingDisplay.svelte`):
 - Individual trading display instances with drag-and-drop positioning
+- **Configuration Inheritance**: New displays automatically inherit current runtime settings
 - Display-specific state and configuration management
 - User interactions for resizing and positioning
 - Collision detection and grid snapping through interact.js
+
+**Configuration Inheritance for New Displays**:
+When users create new displays (Ctrl+N or from Symbol Palette), the system now properly inherits the current runtime configuration:
+
+```javascript
+// Display creation with automatic configuration inheritance
+createNewSymbol: (symbol, data) => {
+  // New display inherits current runtime settings (not factory defaults)
+  const displayId = displayActions.addDisplay(symbol, {
+    x: 100 + Math.random() * 200,
+    y: 100 + Math.random() * 100
+  });
+
+  // Initialize worker with received data and inherited configuration
+  displayActions.initializeWorker(symbol, displayId, data);
+}
+```
 
 **Data Flow Architecture**:
 ```javascript
@@ -104,23 +122,20 @@ function renderCrispText(ctx, text, x, y, fontSize) {
 
 **Central Store System** (`src/stores/`):
 ```javascript
-// Unified store architecture with reactive updates
+// Simplified display store with global configuration only
 export const displayStore = writable({
   displays: new Map(),
   activeDisplays: [],
+  defaultConfig: getEssentialDefaultConfig(), // Current runtime configuration
   workspace: { layout: [], preferences: {} }
 });
-
-// Web worker integration for heavy processing
-const dataProcessor = new Worker('/src/workers/dataProcessor.js');
-dataProcessor.postMessage({ type: 'PROCESS_TICKS', data: ticks });
 ```
 
-**Store Types**:
-- `displayStore`: Display configuration and layout management
-- `marketDataStore`: Real-time market data processing and distribution
-- `configStore`: Unified configuration system with schema validation
-- `uiStore`: UI state and interaction management
+**Configuration Management**:
+- Global configuration through `displayStore.defaultConfig`
+- Schema validation via `visualizationSchema.js`
+- Workspace persistence with layout and configuration restoration
+- New displays inherit current global settings automatically
 
 ### Backend Architecture: Node.js + WebSocket
 
@@ -138,22 +153,28 @@ dataProcessor.postMessage({ type: 'PROCESS_TICKS', data: ticks });
 - Connection management with automatic reconnection
 - Error handling and graceful degradation capabilities
 
-#### WebSocket Protocol (Current Implementation)
+#### WebSocket Protocol (Enhanced Implementation)
 ```javascript
 // Client → Server messages
-{ "type": "connect" }
+{ "type": "get_symbol_data_package", "symbol": "EURUSD", "adrLookbackDays": 14 }
 { "type": "subscribe", "symbols": ["EURUSD", "GBPUSD"] }
 { "type": "unsubscribe", "symbols": ["EURUSD"] }
 { "type": "ping" }
 
 // Server → Client messages
-{ "type": "status", "status": "connected|disconnected|error", "availableSymbols": [...] }
+{ "type": "status", "status": "connected|disconnected|error", "availableSymbols": [...], "message": "Error description" }
 { "type": "ready", "availableSymbols": [...] }
-{ "type": "tick", "symbol": "EURUSD", "bid": 1.0876, "ask": 1.0878, ... }
+{ "type": "symbolDataPackage", "symbol": "EURUSD", "digits": 5, "adr": 0.0023, "initialMarketProfile": [...] }
+{ "type": "tick", "symbol": "EURUSD", "bid": 1.0876, "ask": 1.0878, "timestamp": 1678901234567 }
 { "type": "subscribeResponse", "success": true, "symbols": ["EURUSD"] }
 { "type": "pong" }
 { "type": "error", "message": "Error description" }
 ```
+
+**Enhanced Protocol Features**:
+- **Symbol Data Package**: Comprehensive initial data including ADR calculation and market profile initialization
+- **ADR Integration**: Advanced daily range calculation with configurable lookback periods
+- **Enhanced Error Handling**: Structured error messages with detailed context
 
 #### Backend Service Architecture
 ```javascript
@@ -218,22 +239,19 @@ class SpatialIndex {
 **Available Components in `src/lib/viz/`**:
 
 #### Market Profile (`marketProfile.js`)
-- **Six Rendering Modes**: traditional, delta, volume, composite, split, accumulated
-- **Delta Analysis**: Buy/sell volume comparison with side-by-side profiles
-- **Price Distribution**: TPO (Time Price Opportunity) based volume profiling
-- **Implementation**: Canvas-based rendering with D3 scale integration
+- **TPO-based Volume Profiling**: Time Price Opportunity analysis with volume distribution
+- **Delta Analysis**: Buy/sell pressure comparison and market flow visualization
+- **Implementation**: Canvas-based rendering with cognitive architecture approach
 
 #### Volatility Orb (`volatilityOrb.js`)
-- **Multiple Modes**: gradient, segments, pulse, radial visualizations
-- **Color Modes**: volatility-based, momentum-based, custom color schemes
-- **Dynamic Animation**: Smooth transitions and real-time volatility updates
-- **Implementation**: Radial gradient rendering with configurable parameters
+- **Gradient-based Visualization**: Radial volatility rendering with smooth transitions
+- **Color Modes**: volatility-based and momentum-based color schemes
+- **Dynamic Animation**: Real-time volatility updates with configurable radius
 
 #### Day Range Meter (`dayRangeMeter.js`)
-- **ADR Reference**: Average Daily Range comparison with graduated markers
-- **Price Positioning**: Current price displayed relative to daily range
-- **Proximity Alerts**: Visual alerts when approaching ADR limits
-- **Implementation**: Vertical meter with percentage-based positioning
+- **ADR Integration**: Average Daily Range calculation with graduated markers
+- **Price Positioning**: Current price displayed as percentage of daily range
+- **Visual Alerts**: Proximity warnings when approaching ADR limits
 
 #### Price Display System
 - **Price Float** (`priceFloat.js`): Horizontal price line with glow effects
@@ -242,8 +260,7 @@ class SpatialIndex {
 
 #### Supporting Components
 - **Volatility Metric** (`volatilityMetric.js`): Numerical volatility indicators
-- **Hover Indicator** (`hoverIndicator.js`): Interactive hover feedback system
-- **Market Pulse** (`marketPulse.js`): Market activity visualization
+- **Market Pulse** (`marketPulse.js`): Market activity visualization with requestAnimationFrame
 - **Multi-Symbol ADR** (`multiSymbolADR.js`): Cross-symbol average daily range analysis
 
 ### Component Integration Pattern
@@ -258,10 +275,12 @@ drawDayRangeMeter(ctx, renderingContext, config, currentState, y);     // Refere
 drawPriceMarkers(ctx, renderingContext, config, currentState, y, markers); // User annotations
 drawPriceFloat(ctx, renderingContext, config, currentState, y);        // Price indicator
 drawPriceDisplay(ctx, renderingContext, config, currentState, y);      // Numerical display
-drawHoverIndicator(ctx, renderingContext, config, currentState, y, hoverState); // Interaction layer
 ```
 
 ### Component Configuration System
+
+**Unified Configuration Inheritance Architecture** (November 2024):
+The configuration system now implements proper inheritance where new displays automatically inherit current runtime settings instead of stale factory defaults.
 
 **Schema-Driven Parameters** (current implementation):
 ```javascript
@@ -278,6 +297,47 @@ const volatilityOrbConfig = {
   updateSpeed: 300,             // Animation update interval (ms)
   radius: 15                    // Orb size in pixels
 };
+```
+
+**Configuration Inheritance Flow**:
+```javascript
+// 1. User modifies global configuration (e.g., changes marketProfile.mode)
+displayActions.updateGlobalConfig('marketProfile.mode', 'delta');
+
+// 2. Runtime configuration updates immediately
+displayStore.defaultConfig = {
+  marketProfile: { mode: 'delta', ...otherSettings },
+  ...otherComponents
+};
+
+// 3. New displays automatically inherit current runtime settings
+addDisplay(symbol, position, config = {}) {
+  const display = {
+    config: {
+      ...currentRuntimeConfig, // Inherit all user modifications
+      ...config, // Allow specific overrides
+    }
+  };
+}
+
+// 4. Workspace persistence saves complete runtime state
+workspacePersistenceManager.saveCompleteWorkspace(displays, panels, icons, runtimeConfig);
+```
+
+**Configuration Management Classes**:
+
+**ConfigDefaultsManager** (`src/utils/configDefaults.js`):
+- **Factory Defaults**: Original immutable values from visualizationSchema.js
+- **User Defaults**: User-modified parameters that override factory defaults
+- **Effective Defaults**: Merged configuration (factory + user overrides)
+- **Configuration Validation**: Schema validation and range checking
+- **State Persistence**: Import/export for workspace restoration
+
+**WorkspacePersistenceManager** (`src/utils/workspacePersistence.js`):
+- **Complete Runtime Config**: Stores full runtime configuration for seamless restoration
+- **Workspace Layout**: Display positions, sizes, and arrangement
+- **Configuration Inheritance**: Ensures new displays inherit current settings
+- **Migration Support**: Handles legacy format upgrades transparently
 ```
 
 ## Configuration System Architecture
@@ -323,7 +383,7 @@ function generateParameterControls(groupName, groupConfig) {
 ### Real-time Configuration Updates
 
 ```javascript
-// Reactive configuration system
+// Reactive configuration system with workspace persistence
 export const configStore = writable(defaultConfig);
 
 configStore.subscribe((newConfig) => {
@@ -335,12 +395,52 @@ configStore.subscribe((newConfig) => {
     return displays;
   });
 
-  // Persist configuration to workspace
-  workspaceStore.update(workspace => ({
-    ...workspace,
-    config: newConfig
-  }));
+  // Persist complete configuration to workspace with runtime defaults
+  workspacePersistenceManager.saveGlobalConfig({ parameter: value }, fullRuntimeConfig);
 });
+```
+
+**Workspace Restoration with Configuration Inheritance**:
+The system now properly restores workspaces with complete runtime configuration:
+
+```javascript
+// Workspace initialization with proper configuration restoration
+async initializeWorkspace() {
+  const workspaceData = await workspacePersistenceManager.initializeWorkspace();
+
+  // 🔧 CRITICAL FIX: Update store's defaultConfig with restored runtime defaults
+  if (workspaceData.defaults) {
+    displayStore.update(store => ({
+      ...store,
+      defaultConfig: workspaceData.defaults // Restore effective runtime defaults
+    }));
+  }
+
+  // Restore displays using restored runtime defaults
+  workspaceData.layout.displays.forEach(displayData => {
+    const display = {
+      ...displayData,
+      config: {
+        ...restoredRuntimeDefaults, // Use restored runtime defaults
+        ...displayData.config, // Preserve saved config overrides
+        containerSize: displayData.size
+      }
+    };
+  });
+}
+```
+
+**Configuration Testing & Validation**:
+The system includes comprehensive testing functions for configuration inheritance:
+
+```javascript
+// Browser console testing for configuration inheritance
+window.testConfigInheritance = async () => {
+  // 1. Verify current runtime config is applied to new displays
+  // 2. Test workspace persistence and restoration
+  // 3. Validate factory reset functionality
+  // 4. Confirm new displays inherit user modifications
+};
 ```
 
 
@@ -364,13 +464,13 @@ configStore.subscribe((newConfig) => {
 - **Background Services**: Runs detached like production environment
 - **Manual Refresh**: Requires manual browser reload for changes to appear
 - **Realistic Testing**: Simulates actual user experience with optimized builds
-- **Port Configuration**: Frontend on http://localhost:4173, Backend WebSocket on ws://localhost:8081
+- **Port Configuration**: Frontend on http://localhost:5174, Backend WebSocket on ws://localhost:8081
 - **Optimized Builds**: Production-compiled frontend with minified assets
 - **Use When**: Production testing, performance validation, demo preparation
 
 **Environment-Aware Configuration**:
 - **Development**: Vite dev server (port 5174) + WebSocket proxy to backend (port 8080)
-- **Production**: Static file serving (port 4173) + direct WebSocket connection (port 8081)
+- **Production**: Static file serving (port 5174) + direct WebSocket connection (port 8081)
 - **Automatic Detection**: System detects NODE_ENV and configures ports accordingly
 
 #### Development Workflow Best Practices
@@ -573,6 +673,24 @@ npm run build      # Production build optimization
 
 ## Implementation Patterns & Best Practices
 
+### Event Handling Architecture (Svelte-First)
+**Pattern Documentation**: See `docs/patterns/event-handling-architecture.md` for comprehensive guidelines
+
+**Core Principle**: Use Svelte's declarative event system as the single source of truth for all UI interactions. Only use manual event listeners for specialized cases that Svelte cannot handle.
+
+**Event Modifier Pattern**:
+```javascript
+// ✅ Correct: Svelte modifiers for UI interactions
+<canvas on:contextmenu|preventDefault|stopPropagation={handleCanvasContextMenu}></canvas>
+
+// ❌ Wrong: Manual listeners competing with framework
+<script>
+onMount(() => {
+  canvas.addEventListener('contextmenu', handler); // Don't do this
+});
+</script>
+```
+
 ### Canvas Rendering Best Practices
 
 ```javascript
@@ -738,14 +856,14 @@ The system initially existed as three separate repositories:
 - **Deployment Coordination**: Complex release management requiring cross-repository alignment
 - **Development Experience**: Onboarding friction with multiple repository setup
 
-**Current Monorepo Structure (November 2024)**:
+**Current Monorepo Structure (November 2025)**:
 ```
 neurosensefx/                          # Single unified repository
 ├── src/                               # Frontend application (formerly neurosensefx repo)
 ├── services/tick-backend/             # Backend service (formerly ctrader-tick-backend repo)
 ├── libs/cTrader-Layer/                # Shared library (formerly cTrader-Layer repo)
 ├── docs/                              # Consolidated documentation
-└── run.sh                             # Unified service management (1653 lines)
+└── run.sh                             # Unified service management (1844 lines)
 ```
 
 **Benefits Achieved**:
@@ -770,8 +888,14 @@ neurosensefx/                          # Single unified repository
 
 **Service Management Evolution**:
 - **Initial**: Separate service startup scripts for frontend and backend
+- **HMR Implementation** (November 2025): Added separate development and production environments with Vite HMR
 - **Current**: Unified `run.sh` script with environment-aware configuration, backup systems, and health monitoring
-- **Complexity**: Script grew to 1653 lines to handle comprehensive service management
+- **Complexity**: Script grew to 1844 lines to handle comprehensive service management
+
+**Major Development Improvements**:
+- **HMR Development Environment**: Implemented Hot Module Replacement for rapid iteration (November 2025)
+- **Event Handling Architecture**: Established Svelte-first patterns for UI interactions (November 2025)
+- **Configuration Inheritance**: Streamlined global configuration system (2025)
 
 ## Current Technical State & Known Issues
 
@@ -785,8 +909,22 @@ neurosensefx/                          # Single unified repository
 - ✅ Real-time WebSocket data streaming with reconnection logic
 - ✅ Unified configuration system with schema validation
 - ✅ Workspace persistence and layout management
+- ✅ **Canvas Context Menu System**: Fixed browser context menu issues (November 2025)
+- ✅ **Svelte-First Event Handling Architecture**: Established unified event patterns
 - ✅ Browser zoom awareness and crisp text rendering
 - ✅ Environment-aware development/production modes
+
+#### Canvas Context Menu Fix (November 2025)
+**Problem**: Canvas elements showed browser default context menu instead of trading-specific controls
+**Solution**: Implemented Svelte-first event handling architecture
+**Files Modified**:
+- `src/components/FloatingDisplay.svelte`: Added `on:contextmenu|preventDefault|stopPropagation` to user-facing canvas
+- `src/components/viz/Container.svelte`: Replaced manual `addEventListener` with Svelte modifiers
+- `src/components/UnifiedContextMenu.svelte`: Context detection engine (already working)
+- **Pattern Documentation**: Created comprehensive event handling architecture pattern at `docs/patterns/`
+
+**Key Architecture Change**:
+> **Use Svelte's declarative event system as the single source of truth for all UI interactions. Only use manual event listeners for specialized cases that Svelte cannot handle.**
 
 #### Implementation Gaps 
 
@@ -813,40 +951,78 @@ const displayPool = new SmartObjectPool({
 
 ## Development Guidelines
 
+### Core Development Principles
+
+Our development approach follows the "Simple, performant, maintainable" philosophy with these core principles that guide every implementation decision:
+
+#### **Framework-First Development**
+- **Before implementing any feature, check if the build tool, framework, or standard library already provides it**
+- Leverage existing solutions in Svelte, Vite, Node.js, and browser APIs before writing custom implementations
+- Framework features are typically better optimized, more maintainable, and follow established patterns
+
+#### **Friction-Driven Problem Solving**
+- **When hitting implementation friction, stop and research whether you're solving the problem the right way**
+- Implementation difficulty often indicates architectural misalignment
+- High friction signals need for pattern research, framework documentation review, or approach reconsideration
+
+#### **Documentation-First Implementation**
+- **Always consult official documentation for the tools in the project before writing custom code**
+- Official docs reveal built-in solutions, best practices, and performance considerations
+- Understanding intended usage patterns prevents reinventing existing functionality
+
+#### **Principle Application Examples**
+```javascript
+// ✅ Framework-first: Use Svelte's built-in event system
+<canvas on:contextmenu|preventDefault|stopPropagation={handleContextMenu}></canvas>
+
+// ✅ Framework-first: Use Vite's environment-aware configuration
+export const prerender = false; // Let Vite handle dev/production differences
+
+// ✅ Framework-first: Leverage browser WebSocket API
+const ws = new WebSocket(`${protocol}//${host}:${port}`);
+
+// ✅ Documentation-first: Use requestAnimationFrame for smooth animations
+function animate() {
+  renderFrame();
+  requestAnimationFrame(animate);
+}
+```
+
 ### Code Standards & Conventions
 
 #### JavaScript/TypeScript Standards
 ```javascript
-// Use functional programming patterns where possible
-const processMarketData = (data) => data
-  .filter(validateTick)
-  .map(normalizeTick)
-  .reduce(aggregateData, initialState);
-
-// Always validate inputs
-function renderDisplay(displayData) {
-  if (!isValidDisplayData(displayData)) {
-    throw new Error('Invalid display data');
+// Use imperative patterns with clear error handling
+function processMarketData(data) {
+  if (!data || !Array.isArray(data)) {
+    console.warn('Invalid market data received');
+    return [];
   }
 
-  // Rendering logic here
+  const processedTicks = [];
+  for (const tick of data) {
+    if (validateTick(tick)) {
+      processedTicks.push(normalizeTick(tick));
+    }
+  }
+  return processedTicks;
 }
 
 // Use descriptive variable names for cognitive clarity
-const preAttentiveColorForVolatilityLevel = calculateVolatilityColor(volatility);
+const volatilityColor = calculateVolatilityColor(volatility);
+const priceDisplayY = calculatePricePosition(currentPrice, containerHeight);
 ```
 
 #### Performance Guidelines
 - **Profile Before Optimizing**: Never optimize without measurements
 - **Consider Memory Allocation**: Minimize object creation in render loops
-- **Use RequestAnimationFrame**: Never use setInterval for animations
+- **Use RequestAnimationFrame**: Preferred for animations (performance.now() for timing)
 - **Batch DOM Updates**: Minimize DOM manipulation and batch updates
 
-#### Testing Requirements
-- **Unit Tests**: All utility functions must have unit tests
-- **Integration Tests**: WebSocket communication must be tested
-- **Visual Regression Tests**: All rendering components must have visual tests
-- **Performance Tests**: System should maintain responsive interaction with multiple displays
+#### Testing Approach
+- **Demo Scripts**: Use timing scripts and interactive testing for validation
+- **Manual Testing**: Browser-based testing for rendering and WebSocket functionality
+- **Performance Monitoring**: Built-in performance monitoring with performance.now()
 
 ### Git Workflow & Commit Standards
 
