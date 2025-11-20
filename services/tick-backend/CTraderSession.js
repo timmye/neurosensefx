@@ -249,6 +249,29 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
         const symbolId = this.symbolMap.get(symbolName);
         if (symbolId) await this.connection.sendCommand('ProtoOAUnsubscribeSpotsReq', { ctidTraderAccountId: this.ctidTraderAccountId, symbolId: [symbolId] });
     }
+
+    disconnect() {
+        if (this.connection) {
+            try {
+                if (typeof this.connection.close === 'function') {
+                    this.connection.close();
+                } else if (typeof this.connection.disconnect === 'function') {
+                    this.connection.disconnect();
+                }
+            } catch (error) {
+                console.log('[DEBUG] Connection close/disconnect failed:', error.message);
+            }
+            this.connection = null;
+        }
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+    }
 }
 
 module.exports = { CTraderSession };

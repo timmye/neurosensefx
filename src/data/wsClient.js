@@ -27,29 +27,71 @@ availableSymbols.subscribe((value) => {
 let ws = null;
 let connectionMonitorInterval = null;
 
+// Connection fallback testing
+async function testDirectConnection(port) {
+    return new Promise((resolve) => {
+        const testWs = new WebSocket(`ws://localhost:${port}`);
+        const timeout = setTimeout(() => {
+            testWs.close();
+            resolve(false);
+        }, 3000);
+
+        testWs.onopen = () => {
+            clearTimeout(timeout);
+            testWs.close();
+            resolve(true);
+        };
+
+        testWs.onerror = () => {
+            clearTimeout(timeout);
+            resolve(false);
+        };
+    });
+}
+
 const WS_URL = (() => {
-    // Use VITE_BACKEND_URL if available (for cloud environments), otherwise use the default local URL
+    // Priority 1: Cloud environment override
     if (import.meta.env.VITE_BACKEND_URL) {
         return import.meta.env.VITE_BACKEND_URL;
     }
-    
+
+    // Priority 2: Direct connection with environment-aware port
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
-    const path = '/ws';
-    return `${protocol}//${host}${path}`;
+    const port = import.meta.env.DEV ? 8080 : 8081;  // Use actual backend port
+    return `${protocol}//${host}:${port}`;
 })();
+
+// Connection retry management
+let retryCount = 0;
+let maxRetries = 5;
+let retryDelay = 1000; // Start with 1 second
+let retryTimeout = null;
 
 export function connect() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
         return;
     }
-    
+
+    // Clear any existing retry timeout
+    if (retryTimeout) {
+        clearTimeout(retryTimeout);
+        retryTimeout = null;
+    }
+
+    attemptConnection();
+}
+
+function attemptConnection() {
     // WebSocket connection initiated
     wsStatus.set('ws-connecting');
+    console.log(`[wsClient] Connection attempt ${retryCount + 1}/${maxRetries} to ${WS_URL}`);
+
     try {
         ws = new WebSocket(WS_URL);
         ws.onopen = () => {
-        // WebSocket connected
+            console.log('[wsClient] WebSocket connected successfully');
+            retryCount = 0; // Reset retry count on successful connection
             startConnectionMonitor();
         };
         ws.onmessage = (event) => {
@@ -57,23 +99,50 @@ export function connect() {
             handleSocketMessage(rawData);
         };
         ws.onclose = (event) => {
+            console.log(`[wsClient] WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
             stopConnectionMonitor();
             ws = null;
-            if (get(wsStatus) !== 'error') wsStatus.set('disconnected');
-            // Don't immediately clear symbols on disconnect - they might be cached
-            // availableSymbols.set([]);
+
+            if (get(wsStatus) !== 'error') {
+                wsStatus.set('disconnected');
+                // Schedule retry if not intentionally closed and under retry limit
+                if (event.code !== 1000 && retryCount < maxRetries) {
+                    scheduleRetry();
+                }
+            }
         };
         ws.onerror = (err) => {
             console.error('[wsClient] WebSocket Error:', err);
             stopConnectionMonitor();
             if (ws) ws.close(); // Ensure close is called on error
             wsStatus.set('error'); // Set status to error on connection failure
+
+            // Schedule retry if under retry limit
+            if (retryCount < maxRetries) {
+                scheduleRetry();
+            }
         };
     } catch (e) {
         console.error('[wsClient] Failed to create WebSocket:', e);
         ws = null;
         wsStatus.set('error'); // Set status to error on creation failure
+
+        // Schedule retry if under retry limit
+        if (retryCount < maxRetries) {
+            scheduleRetry();
+        }
     }
+}
+
+function scheduleRetry() {
+    retryCount++;
+    const delay = retryDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+    console.log(`[wsClient] Scheduling retry ${retryCount}/${maxRetries} in ${delay}ms`);
+
+    retryTimeout = setTimeout(() => {
+        retryTimeout = null;
+        attemptConnection();
+    }, delay);
 }
 
 function startConnectionMonitor() {
@@ -147,6 +216,13 @@ function handleDataPackage(data) {
 }
 
 export function disconnect() {
+    // Clear retry logic
+    if (retryTimeout) {
+        clearTimeout(retryTimeout);
+        retryTimeout = null;
+    }
+    retryCount = 0;
+
     if (ws) {
         ws.onclose = null; // Prevent triggering onclose logic during manual disconnect
         ws.close();
@@ -155,7 +231,7 @@ export function disconnect() {
     wsStatus.set('disconnected');
     availableSymbols.set([]);
     subscriptions.set(new Set());
-    
+
     // Clear all displays and workers
     displayActions.clear();
     console.log('[wsClient] Disconnect called - displayStore cleared');

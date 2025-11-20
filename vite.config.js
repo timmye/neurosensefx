@@ -38,7 +38,21 @@ export default defineConfig(({ command, mode }) => {
           target: `ws://127.0.0.1:${backendPort}`,
           ws: true,
           changeOrigin: true,
-          secure: false
+          secure: false,
+          configure: (proxy, options) => {
+            proxy.on('error', (err, req, res) => {
+              console.log('[VITE PROXY] WebSocket proxy error:', err.message);
+            });
+            proxy.on('proxyReqWs', (proxyReq, req, socket, options, head) => {
+              console.log('[VITE PROXY] WebSocket proxying to:', options.target);
+            });
+            proxy.on('open', (proxySocket) => {
+              console.log('[VITE PROXY] WebSocket proxy connection opened');
+            });
+            proxy.on('close', (proxySocket, req, socket, head) => {
+              console.log('[VITE PROXY] WebSocket proxy connection closed');
+            });
+          }
         },
       },
     },
