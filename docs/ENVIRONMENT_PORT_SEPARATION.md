@@ -14,8 +14,8 @@ This document records the implementation of true environment port separation for
 
 | Environment | Frontend Port | Backend Port | WebSocket URL | Use Case |
 |-------------|---------------|--------------|---------------|----------|
-| **Development** | **5174** | **8080** | `ws://localhost:8080` | Active development with HMR |
-| **Production** | **4173** | **8081** | `ws://localhost:8081` | Production testing and deployment |
+| **Development** | **5174** | **8080** | `ws://localhost:8080` (direct) | Active development with HMR |
+| **Production** | **4173** | **8081** | `ws://localhost:8081` (direct) | Production testing and deployment |
 
 This follows **Vite industry standards**:
 - Development: Default Vite port 5173 (we use 5174)
@@ -330,10 +330,34 @@ npm run start:prod
 3. **Conflict Detection**: Automatic detection and resolution of port conflicts
 4. **Environment Switching**: Hot-swapping between environments without restart
 
+## WebSocket Connection Update (2025-11-20)
+
+### Direct Connection Implementation
+
+**Issue Resolved**: WebSocket client previously relied on Vite proxy (`ws://localhost/ws`) which caused connection failures.
+
+**Solution**: Implemented direct connection to backend ports:
+- **Development**: `ws://localhost:8080` (direct connection)
+- **Production**: `ws://localhost:8081` (direct connection)
+
+**Key Changes**:
+- **Client**: `src/data/wsClient.js` - Direct port-based URL construction
+- **Retry Logic**: Exponential backoff with comprehensive error handling
+- **Connection Monitoring**: Real-time connection health tracking
+- **Fallback Support**: Maintains `VITE_BACKEND_URL` for cloud deployments
+
+**Benefits**:
+- ✅ Eliminates proxy dependency failure points
+- ✅ More reliable and debuggable connection path
+- ✅ Automatic connection recovery on drops
+- ✅ Preserves all existing functionality
+
 ## Conclusion
 
 The implementation of environment port separation successfully resolves the fundamental issue that was preventing true environment isolation in NeuroSense FX. The solution follows industry best practices, maintains backward compatibility, and provides an excellent developer experience while ensuring production safety.
 
 **Key Achievement**: Development and production environments can now run simultaneously with complete isolation, enabling proper development workflows and testing scenarios that were previously impossible.
+
+**WebSocket Enhancement**: Direct connection implementation (2025-11-20) further improves reliability by eliminating proxy dependencies and adding robust retry mechanisms.
 
 This implementation provides a robust foundation for continued development while ensuring that the excellent separation of concerns and production safety features established in the environment-aware storage system can now be fully utilized.

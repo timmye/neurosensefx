@@ -1073,6 +1073,9 @@ dev() {
 
     # Port environment-specific ports already set above for detection
 
+    # Set environment-specific ports for development
+    set_environment_ports "$env"
+
     # Validate environment first
     if ! validate_environment; then
         log_error "Environment validation failed - fix issues before continuing"
