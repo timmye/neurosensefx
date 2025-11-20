@@ -6,14 +6,11 @@
   import { drawPriceDisplay } from '../../lib/viz/priceDisplay.js';
   import { drawMarketProfile } from '../../lib/viz/marketProfile.js';
   import { drawVolatilityMetric } from '../../lib/viz/volatilityMetric.js';
-  import { drawHoverIndicator } from '../../lib/viz/hoverIndicator.js';
-  import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js';
+    import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js';
   import { markerStore } from '../../stores/markerStore.js';
   import { writable } from 'svelte/store';
 
-  // Local hover state
-  const hoverState = writable(null);
-  export let config;
+    export let config;
   export let state;
 
   let canvas;
@@ -41,8 +38,7 @@
       priceFloat: false,
       priceDisplay: false,
       volatilityMetric: false,
-      priceMarkers: false,
-      hoverIndicator: false
+      priceMarkers: false
     }
   };
 
@@ -117,16 +113,15 @@
   }
 
   // This reactive block triggers a redraw whenever the core data changes
-  $: if (ctx && state && config && $hoverState !== undefined && $markerStore !== undefined) {
+  $: if (ctx && state && config && $markerStore !== undefined) {
     console.log('🔍 CONTAINER_DEBUG: Triggering redraw', {
       hasCtx: !!ctx,
       hasState: !!state,
       hasConfig: !!config,
       stateReady: state?.ready,
-      hoverState: $hoverState,
       markerStore: $markerStore
     });
-    
+
     markers = $markerStore;
     draw(state, config, markers);
   }
@@ -161,12 +156,10 @@
     const rect = canvas.getBoundingClientRect();
     const cssY = event.clientY - rect.top;
     const calculatedPrice = y.invert(cssY);
-
-    hoverState.set({ y: cssY, price: calculatedPrice });
   }
 
   function handleMouseLeave() {
-    hoverState.set(null);
+    console.log('🔍 CONTAINER_DEBUG: handleMouseLeave called');
   }
 
   function handleClick(event) {
@@ -261,11 +254,7 @@
       drawPriceMarkers(ctx, currentConfig, currentState, y, currentMarkers);
       debugInfo.visualizationCalls.priceMarkers = true;
       
-      // Draw Hover Indicator
-      console.log('🔍 CONTAINER_DEBUG: Drawing hover indicator');
-      drawHoverIndicator(ctx, currentConfig, currentState, y, $hoverState);
-      debugInfo.visualizationCalls.hoverIndicator = true;
-
+      
       console.log('🔍 CONTAINER_DEBUG: All visualizations drawn successfully', debugInfo.visualizationCalls);
     } catch (error) {
       console.error('🔍 CONTAINER_DEBUG: Error during visualization drawing', error);
