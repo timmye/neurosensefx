@@ -27,20 +27,7 @@
     zIndex = icon?.zIndex || 10000;
   }
   
-  // Event handlers
-  function handleContextMenu(e) {
-    e.preventDefault();
-    displayActions.setActiveIcon(id);
     
-    const context = {
-      type: 'icon',
-      targetId: id,
-      targetType: 'icon'
-    };
-    
-    displayActions.showContextMenu(e.clientX, e.clientY, id, 'icon', context);
-  }
-  
   let isDragging = false;
   let dragStartTime = 0;
 
@@ -63,6 +50,22 @@
     if (isDragging) {
       e.preventDefault();
     }
+  }
+
+  function handleContextMenu(e) {
+    console.log('🎨 [FLOATING_ICON] Icon context menu triggered');
+    e.preventDefault();
+    e.stopPropagation();
+
+    displayActions.setActiveIcon(id);
+
+    const context = {
+      type: 'icon',
+      targetId: id,
+      targetType: 'icon'
+    };
+
+    displayActions.showContextMenu(e.clientX, e.clientY, id, 'icon', context);
   }
   
   // ✅ ULTRA-MINIMAL: Simple interact.js setup
@@ -127,10 +130,10 @@
     class:active={isActive}
     class:expanded={icon?.isExpanded}
     style="left: {iconPosition.x}px; top: {iconPosition.y}px; z-index: {zIndex};"
-    on:contextmenu={handleContextMenu}
     on:mousedown={handleMouseDown}
     on:mouseup={handleMouseUp}
     on:click={handleClick}
+    on:contextmenu|preventDefault|stopPropagation={handleContextMenu}
     data-icon-id={id}
   >
     <div class="icon-content">

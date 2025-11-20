@@ -1,7 +1,7 @@
 <script>
   import { displayStore, displayActions, contextMenu, displays, panels } from '../stores/displayStore.js';
   import { getZIndex } from '../constants/zIndex.js';
-  
+    
   // Import context-specific components
   import CanvasTabbedInterface from './UnifiedContextMenu/CanvasTabbedInterface.svelte';
   import WorkspaceQuickActions from './UnifiedContextMenu/WorkspaceQuickActions.svelte';
@@ -35,32 +35,59 @@
       showTabs: false,
       showSearch: false,
       showReset: true
+    },
+    icon: {
+      title: 'Icon Options',
+      width: 200,
+      height: 150,
+      showTabs: false,
+      showSearch: false,
+      showReset: true
     }
   };
-  
-  // Context detection engine
-  function detectContextMenuContext(event) {
+
+  // Context detection engine - Export for external use
+  export function detectContextMenuContext(event) {
     const target = event.target;
 
     // Canvas click → Full 85+ parameter controls
-    if (target.classList.contains('canvas-element') || target.closest('canvas')) {
-      const displayElement = target.closest('[data-display-id]');
-      const displayId = displayElement?.dataset.displayId;
-      return {
-        type: 'canvas',
-        targetId: displayId,
-        targetType: 'display'
-      };
+    if (target.tagName === 'CANVAS' || target.closest('canvas')) {
+      // Find the parent display container (could be FloatingDisplay or Container)
+      const displayElement = target.closest('[data-display-id], .floating-display, .viz-container');
+      const displayId = displayElement?.dataset.displayId ||
+                        displayElement?.id?.replace('display-', '') ||
+                        displayElement?.id?.replace('container-', '');
+
+      if (displayId) {
+        return {
+          type: 'canvas',
+          targetId: displayId,
+          targetType: 'display'
+        };
+      }
     }
 
     // Panel click → Panel controls
-    if (target.classList.contains('floating-panel') || target.closest('.floating-panel')) {
+    if (target.closest('.floating-panel')) {
       const panelElement = target.closest('[data-panel-id]');
-      const panelId = panelElement?.dataset.panelId;
+      const panelId = panelElement?.dataset.panelId ||
+                     panelElement?.id?.replace('panel-', '');
       return {
         type: 'panel',
         targetId: panelId,
         targetType: 'panel'
+      };
+    }
+
+    // Icon click → Icon controls
+    if (target.closest('.enhanced-floating-icon')) {
+      const iconElement = target.closest('[data-icon-id]');
+      const iconId = iconElement?.dataset.iconId ||
+                    iconElement?.id?.replace('icon-', '');
+      return {
+        type: 'icon',
+        targetId: iconId,
+        targetType: 'icon'
       };
     }
 
@@ -71,32 +98,40 @@
       targetType: 'workspace'
     };
   }
-  
-  // Position adjustment for viewport constraints
+
+  // Enhanced position adjustment using simple bounds checking
   function adjustPositionForViewport() {
     if (!menuElement || !$contextMenu.open) return;
-    
+
     const config = CONTEXT_CONFIGURATIONS[$contextMenu.context?.type] || CONTEXT_CONFIGURATIONS.workspace;
-    const rect = menuElement.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    
+
     let { x, y } = { x: $contextMenu.x, y: $contextMenu.y };
-    
-    // Adjust horizontal position
-    if (x + config.width > viewportWidth) {
-      x = viewportWidth - config.width - 10;
+    const safeMargin = 10;
+
+    // Simple inline bounds checking
+    const needsAdjustment = x < safeMargin ||
+                           y < safeMargin ||
+                           x + config.width > viewportWidth - safeMargin ||
+                           y + config.height > viewportHeight - safeMargin;
+
+    if (needsAdjustment) {
+      // Adjust horizontal position
+      if (x + config.width > viewportWidth - safeMargin) {
+        x = viewportWidth - config.width - safeMargin;
+      }
+
+      // Adjust vertical position
+      if (y + config.height > viewportHeight - safeMargin) {
+        y = viewportHeight - config.height - safeMargin;
+      }
+
+      // Ensure minimum position
+      x = Math.max(safeMargin, x);
+      y = Math.max(safeMargin, y);
     }
-    
-    // Adjust vertical position
-    if (y + config.height > viewportHeight) {
-      y = viewportHeight - config.height - 10;
-    }
-    
-    // Ensure minimum position
-    x = Math.max(10, x);
-    y = Math.max(10, y);
-    
+
     adjustedPosition = { x, y };
   }
   
@@ -139,15 +174,15 @@
   $: currentConfig = ($contextMenu.context?.type && CONTEXT_CONFIGURATIONS[$contextMenu.context.type]) ? 
     CONTEXT_CONFIGURATIONS[$contextMenu.context.type] : 
     CONTEXT_CONFIGURATIONS.workspace;
-  
   // Handle context menu trigger from external components
   export function showContextMenu(event) {
     const context = detectContextMenuContext(event);
     displayActions.showContextMenu(event.clientX, event.clientY, context.targetId, context.targetType, context);
   }
+
+  // Enhanced context detection - function already exported above
 </script>
 
-<svelte:window on:contextmenu|preventDefault />
 
 {#if $contextMenu.open && $contextMenu.context}
   <div 
@@ -215,6 +250,25 @@
                 break;
               case 'reset':
                 // Reset panel logic
+                break;
+            }
+            displayActions.hideContextMenu();
+          }}
+        />
+      {:else if $contextMenu.context.type === 'icon'}
+        <PanelQuickActions
+          panelId={$contextMenu.context.targetId}
+          onAction={(action) => {
+            // Handle icon-specific actions (reuse panel logic for now)
+            switch(action) {
+              case 'bringToFront':
+                displayActions.setActiveIcon($contextMenu.context.targetId);
+                break;
+              case 'close':
+                displayActions.removeIcon($contextMenu.context.targetId);
+                break;
+              case 'reset':
+                // Reset icon logic
                 break;
             }
             displayActions.hideContextMenu();

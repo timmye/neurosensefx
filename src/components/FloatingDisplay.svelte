@@ -5,7 +5,7 @@
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
-    
+      
   // Import drawing functions
   import { drawMarketProfile } from '../lib/viz/marketProfile.js';
   import { drawDayRangeMeter } from '../lib/viz/dayRangeMeter.js';
@@ -14,8 +14,7 @@
   import { drawVolatilityOrb } from '../lib/viz/volatilityOrb.js';
   import { drawVolatilityMetric } from '../lib/viz/volatilityMetric.js';
   import { drawPriceMarkers } from '../lib/viz/priceMarkers.js';
-  import { drawHoverIndicator } from '../lib/viz/hoverIndicator.js';
-
+  
   // Debug: Verify imports are working
   console.log('[FloatingDisplay] Imports loaded:', {
     drawVolatilityOrb: typeof drawVolatilityOrb,
@@ -48,8 +47,7 @@
   let canvasRetries = 0;
   const MAX_CANVAS_RETRIES = 3;
 
-  // Hover and marker state
-  const hoverState = writable(null);
+  // Marker state
   let markers = [];
   
   // Declare variables to avoid ReferenceError
@@ -95,20 +93,7 @@
     ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([contentArea.height, 0])
     : null;
   
-  // Event handlers
-  function handleContextMenu(e) {
-    e.preventDefault();
-    displayActions.setActiveDisplay(id);
-
-    const context = {
-      type: e.target.closest('canvas') ? 'canvas' : 'workspace',
-      targetId: id,
-      targetType: 'display'
-    };
-
-    displayActions.showContextMenu(e.clientX, e.clientY, id, 'display', context);
-  }
-  
+    
   // Container-level event handlers (always work regardless of canvas state)
   function handleContainerClose() {
     displayActions.removeDisplay(id);
@@ -138,6 +123,23 @@
     }
   }
 
+  // 🎨 CANVAS CONTEXT MENU: Direct handler for canvas right-click (the fix!)
+  function handleCanvasContextMenu(event) {
+    console.log('🎨 [FLOATING_DISPLAY] Canvas context menu triggered');
+
+    // Create canvas context
+    const context = {
+      type: 'canvas',
+      targetId: id,
+      targetType: 'display',
+      displayId: id,
+      symbol: symbol || 'unknown'
+    };
+
+    // Show canvas context menu
+    displayActions.showContextMenu(event.clientX, event.clientY, id, 'display', context);
+  }
+
   // Legacy canvas-specific handlers (for canvas-click detection)
   function handleClose() {
     handleContainerClose();
@@ -147,84 +149,15 @@
     handleContainerRefresh();
   }
   
-  // Frame-throttled hover updates
-  let hoverUpdateFrame = null;
-  let lastHoverState = null;
-
-  function handleCanvasMouseMove(event) {
-    if (!yScale) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const cssX = event.clientX - rect.left;
-    const cssY = event.clientY - rect.top;
-    const calculatedPrice = yScale.invert(cssY);
-
-    const newHoverState = { x: cssX, y: cssY, price: calculatedPrice };
-
-    // Update hover state
-    if (!isHovering) {
-      isHovering = true;
-    }
-
-    // Only update if state actually changed to avoid unnecessary renders
-    if (lastHoverState &&
-        Math.abs(lastHoverState.x - newHoverState.x) < 1 &&
-        Math.abs(lastHoverState.y - newHoverState.y) < 1) {
-      return;
-    }
-
-    // Cancel previous frame request if still pending
-    if (hoverUpdateFrame) {
-      cancelAnimationFrame(hoverUpdateFrame);
-    }
-
-    // Throttle update to next animation frame
-    hoverUpdateFrame = requestAnimationFrame(() => {
-      lastHoverState = newHoverState;
-      hoverState.set(newHoverState);
-      hoverUpdateFrame = null;
-    });
-  }
   
-  function handleCanvasMouseLeave() {
-    // Cancel any pending hover update
-    if (hoverUpdateFrame) {
-      cancelAnimationFrame(hoverUpdateFrame);
-      hoverUpdateFrame = null;
-    }
-    lastHoverState = null;
-    hoverState.set(null);
-
-    // Reset hover state
-    isHovering = false;
-  }
-  
-  function handleCanvasClick(event) {
-    if (!yScale || !canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const cssX = event.clientX - rect.left;
-    const cssY = event.clientY - rect.top;
-
-    // Handle marker clicks
-    const hitThreshold = 5;
-
-    const clickedMarker = markers.find(marker => {
-      const markerY = yScale(marker.price);
-      return Math.abs(cssY - markerY) < hitThreshold;
-    });
-
-    if (clickedMarker) {
-      markerStore.remove(clickedMarker.id);
-    } else {
-      const clickedPrice = yScale.invert(cssY);
-      markerStore.add(clickedPrice);
-    }
-  }
-  
+    
+    
   // ✅ GRID SNAPPING: Enhanced interact.js setup with grid integration
   onMount(async () => {
-    
+
+    // Wait for canvas to be available
+    await tick();
+
     // ✅ GRID ENHANCED: Setup interact.js with grid snapping
     if (element) {
       // Create interactable instance
@@ -299,6 +232,7 @@
       }
 
     return () => {
+      
       // ✅ CLEANUP: Enhanced cleanup with grid unregistration
       if (interactable) {
         workspaceGrid.unregisterInteractInstance(interactable);
@@ -458,11 +392,7 @@
   // ✅ ULTRA-MINIMAL: Simple rendering - no complex dependencies
   let renderFrame;
 
-  // Hover state
-  let isHovering = false;
-
-  
-  // Function to render symbol as canvas background (drawn before other visualizations)
+    // Function to render symbol as canvas background (drawn before other visualizations)
   function renderSymbolBackground() {
     if (!ctx || !contentArea) return;
 
@@ -482,25 +412,7 @@
     ctx.restore();
   }
 
-  // Function to render symbol overlay (drawn after visualizations, before buttons)
-  function renderSymbolOverlay() {
-    if (!ctx || !contentArea || !isHovering) return;
 
-    // Save context state
-    ctx.save();
-
-    // Draw symbol overlay (top-left, in front of visualizations but behind buttons)
-    ctx.font = 'bold 12px "Courier New", monospace';
-    ctx.fillStyle = 'rgba(209, 213, 219, 1.0)'; // Full opacity - crisp and visible
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-
-    const symbolText = symbol || '';
-    ctx.fillText(symbolText, 8, 8);
-
-    // Restore context state
-    ctx.restore();
-  }
 
   function render() {
     if (!ctx || !state || !config || !canvas) {
@@ -558,15 +470,12 @@
         drawPriceDisplay(ctx, renderingContext, config, state, yScale);
         drawVolatilityMetric(ctx, renderingContext, config, state);
         drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);
-        drawHoverIndicator(ctx, renderingContext, config, state, yScale, lastHoverState);
-      } catch (error) {
+              } catch (error) {
         console.error(`[RENDER] Error in visualization functions:`, error);
       }
     }
 
-    // Draw symbol overlay when hovering (appears in front of visualizations but behind buttons)
-    renderSymbolOverlay();
-
+    
       }
   
   // ✅ ULTRA-MINIMAL: Simple render trigger
@@ -590,7 +499,6 @@
   class:active={isActive}
   style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: {displaySize.width}px; height: {displaySize.height}px; z-index: {zIndex};"
   data-display-id={id}
-  on:contextmenu={handleContextMenu}
 >
   <!-- Container Header - appears on hover -->
   <div class="container-header" class:error={canvasError}>
@@ -631,9 +539,7 @@
     <canvas
       bind:this={canvas}
       class="full-canvas"
-      on:mousemove={handleCanvasMouseMove}
-      on:mouseleave={handleCanvasMouseLeave}
-      on:click={handleCanvasClick}
+      on:contextmenu|preventDefault|stopPropagation={handleCanvasContextMenu}
     ></canvas>
     {:else}
     <div class="loading">

@@ -7,12 +7,12 @@
   import { drawMarketProfile } from '../../lib/viz/marketProfile.js';
   import { drawVolatilityOrb } from '../../lib/viz/volatilityOrb.js';
   import { drawVolatilityMetric } from '../../lib/viz/volatilityMetric.js';
-  import { drawHoverIndicator } from '../../lib/viz/hoverIndicator.js';
-  import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js'; // Import drawPriceMarkers
+    import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js'; // Import drawPriceMarkers
   import { markerStore } from '../../stores/markerStore.js'; // Import markerStore
+  import { displayActions } from '../../stores/displayStore.js'; // Import displayActions for context menu
   import { writable } from 'svelte/store';
   import { Environment, EnvironmentConfig } from '../../lib/utils/environmentUtils.js';
-
+  
   // Debug: Verify imports are working
   console.log('[Container] Imports loaded:', {
     drawVolatilityOrb: typeof drawVolatilityOrb,
@@ -23,10 +23,9 @@
   // 🔧 UNIFIED SIZING: Import canvas sizing utilities
   import { createCanvasSizingConfig, configureCanvasContext, CANVAS_CONSTANTS, boundsUtils, createZoomDetector } from '../../utils/canvasSizing.js';
 
-  // Local hover state (replaces uiState.hoverState)
-  const hoverState = writable(null);
-  export let config;
+    export let config;
   export let state;
+  export let id;
 
   let canvas;
   let ctx;
@@ -51,7 +50,7 @@
   onMount(() => {
     ctx = canvas.getContext('2d');
     dpr = window.devicePixelRatio || 1;
-    
+
     // 🔧 ZOOM AWARENESS: Initialize zoom detector
     const cleanupZoomDetector = createZoomDetector((newDpr) => {
       console.log(`[CONTAINER_ZOOM_AWARENESS] DPR changed to ${newDpr}`);
@@ -78,7 +77,7 @@
         });
       }
     });
-    
+
     // Store cleanup function for onDestroy
     onDestroy(() => {
       if (cleanupZoomDetector) {
@@ -150,134 +149,39 @@
     }
   }
 
-  // This reactive block triggers a redraw whenever core data, config, hover state, or marker store changes
-  $: if (ctx && state && config && $hoverState !== undefined && $markerStore !== undefined) {
-    // We access $hoverState here to make this block reactive to its changes
+    // 🎨 CANVAS CONTEXT MENU: Direct handler for canvas right-click (Svelte approach)
+  function handleCanvasContextMenu(event) {
+    console.log('🎨 [CONTAINER] Canvas context menu triggered (Svelte handler)');
+
+    // Create canvas context
+    const context = {
+      type: 'canvas',
+      targetId: id,
+      targetType: 'display',
+      displayId: id,
+      symbol: state?.symbol || 'unknown'
+    };
+
+    // Show canvas context menu
+    displayActions.showContextMenu(event.clientX, event.clientY, id, 'display', context);
+  }
+
+  // This reactive block triggers a redraw whenever core data, config, or marker store changes
+  $: if (ctx && state && config && $markerStore !== undefined) {
     // We access $markerStore here to make this block reactive to its changes
     markers = $markerStore; // Update local markers variable
 
-    // Trigger draw when state, config, hoverState, or markerStore changes
+    // Trigger draw when state, config, or markerStore changes
     // The check for ctx, state, config ensures everything is ready
     draw(state, renderingContext, markers); // Pass rendering context and markers array to draw function
   }
 
   // Frame-throttled mouse move handler for optimal 60fps performance
-  let lastHoverFrame = 0;
-  let pendingHoverUpdate = null;
 
-  // Drag detection state to prevent marker creation during drag operations
-  let isDragging = false;
-  let dragStartPos = null;
-  let dragThreshold = 5; // pixels - minimum movement to be considered a drag
-
-  function handleMouseMove(event) {
-    if (!y) return; // Guard clause: Don't run if y scale hasn't been initialized yet
-
-    const now = performance.now();
-
-    // Throttle to 60fps (16.67ms intervals)
-    if (now - lastHoverFrame < 16.67) {
-      // Store the latest mouse position but don't process yet
-      pendingHoverUpdate = event;
-      return;
-    }
-
-    lastHoverFrame = now;
-
-    // Check if this movement qualifies as a drag
-    if (dragStartPos) {
-      const rect = canvas.getBoundingClientRect();
-      const currentX = event.clientX - rect.left;
-      const currentY = event.clientY - rect.top;
-      const distance = Math.sqrt(
-        Math.pow(currentX - dragStartPos.x, 2) +
-        Math.pow(currentY - dragStartPos.y, 2)
-      );
-
-      if (distance > dragThreshold) {
-        isDragging = true;
-      }
-    }
-
-    const rect = canvas.getBoundingClientRect();
-    // 1. Calculate mouse Y relative to element's CSS position
-    const cssY = event.clientY - rect.top;
-    // 2. Convert CSS pixel coordinate back to a price value using the y scale
-    const calculatedPrice = y.invert(cssY);
-
-    hoverState.set({ y: cssY, price: calculatedPrice }); // Store cssY for drawing, as drawing functions operate in CSS space
-
-    // Process any pending hover update after the frame
-    requestAnimationFrame(() => {
-      if (pendingHoverUpdate && pendingHoverUpdate !== event) {
-        handleMouseMove(pendingHoverUpdate);
-      }
-      pendingHoverUpdate = null;
-    });
-  }
-
-  function handleMouseLeave() {
-    hoverState.set(null);
-    // Reset drag state when mouse leaves canvas
-    isDragging = false;
-    dragStartPos = null;
-  }
-
-  function handleMouseDown(event) {
-    if (!y) return; // Guard against accessing y before it's initialized
-
-    const rect = canvas.getBoundingClientRect();
-    dragStartPos = {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top
-    };
-    isDragging = false;
-  }
-
-  function handleClick(event) {
-    if (!y) return; // Guard against accessing y before it's initialized
-
-    // Prevent marker creation if this was a drag operation
-    if (isDragging) {
-      // Reset drag state for next interaction
-      isDragging = false;
-      dragStartPos = null;
-      return;
-    }
-
-    // Reset drag state for clean click handling
-    dragStartPos = null;
-    isDragging = false;
-
-    // Require modifier key (Ctrl/Cmd) for marker placement to avoid conflicts with display dragging
-    const hasModifier = event.ctrlKey || event.metaKey;
-
-    if (!hasModifier) {
-      // Don't create markers for regular clicks - these are for display dragging
-      return;
-    }
-
-    const rect = canvas.getBoundingClientRect();
-    const cssY = event.clientY - rect.top;
-
-    // Hit detection threshold in CSS pixels
-    const hitThreshold = 5;
-
-    // Check if clicking on an existing marker
-    const clickedMarker = $markerStore.find(marker => {
-      const markerY = y(marker.price); // Convert marker price to Y coordinate
-      return Math.abs(cssY - markerY) < hitThreshold;
-    });
-
-    if (clickedMarker) {
-      markerStore.remove(clickedMarker.id);
-    } else {
-      // If not clicking on a marker, add a new one
-      const clickedPrice = y.invert(cssY);
-      markerStore.add(clickedPrice);
-    }
-  }
-
+  
+  
+  
+  
   function draw(currentState, currentRenderingContext, currentMarkers) {
     if (!ctx || !currentState || !currentRenderingContext) return;
 
@@ -295,6 +199,7 @@
     // Initialize/update y-scale for the current render frame
     y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([contentArea.height, 0]);
 
+    
     // Use canvas sizing config dimensions for clearing
     if (canvasSizingConfig) {
       const { canvasArea } = canvasSizingConfig.dimensions;
@@ -361,9 +266,7 @@
       console.error('[Container] Price Display render error:', error);
     }
     
-    // --- Draw Hover Indicator (must be last to be on top) ---
-    drawHoverIndicator(ctx, currentRenderingContext, config, currentState, y, $hoverState);
-
+    
     // --- Draw Flash Overlay ---
     if (flashOpacity > 0) {
       const elapsedTime = performance.now() - flashStartTime;
@@ -387,8 +290,8 @@
   }
 </script>
 
-<div class="viz-container" style="width: {config.containerSize.width}px;">
-  <canvas bind:this={canvas} on:mousemove={handleMouseMove} on:mouseleave={handleMouseLeave} on:mousedown={handleMouseDown} on:click={handleClick}></canvas>
+<div class="viz-container" data-display-id={id} style="width: {config.containerSize.width}px;">
+  <canvas bind:this={canvas} on:contextmenu|preventDefault|stopPropagation={handleCanvasContextMenu}></canvas>
 
   {#if showEnvironmentIndicator && environmentDetails}
     <div

@@ -10,6 +10,12 @@
   import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
   import symbolService from './services/symbolService.js';
   import { Environment, EnvironmentConfig, initializeEnvironment, getEnvironmentInfo } from './lib/utils/environmentUtils.js';
+
+  
+  // 🎨 CANVAS CONTEXT: Load context menu test script
+  import '../test-context-menu.js';
+
+  // 📝 Window Type Extension: contextMenuRef will be available globally
   
   // Store subscriptions
   $: displayList = Array.from($displays.values());
@@ -17,6 +23,12 @@
   $: panelList = Array.from($panels.values());
   
   let symbolPaletteRef;
+  let contextMenuRef; // Reference to UnifiedContextMenu for intelligent context detection
+
+  // Make contextMenuRef globally available for components
+  $: if (contextMenuRef && typeof window !== 'undefined') {
+    window.contextMenuRef = contextMenuRef;
+  }
 
   // 🌍 ENVIRONMENT AWARENESS: Global environment state and initialization
   let environmentInfo = null;
@@ -201,9 +213,28 @@
         console.error('[APP] Fallback display creation also failed:', fallbackError);
       }
     }
+
+    // 🎨 CONTEXT MENU: Setup global context menu reference after components are mounted
+    setTimeout(() => {
+      if (contextMenuRef && typeof window !== 'undefined') {
+        window.contextMenuRef = contextMenuRef;
+        console.log('🎨 [APP] window.contextMenuRef set globally');
+      } else {
+        console.warn('🎨 [APP] contextMenuRef not available for global assignment');
+        // Try again after additional delay
+        setTimeout(() => {
+          if (contextMenuRef && typeof window !== 'undefined') {
+            window.contextMenuRef = contextMenuRef;
+            console.log('🎨 [APP] window.contextMenuRef set globally (retry)');
+          } else {
+            console.error('🎨 [APP] Failed to set window.contextMenuRef after retry');
+          }
+        }, 1000);
+      }
+    }, 1000); // Increase delay to ensure components are fully mounted
   });
-  
-  
+
+
   // Handle workspace right-click
   function handleWorkspaceContextMenu(e) {
     if (e.target === e.currentTarget) {
@@ -295,7 +326,7 @@
   {/each}
   
   <!-- Unified Context Menu (Layer 4) -->
-  <UnifiedContextMenu />
+  <UnifiedContextMenu bind:this={contextMenuRef} />
   
 </main>
 
