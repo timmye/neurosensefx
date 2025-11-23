@@ -36,10 +36,7 @@
 
 **Project Development Principles**
 
-**Framework-First Development**
-- Before implementing any feature, check if the build tool, framework, or standard library already provides it
-- Always consult official documentation for the tools in the project before writing custom code
-- Established, centralised frameworks and patterns exist to enable development
+**Framework-First Development:** Check existing tools, frameworks, and libraries before implementing custom solutions. Consult official documentation and established patterns in the codebase.
 
 **Project Philosophy: Build Once, Use Everywhere**
 - Prefer centralized utility functions over duplicated implementations
@@ -136,35 +133,13 @@ neurosensefx/                          # Root repository
 
 ## Development Guidelines
 
-### Core Development Principles
-**Framework-First Development:** Check existing tools and frameworks before implementing custom solutions.
-
 ### Code Standards
 
 #### Event Handling Pattern
-**Use Svelte's declarative event system as the single source of truth:**
-```javascript
-// ✅ Correct: Svelte modifiers for UI interactions
-<canvas on:contextmenu|preventDefault|stopPropagation={handleCanvasContextMenu}></canvas>
-
-// ❌ Wrong: Manual listeners competing with framework
-onMount(() => {
-  canvas.addEventListener('contextmenu', handler); // Don't do this
-});
-```
+**Use Svelte's declarative event system** - prefer modifiers like `on:contextmenu|preventDefault|stopPropagation` over manual `addEventListener`.
 
 #### Canvas Rendering Best Practices
-```javascript
-// DPR-aware text rendering
-function renderCrispText(ctx, text, x, y, fontSize) {
-  const dpr = window.devicePixelRatio;
-  ctx.save();
-  ctx.scale(dpr, dpr);
-  ctx.font = `${fontSize}px 'JetBrains Mono', monospace`;
-  ctx.fillText(text, x / dpr, y / dpr);
-  ctx.restore();
-}
-```
+**DPR-aware rendering** - scale canvas context for crisp text (see `src/lib/viz/DPR_RENDERING_SYSTEM.md` for examples).
 
 ## Component System
 
@@ -189,7 +164,7 @@ function renderCrispText(ctx, text, x, y, fontSize) {
 ### Configuration System
 
 **Unified Configuration Architecture**
-- Schema-driven parameters in `src/data/schema.js`
+- Schema-driven parameters (see `src/config/CONFIGURATION_ARCHITECTURE.md`)
 - Global configuration through `displayStore.defaultConfig`
 - New displays inherit current runtime settings automatically
 - Real-time configuration updates without restart
@@ -247,38 +222,45 @@ export const displayStore = writable({
 - Event-driven communication patterns
 - Graceful degradation for edge cases
 
-## For AI Agents: Development Context
+## Development Approach
 
-When working on this codebase, remember these key points:
-
-### **Primary User Context**
-- **FX traders** monitoring 5-20 currency pairs simultaneously
-- **Extended sessions** (8+ hours) requiring stability and comfort
-- **Active trading periods** requiring responsive interaction
-- **Keyboard-first workflow** for efficiency during rapid market movements
-
-### **Performance Requirements Are Practical, Not Theoretical**
-- **60fps**: Smooth price movement visualization during active trading
-- **Sub-100ms latency**: Feels responsive during time-critical decisions
-- **20+ displays**: Professional multi-instrument monitoring workflows
-- **8+ hour stability**: Full trading day coverage without degradation
-
-### **Implementation Approach**
-- Follow the "Simple, Performant, Maintainable" decision framework
+### **Key Implementation Principles**
 - **Centralize before you create**: Check existing utilities and patterns first
-- Ensure keyboard accessibility for all features
-- Prioritize visual clarity and pattern recognition
-- Maintain responsiveness during active trading conditions
-- **Document new patterns**: When creating reusable utilities, add them to the centralized documentation
-
-
-### **Key Design Patterns**
+- **Keyboard-first interaction**: Essential for rapid trading workflows
 - **Visual patterns first**: Users glance at patterns, then access detailed numbers
 - **Progressive disclosure**: Complexity increases with user engagement level
-- **Configuration inheritance**: New displays inherit current runtime settings
-- **Framework-first development**: Use existing tools before building custom solutions
+- **Document new patterns**: When creating reusable utilities, add them to centralized documentation
 
 
+
+## Testing
+
+**Running Tests:**
+```bash
+npm run test          # Run unit tests
+npm run test:e2e      # Run end-to-end tests (Playwright)
+```
+
+**Key Testing Areas:**
+- Canvas rendering with multiple displays (20+)
+- WebSocket connection stability and reconnection
+- Configuration inheritance and persistence
+- Keyboard accessibility for all interactions
+
+## Contributing
+
+**Development Workflow:**
+1. Use `./run.sh dev` for development with hot reload
+2. Follow "Simple, Performant, Maintainable" decision framework
+3. Check existing utilities before creating new ones
+4. Test with realistic conditions (multiple displays, extended sessions)
+5. Document new patterns and utilities
+
+**Code Standards:**
+- Framework-first development approach
+- Keyboard-first interaction design
+- DPR-aware canvas rendering
+- Centralized utility functions
 
 ## Current Status
 

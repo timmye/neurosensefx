@@ -12,8 +12,7 @@
   import { displayActions } from '../../stores/displayStore.js'; // Import displayActions for context menu
   import { writable } from 'svelte/store';
   import { Environment, EnvironmentConfig } from '../../lib/utils/environmentUtils.js';
-  import { canvasDriftMonitor } from '../../lib/diagnostics/canvasDriftMonitor.js'; // 🔧 DEBUGGER: Import drift monitor
-  
+    
   // Debug: Verify imports are working
   console.log('[Container] Imports loaded:', {
     drawVolatilityOrb: typeof drawVolatilityOrb,

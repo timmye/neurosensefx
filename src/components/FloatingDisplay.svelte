@@ -5,9 +5,7 @@
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
-  import { canvasDriftMonitor } from '../lib/diagnostics/canvasDriftMonitor.js'; // 🔧 DEBUGGER: Import drift monitor
-  import { CoordinateSystemDebugger } from '../lib/diagnostics/coordinateSystemDebugger.js'; // 🔧 DEBUGGER: Import coordinate system debugger
-      
+        
   // Import drawing functions
   import { drawMarketProfile } from '../lib/viz/marketProfile.js';
   import { drawDayRangeMeter } from '../lib/viz/dayRangeMeter.js';
