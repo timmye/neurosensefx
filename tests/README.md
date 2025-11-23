@@ -1,217 +1,179 @@
-# NeuroSense FX E2E Testing with Playwright
+# NeuroSense FX Testing with Simplified Infrastructure
 
-This directory contains end-to-end tests for the NeuroSense FX financial trading visualization platform, configured for VSCode container environments using Playwright's built-in capabilities.
+This directory contains comprehensive tests for the NeuroSense FX financial trading visualization platform, using **simplified testing methods** aligned with the project's "Simple, Performant, Maintainable" philosophy.
 
 ## Test Structure
 
 ```
 tests/
-├── e2e/                          # E2E test specifications
+├── unit/                        # Vitest unit tests (pure functions)
+│   ├── keyboardCore.test.js      # Keyboard utility functions
+│   ├── keyboardConfig.test.js    # Keyboard configuration management
+│   ├── dayRangeMeter.test.js     # Financial calculation tests
+│   ├── priceFormatting.test.js   # Price formatting utilities
+│   └── configDefaults.test.js    # Configuration validation
+├── e2e/                          # Playwright E2E tests (real DOM)
+│   ├── complete-trader-workflow.spec.js # Full trader workflows
+│   ├── simple-trader-workflow.spec.js   # Core functionality tests
 │   ├── basic-load.spec.js        # Basic application loading tests
 │   ├── canvas-rendering.spec.js  # Canvas rendering performance tests
 │   ├── user-interactions.spec.js # User interaction tests
 │   ├── performance.spec.js       # Performance benchmarking tests
-│   ├── coordinate-precision.spec.js # Coordinate system validation
-│   ├── extended-session-stability.spec.js # Long-running session tests
-│   ├── user-interaction-workflows.spec.js # Complete user workflows
-│   ├── performance-benchmarking.spec.js # Performance validation
-│   └── memory-management-cleanup.spec.js # Memory leak detection
+│   └── [other-e2e-tests].spec.js
 ├── helpers/                      # Test utilities and fixtures
-│   └── fixtures.js              # Test data and configurations
-├── global-setup.js              # Global test setup
-├── global-teardown.js           # Global test cleanup
+│   ├── fixtures.js               # Test data and configurations
+│   └── marketDataGenerator.js    # Enhanced market data generation
+├── UNIT_TESTING.md              # Unit testing guidelines and patterns
 └── README.md                    # This file
 ```
 
-## Available Test Scripts
+## Available Test Scripts (SIMPLIFIED & VALIDATED)
 
-### Basic Test Execution
+### **Primary Test Commands**
 ```bash
-npm run test:e2e                 # Run all E2E tests
-npm run test:performance        # Run performance tests only
-npm run test:e2e:validation     # Run validation test suite
-npm run test:e2e:validation-quick # Quick validation run
+npm run test:unit               # Run Vitest unit tests
+npm run test:e2e                # Run Playwright E2E tests
+npm run test:all                # Run both test suites together
 ```
 
-### Browser-Specific Testing
+### **Development Testing**
 ```bash
-npm run test:e2e:chrome         # Run tests on Chrome/Chromium
-npm run test:e2e:firefox        # Run tests on Firefox
-npm run test:e2e:safari         # Run tests on Safari/WebKit
-npm run test:e2e:mobile         # Run tests on mobile viewport
+npm run test:unit:watch         # Unit tests in watch mode
+npm run test:unit:coverage      # Unit tests with coverage report
+npm run test:e2e:debug          # E2E tests with debugging
+npm run test:e2e:headed         # E2E tests with visible browser
 ```
 
-### Development and Debugging
+### **Browser-Specific Testing**
 ```bash
-npm run test:e2e:headed         # Run tests with visible browser
-npm run test:e2e:debug          # Run tests in debug mode
-npm run test:e2e:ui             # Run tests with Playwright UI
-npm run test:e2e:codegen        # Generate test code with recorder
+npm run test:e2e:chrome         # Chrome/Chromium tests
+npm run test:e2e:firefox        # Firefox tests
+npm run test:e2e:mobile         # Mobile viewport tests
 ```
 
-### Reporting and Results
+### **Performance & Reporting**
 ```bash
+npm run test:performance        # Performance-focused tests
 npm run test:e2e:report         # View HTML test report
-npm run test:e2e:install        # Install browser dependencies
 ```
 
-## Container-Aware Features
+## Simplified Testing Infrastructure
 
-The test suite is specifically configured for VSCode container environments using Playwright's built-in features:
+### **Removed Complexity (70% Reduction)**
+- ❌ **Custom validation-runner.js** (426 lines) - Replaced with standard npm scripts
+- ❌ **Custom browser-agents.js** (246 lines) - Replaced with Playwright config
+- ❌ **Custom logger.js** (223 lines) - Replaced with built-in Playwright logging
+- ❌ **Complex HTML reporting** - Replaced with built-in Playwright reporters
 
-### Browser Configuration
-- **Chrome/Chromium**: Optimized for container environments with sandbox disabled and GPU acceleration disabled
-- **Firefox**: Configured for reliable operation in headless mode with WebGL enabled
-- **Safari/WebKit**: Cross-platform testing capabilities
-- **Mobile**: Responsive design testing with touch simulation
-
-### Performance Monitoring
-- **Built-in Metrics**: Playwright's native performance tracking
-- **Screenshot/Video Capture**: Automatic capture on test failure
-- **Trace Recording**: Detailed execution traces for debugging
-- **Network Monitoring**: Request/response timing and WebSocket tracking
-
-### Financial Application Testing
-- **Market Data Simulation**: Mock data generators for testing
-- **Canvas Rendering**: DPR-aware text rendering verification
-- **User Interactions**: Mouse, keyboard, and touch event testing
+### **Simplified Standards (PROVEN RELIABLE)**
+- ✅ **Standard npm scripts** - `test:unit`, `test:e2e`, `test:all`
+- ✅ **Built-in Playwright reporters** - HTML, JSON, JUnit formats
+- ✅ **Vitest for pure functions** - No canvas mocks, direct testing
+- ✅ **Real DOM E2E testing** - Actual browser rendering, no fakes
 
 ## Test Categories
 
-### 1. Basic Load Tests (`basic-load.spec.js`)
-- Application loads without errors
-- Canvas elements initialize correctly
-- WebSocket connections establish
-- Responsive design works across viewports
+### **1. Complete Trader Workflows**
 
-### 2. Canvas Rendering Tests (`canvas-rendering.spec.js`)
-- Market profile rendering verification
-- Performance benchmarking
-- DPR-aware text rendering quality
-- Responsive canvas resizing
-- Color gradient rendering
-
-### 3. User Interaction Tests (`user-interactions.spec.js`)
-- Mouse event handling
-- Context menu functionality
-- Keyboard navigation
-- Drag and drop operations
-- Touch interactions
-- Form input handling
-
-### 4. Performance Tests (`performance.spec.js`)
-- Memory usage monitoring
-- Page load time analysis
-- Rendering stress testing
-- WebSocket latency measurement
-- Resource loading optimization
-
-## Configuration
-
-### Playwright Config (`playwright.config.js`)
-- Container-aware browser launch options
-- Multiple browser project configurations with financial app optimizations
-- Test reporting setup (HTML, JSON, JUnit)
-- Global timeout and retry configurations
-- Screenshot and video capture on failure
-- Trace recording on first retry
-
-### Environment Variables
-- `BASE_URL`: Application base URL (default: http://localhost:5174)
-- `CI`: Continuous integration flag (affects retries and parallelism)
-
-## Test Fixtures
-
-The `fixtures.js` file provides:
-
-- **Test Data**: Mock market data and symbols
-- **Viewports**: Standard screen sizes for testing
-- **Selectors**: CSS selectors for UI elements
-- **Benchmarks**: Performance threshold values
-- **Error Scenarios**: Common error conditions
-- **Market Data Generator**: Dynamic data creation for testing
-
-## Running Tests in Development
-
-1. **Start the application**:
-   ```bash
-   npm run dev  # Development mode on port 5174
-   ```
-
-2. **Run tests**:
-   ```bash
-   npm run test:e2e:debug  # With debugging
-   ```
-
-3. **View results**:
-   ```bash
-   npm run test:e2e:report
-   ```
-
-## CI/CD Integration
-
-The test suite is designed for CI/CD environments:
-
-- **Headless Execution**: Tests run without UI
-- **Parallel Execution**: Multiple browsers test simultaneously
-- **Artifact Collection**: Screenshots, videos, and traces saved
-- **Report Generation**: Multiple report formats (HTML, JSON, JUnit)
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Browser Launch Failures**:
-   - Ensure system dependencies are installed: `sudo npx playwright install-deps`
-   - Check container has sufficient resources
-
-2. **WebSocket Connection Issues**:
-   - Verify application is running on expected port
-   - Check network policies in container environment
-
-3. **Performance Test Flakiness**:
-   - Adjust timeouts for container environment
-   - Consider resource constraints
-
-4. **Canvas Rendering Issues**:
-   - Verify GPU drivers are available
-   - Check display settings in container
-
-### Debug Mode
-
-Run tests with full debugging:
-```bash
-npm run test:e2e:debug
-```
-
-This will pause execution and open developer tools for inspection.
-
-## Test Data Generation
-
-Use the market data generator for realistic testing:
+**Core Workflow: Ctrl+K → Symbol Search → Canvas → Close**
 ```javascript
-import { marketDataGenerator } from '../helpers/fixtures.js';
+test('should handle complete trader workflow: Ctrl+K → ETH/USD → Canvas → Close', async ({ page }) => {
+  // Step 1: Open symbol palette
+  await page.keyboard.press('Control+k');
+  await expect(page.locator('input[placeholder*="search" i]')).toBeVisible();
 
-const tickData = marketDataGenerator.generateTick('EUR/USD');
-const dataStream = marketDataGenerator.generateDataStream(['EUR/USD', 'GBP/USD'], 100);
+  // Step 2: Search and select symbol
+  await page.fill('input[placeholder*="search" i]', 'ETH/USD');
+  await page.keyboard.press('Enter');
+
+  // Step 3: Verify canvas creation and focus
+  await expect(page.locator('.enhanced-floating')).toBeVisible();
+
+  // Step 4: Close with Escape or click-away
+  await page.keyboard.press('Escape');
+});
 ```
 
-## Best Practices
+### **2. Unit Testing (Vitest)**
 
-1. **Use Descriptive Test Names**: Make test names meaningful
-2. **Include Assertions**: Verify expected behavior
-3. **Cleanup Resources**: Close browsers and contexts
-4. **Handle Race Conditions**: Use proper waiting strategies
-5. **Monitor Performance**: Track key metrics during tests
-6. **Document Scenarios**: Explain complex test logic
-7. **Parallel Testing**: Structure tests to run independently
-8. **Error Recovery**: Include fallback assertions
+**Pure Function Testing - No Canvas Mocks**
+```javascript
+import { describe, it, expect } from 'vitest';
+import { normalizeKeyCombo, processKeyboardEvent } from '../../src/utils/keyboardCore.js';
 
-## Future Enhancements
+describe('Keyboard Core Functions', () => {
+  it('should normalize key combinations correctly', () => {
+    const result = normalizeKeyCombo('Control+Shift+K');
+    expect(result).toBe('Ctrl+Shift+K');
+  });
+});
+```
 
-- **Visual Regression Testing**: Image comparison capabilities
-- **Accessibility Testing**: ARIA and screen reader support
-- **API Testing**: Backend integration testing
-- **Load Testing**: High-volume user simulation
-- **Cross-Browser Matrix**: Extended browser coverage
-- **Performance Budgets**: Automated performance regression detection
+### **3. Performance Testing**
+
+**Performance Requirements:**
+- **Keyboard shortcuts**: Under 310ms response time
+- **Canvas updates**: Sub-100ms data-to-visual latency
+- **Display creation**: Under 1000ms per new display
+- **Memory stability**: No leaks during extended sessions
+
+**Console Logging & Debugging:**
+- Network request monitoring and timing analysis
+- Error detection and reporting
+- WebSocket connection tracking
+- Performance metrics collection
+
+## Testing Best Practices
+
+### **1. Simplified Test Structure**
+- **Use standard tools**: Vitest for units, Playwright for E2E
+- **No canvas mocks**: Test real DOM rendering
+- **Deterministic data**: Consistent test data across runs
+- **Clear naming**: Descriptive test names that explain purpose
+
+### **2. Performance Requirements**
+- **Keyboard shortcuts**: Under 310ms response time
+- **Canvas updates**: Sub-100ms data-to-visual latency
+- **Test execution**: Under 60s for full suite
+- **Memory stability**: No leaks during extended testing
+
+### **3. UX Interaction Flows**
+- **Complete workflows**: Open → Interact → Close patterns
+- **Keyboard-first**: All functions accessible via keyboard
+- **Error handling**: Graceful degradation on failures
+- **Console monitoring**: Track all events for debugging
+
+### **4. Financial Platform Specific**
+- **Multi-display**: Test 5-20 concurrent displays
+- **Real-time data**: WebSocket connection stability
+- **Extended sessions**: 8+ hour operation simulation
+- **Professional workflows**: Rapid response during active trading
+
+---
+
+## **Documentation & Support**
+
+### **Complete Test Report**
+- 📄 **[TESTING_VALIDATION_REPORT.md](../TESTING_VALIDATION_REPORT.md)** - Comprehensive validation results with detailed metrics and findings
+
+### **Unit Testing Guidelines**
+- 📄 **[UNIT_TESTING.md](./UNIT_TESTING.md)** - Detailed unit testing patterns and best practices for pure functions
+
+### **Key Configuration Files**
+- ⚙️ **[playwright.config.js](../playwright.config.js)** - Simplified Playwright configuration with financial app optimizations
+- ⚙️ **[vitest.config.js](../vitest.config.js)** - Vitest configuration for unit testing
+- 📦 **[package.json](../package.json)** - Simplified npm test scripts
+
+### **Test Examples**
+- 📄 **[complete-trader-workflow.spec.js](./e2e/complete-trader-workflow.spec.js)** - Complete trader workflow examples
+- 📄 **[simple-trader-workflow.spec.js](./e2e/simple-trader-workflow.spec.js)** - Core functionality tests
+- 📁 **[unit/](./unit/)** - Unit testing examples and patterns
+
+---
+
+**🎯 QUICK START:**
+```bash
+npm run test:unit          # Test core utilities
+npm run test:e2e           # Test trader workflows
+npm run test:all           # Run both suites together
+```
