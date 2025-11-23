@@ -12,9 +12,6 @@
   import { Environment, EnvironmentConfig, initializeEnvironment, getEnvironmentInfo } from './lib/utils/environmentUtils.js';
 
   
-  // 🎨 CANVAS CONTEXT: Load context menu test script
-  import '../test-context-menu.js';
-
   // 📝 Window Type Extension: contextMenuRef will be available globally
   
   // Store subscriptions
@@ -207,49 +204,13 @@
     setTimeout(() => {
       if (contextMenuRef && typeof window !== 'undefined') {
         window.contextMenuRef = contextMenuRef;
-        console.log('🎨 [APP] window.contextMenuRef set globally');
       } else {
-        console.warn('🎨 [APP] contextMenuRef not available for global assignment');
         // Try again after additional delay
         setTimeout(() => {
           if (contextMenuRef && typeof window !== 'undefined') {
             window.contextMenuRef = contextMenuRef;
-            console.log('🎨 [APP] window.contextMenuRef set globally (retry)');
-          } else {
-            console.error('🎨 [APP] Failed to set window.contextMenuRef after retry');
           }
         }, 1000);
-      }
-
-      // 🔧 TESTING: Global test canvas creation function for drift testing
-      if (typeof window !== 'undefined') {
-        window.createTestCanvas = function(symbol = 'EURUSD', x = 200, y = 200) {
-          try {
-            console.log(`[TEST] Creating test canvas for ${symbol} at (${x}, ${y})`);
-            const displayId = displayActions.addDisplay(symbol, { x, y });
-
-            if (displayId) {
-              console.log(`[TEST] Successfully created display ${displayId}`);
-
-              // Simulate proper subscription workflow
-              setTimeout(() => {
-                if (window.wsClient && window.wsClient.subscribe) {
-                  window.wsClient.subscribe(symbol);
-                  console.log(`[TEST] Subscribed to ${symbol} for display ${displayId}`);
-                }
-              }, 100);
-
-              return displayId;
-            } else {
-              console.error(`[TEST] Failed to create display for ${symbol}`);
-              return null;
-            }
-          } catch (error) {
-            console.error(`[TEST] Error creating test canvas:`, error);
-            return null;
-          }
-        };
-        console.log('🧪 [APP] window.createTestCanvas() available for drift testing');
       }
     }, 1000); // Increase delay to ensure components are fully mounted
   });
