@@ -19,7 +19,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(npm run lint)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(npx playwright test:*)",
+      "Bash(/tmp/test-script.js:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
