@@ -180,3 +180,10 @@ services/*/UI/*.html
 manual_*.md
 *TEST_REPORT.md
 *_TEST_*.md
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

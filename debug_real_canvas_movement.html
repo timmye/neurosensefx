@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Canvas Movement Investigation</title>
+    <script src="https://cdn.interactjs.io/v1.10.27/interact.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1f2937;
+            font-family: monospace;
+            color: #e5e7eb;
+        }
+
+        .debug-container {
+            position: fixed;
+            background: #111827;
+            border: 2px solid #374151;
+            border-radius: 6px;
+            width: 220px;
+            height: 120px;
+            left: 100px;
+            top: 100px;
+            z-index: 1000;
+            overflow: hidden;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .debug-container.dragging {
+            cursor: grabbing;
+            border-color: #f59e0b;
+            box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
+        }
+
+        .canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #111827;
+        }
+
+        .debug-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 400px;
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            padding: 16px;
+            font-size: 12px;
+            z-index: 2000;
+        }
+
+        .debug-title {
+            color: #f59e0b;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .debug-section {
+            margin-bottom: 12px;
+            padding: 8px;
+            background: #1f2937;
+            border-radius: 4px;
+        }
+
+        .debug-value {
+            color: #10b981;
+        }
+
+        .debug-warning {
+            color: #ef4444;
+        }
+
+        .event-log {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 10px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            padding: 8px;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+
+        .log-entry.drag-start {
+            color: #f59e0b;
+        }
+
+        .log-entry.drag-move {
+            color: #3b82f6;
+        }
+
+        .log-entry.drag-end {
+            color: #10b981;
+        }
+
+        .log-entry.warning {
+            color: #ef4444;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Test Container that mimics FloatingDisplay -->
+    <div id="testContainer" class="debug-container">
+        <canvas id="testCanvas" class="canvas"></canvas>
+    </div>
+
+    <!-- Debug Panel -->
+    <div class="debug-panel">
+        <div class="debug-title">🔍 Real Canvas Movement Analysis</div>
+
+        <div class="debug-section">
+            <strong>Element Position:</strong><br>
+            Left: <span id="elemLeft" class="debug-value">-</span><br>
+            Top: <span id="elemTop" class="debug-value">-</span><br>
+            Width: <span id="elemWidth" class="debug-value">-</span><br>
+            Height: <span id="elemHeight" class="debug-value">-</span>
+        </div>
+
+        <div class="debug-section">
+            <strong>Canvas Position:</strong><br>
+            Left: <span id="canvasLeft" class="debug-value">-</span><br>
+            Top: <span id="canvasTop" class="debug-value">-</span><br>
+            Width: <span id="canvasWidth" class="debug-value">-</span><br>
+            Height: <span id="canvasHeight" class="debug-value">-</span>
+        </div>
+
+        <div class="debug-section">
+            <strong>CSS Computed Styles:</strong><br>
+            Transform: <span id="cssTransform" class="debug-value">-</span><br>
+            Position: <span id="cssPosition" class="debug-value">-</span><br>
+            Left: <span id="cssLeft" class="debug-value">-</span><br>
+            Top: <span id="cssTop" class="debug-value">-</span>
+        </div>
+
+        <div class="debug-section">
+            <strong>Interact.js State:</strong><br>
+            Interacting: <span id="isInteracting" class="debug-value">false</span><br>
+            Action: <span id="interactAction" class="debug-value">none</span>
+        </div>
+
+        <div class="debug-section">
+            <strong>Event Log:</strong>
+            <div id="eventLog" class="event-log"></div>
+        </div>
+
+        <button onclick="clearLog()" style="margin-top: 12px; padding: 4px 8px; background: #374151; border: none; border-radius: 4px; color: white; cursor: pointer;">Clear Log</button>
+    </div>
+
+    <script>
+        const container = document.getElementById('testContainer');
+        const canvas = document.getElementById('testCanvas');
+        const eventLog = document.getElementById('eventLog');
+
+        let positionHistory = [];
+        let lastSnapshot = null;
+
+        // Initialize canvas with test content
+        function initCanvas() {
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+
+            // Set canvas dimensions
+            canvas.width = 220 * dpr;
+            canvas.height = 120 * dpr;
+            canvas.style.width = '220px';
+            canvas.style.height = '120px';
+
+            // Scale for DPR
+            ctx.scale(dpr, dpr);
+
+            // Draw test content
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(0, 0, 220, 120);
+
+            // Draw test content (ADR line at 50%)
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(110, 10);
+            ctx.lineTo(110, 110);
+            ctx.stroke();
+
+            // Draw "ADR 0" text
+            ctx.fillStyle = '#e5e7eb';
+            ctx.font = '12px monospace';
+            ctx.fillText('ADR 0', 115, 25);
+
+            // Draw "Canvas 50%" text at the line
+            ctx.fillStyle = '#10b981';
+            ctx.fillText('Canvas 50%', 120, 60);
+
+            console.log('Canvas initialized');
+        }
+
+        // Log function
+        function logEvent(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            eventLog.appendChild(entry);
+            eventLog.scrollTop = eventLog.scrollHeight;
+
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLog() {
+            eventLog.innerHTML = '';
+        }
+
+        // Update debug information
+        function updateDebugInfo() {
+            try {
+                // Element position
+                const elemRect = container.getBoundingClientRect();
+                document.getElementById('elemLeft').textContent = `${elemRect.left.toFixed(2)}px`;
+                document.getElementById('elemTop').textContent = `${elemRect.top.toFixed(2)}px`;
+                document.getElementById('elemWidth').textContent = `${elemRect.width.toFixed(2)}px`;
+                document.getElementById('elemHeight').textContent = `${elemRect.height.toFixed(2)}px`;
+
+                // Canvas position
+                const canvasRect = canvas.getBoundingClientRect();
+                document.getElementById('canvasLeft').textContent = `${canvasRect.left.toFixed(2)}px`;
+                document.getElementById('canvasTop').textContent = `${canvasRect.top.toFixed(2)}px`;
+                document.getElementById('canvasWidth').textContent = `${canvasRect.width.toFixed(2)}px`;
+                document.getElementById('canvasHeight').textContent = `${canvasRect.height.toFixed(2)}px`;
+
+                // CSS computed styles
+                const computedStyle = window.getComputedStyle(container);
+                document.getElementById('cssTransform').textContent = computedStyle.transform;
+                document.getElementById('cssPosition').textContent = computedStyle.position;
+                document.getElementById('cssLeft').textContent = computedStyle.left;
+                document.getElementById('cssTop').textContent = computedStyle.top;
+
+                // Check for position drift
+                const currentSnapshot = {
+                    elemLeft: elemRect.left,
+                    elemTop: elemRect.top,
+                    canvasLeft: canvasRect.left,
+                    canvasTop: canvasRect.top,
+                    transform: computedStyle.transform,
+                    cssLeft: computedStyle.left,
+                    cssTop: computedStyle.top,
+                    timestamp: Date.now()
+                };
+
+                if (lastSnapshot) {
+                    const drift = {
+                        elemLeftDelta: currentSnapshot.elemLeft - lastSnapshot.elemLeft,
+                        elemTopDelta: currentSnapshot.elemTop - lastSnapshot.elemTop,
+                        canvasLeftDelta: currentSnapshot.canvasLeft - lastSnapshot.canvasLeft,
+                        canvasTopDelta: currentSnapshot.canvasTop - lastSnapshot.canvasTop,
+                        timeDelta: currentSnapshot.timestamp - lastSnapshot.timestamp
+                    };
+
+                    // Report significant drift (>0.5px movement outside of drag)
+                    if ((Math.abs(drift.elemLeftDelta) > 0.5 || Math.abs(drift.elemTopDelta) > 0.5) &&
+                        !container.classList.contains('dragging')) {
+
+                        logEvent(`🚨 DRIFT DETECTED: elem(${drift.elemLeftDelta.toFixed(2)}, ${drift.elemTopDelta.toFixed(2)}) canvas(${drift.canvasLeftDelta.toFixed(2)}, ${drift.canvasTopDelta.toFixed(2)}) over ${drift.timeDelta}ms`, 'warning');
+
+                        console.error('DRIFT ANALYSIS:', {
+                            drift,
+                            currentSnapshot,
+                            lastSnapshot,
+                            dragging: container.classList.contains('dragging')
+                        });
+                    }
+                }
+
+                lastSnapshot = currentSnapshot;
+
+            } catch (error) {
+                logEvent(`Error updating debug info: ${error.message}`, 'warning');
+            }
+        }
+
+        // Set up interact.js exactly like FloatingDisplay
+        interact(container)
+            .draggable({
+                inertia: false, // CRITICAL: Disable inertia to prevent post-drag animations
+                modifiers: [
+                    interact.modifiers.restrictEdges({
+                        outer: 'parent'
+                    }),
+                    interact.modifiers.restrictRect({
+                        restriction: 'parent'
+                    })
+                ],
+                onstart: (event) => {
+                    logEvent('🟡 DRAG START', 'drag-start');
+                    container.classList.add('dragging');
+                    document.getElementById('isInteracting').textContent = 'true';
+                    document.getElementById('interactAction').textContent = 'drag';
+
+                    // Check initial state
+                    const initialStyle = window.getComputedStyle(container);
+                    logEvent(`Initial transform: ${initialStyle.transform}`, 'drag-start');
+                },
+                onmove: (event) => {
+                    // Update position exactly like FloatingDisplay
+                    const newPosition = {
+                        x: event.rect.left,
+                        y: event.rect.top
+                    };
+
+                    container.style.left = newPosition.x + 'px';
+                    container.style.top = newPosition.y + 'px';
+
+                    document.getElementById('interactAction').textContent = 'drag';
+                    updateDebugInfo();
+                },
+                onend: (event) => {
+                    logEvent('🟢 DRAG END', 'drag-end');
+                    container.classList.remove('dragging');
+                    document.getElementById('isInteracting').textContent = 'false';
+                    document.getElementById('interactAction').textContent = 'none';
+
+                    // Check final state immediately
+                    const finalStyle = window.getComputedStyle(container);
+                    logEvent(`Final transform: ${finalStyle.transform}`, 'drag-end');
+                    logEvent(`Final position: left=${finalStyle.left}, top=${finalStyle.top}`, 'drag-end');
+
+                    // Monitor for post-drag drift
+                    setTimeout(() => {
+                        logEvent('Checking for post-drag drift...', 'warning');
+                        const delayedStyle = window.getComputedStyle(container);
+                        if (delayedStyle.transform !== 'none') {
+                            logEvent(`🚨 POST-DRAG TRANSFORM FOUND: ${delayedStyle.transform}`, 'warning');
+                        }
+                        if (delayedStyle.left !== finalStyle.left || delayedStyle.top !== finalStyle.top) {
+                            logEvent(`🚨 POST-DRAG POSITION CHANGE: left=${delayedStyle.left}, top=${delayedStyle.top}`, 'warning');
+                        }
+                        updateDebugInfo();
+                    }, 100);
+
+                    setTimeout(() => {
+                        updateDebugInfo();
+                    }, 500);
+                }
+            })
+            .resizable({
+                edges: { left: true, right: true, bottom: true, top: true },
+                margin: 6,
+                modifiers: [
+                    interact.modifiers.restrictSize({
+                        min: { width: 220, height: 120 }
+                    })
+                ],
+                onstart: () => {
+                    logEvent('🔵 RESIZE START', 'drag-start');
+                    container.classList.add('dragging');
+                    document.getElementById('isInteracting').textContent = 'true';
+                    document.getElementById('interactAction').textContent = 'resize';
+                },
+                onmove: (event) => {
+                    container.style.width = event.rect.width + 'px';
+                    container.style.height = event.rect.height + 'px';
+                    updateDebugInfo();
+                },
+                onend: () => {
+                    logEvent('🟢 RESIZE END', 'drag-end');
+                    container.classList.remove('dragging');
+                    document.getElementById('isInteracting').textContent = 'false';
+                    document.getElementById('interactAction').textContent = 'none';
+                    updateDebugInfo();
+                }
+            });
+
+        // Initialize
+        initCanvas();
+        updateDebugInfo();
+
+        // Monitor continuously
+        setInterval(updateDebugInfo, 50); // Update every 50ms for high-resolution monitoring
+
+        logEvent('Debug investigation started. Try dragging the container!', 'info');
+        logEvent('Expected: No post-drag movement, no CSS transforms', 'info');
+    </script>
+</body>
+</html>

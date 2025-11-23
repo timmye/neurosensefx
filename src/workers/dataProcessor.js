@@ -214,12 +214,12 @@ function recalculateVisualRange() {
         targetAdrPercentage = 0.5;
     }
 
-    state.maxAdrPercentage = Math.max(state.maxAdrPercentage, targetAdrPercentage);
+    state.maxAdrPercentage = targetAdrPercentage;
 
     const visualRangeHalf = (adrRange / 2) * state.maxAdrPercentage;
     const visualHigh = state.midPrice + visualRangeHalf;
     const visualLow = state.midPrice - visualRangeHalf;
-    
+
     // Ensure the actual day's high/low are always visible
     const finalHigh = Math.max(visualHigh, state.todaysHigh);
     const finalLow = Math.min(visualLow, state.todaysLow);

@@ -67,24 +67,13 @@
       focusSymbolPalette();
     }
     
-    // Ctrl+N - Create new display
+    // Ctrl+N - Open symbol palette for new display (FIXED: Use proper symbol subscription)
     if (e.ctrlKey && e.key === 'n') {
       e.preventDefault();
       try {
-        const symbols = symbolService.getSymbols();
-        const firstSymbol = symbolService.getFirstSymbol();
-        
-        if (firstSymbol) {
-          const displayId = displayActions.addDisplay(firstSymbol, {
-            x: 100 + Math.random() * 200,
-            y: 100 + Math.random() * 100
-          });
-
-        } else {
-          console.warn('[APP] No symbols available for display creation');
-        }
+        focusSymbolPalette(); // Open symbol palette for proper subscription workflow
       } catch (error) {
-        console.error('[APP] Failed to create display:', error);
+        console.error('[APP] Failed to open symbol palette:', error);
       }
     }
     
@@ -230,6 +219,37 @@
             console.error('🎨 [APP] Failed to set window.contextMenuRef after retry');
           }
         }, 1000);
+      }
+
+      // 🔧 TESTING: Global test canvas creation function for drift testing
+      if (typeof window !== 'undefined') {
+        window.createTestCanvas = function(symbol = 'EURUSD', x = 200, y = 200) {
+          try {
+            console.log(`[TEST] Creating test canvas for ${symbol} at (${x}, ${y})`);
+            const displayId = displayActions.addDisplay(symbol, { x, y });
+
+            if (displayId) {
+              console.log(`[TEST] Successfully created display ${displayId}`);
+
+              // Simulate proper subscription workflow
+              setTimeout(() => {
+                if (window.wsClient && window.wsClient.subscribe) {
+                  window.wsClient.subscribe(symbol);
+                  console.log(`[TEST] Subscribed to ${symbol} for display ${displayId}`);
+                }
+              }, 100);
+
+              return displayId;
+            } else {
+              console.error(`[TEST] Failed to create display for ${symbol}`);
+              return null;
+            }
+          } catch (error) {
+            console.error(`[TEST] Error creating test canvas:`, error);
+            return null;
+          }
+        };
+        console.log('🧪 [APP] window.createTestCanvas() available for drift testing');
       }
     }, 1000); // Increase delay to ensure components are fully mounted
   });

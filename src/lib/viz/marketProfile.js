@@ -17,8 +17,6 @@ import {
  * Implements cognitive design foundation for pre-attentive market structure analysis
  */
 export function drawMarketProfile(ctx, renderingContext, config, state, y) {
-  // Debug: Log config to check what's being passed
-
   // Early exit for performance optimization
   if (!config.showMarketProfile) {
     return;
@@ -33,7 +31,6 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
   if (levels.length === 0) {
     return;
   }
-
 
   // Canvas context is already configured at container level
   // No need to call configureCanvasContext here

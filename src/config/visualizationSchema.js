@@ -1,14 +1,20 @@
-// =============================================================================
-// SIMPLIFIED VISUALIZATION CONFIGURATION SCHEMA
-// =============================================================================
-// Essential parameters only - 63% reduction from 85+ to ~31 parameters
-// Based on actual code usage analysis
+// visualizationSchema.js provides schema-driven configuration management for NeuroSense FX visualizations.
 //
-// DESIGN PRINCIPLES:
-// 1. Only parameters actually used in component code
-// 2. Clear, consistent naming conventions
-// 3. Standardized percentage format (decimal 0.0-1.0)
-// 4. Essential functionality only
+// System reduces 85+ parameters to 31 essential values using percentage-based scaling (0-1 range).
+// Parameters organized into functional groups with validation rules and UI control specifications.
+//
+// Basic usage:
+//
+//   import { getEssentialDefaultConfig } from './visualizationSchema.js';
+//   const config = getEssentialDefaultConfig();
+//
+//   import { getParametersByGroup } from './visualizationSchema.js';
+//   const groupedParams = getParametersByGroup();
+//
+// Module handles parameter validation through Zod schemas and provides runtime inheritance.
+// Error handling uses try-catch blocks with console warnings. Thread safety: client-side only.
+//
+// For extension patterns, see EXTENSION_GUIDE.md. For persistence, see configDefaults.js.
 
 // =============================================================================
 // CONFIGURATION GROUPS

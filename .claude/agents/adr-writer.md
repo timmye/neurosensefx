@@ -1,7 +1,7 @@
 ---
 name: adr-writer
 description: Creates ADR documents according to standardized structure -- use for writing architecture documents.
-model: sonnet
+model: opus
 color: green
 ---
 

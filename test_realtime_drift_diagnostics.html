@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Canvas Drift Diagnostics</title>
+    <style>
+        body {
+            font-family: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            background: #0f172a;
+            color: #e2e8f0;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .diagnostics-panel {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .test-element {
+            position: fixed;
+            width: 220px;
+            height: 120px;
+            background: #111827;
+            border: 2px solid #374151;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            font-size: 14px;
+            cursor: move;
+            user-select: none;
+            z-index: 1000;
+        }
+        .test-element canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 4px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        .log-entry.info {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid #3b82f6;
+        }
+        .log-entry.warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 3px solid #f59e0b;
+        }
+        .log-entry.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid #ef4444;
+        }
+        .log-entry.drift {
+            background: rgba(239, 68, 68, 0.2) !important;
+            border-left: 3px solid #ef4444 !important;
+            animation: pulse 1s infinite;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button:disabled {
+            background: #64748b;
+            cursor: not-allowed;
+        }
+        .controls {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+        .drift-summary {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+        .drift-high {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        .drift-medium {
+            color: #f59e0b;
+            font-weight: bold;
+        }
+        .drift-low {
+            color: #10b981;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="drift-summary">
+            <h2>🔍 Real-Time Canvas Drift Diagnostics</h2>
+            <p>NeuroSense FX - Live Canvas Position Monitoring and Root Cause Analysis</p>
+            <div id="drift-status">
+                <strong>Diagnostic Status:</strong> <span id="status-text">Initializing...</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="start-diagnostics">Start Real-Time Monitoring</button>
+            <button id="stop-diagnostics" disabled>Stop Monitoring</button>
+            <button id="create-test-display">Create Test Display</button>
+            <button id="simulate-interaction">Simulate Interaction</button>
+            <button id="trigger-zoom">Simulate Zoom Change</button>
+            <button id="clear-logs">Clear Logs</button>
+        </div>
+
+        <div class="metrics">
+            <div class="metric-card">
+                <div class="metric-label">Elements Monitored</div>
+                <div class="metric-value" id="elements-count">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Total Drift Events</div>
+                <div class="metric-value" id="drift-count">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">High Severity Drift</div>
+                <div class="metric-value" id="high-severity-count">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Monitoring Duration</div>
+                <div class="metric-value" id="monitoring-duration">0s</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Current DPR</div>
+                <div class="metric-value" id="current-dpr">1.0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Render Rate</div>
+                <div class="metric-value" id="render-rate">0 fps</div>
+            </div>
+        </div>
+
+        <div class="diagnostics-panel">
+            <h3>📊 Live Drift Detection Log</h3>
+            <div id="log-container"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Enhanced Canvas Drift Monitor for Real-Time Diagnostics
+        class RealTimeDriftMonitor {
+            constructor() {
+                this.isMonitoring = false;
+                this.elementMonitors = new Map();
+                this.driftEvents = [];
+                this.interactionEvents = [];
+                this.renderFrames = new Map();
+                this.startTime = null;
+                this.lastDpr = window.devicePixelRatio || 1;
+                this.renderCounts = new Map();
+
+                // Thresholds for drift detection
+                this.thresholds = {
+                    positionDelta: 0.1,      // Minimum position change
+                    sizeDelta: 0.1,          // Minimum size change
+                    timeDelta: 50,           // Minimum time between events
+                    performanceThreshold: 16.67, // 60fps threshold
+                    transformDelta: 0.01,   // Transform matrix sensitivity
+                    dprDelta: 0.01          // DPR change sensitivity
+                };
+
+                this.logContainer = document.getElementById('log-container');
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                // Monitor DPR changes
+                this.dprChecker = setInterval(() => {
+                    const currentDpr = window.devicePixelRatio || 1;
+                    document.getElementById('current-dpr').textContent = currentDpr.toFixed(2);
+
+                    if (Math.abs(currentDpr - this.lastDpr) > this.thresholds.dprDelta) {
+                        this.log('warning', `DPR changed from ${this.lastDpr.toFixed(2)} to ${currentDpr.toFixed(2)}`);
+                        this.lastDpr = currentDpr;
+
+                        // Check all monitored elements for DPR-related drift
+                        this.elementMonitors.forEach((monitor, id) => {
+                            this.takeSnapshot(id, 'dpr_change', { oldDpr: this.lastDpr, newDpr: currentDpr });
+                        });
+                    }
+                }, 100);
+
+                // Monitor window resize
+                window.addEventListener('resize', () => {
+                    this.log('info', `Window resized to ${window.innerWidth}x${window.innerHeight}`);
+                    this.elementMonitors.forEach((monitor, id) => {
+                        this.takeSnapshot(id, 'window_resize', {
+                            newWidth: window.innerWidth,
+                            newHeight: window.innerHeight
+                        });
+                    });
+                });
+            }
+
+            startMonitoring() {
+                if (this.isMonitoring) return;
+
+                this.isMonitoring = true;
+                this.startTime = performance.now();
+                this.log('info', '🚀 REAL-TIME DRIFT MONITORING STARTED');
+
+                // Start monitoring loop
+                this.startMonitoringLoop();
+                this.startRenderRateTracking();
+
+                document.getElementById('status-text').textContent = '✅ Monitoring Active';
+            }
+
+            stopMonitoring() {
+                if (!this.isMonitoring) return;
+
+                this.isMonitoring = false;
+                this.log('info', '⏹️ MONITORING STOPPED - Generating Analysis');
+                this.generateFinalAnalysis();
+
+                document.getElementById('status-text').textContent = '⏸️ Monitoring Stopped';
+            }
+
+            registerElement(id, element, type = 'test') {
+                const monitor = {
+                    id,
+                    element,
+                    type,
+                    registeredAt: performance.now(),
+                    lastSnapshot: null,
+                    eventHistory: [],
+                    driftEvents: [],
+                    canvas: null,
+                    ctx: null
+                };
+
+                // Find canvas element
+                if (type === 'test' || type === 'container') {
+                    const canvas = element.querySelector('canvas') || element;
+                    if (canvas && canvas.tagName === 'CANVAS') {
+                        monitor.canvas = canvas;
+                        monitor.ctx = canvas.getContext('2d');
+                        this.setupCanvasMonitoring(monitor);
+                    }
+                }
+
+                this.elementMonitors.set(id, monitor);
+                this.renderCounts.set(id, 0);
+                this.log('info', `✅ Registered ${type} element: ${id}`);
+                this.updateMetrics();
+            }
+
+            setupCanvasMonitoring(monitor) {
+                if (!monitor.canvas || !monitor.ctx) return;
+
+                // Override canvas context methods to track render operations
+                const originalClearRect = monitor.ctx.clearRect;
+                const originalFillRect = monitor.ctx.fillRect;
+                const originalDrawImage = monitor.ctx.drawImage;
+
+                monitor.ctx.clearRect = (...args) => {
+                    this.logCanvasOperation(monitor.id, 'clearRect', args);
+                    return originalClearRect.apply(monitor.ctx, args);
+                };
+
+                monitor.ctx.fillRect = (...args) => {
+                    this.logCanvasOperation(monitor.id, 'fillRect', args);
+                    return originalFillRect.apply(monitor.ctx, args);
+                };
+
+                monitor.ctx.drawImage = (...args) => {
+                    this.logCanvasOperation(monitor.id, 'drawImage', args);
+                    return originalDrawImage.apply(monitor.ctx, args);
+                };
+            }
+
+            logCanvasOperation(elementId, operation, args) {
+                const renderCount = (this.renderCounts.get(elementId) || 0) + 1;
+                this.renderCounts.set(elementId, renderCount);
+
+                if (renderCount % 100 === 0) { // Log every 100th operation
+                    this.log('info', `🎨 Canvas ${elementId} ${operation} #${renderCount}`, { args });
+                }
+            }
+
+            takeSnapshot(elementId, eventType = 'snapshot', metadata = {}) {
+                const monitor = this.elementMonitors.get(elementId);
+                if (!monitor) return null;
+
+                const timestamp = performance.now();
+                const snapshot = {
+                    timestamp,
+                    eventType,
+                    elementId,
+                    type: monitor.type,
+                    metadata,
+
+                    // Element positioning
+                    elementRect: monitor.element.getBoundingClientRect(),
+
+                    // Canvas state
+                    canvasRect: monitor.canvas ? monitor.canvas.getBoundingClientRect() : null,
+                    canvasSize: monitor.canvas ? {
+                        width: monitor.canvas.width,
+                        height: monitor.canvas.height,
+                        cssWidth: monitor.canvas.style.width,
+                        cssHeight: monitor.canvas.style.height
+                    } : null,
+
+                    // Transform state
+                    transform: monitor.ctx ? {
+                        a: monitor.ctx.getTransform().a,
+                        b: monitor.ctx.getTransform().b,
+                        c: monitor.ctx.getTransform().c,
+                        d: monitor.ctx.getTransform().d,
+                        e: monitor.ctx.getTransform().e,
+                        f: monitor.ctx.getTransform().f
+                    } : null,
+
+                    // Environment
+                    environment: {
+                        dpr: window.devicePixelRatio || 1,
+                        windowWidth: window.innerWidth,
+                        windowHeight: window.innerHeight
+                    }
+                };
+
+                // Analyze for drift
+                if (monitor.lastSnapshot) {
+                    const drift = this.analyzeDrift(monitor.lastSnapshot, snapshot);
+                    if (drift.detected) {
+                        this.recordDriftEvent(elementId, drift);
+                    }
+                }
+
+                monitor.lastSnapshot = snapshot;
+                monitor.eventHistory.push(snapshot);
+
+                // Keep only last 50 events
+                if (monitor.eventHistory.length > 50) {
+                    monitor.eventHistory.shift();
+                }
+
+                return snapshot;
+            }
+
+            analyzeDrift(previous, current) {
+                const timeDelta = current.timestamp - previous.timestamp;
+
+                const analysis = {
+                    detected: false,
+                    timestamp: current.timestamp,
+                    timeDelta,
+                    elementId: current.elementId,
+
+                    positionDelta: {
+                        leftDelta: current.elementRect.left - previous.elementRect.left,
+                        topDelta: current.elementRect.top - previous.elementRect.top,
+                        widthDelta: current.elementRect.width - previous.elementRect.width,
+                        heightDelta: current.elementRect.height - previous.elementRect.height
+                    },
+
+                    canvasDelta: current.canvasRect && previous.canvasRect ? {
+                        leftDelta: current.canvasRect.left - previous.canvasRect.left,
+                        topDelta: current.canvasRect.top - previous.canvasRect.top,
+                        widthDelta: current.canvasRect.width - previous.canvasRect.width,
+                        heightDelta: current.canvasRect.height - previous.canvasRect.height
+                    } : null,
+
+                    transformDelta: current.transform && previous.transform ? {
+                        aDelta: current.transform.a - previous.transform.a,
+                        bDelta: current.transform.b - previous.transform.b,
+                        eDelta: current.transform.e - previous.transform.e,
+                        fDelta: current.transform.f - previous.transform.f
+                    } : null,
+
+                    environmentDelta: {
+                        dprDelta: current.environment.dpr - previous.environment.dpr,
+                        windowWidthDelta: current.environment.windowWidth - previous.environment.windowWidth,
+                        windowHeightDelta: current.environment.windowHeight - previous.environment.windowHeight
+                    }
+                };
+
+                const significantChanges = [];
+
+                // Position drift detection
+                if (Math.abs(analysis.positionDelta.leftDelta) > this.thresholds.positionDelta) {
+                    significantChanges.push(`left: ${analysis.positionDelta.leftDelta.toFixed(2)}px`);
+                }
+                if (Math.abs(analysis.positionDelta.topDelta) > this.thresholds.positionDelta) {
+                    significantChanges.push(`top: ${analysis.positionDelta.topDelta.toFixed(2)}px`);
+                }
+                if (Math.abs(analysis.positionDelta.widthDelta) > this.thresholds.sizeDelta) {
+                    significantChanges.push(`width: ${analysis.positionDelta.widthDelta.toFixed(2)}px`);
+                }
+                if (Math.abs(analysis.positionDelta.heightDelta) > this.thresholds.sizeDelta) {
+                    significantChanges.push(`height: ${analysis.positionDelta.heightDelta.toFixed(2)}px`);
+                }
+
+                // Canvas drift detection (more sensitive)
+                if (analysis.canvasDelta) {
+                    if (Math.abs(analysis.canvasDelta.leftDelta) > this.thresholds.positionDelta) {
+                        significantChanges.push(`canvas-left: ${analysis.canvasDelta.leftDelta.toFixed(2)}px`);
+                    }
+                    if (Math.abs(analysis.canvasDelta.topDelta) > this.thresholds.positionDelta) {
+                        significantChanges.push(`canvas-top: ${analysis.canvasDelta.topDelta.toFixed(2)}px`);
+                    }
+                }
+
+                // Transform drift detection (critical for canvas positioning)
+                if (analysis.transformDelta) {
+                    if (Math.abs(analysis.transformDelta.eDelta) > this.thresholds.transformDelta) {
+                        significantChanges.push(`transform-e: ${analysis.transformDelta.eDelta.toFixed(4)}`);
+                    }
+                    if (Math.abs(analysis.transformDelta.fDelta) > this.thresholds.transformDelta) {
+                        significantChanges.push(`transform-f: ${analysis.transformDelta.fDelta.toFixed(4)}`);
+                    }
+                    if (Math.abs(analysis.transformDelta.aDelta) > this.thresholds.transformDelta) {
+                        significantChanges.push(`transform-scale: ${analysis.transformDelta.aDelta.toFixed(4)}`);
+                    }
+                }
+
+                // Environment changes
+                if (Math.abs(analysis.environmentDelta.dprDelta) > this.thresholds.dprDelta) {
+                    significantChanges.push(`DPR: ${analysis.environmentDelta.dprDelta.toFixed(2)}`);
+                }
+
+                // Timing anomalies
+                if (timeDelta > this.thresholds.timeDelta) {
+                    significantChanges.push(`timing: ${timeDelta.toFixed(0)}ms gap`);
+                }
+
+                analysis.detected = significantChanges.length > 0;
+                analysis.changes = significantChanges;
+                analysis.severity = this.calculateSeverity(analysis);
+
+                return analysis;
+            }
+
+            calculateSeverity(drift) {
+                if (!drift.detected) return 'none';
+
+                let severityScore = 0;
+
+                // Position changes contribute heavily to severity
+                severityScore += Math.abs(drift.positionDelta.leftDelta) * 5;
+                severityScore += Math.abs(drift.positionDelta.topDelta) * 5;
+                severityScore += Math.abs(drift.positionDelta.widthDelta) * 2;
+                severityScore += Math.abs(drift.positionDelta.heightDelta) * 2;
+
+                // Canvas drift is critical
+                if (drift.canvasDelta) {
+                    severityScore += Math.abs(drift.canvasDelta.leftDelta) * 10;
+                    severityScore += Math.abs(drift.canvasDelta.topDelta) * 10;
+                }
+
+                // Transform changes are very critical
+                if (drift.transformDelta) {
+                    severityScore += Math.abs(drift.transformDelta.eDelta) * 100;
+                    severityScore += Math.abs(drift.transformDelta.fDelta) * 100;
+                    severityScore += Math.abs(drift.transformDelta.aDelta) * 50;
+                }
+
+                // DPR changes are high severity
+                if (Math.abs(drift.environmentDelta.dprDelta) > 0.01) {
+                    severityScore += 100;
+                }
+
+                if (severityScore > 50) return 'high';
+                if (severityScore > 10) return 'medium';
+                if (severityScore > 1) return 'low';
+                return 'minimal';
+            }
+
+            recordDriftEvent(elementId, driftAnalysis) {
+                const monitor = this.elementMonitors.get(elementId);
+                if (!monitor) return;
+
+                const logMessage = `🚨 DRIFT DETECTED [${driftAnalysis.severity.toUpperCase()}]: ${elementId}`;
+                const logDetails = {
+                    type: monitor.type,
+                    changes: driftAnalysis.changes,
+                    positionDelta: driftAnalysis.positionDelta,
+                    canvasDelta: driftAnalysis.canvasDelta,
+                    transformDelta: driftAnalysis.transformDelta,
+                    timeDelta: driftAnalysis.timeDelta
+                };
+
+                this.log(driftAnalysis.severity === 'high' ? 'error' : 'warning', logMessage, logDetails, true);
+
+                const driftEvent = {
+                    elementId,
+                    type: monitor.type,
+                    timestamp: driftAnalysis.timestamp,
+                    severity: driftAnalysis.severity,
+                    analysis: driftAnalysis
+                };
+
+                monitor.driftEvents.push(driftEvent);
+                this.driftEvents.push(driftEvent);
+
+                // Keep only last 50 events globally
+                if (this.driftEvents.length > 50) {
+                    this.driftEvents.shift();
+                }
+
+                this.updateMetrics();
+            }
+
+            startMonitoringLoop() {
+                if (!this.isMonitoring) return;
+
+                // Take snapshots for all monitored elements
+                this.elementMonitors.forEach((monitor, id) => {
+                    this.takeSnapshot(id, 'monitoring_loop');
+                });
+
+                // Schedule next loop
+                setTimeout(() => this.startMonitoringLoop(), 100);
+            }
+
+            startRenderRateTracking() {
+                if (!this.isMonitoring) return;
+
+                // Calculate render rates
+                this.elementMonitors.forEach((monitor, id) => {
+                    const renderCount = this.renderCounts.get(id) || 0;
+                    const rate = (renderCount / ((performance.now() - this.startTime) / 1000)).toFixed(1);
+
+                    // Update display for first element
+                    if (id === Array.from(this.elementMonitors.keys())[0]) {
+                        document.getElementById('render-rate').textContent = `${rate} fps`;
+                    }
+                });
+
+                // Schedule next rate calculation
+                setTimeout(() => this.startRenderRateTracking(), 1000);
+            }
+
+            log(level, message, details = null, isDrift = false) {
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry ${level} ${isDrift ? 'drift' : ''}`;
+
+                const timestamp = new Date().toLocaleTimeString();
+                const content = `[${timestamp}] ${message}`;
+
+                if (details) {
+                    logEntry.innerHTML = `
+                        <div>${content}</div>
+                        <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
+                            ${JSON.stringify(details, null, 2)}
+                        </div>
+                    `;
+                } else {
+                    logEntry.textContent = content;
+                }
+
+                this.logContainer.appendChild(logEntry);
+                this.logContainer.scrollTop = this.logContainer.scrollHeight;
+
+                // Limit log entries
+                while (this.logContainer.children.length > 200) {
+                    this.logContainer.removeChild(this.logContainer.firstChild);
+                }
+            }
+
+            updateMetrics() {
+                document.getElementById('elements-count').textContent = this.elementMonitors.size;
+                document.getElementById('drift-count').textContent = this.driftEvents.length;
+                document.getElementById('high-severity-count').textContent =
+                    this.driftEvents.filter(e => e.severity === 'high').length;
+            }
+
+            updateMonitoringDuration() {
+                if (this.startTime && this.isMonitoring) {
+                    const duration = Math.floor((performance.now() - this.startTime) / 1000);
+                    document.getElementById('monitoring-duration').textContent = `${duration}s`;
+                }
+            }
+
+            generateFinalAnalysis() {
+                const analysis = {
+                    totalElements: this.elementMonitors.size,
+                    totalDriftEvents: this.driftEvents.length,
+                    highSeverityDrift: this.driftEvents.filter(e => e.severity === 'high').length,
+                    mediumSeverityDrift: this.driftEvents.filter(e => e.severity === 'medium').length,
+                    lowSeverityDrift: this.driftEvents.filter(e => e.severity === 'low').length,
+                    monitoringDuration: this.startTime ? (performance.now() - this.startTime) / 1000 : 0,
+                    driftByType: this.driftEvents.reduce((acc, event) => {
+                        acc[event.type] = (acc[event.type] || 0) + 1;
+                        return acc;
+                    }, {})
+                };
+
+                this.log('info', '📊 FINAL DRIFT ANALYSIS:', analysis);
+
+                // Identify patterns
+                const positionDrift = this.driftEvents.filter(e =>
+                    e.analysis.positionDelta && (
+                        Math.abs(e.analysis.positionDelta.leftDelta) > 0.1 ||
+                        Math.abs(e.analysis.positionDelta.topDelta) > 0.1
+                    )
+                ).length;
+
+                const transformDrift = this.driftEvents.filter(e =>
+                    e.analysis.transformDelta && (
+                        Math.abs(e.analysis.transformDelta.eDelta) > 0.01 ||
+                        Math.abs(e.analysis.transformDelta.fDelta) > 0.01
+                    )
+                ).length;
+
+                const dprDrift = this.driftEvents.filter(e =>
+                    Math.abs(e.analysis.environmentDelta.dprDelta) > 0.01
+                ).length;
+
+                this.log('info', '🎯 DRIFT PATTERNS IDENTIFIED:', {
+                    positionRelatedDrift: positionDrift,
+                    transformRelatedDrift: transformDrift,
+                    dprRelatedDrift: dprDrift,
+                    totalAnalyzed: this.driftEvents.length
+                });
+
+                return analysis;
+            }
+
+            simulateInteraction(elementId) {
+                const monitor = this.elementMonitors.get(elementId);
+                if (!monitor) return;
+
+                // Simulate a drag operation
+                this.log('info', `🎮 Simulating interaction on ${elementId}`);
+
+                const originalLeft = monitor.element.style.left || '100px';
+                const originalTop = monitor.element.style.top || '100px';
+
+                // Simulate movement
+                monitor.element.style.left = '150px';
+                monitor.element.style.top = '150px';
+
+                setTimeout(() => {
+                    this.takeSnapshot(elementId, 'simulated_interaction', {
+                        type: 'drag_move',
+                        originalPosition: { left: originalLeft, top: originalTop },
+                        newPosition: { left: '150px', top: '150px' }
+                    });
+                }, 50);
+
+                setTimeout(() => {
+                    monitor.element.style.left = originalLeft;
+                    monitor.element.style.top = originalTop;
+
+                    this.takeSnapshot(elementId, 'simulated_interaction_end', {
+                        type: 'drag_end',
+                        finalPosition: { left: originalLeft, top: originalTop }
+                    });
+                }, 200);
+            }
+
+            simulateDprChange() {
+                this.log('info', '🔍 Simulating DPR change');
+
+                // Temporarily modify DPR (for testing)
+                const originalDpr = window.devicePixelRatio;
+                Object.defineProperty(window, 'devicePixelRatio', {
+                    writable: true,
+                    value: originalDpr * 1.5
+                });
+
+                setTimeout(() => {
+                    // Restore original DPR
+                    Object.defineProperty(window, 'devicePixelRatio', {
+                        writable: true,
+                        value: originalDpr
+                    });
+                }, 100);
+            }
+        }
+
+        // Initialize the monitor
+        const driftMonitor = new RealTimeDriftMonitor();
+
+        // UI Elements
+        const startBtn = document.getElementById('start-diagnostics');
+        const stopBtn = document.getElementById('stop-diagnostics');
+        const createTestBtn = document.getElementById('create-test-display');
+        const simulateBtn = document.getElementById('simulate-interaction');
+        const zoomBtn = document.getElementById('trigger-zoom');
+        const clearLogsBtn = document.getElementById('clear-logs');
+
+        // Event handlers
+        startBtn.addEventListener('click', () => {
+            driftMonitor.startMonitoring();
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+
+            // Start duration timer
+            setInterval(() => driftMonitor.updateMonitoringDuration(), 1000);
+        });
+
+        stopBtn.addEventListener('click', () => {
+            driftMonitor.stopMonitoring();
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        });
+
+        createTestBtn.addEventListener('click', () => {
+            const testElement = document.createElement('div');
+            testElement.className = 'test-element';
+            testElement.id = `test-element-${Date.now()}`;
+            testElement.style.left = `${100 + Math.random() * 200}px`;
+            testElement.style.top = `${100 + Math.random() * 200}px`;
+
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 220;
+            canvas.height = 120;
+            testElement.appendChild(canvas);
+
+            // Draw test pattern
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(0, 0, 220, 120);
+
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 220; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, 120);
+                ctx.stroke();
+            }
+            for (let i = 0; i <= 120; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(220, i);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(10, 10, 30, 30);
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(195, 30, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            document.body.appendChild(testElement);
+
+            driftMonitor.registerElement(testElement.id, testElement, 'test');
+
+            // Make draggable
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
+
+            testElement.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialX = testElement.offsetLeft;
+                initialY = testElement.offsetTop;
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                testElement.style.left = `${initialX + dx}px`;
+                testElement.style.top = `${initialY + dy}px`;
+
+                driftMonitor.takeSnapshot(testElement.id, 'user_drag', {
+                    deltaX: dx,
+                    deltaY: dy,
+                    cause: 'user_drag_operation'
+                });
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    driftMonitor.takeSnapshot(testElement.id, 'user_drag_end', {
+                        cause: 'user_drag_operation_end'
+                    });
+                }
+            });
+        });
+
+        simulateBtn.addEventListener('click', () => {
+            const firstElement = document.querySelector('.test-element');
+            if (firstElement) {
+                driftMonitor.simulateInteraction(firstElement.id);
+            } else {
+                alert('Create a test display first!');
+            }
+        });
+
+        zoomBtn.addEventListener('click', () => {
+            driftMonitor.simulateDprChange();
+        });
+
+        clearLogsBtn.addEventListener('click', () => {
+            document.getElementById('log-container').innerHTML = '';
+        });
+
+        // Auto-start when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                driftMonitor.log('info', '🎯 DRIFT MONITOR READY - Create test elements and start monitoring');
+                document.getElementById('status-text').textContent = '🟡 Ready to Start';
+            }, 500);
+        });
+
+        // Export for external access
+        window.driftMonitor = driftMonitor;
+    </script>
+</body>
+</html>

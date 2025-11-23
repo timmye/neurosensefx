@@ -1,7 +1,7 @@
 ---
 name: quality-reviewer
 description: Reviews code for real issues (security, data loss, performance)
-model: sonnet
+model: opus
 color: orange
 ---
 

@@ -5,6 +5,8 @@
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
+  import { canvasDriftMonitor } from '../lib/diagnostics/canvasDriftMonitor.js'; // 🔧 DEBUGGER: Import drift monitor
+  import { CoordinateSystemDebugger } from '../lib/diagnostics/coordinateSystemDebugger.js'; // 🔧 DEBUGGER: Import coordinate system debugger
       
   // Import drawing functions
   import { drawMarketProfile } from '../lib/viz/marketProfile.js';
@@ -88,9 +90,28 @@
   // 🔧 CONTAINER-STYLE: contentArea calculations like Container.svelte (headerless design)
   let contentArea = { width: 220, height: 120 }; // Full content area (220×120 container - no header)
   
-  // yScale calculation using contentArea height
+  // yScale calculation using contentArea height, centered on daily open price for ADR alignment
   $: yScale = state?.visualLow && state?.visualHigh && contentArea
-    ? scaleLinear().domain([state.visualLow, state.visualHigh]).range([contentArea.height, 0])
+    ? (() => {
+        // 🔧 CRITICAL FIX: Ensure ADR 0 (daily open) aligns with canvas 50% height
+        // Center the visual range around the daily open price to guarantee ADR 0 = canvas center
+        const dailyOpen = state.midPrice; // This is ADR 0
+        const currentRange = state.visualHigh - state.visualLow;
+        const halfRange = currentRange / 2;
+
+        // Force the visual range to be centered on daily open
+        const centeredVisualLow = dailyOpen - halfRange;
+        const centeredVisualHigh = dailyOpen + halfRange;
+
+        console.log('[ADR_ALIGNMENT_FIX] Centering visual range around daily open:', {
+          dailyOpen,
+          originalRange: [state.visualLow, state.visualHigh],
+          centeredRange: [centeredVisualLow, centeredVisualHigh],
+          canvasCenterY: contentArea.height / 2
+        });
+
+        return scaleLinear().domain([centeredVisualLow, centeredVisualHigh]).range([contentArea.height, 0]);
+      })()
     : null;
   
     
@@ -148,6 +169,22 @@
   function handleRefresh() {
     handleContainerRefresh();
   }
+
+  // 🔧 DEBUGGER: Test ADR alignment
+  function testAdrAlignment() {
+    if (window.coordinateDebugger) {
+      window.coordinateDebugger.checkAdrAlignment(id);
+      console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] ADR alignment test initiated`);
+    }
+  }
+
+  // 🔧 DEBUGGER: Test mouse interaction
+  function testMouseInteraction() {
+    if (window.coordinateDebugger) {
+      window.coordinateDebugger.testMouseInteraction(id);
+      console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] Mouse interaction test initiated`);
+    }
+  }
   
   
     
@@ -158,30 +195,53 @@
     // Wait for canvas to be available
     await tick();
 
+    // 🔧 DEBUGGER: Register this floating display with drift monitor
+    if (element) {
+      canvasDriftMonitor.registerElement(id, element, 'floating');
+    }
+
+    // 🔧 DEBUGGER: Activate coordinate system debugging
+    if (element && canvas) {
+      const debugHelper = window.coordinateDebugger.activateElement(id, element, canvas);
+      console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] Coordinate system debugging activated`);
+    }
+
     // ✅ GRID ENHANCED: Setup interact.js with grid snapping
     if (element) {
       // Create interactable instance
       interactable = interact(element);
       
-      // Configure draggable with grid snapping
+      // 🔧 CRITICAL FIX: Disable inertia to prevent post-drag CSS transform animations
+      // Previous inertia: true caused canvas to continue moving after drag end
       interactable
         .draggable({
-          inertia: true,
+          inertia: false, // FIXED: Prevents easing animations after drag
           modifiers: workspaceGrid.getInteractModifiers(),
           onstart: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of drag start
             workspaceGrid.setDraggingState(true);
+
+            // 🔧 DEBUGGER: Track drag start
+            trackPositionChange('dragStart', displayPosition, displaySize, 'interact.js drag start');
           },
           onmove: (event) => {
             // ✅ GRID SNAPPING: event.rect already includes snapped coordinates
-            displayActions.moveDisplay(id, {
+            const newPosition = {
               x: event.rect.left,
               y: event.rect.top
-            });
+            };
+
+            displayActions.moveDisplay(id, newPosition);
+
+            // 🔧 DEBUGGER: Track drag movement
+            trackPositionChange('dragMove', newPosition, displaySize, 'interact.js drag move');
           },
           onend: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of drag end
             workspaceGrid.setDraggingState(false);
+
+            // 🔧 DEBUGGER: Track drag end
+            trackPositionChange('dragEnd', displayPosition, displaySize, 'interact.js drag end');
           }
         })
         .resizable({
@@ -201,38 +261,60 @@
           onstart: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize start
             workspaceGrid.setDraggingState(true);
+
+            // 🔧 DEBUGGER: Track resize start
+            trackPositionChange('resizeStart', displayPosition, displaySize, 'interact.js resize start');
           },
           onmove: (event) => {
             // ✅ GRID SNAPPING: Update element style for visual feedback
             element.style.width = event.rect.width + 'px';
             element.style.height = event.rect.height + 'px';
-            
+
             const newPosition = {
               x: event.rect.left,
               y: event.rect.top
             };
-            
+            const newSize = {
+              width: event.rect.width,
+              height: event.rect.height
+            };
+
             displayActions.moveDisplay(id, newPosition);
             displayActions.resizeDisplay(id, event.rect.width, event.rect.height);
+
+            // 🔧 DEBUGGER: Track resize movement
+            trackPositionChange('resizeMove', newPosition, newSize, 'interact.js resize move');
           },
           onend: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize end
             workspaceGrid.setDraggingState(false);
+
+            // 🔧 DEBUGGER: Track resize end
+            trackPositionChange('resizeEnd', displayPosition, displaySize, 'interact.js resize end');
           }
         });
       
       // Register interactable with workspace grid for dynamic updates
       workspaceGrid.registerInteractInstance(interactable);
-      
+
+      // 🔧 DEBUGGER: Connect interact.js instance to coordinate debugger
+      if (window.coordinateDebugger) {
+        const elementData = window.coordinateDebugger.elementData?.get(id);
+        if (elementData) {
+          elementData.setInteractInstance(interactable);
+          console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] Interact.js instance connected to debugger`);
+        }
+      }
+
       // Click to activate
       interactable.on('tap', (event) => {
         displayActions.setActiveDisplay(id);
       });
-      
+
       }
 
     return () => {
-      
+
       // ✅ CLEANUP: Enhanced cleanup with grid unregistration
       if (interactable) {
         workspaceGrid.unregisterInteractInstance(interactable);
@@ -272,9 +354,9 @@
       canvas.style.width = cssWidth + 'px';
       canvas.style.height = cssHeight + 'px';
 
-      // 🔧 CRISP RENDERING: Reconfigure canvas context after resize
-      ctx.scale(dpr, dpr);
-      ctx.translate(0.5, 0.5); // Sub-pixel alignment
+      // 🔧 FIX: Remove DPR scaling here - Container.svelte handles it per render frame
+      // ctx.scale(dpr, dpr); // REMOVED - Prevents double scaling with Container.svelte
+      // ctx.translate(0.5, 0.5); // REMOVED - Individual visualizations handle their own sub-pixel alignment
       ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
 
       canvasWidth = contentArea.width;
@@ -319,19 +401,16 @@
             canvas.style.height = cssHeight + 'px';
 
             // Reconfigure canvas context for new DPR
+            // 🔧 FIX: Remove DPR scaling here - Container.svelte handles it per render frame
             ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.scale(dpr, dpr);
-            ctx.translate(0.5, 0.5);
+            // ctx.scale(dpr, dpr); // REMOVED - Prevents double scaling with Container.svelte
+            // ctx.translate(0.5, 0.5); // REMOVED - Individual visualizations handle their own transforms
             ctx.imageSmoothingEnabled = false;
           }
         });
 
-        // Store cleanup function for onDestroy
-        onDestroy(() => {
-          if (cleanupZoomDetector) {
-            cleanupZoomDetector();
-          }
-        });
+        // Store cleanup function for onDestroy - will be handled in the main onDestroy block
+        // Note: Zoom detector cleanup moved to main onDestroy for proper lifecycle management
 
         // 🔧 CONTAINER-STYLE: Calculate contentArea from config (headerless design)
         const containerSize = config.containerSize || { width: 220, height: 120 };
@@ -357,9 +436,9 @@
         canvas.style.width = cssWidth + 'px';
         canvas.style.height = cssHeight + 'px';
 
-        // 🔧 CRISP RENDERING: Configure canvas context for crisp lines
-        ctx.scale(dpr, dpr);
-        ctx.translate(0.5, 0.5); // Sub-pixel alignment
+        // 🔧 FIX: Remove DPR scaling here - Container.svelte handles it per render frame
+        // ctx.scale(dpr, dpr); // REMOVED - Prevents double scaling with Container.svelte
+        // ctx.translate(0.5, 0.5); // REMOVED - Individual visualizations handle their own sub-pixel alignment
         ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
 
         canvasWidth = contentArea.width;
@@ -391,6 +470,25 @@
 
   // ✅ ULTRA-MINIMAL: Simple rendering - no complex dependencies
   let renderFrame;
+  let pendingRender = false; // 🔧 CRITICAL FIX: Prevent concurrent render frames
+
+  // 🔧 CRITICAL FIX: Render deduplication to prevent race conditions
+  function scheduleRender() {
+    if (!pendingRender) {
+      pendingRender = true;
+      renderFrame = requestAnimationFrame(() => {
+        pendingRender = false;
+        renderFrame = null;
+        render();
+      });
+    }
+  }
+
+  // 🔧 DEBUGGER: FloatingDisplay position and interaction tracking
+  let interactionHistory = [];
+  let lastPositionState = null;
+  let resizeHistory = [];
+  let renderCount = 0;
 
     // Function to render symbol as canvas background (drawn before other visualizations)
   function renderSymbolBackground() {
@@ -412,11 +510,105 @@
     ctx.restore();
   }
 
+  // 🔧 DEBUGGER: Track position changes and interactions
+  function trackPositionChange(eventType, newPosition, newSize, cause = 'unknown') {
+    const timestamp = performance.now();
+    const currentState = {
+      timestamp,
+      eventType,
+      displayId: id,
+      symbol,
+      position: newPosition || displayPosition,
+      size: newSize || displaySize,
+      cause,
+      elementRect: element ? element.getBoundingClientRect() : null,
+      canvasRect: canvas ? canvas.getBoundingClientRect() : null,
+      windowSize: {
+        width: window.innerWidth,
+        height: window.innerHeight
+      },
+      dpr: window.devicePixelRatio || 1
+    };
+
+    // Detect position changes
+    if (lastPositionState) {
+      const positionDelta = {
+        xDelta: currentState.position.x - lastPositionState.position.x,
+        yDelta: currentState.position.y - lastPositionState.position.y,
+        widthDelta: currentState.size.width - lastPositionState.size.width,
+        heightDelta: currentState.size.height - lastPositionState.size.height,
+        timeDelta: timestamp - lastPositionState.timestamp,
+        dprDelta: currentState.dpr - lastPositionState.dpr
+      };
+
+      // 🔧 FIXED: Log only significant position changes (>1px or timing >200ms)
+      // Previous thresholds (0.1px, 50ms) were too sensitive and caused false positives
+      if (Math.abs(positionDelta.xDelta) > 1.0 ||
+          Math.abs(positionDelta.yDelta) > 1.0 ||
+          Math.abs(positionDelta.widthDelta) > 1.0 ||
+          Math.abs(positionDelta.heightDelta) > 1.0 ||
+          Math.abs(positionDelta.timeDelta) > 200) {
+
+        console.warn('[DEBUGGER:DRIFT:FloatingDisplay] Position change detected:', {
+          ...currentState,
+          positionDelta,
+          previousState: lastPositionState,
+          interactionCause: cause
+        });
+
+        interactionHistory.push({
+          ...currentState,
+          positionDelta
+        });
+
+        // Keep only last 20 interaction events
+        if (interactionHistory.length > 20) {
+          interactionHistory.shift();
+        }
+      }
+    }
+
+    lastPositionState = currentState;
+  }
+
 
 
   function render() {
     if (!ctx || !state || !config || !canvas) {
       return;
+    }
+
+    const startTime = performance.now();
+    renderCount++;
+
+    // 🔧 DEBUGGER: Canvas state monitoring for FloatingDisplay
+    const canvasRect = canvas.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const currentDpr = window.devicePixelRatio || 1;
+
+    // 🔧 DEBUGGER: Track render position drift
+    if (renderCount % 60 === 0) { // Log every 60 frames
+      console.log('[DEBUGGER:FloatingDisplay:render] Render monitoring:', {
+        displayId: id,
+        symbol,
+        frameCount: renderCount,
+        canvasRect: {
+          left: canvasRect.left,
+          top: canvasRect.top,
+          width: canvasRect.width,
+          height: canvasRect.height
+        },
+        elementRect: {
+          left: elementRect.left,
+          top: elementRect.top,
+          width: elementRect.width,
+          height: elementRect.height
+        },
+        displayPosition,
+        displaySize,
+        dpr: currentDpr,
+        interactionHistoryCount: interactionHistory.length
+      });
     }
 
     // 🔧 CLEAN FOUNDATION: Create rendering context (headerless design)
@@ -426,7 +618,6 @@
       height: containerSize.height // ✅ HEADERLESS: Full container height
     };
     const adrAxisX = contentArea.width * config.adrAxisPosition;
-
 
     renderingContext = {
       containerSize,
@@ -438,58 +629,117 @@
       adrAxisXPosition: adrAxisX
     };
 
-    // 🔧 CONTAINER-STYLE: Clear canvas using contentArea coordinates (CSS pixels)
+    // 🔧 DEBUGGER: Canvas clearing monitoring
+    const clearStart = performance.now();
     ctx.clearRect(0, 0, contentArea.width, contentArea.height);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, contentArea.width, contentArea.height);
+    const clearTime = performance.now() - clearStart;
+
+    // Track position changes during render
+    trackPositionChange('render', displayPosition, displaySize, `render frame ${renderCount}`);
 
     // Draw symbol background first (behind all other visualizations)
     renderSymbolBackground();
+
+    // 🔧 DEBUGGER: Visualization timing
+    const vizTimers = new Map();
 
     // Draw visualizations
     if (state.visualLow && state.visualHigh && yScale) {
       try {
         // Draw Volatility Orb (Background Layer - MUST be first)
-        console.log('[FloatingDisplay] About to call drawVolatilityOrb:', {
-          drawVolatilityOrbExists: typeof drawVolatilityOrb,
-          hasCtx: !!ctx,
-          hasRenderingContext: !!renderingContext,
-          hasConfig: !!config,
-          hasState: !!state,
-          showVolatilityOrb: config?.showVolatilityOrb,
-          stateHasVolatility: 'volatility' in (state || {}),
-          stateVolatility: state?.volatility
-        });
-
+        let vizStart = performance.now();
         drawVolatilityOrb(ctx, renderingContext, config, state, yScale);
-        console.log('[FloatingDisplay] drawVolatilityOrb completed successfully');
+        vizTimers.set('volatilityOrb', performance.now() - vizStart);
 
+        vizStart = performance.now();
         drawMarketProfile(ctx, renderingContext, config, state, yScale);
+        vizTimers.set('marketProfile', performance.now() - vizStart);
+
+        vizStart = performance.now();
         drawDayRangeMeter(ctx, renderingContext, config, state, yScale);
+        vizTimers.set('dayRangeMeter', performance.now() - vizStart);
+
+        vizStart = performance.now();
         drawPriceFloat(ctx, renderingContext, config, state, yScale);
+        vizTimers.set('priceFloat', performance.now() - vizStart);
+
+        vizStart = performance.now();
         drawPriceDisplay(ctx, renderingContext, config, state, yScale);
+        vizTimers.set('priceDisplay', performance.now() - vizStart);
+
+        vizStart = performance.now();
         drawVolatilityMetric(ctx, renderingContext, config, state);
+        vizTimers.set('volatilityMetric', performance.now() - vizStart);
+
+        vizStart = performance.now();
         drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);
+        vizTimers.set('priceMarkers', performance.now() - vizStart);
               } catch (error) {
         console.error(`[RENDER] Error in visualization functions:`, error);
       }
     }
 
-    
+    // 🔧 DEBUGGER: Performance monitoring
+    const totalTime = performance.now() - startTime;
+    if (totalTime > 16.67 || renderCount % 300 === 0) { // Log slow renders or every 300 frames
+      console.log('[DEBUGGER:PERF:FloatingDisplay:render] Performance stats:', {
+        displayId: id,
+        symbol,
+        frameCount: renderCount,
+        totalTime,
+        clearTime,
+        vizTimers: Object.fromEntries(vizTimers),
+        contentArea,
+        currentDpr
+      });
+    }
       }
   
-  // ✅ ULTRA-MINIMAL: Simple render trigger
+  // ✅ ULTRA-MINIMAL: Simple render trigger with deduplication
   $: if (state && config && yScale) {
-    if (renderFrame) {
-      cancelAnimationFrame(renderFrame);
-    }
-    renderFrame = requestAnimationFrame(render);
+    scheduleRender();
   }
   
+  // 🔧 ARCHITECTURAL FIX: Consolidated cleanup with proper resource management
   onDestroy(() => {
+    // 🔧 DEBUGGER: Unregister from drift monitor
+    canvasDriftMonitor.unregisterElement(id);
+
+    // 🔧 DEBUGGER: Deactivate coordinate system debugging
+    if (window.coordinateDebugger) {
+      window.coordinateDebugger.deactivateElement(id);
+      console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] Coordinate system debugging deactivated`);
+    }
+
+    // Cleanup render frame and deduplication state
     if (renderFrame) {
       cancelAnimationFrame(renderFrame);
+      renderFrame = null;
     }
+    pendingRender = false; // 🔧 CRITICAL FIX: Reset deduplication flag
+
+    // Cleanup zoom detector (memory leak fix)
+    if (cleanupZoomDetector) {
+      cleanupZoomDetector();
+      cleanupZoomDetector = null;
+    }
+
+    // Cleanup interact.js instance
+    if (interactable) {
+      interactable.unset();
+      interactable = null;
+    }
+
+    // Cleanup canvas context
+    if (ctx) {
+      ctx = null;
+    }
+
+    // Reset canvas ready state
+    canvasReady = false;
+    canvasError = false;
   });
 </script>
 
@@ -510,6 +760,23 @@
       {/if}
     </div>
     <div class="header-controls">
+      <!-- 🔧 DEBUGGER: Debug buttons -->
+      <button
+        class="header-btn debug-btn"
+        on:click={testAdrAlignment}
+        title="Test ADR alignment"
+        aria-label="Test ADR alignment"
+      >
+        ADR
+      </button>
+      <button
+        class="header-btn debug-btn"
+        on:click={testMouseInteraction}
+        title="Test mouse interaction"
+        aria-label="Test mouse interaction"
+      >
+        🖱️
+      </button>
       <button
         class="header-btn refresh-btn"
         class:error={canvasError}
@@ -630,7 +897,7 @@
     100% { opacity: 0.4; }
   }
 
-  /* Container Header - slide down on hover */
+  /* Container Header - visible by default, no transform animations */
   .container-header {
     position: absolute;
     top: 0;
@@ -644,14 +911,10 @@
     justify-content: space-between;
     align-items: center;
     padding: 0 8px;
-    transform: translateY(-100%);
-    transition: transform 0.15s ease-out;
+    /* 🔧 CRITICAL FIX: Removed ALL transform animations that caused canvas positioning issues */
+    /* No more transform: translateY(-100%) or hover transitions - was causing canvas to render below container top */
     z-index: 100; /* Reduced to prevent resize interference, still above canvas */
     border-radius: 6px 6px 0 0;
-  }
-
-  .enhanced-floating:hover .container-header {
-    transform: translateY(0);
   }
 
   .container-header.error {
@@ -689,14 +952,19 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
+    /* 🔧 CRITICAL FIX: Removed 'all' transition that affected positioning */
+    /* transition: all 0.15s ease; REMOVED - was causing canvas drift */
+    /* Keep only non-positioning transitions */
+    transition: background-color 0.15s ease, color 0.15s ease;
     background: rgba(37, 99, 235, 0.9);
     color: white;
   }
 
   .header-btn:hover {
-    transform: scale(1.1);
+    /* 🔧 CRITICAL FIX: Removed transform scale that interfered with interact.js mouse events */
+    /* transform: scale(1.1); REMOVED - was causing mouse interaction misalignment after drag */
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    background: rgba(59, 130, 246, 0.9); /* Alternative hover feedback without transform */
   }
 
   .close-btn {
@@ -706,6 +974,13 @@
   .refresh-btn.error {
     background: rgba(251, 146, 60, 0.9);
     color: white;
+  }
+
+  .debug-btn {
+    background: rgba(139, 92, 246, 0.9); /* Purple for debug buttons */
+    color: white;
+    font-size: 10px;
+    padding: 2px 4px;
   }
 
   /* Ensure container maintains rounded corners when header is visible */
@@ -728,7 +1003,8 @@
     }
 
     .header-btn:hover {
-      transform: none;
+      /* No transform to remove - already removed from main hover state */
+      background: rgba(59, 130, 246, 0.9); /* Consistent hover feedback */
     }
   }
 </style>

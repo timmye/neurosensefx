@@ -8,7 +8,14 @@
       "Bash(git clone:*)",
       "WebSearch",
       "WebFetch(domain:platform.claude.com)",
-      "Bash(code:*)"
+      "Bash(code:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run test:e2e:*)",
+      "Bash(netstat:*)",
+      "Bash(./run.sh:*)",
+      "Bash(curl:*)",
+      "Bash(xargs ls -la:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []

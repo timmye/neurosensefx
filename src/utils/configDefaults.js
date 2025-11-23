@@ -1,8 +1,20 @@
-// =============================================================================
-// CONFIGURATION DEFAULTS MANAGER
-// =============================================================================
-// Factory defaults management and validation for workspace persistence
-// Provides clean separation between original defaults and user modifications
+// configDefaults.js provides factory defaults management and validation for workspace configuration persistence.
+//
+// The system maintains separation between original factory defaults and user modifications,
+// with automatic validation and sanitization of configuration values.
+//
+// Basic usage:
+//
+//   import { configDefaultsManager } from './configDefaults.js';
+//   const displayConfig = configDefaultsManager.getDisplayConfig(userOverrides);
+//
+//   import { validateAndSanitizeConfig } from './configDefaults.js';
+//   const validConfig = validateAndSanitizeConfig(userConfig);
+//
+// The module handles configuration validation, sanitization, and environment-aware persistence.
+// Error handling returns validation results with error arrays. Thread safety: client-side only.
+//
+// For parameter definitions, see visualizationSchema.js. For persistence, see workspacePersistence.js.
 
 import { getEssentialDefaultConfig } from '../config/visualizationSchema.js';
 

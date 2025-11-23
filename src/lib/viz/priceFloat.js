@@ -114,17 +114,16 @@ function drawPriceLine(ctx, renderData, config, state) {
   ctx.strokeStyle = color;
   ctx.lineWidth = floatHeight; // Configurable height
   ctx.lineCap = 'round'; // Smooth end caps
-  
+
   ctx.beginPath();
   ctx.moveTo(startX, priceY);
   ctx.lineTo(startX + floatWidth, priceY);
   ctx.stroke();
-  
+
   // Reset shadow for subsequent drawing operations
   ctx.shadowBlur = 0;
   ctx.shadowColor = 'transparent';
-  
-  // Restore context state
+
   ctx.restore();
 }
 

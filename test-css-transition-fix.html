@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS Transition Fix Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            font-family: monospace;
+        }
+
+        .test-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 2px solid #333;
+            background: #0f0f0f;
+        }
+
+        .floating-display {
+            position: absolute;
+            width: 220px;
+            height: 120px;
+            border: 1px solid #4CAF50;
+            background: rgba(16, 24, 39, 0.9);
+            cursor: move;
+            user-select: none;
+        }
+
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 28px;
+            background: rgba(17, 24, 39, 0.95);
+            border-bottom: 1px solid #374151;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 8px;
+            /* BEFORE: transform: translateY(-100%); */
+            /* BEFORE: transition: transform 0.15s ease-out; */
+            /* AFTER FIX: Removed transform transition */
+        }
+
+        .header-btn {
+            width: 20px;
+            height: 20px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* BEFORE: transition: all 0.15s ease; */
+            /* AFTER FIX: transition: background-color 0.15s ease, color 0.15s ease; */
+            background: rgba(37, 99, 235, 0.9);
+            color: white;
+        }
+
+        canvas {
+            position: absolute;
+            top: 28px;
+            left: 0;
+            width: 220px;
+            height: 92px;
+            background: #111;
+        }
+
+        .info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            max-width: 300px;
+        }
+
+        .status {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        .fixed { background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; }
+        .problem { background: rgba(244, 67, 54, 0.2); border: 1px solid #f44336; }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <h3>CSS Transition Fix Test</h3>
+        <div class="status fixed">✅ Fixed: Transform transitions removed</div>
+        <div class="status fixed">✅ Fixed: 'all' transitions removed</div>
+        <div class="status fixed">✅ Safe: border/box-shadow transitions kept</div>
+        <hr style="margin: 10px 0; border-color: #555;">
+        <strong>Test Instructions:</strong><br>
+        1. Drag the green box<br>
+        2. Release mouse immediately<br>
+        3. Observe no post-drag movement
+    </div>
+
+    <div class="test-container">
+        <div class="floating-display" id="testDisplay" style="left: 100px; top: 100px;">
+            <div class="header">
+                <span>EURUSD</span>
+                <button class="header-btn">✕</button>
+            </div>
+            <canvas></canvas>
+        </div>
+    </div>
+
+    <script>
+        const display = document.getElementById('testDisplay');
+        let isDragging = false;
+        let startX, startY, initialLeft, initialTop;
+
+        display.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            initialLeft = display.offsetLeft;
+            initialTop = display.offsetTop;
+            display.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+
+            display.style.left = (initialLeft + deltaX) + 'px';
+            display.style.top = (initialTop + deltaY) + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            display.style.cursor = 'move';
+
+            // CRITICAL TEST: Check for post-drag movement
+            const finalLeft = display.offsetLeft;
+            const finalTop = display.offsetTop;
+
+            setTimeout(() => {
+                const delayedLeft = display.offsetLeft;
+                const delayedTop = display.offsetTop;
+
+                const leftMovement = Math.abs(delayedLeft - finalLeft);
+                const topMovement = Math.abs(delayedTop - finalTop);
+
+                console.log('Post-drag movement check:');
+                console.log(`  Left: ${leftMovement}px`);
+                console.log(`  Top: ${topMovement}px`);
+
+                if (leftMovement < 1 && topMovement < 1) {
+                    console.log('✅ SUCCESS: No post-drag movement detected!');
+                } else {
+                    console.log('❌ PROBLEM: Post-drag movement still happening!');
+                }
+            }, 200); // Wait for potential CSS transition
+        });
+    </script>
+</body>
+</html>

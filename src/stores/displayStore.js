@@ -200,7 +200,23 @@ export const displayActions = {
     
     // Create worker for this display
     displayActions.createWorkerForSymbol(symbol, displayId);
-    
+
+    // 🔧 CRITICAL FIX: Initialize worker with default data to enable canvas rendering
+    // This fixes the issue where displays are created but never become ready
+    const defaultInitData = {
+      digits: 5,
+      bid: 1.1000, // Default price for display initialization
+      currentPrice: 1.1000,
+      todaysOpen: 1.1000,
+      projectedAdrHigh: 1.1100,
+      projectedAdrLow: 1.0900,
+      todaysHigh: 1.1100,
+      todaysLow: 1.0900,
+      volume: 1000
+    };
+
+    displayActions.initializeWorker(symbol, displayId, defaultInitData);
+
     return displayId;
   },
   

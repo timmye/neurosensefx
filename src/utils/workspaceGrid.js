@@ -19,7 +19,7 @@ export class WorkspaceGrid {
     this.showGridLines = false;
     this.gridOpacity = 0.2;
     this.showGridOnlyOnDrag = true;
-    this.snapThreshold = Infinity; // Always snap for consistent behavior
+    this.snapThreshold = 10; // 🔧 FIXED: Use reasonable snap range instead of Infinity to prevent forced repositioning
     
     // Visual feedback state
     this.isDragging = false;

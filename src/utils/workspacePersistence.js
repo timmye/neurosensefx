@@ -16,7 +16,8 @@ import { configDefaultsManager } from './configDefaults.js';
 import {
   EnvironmentStorage,
   StorageKeys,
-  initializeEnvironment
+  initializeEnvironment,
+  Environment
 } from '../lib/utils/environmentUtils.js';
 
 // =============================================================================
@@ -68,6 +69,14 @@ export class WorkspacePersistenceManager {
     this.globalConfigAutoSaver = null;
     this.currentLayout = null;
     this.isInitialized = false;
+
+    // 🔧 ARCHITECTURAL FIX: Add operation batching and HMR protection
+    this.saveQueue = [];
+    this.saveTimeout = null;
+    this.lastSaveTime = 0;
+    this.isDevelopmentMode = Environment.isDevelopment;
+    this.batchSaveDelay = this.isDevelopmentMode ? 2000 : 1000; // Longer delay in dev
+    this.saveInProgress = false;
 
     // Initialize environment system
     this.initializeEnvironment();
@@ -123,28 +132,84 @@ export class WorkspacePersistenceManager {
   }
 
   /**
-   * Save complete workspace state including runtime defaults
+   * 🔧 ARCHITECTURAL FIX: Batched save method with HMR protection
    * @param {Map} displays - Map of display objects
    * @param {Map} panels - Map of panel objects
    * @param {Map} icons - Map of icon objects
    * @param {Object} defaultConfig - Current runtime default configuration
    */
   saveCompleteWorkspace(displays, panels, icons, defaultConfig) {
+    // 🔧 FIX: Prevent saves during rapid development changes
+    if (this.isDevelopmentMode) {
+      const now = Date.now();
+      if (now - this.lastSaveTime < 500) { // Throttle rapid saves in dev
+        console.log('[WORKSPACE_PERSISTENCE] Throttled rapid save in development mode');
+        return;
+      }
+    }
+
+    // Add to save queue
+    this.saveQueue.push({
+      displays,
+      panels,
+      icons,
+      defaultConfig,
+      timestamp: Date.now()
+    });
+
+    // Debounce the actual save operation
+    this.scheduleBatchedSave();
+  }
+
+  /**
+   * 🔧 ARCHITECTURAL FIX: Schedule batched save operation
+   */
+  scheduleBatchedSave() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
+    this.saveTimeout = setTimeout(() => {
+      this.processBatchedSave();
+      this.saveTimeout = null;
+    }, this.batchSaveDelay);
+  }
+
+  /**
+   * 🔧 ARCHITECTURAL FIX: Process queued save operations
+   */
+  processBatchedSave() {
+    if (this.saveInProgress || this.saveQueue.length === 0) {
+      return;
+    }
+
+    this.saveInProgress = true;
+
     try {
+      // Get the latest save operation from queue
+      const latestSave = this.saveQueue[this.saveQueue.length - 1];
+
       // Save workspace layout
-      this.saveWorkspaceLayout(displays, panels, icons);
+      this.saveWorkspaceLayout(latestSave.displays, latestSave.panels, latestSave.icons);
 
       // Save complete runtime configuration
-      this.saveGlobalConfig({}, defaultConfig);
+      this.saveGlobalConfig({}, latestSave.defaultConfig);
 
-      console.log('[WORKSPACE_PERSISTENCE] Complete workspace saved with runtime defaults:', {
-        displaysCount: displays.size,
-        panelsCount: panels.size,
-        iconsCount: icons.size,
-        configKeys: Object.keys(defaultConfig).length
+      this.lastSaveTime = Date.now();
+
+      console.log('[WORKSPACE_PERSISTENCE] Batched workspace saved:', {
+        queueLength: this.saveQueue.length,
+        displaysCount: latestSave.displays.size,
+        panelsCount: latestSave.panels.size,
+        iconsCount: latestSave.icons.size,
+        configKeys: Object.keys(latestSave.defaultConfig).length,
+        developmentMode: this.isDevelopmentMode
       });
     } catch (error) {
-      console.error('[WORKSPACE_PERSISTENCE] Failed to save complete workspace:', error);
+      console.error('[WORKSPACE_PERSISTENCE] Failed to batch save workspace:', error);
+    } finally {
+      this.saveInProgress = false;
+      this.saveQueue = []; // Clear queue after processing
     }
   }
 

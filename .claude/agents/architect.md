@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Lead architect - analyzes code, designs solutions, writes ADRs
-model: sonnet
+model: opus
 color: purple
 ---
 
