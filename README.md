@@ -6,7 +6,7 @@ A financial trading visualization platform designed for extended market monitori
 
 **NeuroSense FX** is designed as an interface for market data visualization, focusing on clear presentation of information through visual elements.
 
-### 🎯 **Project Technical Philosophy: "Simple, Performant, Maintainable"**
+### Project Technical Philosophy: "Simple, Performant, Maintainable"
 
 Every development decision is guided by these three non-negotiable pillars:
 
@@ -25,17 +25,9 @@ Every development decision is guided by these three non-negotiable pillars:
 - Extensible design that's easy to enhance without breaking existing functionality
 - Comprehensive documentation with clear decision rationale
 
-The system combines abstract visual metaphors with targeted numerical displays, leveraging the brain's superior ability to process visual patterns and spatial relationships while providing precise numerical information when needed.
-
-> **For LLM Developers**: Every implementation must satisfy all three pillars. If any solution is not simple, performant, AND maintainable, refactor until it is.
-
 ## Core Problem Solved
 
-Traditional trading interfaces overload traders with numerical data and cognitive demands during extended sessions, leading to:
-- Mental fatigue and slower decision-making
-- Increased error rates under pressure
-- Reduced pattern recognition capabilities
-- Limited sustained attention span
+Traditional trading interfaces overload traders with numerical data and cognitive demands during extended sessions, leading to mental fatigue, slower decision-making, and reduced pattern recognition capabilities.
 
 **NeuroSense FX** addresses these issues through a perceptual interface that reduces cognitive load by presenting information visually rather than numerically, leveraging pattern recognition capabilities, and supporting intuitive rather than analytical processing.
 
@@ -53,12 +45,6 @@ Traditional trading interfaces overload traders with numerical data and cognitiv
 - **Workspace Persistence**: Customizable layouts with grid snapping and collision detection
 - **Performance Scaling**: Graceful support for 20+ simultaneous displays
 - **Glanceability Design**: One-second comprehension of market state with progressive disclosure
-
-### Performance Characteristics
-- Responsive data updates and visual rendering
-- DPR-aware text rendering for clarity
-- Stable operation for extended sessions
-- Memory management for multiple displays
 
 ## Development Setup
 
@@ -106,59 +92,9 @@ Traditional trading interfaces overload traders with numerical data and cognitiv
 ./run.sh logs     # View service logs
 ```
 
-## User Experience
-
-### Three-Level Comprehension
-- **Glance Level** (1-2 seconds): Immediate market state understanding
-- **Focus Level** (5-10 seconds): Detailed price and volatility analysis
-- **Analysis Level** (30+ seconds): Comprehensive pattern recognition
-
-### Visual Processing Optimization
-- **Pre-attentive Attributes**: Color, motion, size, position, shape for instant recognition
-- **Parallel Processing**: Multiple visual elements processed simultaneously
-- **Cognitive Load Minimization**: Perceptual processing over analytical thinking
-- **Sustained Attention**: Fatigue-resistant design for extended sessions
-
-### Alerting Philosophy
-Subtle perceptual alerts rather than disruptive notifications:
-- ADR proximity pulses for range trading
-- Volatility orb flashes for volatility changes
-- Pattern recognition cues through visual highlighting
-
-## Architecture Overview
-
-### Technology Stack
-- **Frontend**: Svelte 4.x with Vite build system
-- **Rendering**: Canvas 2D API with DPR-aware crisp rendering
-- **State Management**: Centralized Svelte stores with web workers
-- **Backend**: Node.js WebSocket server with cTrader Open API integration
-- **Data Processing**: Real-time tick processing with WebSocket streaming
-
-### Three-Layer System
-- **Layer 1**: Trading displays (z-index: 1-999)
-- **Layer 2**: UI panels (z-index: 1000-9999)
-- **Layer 3**: Overlays (z-index: 10000+)
-
-### Component Architecture
-- **Unified Configuration**: Schema-driven parameter management with runtime inheritance
-- **Auto-Generated Controls**: Dynamic UI from configuration schema
-- **Real-time Updates**: Live configuration changes without restart
-- **Workspace Persistence**: Complete layout and configuration storage with restoration
-- **Configuration Inheritance**: New displays automatically inherit current user settings
-
-## Monorepo Structure
-
-This repository uses a monorepo architecture to keep concerns separated while maintaining tight integration:
-
-- **`neurosensefx` (Root):** The Svelte frontend application with canvas-based rendering pipeline
-- **`services/tick-backend`:** The Node.js backend service connecting to cTrader API
-- **`libs/cTrader-Layer`:** Shared library providing low-level cTrader Open API interaction
-
-## Commands & Development
+## Development Commands
 
 ### Development Workflow
-
-**Current Development Process:**
 ```bash
 # Start development environment
 ./run.sh dev          # Start development with HMR (frontend 5174 + backend 8080)
@@ -167,19 +103,7 @@ This repository uses a monorepo architecture to keep concerns separated while ma
 # Development URLs
 # Development: Frontend http://localhost:5174, Backend ws://localhost:8080
 # Production: Frontend http://localhost:4173, Backend ws://localhost:8081
-
-# Service management
-./run.sh stop         # Stop all services
-./run.sh status       # Check service health
-./run.sh logs         # View real-time logs
-./run.sh env-status   # Environment status and configuration
 ```
-
-**Development Approach:**
-- **Manual Testing**: Direct browser testing with user interaction
-- **Visual Verification**: Component rendering and behavior validation
-- **Performance Testing**: Manual monitoring of 60fps and memory usage
-- **User Workflow Testing**: Real trading scenario simulation
 
 ### Available Scripts
 ```bash
@@ -195,52 +119,26 @@ npm run format       # Code formatting (when implemented)
   - Standard setup: `./setup_project.sh`
   - Clean setup: `./setup_project.sh --clean`
 
-## Configuration & Customization
+## Architecture Overview
 
-### Configuration Inheritance System (November 2024)
-NeuroSense FX now implements a robust configuration inheritance system where new displays automatically inherit current runtime settings:
+### Technology Stack
+- **Frontend**: Svelte 4.x with Vite build system
+- **Rendering**: Canvas 2D API with DPR-aware crisp rendering
+- **State Management**: Centralized Svelte stores with web workers
+- **Backend**: Node.js WebSocket server with cTrader Open API integration
+- **Data Processing**: Real-time tick processing with WebSocket streaming
 
-**Key Features**:
-- **Runtime Configuration Inheritance**: New displays inherit user-modified settings instead of factory defaults
-- **Workspace Persistence**: Complete runtime configuration is saved and restored across sessions
-- **Factory Reset**: One-click restoration to original factory defaults
-- **Real-time Updates**: Configuration changes apply immediately to all existing displays
+### Monorepo Structure
 
-**Configuration Management Classes**:
-- **ConfigDefaultsManager**: Handles factory defaults, user overrides, and effective defaults
-- **WorkspacePersistenceManager**: Manages complete workspace state with runtime configuration
-- **Unified Store Architecture**: Centralized configuration management with reactive updates
+This repository uses a monorepo architecture to keep concerns separated while maintaining tight integration:
 
-### Display Customization
-- **Layout Management**: Drag-and-drop display positioning with grid snapping
-- **Visual Preferences**: Customizable colors, sizes, and rendering modes
-- **Workspace Profiles**: Save and restore different layouts with configuration
-- **Accessibility**: Support for diverse user abilities
-- **Configuration Testing**: Built-in browser console testing functions for validation
-
-### Advanced Settings
-- **Performance Tuning**: Adjustable quality vs. performance settings
-- **Data Sources**: Configurable market data providers
-- **Alert Preferences**: Customizable notification thresholds
-- **Keyboard Shortcuts**: Fully configurable key bindings
-
-**Configuration Testing**:
-The system includes comprehensive testing functions accessible via browser console:
-```javascript
-// Test configuration inheritance and workspace persistence
-window.testConfigInheritance();
-window.validateWorkspaceRestoration();
-window.testFactoryReset();
-```
+- **`neurosensefx` (Root):** The Svelte frontend application with canvas-based rendering pipeline
+- **`services/tick-backend`:** The Node.js backend service connecting to cTrader API
+- **`libs/cTrader-Layer`:** Shared library providing low-level cTrader Open API interaction
 
 ## Current Status
 
 **Production Maturity**: ~65% complete, functional for development and testing
-- Core functionality operational with real-time market data
-- Stable architecture with WebSocket communication
-- Support for multiple concurrent displays
-- Development environment with HMR and tooling
-- Currently in feature development phase
 
 ### Current Capabilities
 - ✅ Real-time FX market data visualization via cTrader integration
@@ -250,33 +148,15 @@ window.testFactoryReset();
 - ✅ Canvas rendering with DPR-aware text
 - ✅ Comprehensive service management and monitoring
 
-### Recent Achievements
-- **Configuration Inheritance System**: Fixed canvas configuration inheritance for new displays
-- **Runtime Configuration Persistence**: Complete workspace state saved and restored correctly
-- **Memory bank optimization** for development efficiency
-- **Market profile delta modes** completion
-- **Browser zoom awareness** implementation
-- **Real-time configuration system** implementation with comprehensive testing
-
 ## Documentation
 
 **📚 Comprehensive Documentation Hub**: [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md)
 
 ### Key Documentation for Developers
 
-- **🎯 [UX Architecture](docs/DESIGN_UX_Architecture.md)** - **⭐ CENTRAL REFERENCE** - Understanding the "why" behind system design (15 min read)
-- **🔧 [Technical Architecture](CLAUDE.md)** - Implementation patterns and development guidelines (25 min read)
-- **📊 [Component Design Docs](docs/DOCUMENTATION_INDEX.md#component-documentation)** - Individual component specifications
+- **🎯 [UX Architecture](docs/DESIGN_UX_Architecture.md)** - Understanding the "why" behind system design (15 min read)
+- **🔧 [Technical Architecture](CLAUDE.md)** - Implementation patterns and development guidelines (5 min read)
 - **🚀 [Quick Start Guide](docs/DOCUMENTATION_INDEX.md#quick-start-for-developers)** - Get started in 45 minutes
-
-### Design & Architecture
-- **[NeuroSense FX Design Document](docs/NeuroSense_FX_Design_Document.md)** - High-level design philosophy and scientific foundations
-- **[Container-Display Architecture](docs/DESIGN_Container_Display_Architecture.md)** - Responsive layout and floating system
-- **[Unified Context Menu Architecture](docs/DESIGN_Unified_ContextMenu_Architecture.md)** - Configuration management system
-
-### Development Resources
-- **[Visualization Library](src/lib/viz/README.md)** - Component architecture and usage patterns
-- **[Local Development Guide](README_LOCAL_DEV.md)** - Detailed setup instructions
 
 ## Design Philosophy
 
