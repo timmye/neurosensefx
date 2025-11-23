@@ -48,42 +48,14 @@
 - Build for composition: small, focused utilities that combine to solve complex problems
 
 **Centralized Development Patterns**
-The project provides several centralized utilities and patterns that should be used before creating custom implementations:
+The project provides centralized utilities documented in focused files. Before creating custom implementations:
 
-**Configuration Management:**
-- `src/utils/configDefaults.js` - Centralized configuration with inheritance
-- `src/config/visualizationSchema.js` - Schema-driven parameter definitions
-- Use existing parameter groups and validation patterns
+- **Configuration:** See `src/config/CONFIGURATION_ARCHITECTURE.md`
+- **Rendering:** See `src/lib/viz/DPR_RENDERING_SYSTEM.md` and `src/lib/viz/DPR_EXAMPLES.md`
+- **Communication:** See `docs/WEB_WORKER_COMMUNICATION_PROTOCOL.md`
+- **State Management:** Refer to component-specific documentation
 
-**Rendering Infrastructure:**
-- `src/lib/viz/DPR_RENDERING_SYSTEM.md` - Device pixel ratio aware rendering patterns
-- `src/lib/viz/DPR_EXAMPLES.md` - Copy-paste ready rendering examples
-- Follow established canvas coordinate systems and scaling patterns
-
-**State Management:**
-- `src/stores/displayStore.js` - Centralized display and configuration state
-- `src/utils/workspacePersistence.js` - Workspace save/restore functionality
-- Use existing stores before creating new state management
-
-**Component Communication:**
-- `docs/WEB_WORKER_COMMUNICATION_PROTOCOL.md` - Standardized worker messaging
-- Follow existing event patterns and naming conventions
-- Use established error handling and recovery patterns
-
-**When to Create New Centralized Utilities:**
-- **Repetition Pattern**: If 3+ components need similar functionality, centralize it
-- **Complex Logic**: Non-trivial algorithms that should be tested independently
-- **Common Operations**: Frequent operations (DPR scaling, coordinate conversion, etc.)
-- **Performance Critical**: Functions that benefit from optimization and reuse
-- **Cross-Cutting Concerns**: Logging, validation, error handling patterns
-
-**How to Create Centralized Utilities:**
-1. **Check existing patterns first** - avoid reinventing what already exists
-2. **Make it focused** - single responsibility, clear name and purpose
-3. **Document it thoroughly** - examples, usage patterns, and integration notes
-4. **Test it independently** - unit tests for utility functions
-5. **Follow naming conventions** - consistent with existing centralized functions
-6. **Add to relevant documentation** - update framework docs and patterns
+**Creating New Utilities:** If 3+ components need similar functionality, create centralized utilities with clear documentation and tests.
 
 ## Development Decision Framework
 
@@ -165,11 +137,7 @@ neurosensefx/                          # Root repository
 ## Development Guidelines
 
 ### Core Development Principles
-
-**Framework-First Development**
-- Before implementing any feature, check if the build tool, framework, or standard library already provides it
-- Always consult official documentation for the tools in the project before writing custom code
-- Established, centralised frameworks and patterns exist to enable development
+**Framework-First Development:** Check existing tools and frameworks before implementing custom solutions.
 
 ### Code Standards
 
@@ -303,29 +271,6 @@ When working on this codebase, remember these key points:
 - Maintain responsiveness during active trading conditions
 - **Document new patterns**: When creating reusable utilities, add them to the centralized documentation
 
-### **Centralized Utility Functions**
-Before writing new code, check these existing utilities:
-
-**Canvas Rendering Helpers:**
-- `src/lib/viz/renderCrispText()` - DPR-aware text rendering
-- `src/lib/viz/clearCanvasRegion()` - Efficient canvas clearing
-- `src/lib/viz/applyDPRScaling()` - Device pixel ratio coordinate conversion
-- Copy patterns from existing components (`src/lib/viz/marketProfile.js`, etc.)
-
-**Configuration Utilities:**
-- `src/utils/configDefaults.js` - Configuration inheritance and validation
-- `src/components/UnifiedContextMenu/utils/parameterGroups.js` - Parameter organization
-- Use existing schema patterns for new component parameters
-
-**State Management Helpers:**
-- `src/stores/displayStore.js` - Display lifecycle methods
-- `src/utils/workspacePersistence.js` - Workspace save/load functions
-- Follow existing subscription and update patterns
-
-**WebSocket Communication:**
-- `src/data/wsClient.js` - Connection management and reconnection
-- Follow established message format and error handling
-- Use existing subscription/unsubscription patterns
 
 ### **Key Design Patterns**
 - **Visual patterns first**: Users glance at patterns, then access detailed numbers
@@ -333,28 +278,7 @@ Before writing new code, check these existing utilities:
 - **Configuration inheritance**: New displays inherit current runtime settings
 - **Framework-first development**: Use existing tools before building custom solutions
 
-### **Testing Guidelines**
-- Verify keyboard accessibility for all interactions
-- Ensure visual clarity across different display configurations
 
-## Framework Documentation
-
-**Comprehensive technical documentation is available for key frameworks and patterns:**
-
-### Core Architecture
-- **Environment-Aware Development System** - `docs/ENVIRONMENT_AWARE_SYSTEM.md`
-- **Unified Configuration Schema** - `src/config/CONFIGURATION_ARCHITECTURE.md`
-- **Web Worker Communication Protocol** - `docs/WEB_WORKER_COMMUNICATION_PROTOCOL.md`
-- **DPR-Aware Canvas Rendering** - `src/lib/viz/DPR_RENDERING_SYSTEM.md`
-
-### Component Patterns
-- **Three-Layer Display Management** - `src/constants/zIndex.js`
-- **Container-Content-Rendering Pipeline** - `docs/CONTAINER_CONTENT_RENDERING_PIPELINE.md`
-
-### Implementation Guides
-- **Configuration Extension** - `src/config/EXTENSION_GUIDE.md`
-- **Canvas Rendering Examples** - `src/lib/viz/DPR_EXAMPLES.md`
-- **Web Worker Examples** - `docs/WEB_WORKER_EXAMPLES.md`
 
 ## Current Status
 

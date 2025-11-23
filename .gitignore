@@ -187,3 +187,32 @@ manual_*.md
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Debug Infrastructure - Prevent Canvas Drift Debug Bloat
+test*.html
+test*.js
+debug*.html
+debug*.js
+diagnose*.js
+manual*.js
+validate*.js
+interactjs*.js
+canvas*.js
+*_ANALYSIS.md
+*_DIAGNOSTIC*.md
+*_INVESTIGATION.md
+*_REPORT*.md
+*_ROOT_CAUSE*.md
+*_VALIDATION*.md
+*COMPREHENSIVE*.md
+src/lib/diagnostics/
+e2e/
+
+# Debug script patterns
+test-*.js
+debug-*.js
+*-debug.js
+*-drift*.js
+*-debugging.*
+test_fixes.cjs
+simple_test_canvas.js
