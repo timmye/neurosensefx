@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sudo mv:*)",
+      "Bash(sudo chown:*)",
+      "Bash(git config:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git clone:*)",
+      "WebSearch",
+      "WebFetch(domain:platform.claude.com)",
+      "Bash(code:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

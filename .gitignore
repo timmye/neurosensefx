@@ -161,7 +161,6 @@ frontend.log
 
 
 # AI Assistant Tool Configurations
-.claude/
 .continue/
 .kilocode/
 .roo/

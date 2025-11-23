@@ -2,17 +2,14 @@
   "name": "NeuroSense FX Development",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {}
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/git:1": {}
   },
   "customizations": {
     "vscode": {
       "extensions": [
         "svelte.svelte-vscode",
-        "dbaeumer.vscode-eslint",
-        "RooVeterinaryInc.roo-cline",
-        "kilocode.kilo-code",
-        "saoudrizwan.claude-dev",
-        "Anthropic.claude-code"
+        "dbaeumer.vscode-eslint"
       ]
     }
   },
@@ -26,5 +23,5 @@
     "source=${localWorkspaceFolder}/dist,target=/workspaces/neurosensefx/dist,type=bind"
   ],
   "remoteUser": "node",
-  "postCreateCommand": "npm install && ./scripts/robust_mcp_setup.sh"
+  "postCreateCommand": "npm install && ./scripts/setup_claude.sh"
 }
