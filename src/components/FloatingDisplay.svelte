@@ -67,7 +67,7 @@
   let clipPathBounds = { top: 0, right: 0, bottom: 0, left: 0 };
 
   // Enhanced Y-axis overflow detection with dynamic clipping
-  $: if (contentArea && state?.visualLow && state?.visualHigh && yScale) {
+  $: if (contentArea && state?.visualLow && state?.visualHigh && yScale && coordinateActions) {
     // Default: no clipping (show full container)
     let topClip = 0;
     let bottomClip = 0;
@@ -78,28 +78,32 @@
     const adrHighY = yScale(state.projectedAdrHigh || state.visualHigh);
     const adrLowY = yScale(state.projectedAdrLow || state.visualLow);
 
+    // 🔧 CRITICAL FIX: Increased overflow tolerance from ±20px to ±50px for normal market movements
     // Detect upward overflow (elements extending above container)
-    if (extremeHighY < -20) {
+    if (extremeHighY < -50) {
       // Elements extend significantly above container - clip top portion
-      topClip = Math.abs(extremeHighY) + 10; // Add 10px buffer
-      topClip = Math.min(topClip, contentArea.height * 0.3); // Limit to 30% of height
+      topClip = Math.abs(extremeHighY) + 20; // Increased buffer from 10px to 20px
+      // 🔧 CRITICAL FIX: Reduced maximum clipping from 30% to 15% to preserve essential trading information
+      topClip = Math.min(topClip, contentArea.height * 0.15);
     }
 
     // Detect downward overflow (elements extending below container)
-    if (extremeLowY > contentArea.height + 20) {
+    if (extremeLowY > contentArea.height + 50) {
       // Elements extend significantly below container - clip bottom portion
-      bottomClip = extremeLowY - contentArea.height + 10; // Add 10px buffer
-      bottomClip = Math.min(bottomClip, contentArea.height * 0.3); // Limit to 30% of height
+      bottomClip = extremeLowY - contentArea.height + 20; // Increased buffer from 10px to 20px
+      // 🔧 CRITICAL FIX: Reduced maximum clipping from 30% to 15% to preserve essential trading information
+      bottomClip = Math.min(bottomClip, contentArea.height * 0.15);
     }
 
-    // Apply more conservative clipping for ADR boundaries (essential trading info)
-    if (adrHighY < -10) {
-      // ADR high extends above - use minimal clipping
-      topClip = Math.max(topClip, Math.abs(adrHighY) + 5);
+    // 🔧 CRITICAL FIX: Special handling for ADR boundaries - prevent clipping of essential ADR information
+    // Use more conservative clipping for ADR boundaries (essential trading info)
+    if (adrHighY < -25) {
+      // ADR high extends above - use minimal clipping only if significantly outside
+      topClip = Math.max(topClip, Math.abs(adrHighY) + 10);
     }
-    if (adrLowY > contentArea.height + 10) {
-      // ADR low extends below - use minimal clipping
-      bottomClip = Math.max(bottomClip, adrLowY - contentArea.height + 5);
+    if (adrLowY > contentArea.height + 25) {
+      // ADR low extends below - use minimal clipping only if significantly outside
+      bottomClip = Math.max(bottomClip, adrLowY - contentArea.height + 10);
     }
 
     // Update clip-path bounds
@@ -110,14 +114,32 @@
       left: 0   // No horizontal clipping needed
     };
 
-    // Update coordinate store with current bounds for reactive transformations
-    coordinateActions.updatePriceRange({
-      midPrice: state.midPrice,
-      projectedAdrHigh: state.projectedAdrHigh,
-      projectedAdrLow: state.projectedAdrLow,
-      todaysHigh: state.todaysHigh,
-      todaysLow: state.todaysLow
-    });
+    // 🔧 CRITICAL FIX: Add error handling for coordinate store updates
+    try {
+      // Update coordinate store with current bounds for reactive transformations
+      coordinateActions.updatePriceRange({
+        midPrice: state.midPrice,
+        projectedAdrHigh: state.projectedAdrHigh,
+        projectedAdrLow: state.projectedAdrLow,
+        todaysHigh: state.todaysHigh,
+        todaysLow: state.todaysLow
+      });
+    } catch (error) {
+      console.warn('[FLOATING_DISPLAY] Failed to update coordinate store:', error);
+      // Continue without coordinate store update - don't let this break rendering
+    }
+
+    // 🔧 CRITICAL FIX: Add debugging information for clipping behavior
+    if (topClip > 0 || bottomClip > 0) {
+      console.log('[FLOATING_DISPLAY] Clipping applied:', {
+        symbol,
+        contentArea: { width: contentArea.width, height: contentArea.height },
+        extremeY: { high: extremeHighY, low: extremeLowY },
+        adrY: { high: adrHighY, low: adrLowY },
+        clipping: { top: topClip, bottom: bottomClip },
+        finalBounds: clipPathBounds
+      });
+    }
   } else {
     // Fallback: no clipping when data unavailable
     clipPathBounds = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -345,6 +367,49 @@
     };
   });
   
+  // 🔧 CRITICAL FIX: Consolidated canvas dimension management to prevent race conditions
+  function updateCanvasDimensions(newContentArea) {
+    if (!canvas || !ctx) return;
+
+    // Update contentArea for reactive use
+    contentArea = newContentArea;
+
+    // 🔧 CRITICAL FIX: Update coordinate store AFTER canvas dimensions are set
+    // and add error handling to prevent initialization failures
+    try {
+      if (coordinateActions) {
+        coordinateActions.updateBounds({
+          x: [0, contentArea.width],
+          y: [0, contentArea.height]
+        });
+      }
+    } catch (error) {
+      console.warn('[FLOATING_DISPLAY] Failed to update coordinate bounds:', error);
+      // Continue without coordinate store update - don't let this break canvas sizing
+    }
+
+    // 🔧 PIXEL-PERFECT: Use integer canvas dimensions for crisp rendering
+    const integerCanvasWidth = Math.round(contentArea.width * dpr);
+    const integerCanvasHeight = Math.round(contentArea.height * dpr);
+
+    // Calculate corresponding CSS dimensions
+    const cssWidth = integerCanvasWidth / dpr;
+    const cssHeight = integerCanvasHeight / dpr;
+
+    // Apply pixel-perfect dimensions
+    canvas.width = integerCanvasWidth;
+    canvas.height = integerCanvasHeight;
+    canvas.style.width = cssWidth + 'px';
+    canvas.style.height = cssHeight + 'px';
+
+    // 🔧 FIX: Remove DPR scaling here - Individual visualizations handle their own DPR scaling
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform to prevent double scaling
+    ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
+
+    canvasWidth = contentArea.width;
+    canvasHeight = contentArea.height;
+  }
+
   // 🔧 CONTAINER-STYLE: Update canvas with pixel-perfect dimensions (headerless design)
   $: if (canvas && ctx && config) {
     // Calculate new contentArea from config (full container, no header)
@@ -354,42 +419,12 @@
       height: containerSize.height // ✅ HEADERLESS: Full container height
     };
 
-    // Only update if significant change
+    // Only update if significant change to prevent unnecessary re-renders
     if (Math.abs(contentArea.width - newContentArea.width) > 5 ||
         Math.abs(contentArea.height - newContentArea.height) > 5) {
 
-      // Update contentArea for reactive use
-      contentArea = newContentArea;
-
-      // ✅ CSS CLIP-PATH BOUNDS: Update coordinate store with new container bounds
-      coordinateActions.updateBounds({
-        x: [0, contentArea.width],
-        y: [0, contentArea.height]
-      });
-
-      // 🔧 PIXEL-PERFIX: Use integer canvas dimensions for crisp rendering
-      const integerCanvasWidth = Math.round(contentArea.width * dpr);
-      const integerCanvasHeight = Math.round(contentArea.height * dpr);
-
-      // Calculate corresponding CSS dimensions
-      const cssWidth = integerCanvasWidth / dpr;
-      const cssHeight = integerCanvasHeight / dpr;
-
-      // Apply pixel-perfect dimensions
-      canvas.width = integerCanvasWidth;
-      canvas.height = integerCanvasHeight;
-      canvas.style.width = cssWidth + 'px';
-      canvas.style.height = cssHeight + 'px';
-
-      // 🔧 FIX: Remove DPR scaling here - Container.svelte handles it per render frame
-      // ctx.scale(dpr, dpr); // REMOVED - Prevents double scaling with Container.svelte
-      // ctx.translate(0.5, 0.5); // REMOVED - Individual visualizations handle their own sub-pixel alignment
-      ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
-
-      canvasWidth = contentArea.width;
-      canvasHeight = contentArea.height;
-
-          }
+      updateCanvasDimensions(newContentArea);
+    }
   }
   
   // Canvas initialization function with retry logic
@@ -437,43 +472,15 @@
         });
 
         
-        // 🔧 CONTAINER-STYLE: Calculate contentArea from config (headerless design)
+        // 🔧 CRITICAL FIX: Use consolidated canvas dimension function
         const containerSize = config.containerSize || { width: 220, height: 120 };
         const newContentArea = {
           width: containerSize.width,  // ✅ HEADERLESS: Full container width
           height: containerSize.height // ✅ HEADERLESS: Full container height
         };
 
-        // Update contentArea for reactive use
-        contentArea = newContentArea;
-
-        // ✅ CSS CLIP-PATH BOUNDS: Initialize coordinate store with container bounds
-        coordinateActions.updateBounds({
-          x: [0, contentArea.width],
-          y: [0, contentArea.height]
-        });
-
-        // 🔧 PIXEL-PERFECT: Use integer canvas dimensions for crisp rendering
-        const integerCanvasWidth = Math.round(contentArea.width * dpr);
-        const integerCanvasHeight = Math.round(contentArea.height * dpr);
-
-        // Calculate corresponding CSS dimensions
-        const cssWidth = integerCanvasWidth / dpr;
-        const cssHeight = integerCanvasHeight / dpr;
-
-        // Apply pixel-perfect dimensions
-        canvas.width = integerCanvasWidth;
-        canvas.height = integerCanvasHeight;
-        canvas.style.width = cssWidth + 'px';
-        canvas.style.height = cssHeight + 'px';
-
-        // 🔧 FIX: Remove DPR scaling here - Container.svelte handles it per render frame
-        // ctx.scale(dpr, dpr); // REMOVED - Prevents double scaling with Container.svelte
-        // ctx.translate(0.5, 0.5); // REMOVED - Individual visualizations handle their own sub-pixel alignment
-        ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
-
-        canvasWidth = contentArea.width;
-        canvasHeight = contentArea.height;
+        // Use the consolidated function to prevent duplicate code and race conditions
+        updateCanvasDimensions(newContentArea);
 
               } else {
         throw new Error('Failed to get 2D context');

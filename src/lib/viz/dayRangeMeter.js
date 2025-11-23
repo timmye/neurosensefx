@@ -43,19 +43,48 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
   }
 
   // === REACTIVE COORDINATE SYSTEM INTEGRATION ===
-  // Update coordinate store with current price data for reactive transformations
-  coordinateActions.updatePriceRange({
-    midPrice,
-    projectedAdrHigh,
-    projectedAdrLow,
-    todaysHigh,
-    todaysLow
-  });
+  // 🔧 CRITICAL FIX: Add error handling for coordinate store updates
+  try {
+    // Update coordinate store with current price data for reactive transformations
+    if (coordinateActions && typeof coordinateActions.updatePriceRange === 'function') {
+      coordinateActions.updatePriceRange({
+        midPrice,
+        projectedAdrHigh,
+        projectedAdrLow,
+        todaysHigh,
+        todaysLow
+      });
+    }
+  } catch (error) {
+    console.warn('[DayRangeMeter] Failed to update coordinate store:', error);
+    // Continue without coordinate store update - don't let this break rendering
+  }
 
-  // Create reactive Y transformation function using coordinate store
+  // 🔧 CRITICAL FIX: Create reactive Y transformation function with comprehensive error handling
   const priceToY = (price) => {
-    const currentScale = coordinateActions.transform(price, 'price', 'pixel');
-    return currentScale !== null ? currentScale : y(price); // Fallback to provided y function
+    try {
+      // First try coordinate store transformation if available
+      if (coordinateActions && typeof coordinateActions.transform === 'function') {
+        const currentScale = coordinateActions.transform(price, 'price', 'pixel');
+        if (currentScale !== null && !isNaN(currentScale) && isFinite(currentScale)) {
+          return currentScale;
+        }
+      }
+    } catch (error) {
+      console.warn('[DayRangeMeter] Coordinate transformation failed, using fallback:', error);
+    }
+
+    // 🔧 CRITICAL FIX: Always provide fallback to the provided y function
+    if (y && typeof y === 'function') {
+      const fallbackResult = y(price);
+      if (fallbackResult !== null && !isNaN(fallbackResult) && isFinite(fallbackResult)) {
+        return fallbackResult;
+      }
+    }
+
+    // 🔧 CRITICAL FIX: Last resort - return a reasonable default to prevent crashes
+    console.warn('[DayRangeMeter] All coordinate transformations failed for price:', price, 'using center position');
+    return contentArea ? contentArea.height / 2 : 60; // Center position as last resort
   };
 
   // === FOUNDATION LAYER IMPLEMENTATION ===

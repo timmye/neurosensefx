@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { displayStore, displayActions, displays, icons, panels, defaultConfig, contextMenu } from './stores/displayStore.js';
+  import { shortcutStore, initializeShortcuts } from './stores/shortcutStore.js';
   import { subscribe, unsubscribe } from './data/wsClient.js';
   import FloatingDisplay from './components/FloatingDisplay.svelte';
   import FloatingIcon from './components/FloatingIcon.svelte';
@@ -8,6 +9,7 @@
   import SymbolPalette from './components/SymbolPalette.svelte';
   import StatusPanel from './components/StatusPanel/StatusPanel.svelte';
   import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
+  import ShortcutHelp from './components/ShortcutHelp.svelte';
   import symbolService from './services/symbolService.js';
   import { Environment, EnvironmentConfig, initializeEnvironment, getEnvironmentInfo } from './lib/utils/environmentUtils.js';
 
@@ -33,64 +35,19 @@
   let environmentInitialized = false;
   
   
-  // Enhanced keyboard shortcuts
-  function handleKeyDown(e) {
-    // Ignore if typing in input/textarea
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-      // Still handle Ctrl+K even when typing
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        focusSymbolPalette();
-      }
-      return;
-    }
-    
-    // Escape - close context menu or collapse panels
-    if (e.key === 'Escape') {
-      if ($contextMenu.open) {
-        displayActions.hideContextMenu();
-      } else {
-        // Collapse expanded icon if any
-        const expandedIcon = Array.from($icons.values()).find(icon => icon.isExpanded);
-        if (expandedIcon) {
-          displayActions.collapseIcon(expandedIcon.id);
-        }
-      }
-    }
-    
-    // Ctrl+K / Cmd+K - Focus symbol palette
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-      e.preventDefault();
-      focusSymbolPalette();
-    }
-    
-    // Ctrl+N - Open symbol palette for new display (FIXED: Use proper symbol subscription)
-    if (e.ctrlKey && e.key === 'n') {
-      e.preventDefault();
-      try {
-        focusSymbolPalette(); // Open symbol palette for proper subscription workflow
-      } catch (error) {
-        console.error('[APP] Failed to open symbol palette:', error);
-      }
-    }
-    
-    // Ctrl+Shift+K - Toggle symbol palette
-    if (e.ctrlKey && e.shiftKey && e.key === 'K') {
-      e.preventDefault();
-      toggleSymbolPalette();
-    }
-  }
-  
-  // Focus symbol palette (expand if collapsed)
+  // Legacy keyboard shortcuts maintained for compatibility
+  // New centralized shortcut system handles most shortcuts
+
+  // Focus symbol palette (expand if collapsed) - kept for compatibility
   function focusSymbolPalette() {
     const iconId = 'symbol-palette-icon';
     const icon = $icons.get(iconId);
-    
+
     // Expand icon if collapsed
     if (icon && !icon.isExpanded) {
       displayActions.expandIcon(iconId);
     }
-    
+
     // Focus search input with delay for animation
     setTimeout(() => {
       if (symbolPaletteRef && symbolPaletteRef.focusSearch) {
@@ -105,12 +62,12 @@
       }
     }, 300);
   }
-  
-  // Toggle symbol palette visibility
+
+  // Toggle symbol palette visibility - kept for compatibility
   function toggleSymbolPalette() {
     const iconId = 'symbol-palette-icon';
     const icon = $icons.get(iconId);
-    
+
     if (icon) {
       if (icon.isExpanded) {
         displayActions.collapseIcon(iconId);
@@ -119,10 +76,47 @@
       }
     }
   }
+
+  // Handle custom keyboard shortcut events from centralized system
+  function handleShortcutEvents(event) {
+    switch (event.type) {
+      case 'focusSymbolPalette':
+        focusSymbolPalette();
+        break;
+
+      case 'toggleSymbolPalette':
+        toggleSymbolPalette();
+        break;
+
+      case 'newDisplay':
+        focusSymbolPalette();
+        break;
+
+      case 'escape':
+        if ($contextMenu.open) {
+          displayActions.hideContextMenu();
+        } else {
+          // Collapse expanded icon if any
+          const expandedIcon = Array.from($icons.values()).find(icon => icon.isExpanded);
+          if (expandedIcon) {
+            displayActions.collapseIcon(expandedIcon.id);
+          }
+        }
+        break;
+
+      default:
+        // Other shortcuts are handled by components directly
+        break;
+    }
+  }
   
   // Initialize displays on mount
   onMount(async () => {
     try {
+      // ⌨️ KEYBOARD SHORTCUTS: Initialize centralized shortcut system
+      console.log('[APP] Initializing keyboard shortcut system...');
+      initializeShortcuts();
+
       // 🌍 ENVIRONMENT AWARENESS: Initialize environment system first
       console.log('[APP] Initializing environment system...');
       const envInit = initializeEnvironment();
@@ -213,6 +207,38 @@
         }, 1000);
       }
     }, 1000); // Increase delay to ensure components are fully mounted
+
+    // ⌨️ KEYBOARD SHORTCUTS: Add event listeners for custom shortcut events
+    const shortcutEvents = [
+      'focusSymbolPalette',
+      'toggleSymbolPalette',
+      'newDisplay',
+      'escape',
+      'quickSubscribe',
+      'cycleRecentSymbols',
+      'focusDisplay',
+      'navigateDisplay',
+      'showContextMenu',
+      'showQuickConfig',
+      'toggleDataUpdates',
+      'toggleFullscreen',
+      'addPriceMarker',
+      'clearMarkers',
+      'applyLayoutPreset',
+      'groupDisplays',
+      'ungroupDisplays',
+      'saveLayoutPreset',
+      'toggleStatusPanel',
+      'togglePerformanceMonitor',
+      'takeScreenshot',
+      'saveWorkspace'
+    ];
+
+    shortcutEvents.forEach(eventType => {
+      document.addEventListener(eventType, handleShortcutEvents);
+    });
+
+    console.log('[APP] Keyboard shortcut event listeners established');
   });
 
 
@@ -233,7 +259,6 @@
   }
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
 
 <main>
   <!-- Workspace Background -->
@@ -308,6 +333,9 @@
   
   <!-- Unified Context Menu (Layer 4) -->
   <UnifiedContextMenu bind:this={contextMenuRef} />
+
+  <!-- Keyboard Shortcut Help Overlay (Layer 5) -->
+  <ShortcutHelp />
   
 </main>
 

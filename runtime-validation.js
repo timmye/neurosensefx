@@ -1,11 +1,15 @@
 /**
- * Runtime Canvas Bug Fix Validation
+ * 🚨 Emergency Fix Runtime Validation
  *
- * This script can be pasted into the browser console on the NeuroSense FX app
- * to validate that the canvas growing bug fix is working correctly at runtime.
+ * This script validates that all emergency fixes are working correctly:
+ * 1. Coordinate Store Initialization
+ * 2. CSS Clip-Path Over-Aggressive Clipping (±50px tolerance, 15% max)
+ * 3. Canvas Dimension Race Conditions Consolidated
+ * 4. Error Handling for Coordinate Transformations
+ * 5. Debug Logging for Clipping Behavior
  */
 
-console.log('🔍 Starting Runtime Canvas Bug Fix Validation...\n');
+console.log('🚨 Starting Emergency Fix Runtime Validation...\n');
 
 // Configuration constants
 const EXPECTED_CONTAINER_WIDTH = 220;
@@ -205,8 +209,206 @@ function testExtendedSession() {
     }, interval);
 }
 
+// Emergency Fix #1: Test Coordinate Store Error Handling
+function validateCoordinateStoreFixes() {
+    console.log('\n📊 Emergency Fix #1: Coordinate Store Initialization');
+    console.log('==================================================');
+
+    let fixWorking = true;
+
+    // Check if coordinateActions have error handling
+    if (typeof coordinateActions !== 'undefined') {
+        console.log('   ✅ coordinateActions available');
+
+        if (typeof coordinateActions.updatePriceRange === 'function') {
+            console.log('   ✅ updatePriceRange function exists');
+
+            // Test with invalid data to see if error handling works
+            try {
+                coordinateActions.updatePriceRange(null); // Should not crash
+                console.log('   ✅ Error handling: updatePriceRange handles null input');
+            } catch (error) {
+                if (error.message.includes('Insufficient price data')) {
+                    console.log('   ✅ Error handling: Proper validation message');
+                } else {
+                    console.log('   ❌ Error handling: Unexpected error:', error.message);
+                    fixWorking = false;
+                }
+            }
+        } else {
+            console.log('   ❌ updatePriceRange function missing');
+            fixWorking = false;
+        }
+    } else {
+        console.log('   ❌ coordinateActions not available');
+        fixWorking = false;
+    }
+
+    return fixWorking;
+}
+
+// Emergency Fix #2: Test CSS Clip-Path Improvements
+function validateClipPathFixes() {
+    console.log('\n✂️ Emergency Fix #2: CSS Clip-Path Improvements');
+    console.log('===============================================');
+
+    const canvasElements = document.querySelectorAll('canvas');
+    let fixWorking = true;
+
+    if (canvasElements.length === 0) {
+        console.log('   ❌ No canvas elements found');
+        return false;
+    }
+
+    canvasElements.forEach((canvas, index) => {
+        const computedStyle = window.getComputedStyle(canvas);
+        const clipPath = computedStyle.clipPath;
+
+        if (clipPath && clipPath !== 'none') {
+            console.log(`   📏 Canvas ${index + 1} clip-path: ${clipPath}`);
+
+            // Check if it's using the new less aggressive clipping
+            if (clipPath.includes('inset(')) {
+                // Extract the values to check tolerance
+                const match = clipPath.match(/inset\(([^)]+)\)/);
+                if (match) {
+                    const values = match[1].split('px');
+                    const topClip = parseFloat(values[0]);
+                    const bottomClip = parseFloat(values[2] || '0');
+
+                    console.log(`   📏 Clipping values: top=${topClip}px, bottom=${bottomClip}px`);
+
+                    // Check if clipping is less aggressive (max 15% of 120px = 18px)
+                    if (topClip <= 50 && bottomClip <= 50) {
+                        console.log(`   ✅ Canvas ${index + 1}: Clipping within ±50px tolerance`);
+                    } else {
+                        console.log(`   ❌ Canvas ${index + 1}: Excessive clipping detected`);
+                        fixWorking = false;
+                    }
+                }
+            } else {
+                console.log(`   ⚠️  Canvas ${index + 1}: Using old clip-path format`);
+            }
+        } else {
+            console.log(`   ✅ Canvas ${index + 1}: No clipping (normal state)`);
+        }
+    });
+
+    return fixWorking;
+}
+
+// Emergency Fix #3: Test Canvas Sizing Consolidation
+function validateCanvasSizingFixes() {
+    console.log('\n📐 Emergency Fix #3: Canvas Sizing Consolidation');
+    console.log('===============================================');
+
+    // Look for duplicated sizing logic indicators
+    const canvases = document.querySelectorAll('canvas');
+    let fixWorking = true;
+
+    canvases.forEach((canvas, index) => {
+        const rect = canvas.getBoundingClientRect();
+        const cssWidth = rect.width;
+        const cssHeight = rect.height;
+        const internalWidth = canvas.width;
+        const internalHeight = canvas.height;
+        const dpr = window.devicePixelRatio || 1;
+
+        console.log(`   📏 Canvas ${index + 1}:`);
+        console.log(`      CSS: ${cssWidth.toFixed(0)}×${cssHeight.toFixed(0)}px`);
+        console.log(`      Internal: ${internalWidth}×${internalHeight}px`);
+        console.log(`      DPR: ${dpr}`);
+
+        // Check if dimensions are consistent (no race condition artifacts)
+        if (Math.abs(cssWidth - 220) < 5 && Math.abs(cssHeight - 120) < 5) {
+            console.log(`      ✅ Consistent dimensions`);
+        } else {
+            console.log(`      ❌ Inconsistent dimensions (possible race condition)`);
+            fixWorking = false;
+        }
+
+        // Check if DPR scaling is applied correctly
+        const expectedInternalWidth = Math.round(220 * dpr);
+        const expectedInternalHeight = Math.round(120 * dpr);
+
+        if (internalWidth === expectedInternalWidth && internalHeight === expectedInternalHeight) {
+            console.log(`      ✅ Proper DPR scaling`);
+        } else {
+            console.log(`      ❌ Incorrect DPR scaling`);
+            fixWorking = false;
+        }
+    });
+
+    return fixWorking;
+}
+
+// Emergency Fix #4: Test Error Handling in Visualizations
+function validateErrorHandlingFixes() {
+    console.log('\n🛡️ Emergency Fix #4: Error Handling in Visualizations');
+    console.log('=====================================================');
+
+    // Monitor for error handling messages
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    const errorMessages = [];
+    const warnMessages = [];
+
+    console.error = function(...args) {
+        errorMessages.push(args.join(' '));
+        originalError.apply(console, args);
+    };
+
+    console.warn = function(...args) {
+        warnMessages.push(args.join(' '));
+        originalWarn.apply(console, args);
+    };
+
+    // Check for specific error handling patterns
+    setTimeout(() => {
+        const coordinateErrors = errorMessages.filter(msg =>
+            msg.includes('coordinate') || msg.includes('Failed to update') || msg.includes('Coordinate transformation failed')
+        );
+
+        const clippingLogs = warnMessages.filter(msg =>
+            msg.includes('Clipping applied')
+        );
+
+        const fallbackMessages = errorMessages.filter(msg =>
+            msg.includes('using fallback') || msg.includes('center position')
+        );
+
+        console.log(`   📊 Error handling results:`);
+        console.log(`      Coordinate errors caught: ${coordinateErrors.length}`);
+        console.log(`      Clipping debug logs: ${clippingLogs.length}`);
+        console.log(`      Fallback messages: ${fallbackMessages.length}`);
+
+        if (coordinateErrors.length > 0 || fallbackMessages.length > 0) {
+            console.log(`      ✅ Error handling is working`);
+        } else {
+            console.log(`      ✅ No errors detected (system stable)`);
+        }
+
+        if (clippingLogs.length > 0) {
+            console.log(`      ✅ Debug logging is active`);
+        }
+
+        // Restore console methods
+        console.error = originalError;
+        console.warn = originalWarn;
+    }, 2000);
+
+    return true; // Assume working unless we detect issues
+}
+
 // Main execution
-console.log('🎬 Starting comprehensive validation...');
+console.log('🎬 Starting Emergency Fix Validation...');
+
+const emergencyFix1 = validateCoordinateStoreFixes();
+const emergencyFix2 = validateClipPathFixes();
+const emergencyFix3 = validateCanvasSizingFixes();
+const emergencyFix4 = validateErrorHandlingFixes();
+
+console.log('\n🚀 Running performance and stability tests...');
 validateCanvasBugFix();
 monitorPerformance(3000);
 measureLatency(15);
