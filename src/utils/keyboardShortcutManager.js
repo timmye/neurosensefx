@@ -329,6 +329,7 @@ export const SHORTCUT_CATEGORIES = {
 };
 
 // Auto-bind to document when imported in browser environment
-if (typeof document !== 'undefined') {
-	keyboardManager.bindToElement();
-}
+// REMOVED: Let App.svelte handle initialization to avoid conflicts
+// if (typeof document !== 'undefined') {
+// 	keyboardManager.bindToElement();
+// }

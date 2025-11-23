@@ -3,14 +3,24 @@
   import { shortcutStore, shortcutsByCategory, shortcutsByWorkflow, setShowHelp } from '../stores/shortcutStore.js';
   import { formatKeyForDisplay } from '../utils/shortcutConfig.js';
 
-  export let visible = false;
+  // Note: visible prop removed to prevent conflicts with shortcutStore.showHelp
 
   const dispatch = createEventDispatcher();
 
   // Reactive store subscriptions
   $: showHelp = $shortcutStore.showHelp;
-  $: shortcutsByCat = $shortcutsByCategory;
-  $: shortcutsByWork = $shortcutsByWorkflow;
+  $: shortcutsByCat = filterImplementedShortcuts($shortcutsByCategory);
+  $: shortcutsByWork = filterImplementedShortcuts($shortcutsByWorkflow);
+
+  
+  // Filter shortcuts to show only implemented ones
+  function filterImplementedShortcuts(shortcutsObj) {
+    const filtered = {};
+    Object.entries(shortcutsObj).forEach(([category, shortcutList]) => {
+      filtered[category] = shortcutList.filter(shortcut => shortcut.implemented !== false);
+    });
+    return filtered;
+  }
 
   // Close help overlay
   function closeHelp() {

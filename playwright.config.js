@@ -37,25 +37,33 @@ export default defineConfig({
     /* Global timeout for each action */
     actionTimeout: 10000,
 
-    /* Container-aware settings */
+    /* Container-aware settings optimized for financial visualization */
     launchOptions: {
       args: [
         '--disable-dev-shm-usage',
         '--disable-setuid-sandbox',
         '--no-sandbox',
         '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
-      ]
+        '--disable-features=VizDisplayCompositor',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--force-device-scale-factor=1',
+        '--disable-gpu',
+        '--disable-background-networking'
+      ],
+      ignoreDefaultArgs: ['--enable-automation']
     }
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects for major browsers with financial app optimizations */
   projects: [
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        viewport: { width: 1280, height: 720 },
+        viewport: { width: 1920, height: 1080 },
+        deviceScaleFactor: 1,
         contextOptions: {
           permissions: ['clipboard-read', 'clipboard-write']
         }
@@ -66,7 +74,13 @@ export default defineConfig({
       name: 'firefox',
       use: {
         ...devices['Desktop Firefox'],
-        viewport: { width: 1280, height: 720 }
+        viewport: { width: 1920, height: 1080 },
+        firefoxUserPrefs: {
+          'dom.webaudio.enabled': true,
+          'media.navigator.enabled': true,
+          'media.navigator.permission.disabled': true,
+          'webgl.force-enabled': true
+        }
       },
     },
 
@@ -74,18 +88,30 @@ export default defineConfig({
       name: 'webkit',
       use: {
         ...devices['Desktop Safari'],
-        viewport: { width: 1280, height: 720 }
+        viewport: { width: 1920, height: 1080 }
       },
     },
 
     /* Test against mobile viewports. */
     {
       name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
+      use: {
+        ...devices['Pixel 5'],
+        contextOptions: {
+          isMobile: true,
+          hasTouch: true
+        }
+      },
     },
     {
       name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
+      use: {
+        ...devices['iPhone 12'],
+        contextOptions: {
+          isMobile: true,
+          hasTouch: true
+        }
+      },
     },
   ],
 

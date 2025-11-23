@@ -19,7 +19,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.SYMBOL,
 		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
 		priority: 1,
-		workflow: 'core'
+		workflow: 'core',
+		implemented: true
 	},
 	'symbol.togglePalette': {
 		key: 'Ctrl+Shift+K',
@@ -27,7 +28,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.SYMBOL,
 		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
 		priority: 1,
-		workflow: 'core'
+		workflow: 'core',
+		implemented: true
 	},
 	'symbol.quickSubscribe': {
 		key: 'Ctrl+Enter',
@@ -35,7 +37,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.SYMBOL,
 		contexts: [SHORTCUT_CONTEXTS.SYMBOL_PALETTE],
 		priority: 1,
-		workflow: 'core'
+		workflow: 'core',
+		implemented: false
 	},
 	'symbol.quickSubscribeNew': {
 		key: 'Ctrl+Shift+Enter',
@@ -43,7 +46,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.SYMBOL,
 		contexts: [SHORTCUT_CONTEXTS.SYMBOL_PALETTE],
 		priority: 1,
-		workflow: 'core'
+		workflow: 'core',
+		implemented: false
 	},
 	'symbol.recentCycle': {
 		key: 'Ctrl+R',
@@ -51,7 +55,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.SYMBOL,
 		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
 		priority: 2,
-		workflow: 'enhanced'
+		workflow: 'enhanced',
+		implemented: false
 	},
 	'symbol.favorites': {
 		key: 'Ctrl+,',
@@ -59,7 +64,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.SYMBOL,
 		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
 		priority: 2,
-		workflow: 'enhanced'
+		workflow: 'enhanced',
+		implemented: false
 	},
 
 	// === DISPLAY NAVIGATION (Phase 1 - Highest Priority) ===
@@ -69,7 +75,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.NAVIGATION,
 		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
 		priority: 1,
-		workflow: 'core'
+		workflow: 'core',
+		implemented: true
 	},
 	'display.switch2': {
 		key: 'Ctrl+2',
@@ -77,7 +84,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.NAVIGATION,
 		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
 		priority: 1,
-		workflow: 'core'
+		workflow: 'core',
+		implemented: true
 	},
 	'display.switch3': {
 		key: 'Ctrl+3',
@@ -85,7 +93,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.NAVIGATION,
 		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
 		priority: 1,
-		workflow: 'core'
+		workflow: 'core',
+		implemented: true
 	},
 	'display.switch4': {
 		key: 'Ctrl+4',
@@ -291,7 +300,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.SYSTEM,
 		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
 		priority: 4,
-		workflow: 'system'
+		workflow: 'system',
+		implemented: true
 	},
 	'system.statusPanel': {
 		key: 'F1',
@@ -331,7 +341,8 @@ export const DEFAULT_SHORTCUTS = {
 		category: SHORTCUT_CATEGORIES.SYSTEM,
 		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
 		priority: 4,
-		workflow: 'system'
+		workflow: 'system',
+		implemented: true
 	},
 
 	// === EXISTING SHORTCUTS (to be migrated) ===

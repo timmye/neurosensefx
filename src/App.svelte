@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { displayStore, displayActions, displays, icons, panels, defaultConfig, contextMenu } from './stores/displayStore.js';
   import { shortcutStore, initializeShortcuts } from './stores/shortcutStore.js';
+import { keyboardManager } from './utils/keyboardShortcutManager.js';
   import { subscribe, unsubscribe } from './data/wsClient.js';
   import FloatingDisplay from './components/FloatingDisplay.svelte';
   import FloatingIcon from './components/FloatingIcon.svelte';
@@ -10,7 +11,7 @@
   import StatusPanel from './components/StatusPanel/StatusPanel.svelte';
   import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
   import ShortcutHelp from './components/ShortcutHelp.svelte';
-  import symbolService from './services/symbolService.js';
+    import symbolService from './services/symbolService.js';
   import { Environment, EnvironmentConfig, initializeEnvironment, getEnvironmentInfo } from './lib/utils/environmentUtils.js';
 
   
@@ -48,7 +49,7 @@
       displayActions.expandIcon(iconId);
     }
 
-    // Focus search input with delay for animation
+    // Focus search input with longer delay for animation
     setTimeout(() => {
       if (symbolPaletteRef && symbolPaletteRef.focusSearch) {
         symbolPaletteRef.focusSearch();
@@ -60,7 +61,7 @@
           searchInput.select();
         }
       }
-    }, 300);
+    }, 600); // Increased from 300ms to 600ms
   }
 
   // Toggle symbol palette visibility - kept for compatibility
@@ -114,8 +115,10 @@
   onMount(async () => {
     try {
       // ⌨️ KEYBOARD SHORTCUTS: Initialize centralized shortcut system
-      console.log('[APP] Initializing keyboard shortcut system...');
       initializeShortcuts();
+
+      // ⌨️ KEYBOARD SHORTCUTS: Bind keyboard manager to document
+      keyboardManager.bindToElement();
 
       // 🌍 ENVIRONMENT AWARENESS: Initialize environment system first
       console.log('[APP] Initializing environment system...');
@@ -238,8 +241,7 @@
       document.addEventListener(eventType, handleShortcutEvents);
     });
 
-    console.log('[APP] Keyboard shortcut event listeners established');
-  });
+      });
 
 
   // Handle workspace right-click
@@ -336,7 +338,8 @@
 
   <!-- Keyboard Shortcut Help Overlay (Layer 5) -->
   <ShortcutHelp />
-  
+
+    
 </main>
 
 <style>

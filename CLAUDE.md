@@ -240,9 +240,16 @@ export const displayStore = writable({
 
 **Running Tests:**
 ```bash
-npm run test          # Run unit tests
-npm run test:e2e      # Run end-to-end tests (Playwright)
+npm run test:unit         # Run unit tests (Vitest)
+npm run test:e2e          # Run end-to-end tests (Playwright)
+npm run test:all          # Run all tests
 ```
+
+**Testing Approach:**
+- **Unit tests**: Pure utility functions with Vitest (no canvas mocks)
+- **E2E tests**: Real DOM testing with Playwright's built-in reporters
+- **Performance testing**: 60fps validation, sub-100ms latency, 8+ hour sessions
+- **Cross-browser**: Chrome, Firefox, Safari with standard configurations
 
 **Key Testing Areas:**
 - **Visual accuracy**: Canvas rendering with crisp numerical displays at all DPR levels

@@ -16,7 +16,7 @@ import DEFAULT_SHORTCUTS, {
 	formatKeyForDisplay
 } from '../utils/shortcutConfig.js';
 import { displayStore } from './displayStore.js';
-import { workspacePersistence } from '../utils/workspacePersistence.js';
+import { workspacePersistenceManager } from '../utils/workspacePersistence.js';
 
 /**
  * Store for shortcut state and configuration
@@ -298,7 +298,7 @@ function createActionForShortcut(id) {
 		// === SYSTEM & HELP ===
 		case 'system.help':
 			return () => {
-				shortcutStore.update(state => ({ ...state, showHelp: true }));
+				setShowHelp(true);
 			};
 
 		case 'system.statusPanel':
@@ -339,6 +339,12 @@ function createActionForShortcut(id) {
 	}
 }
 
+// Handle custom context events
+function handleSetShortcutContext(event) {
+	keyboardManager.setContext(event.detail.context);
+	shortcutStore.update(state => ({ ...state, activeContext: event.detail.context }));
+}
+
 /**
  * Setup context management based on current application state
  */
@@ -351,10 +357,14 @@ function setupContextManagement() {
 	});
 
 	// Listen for custom context events
-	document.addEventListener('setShortcutContext', (event) => {
-		keyboardManager.setContext(event.detail.context);
-		shortcutStore.update(state => ({ ...state, activeContext: event.detail.context }));
-	});
+	document.addEventListener('setShortcutContext', handleSetShortcutContext);
+}
+
+/**
+ * Cleanup context management event listeners
+ */
+export function cleanupContextManagement() {
+	document.removeEventListener('setShortcutContext', handleSetShortcutContext);
 }
 
 /**
@@ -405,7 +415,7 @@ function isShortcutActive(shortcut, currentContext) {
  */
 async function loadUserShortcuts() {
 	try {
-		const workspace = await workspacePersistence.load();
+		const workspace = await workspacePersistenceManager.load();
 		if (workspace.shortcuts) {
 			shortcutStore.update(state => ({
 				...state,
@@ -433,10 +443,10 @@ async function loadUserShortcuts() {
  */
 export async function saveUserShortcuts() {
 	const $shortcutStore = get(shortcutStore);
-	const workspace = await workspacePersistence.load();
+	const workspace = await workspacePersistenceManager.load();
 
 	workspace.shortcuts = $shortcutStore.customShortcuts;
-	await workspacePersistence.save(workspace);
+	await workspacePersistenceManager.save(workspace);
 }
 
 /**
@@ -530,6 +540,7 @@ export function getShortcutsForContext(context) {
 }
 
 // Auto-initialize when module is imported
-if (typeof window !== 'undefined') {
-	initializeShortcuts();
-}
+// REMOVED: Let App.svelte handle initialization to avoid conflicts
+// if (typeof window !== 'undefined') {
+// 	initializeShortcuts();
+// }
