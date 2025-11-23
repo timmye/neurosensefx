@@ -51,24 +51,13 @@
     ctx = canvas.getContext('2d');
     dpr = window.devicePixelRatio || 1;
 
-    // 🔧 DEBUGGER: Register this container with drift monitor
-    const containerElement = canvas.parentElement;
-    if (containerElement) {
-      canvasDriftMonitor.registerElement(id, containerElement, 'container');
-    }
-
+  
     // 🔧 ZOOM AWARENESS: Initialize zoom detector
     const cleanupZoomDetector = createZoomDetector((newDpr) => {
       console.log(`[CONTAINER_ZOOM_AWARENESS] DPR changed to ${newDpr}`);
       dpr = newDpr;
 
-      // 🔧 DEBUGGER: Track DPR changes in drift monitor
-      canvasDriftMonitor.takeSnapshot(id, 'dpr_change', {
-        oldDpr: dpr,
-        newDpr: newDpr,
-        cause: 'browser_zoom_or_device_pixel_ratio_change'
-      });
-
+  
       // Recalculate canvas sizing with new DPR
       if (config) {
         const containerSize = config.containerSize || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct default
@@ -84,6 +73,10 @@
         canvas.width = canvasDims.width;
         canvas.height = canvasDims.height;
 
+        // 🔧 CRITICAL FIX: Set CSS dimensions to match container exactly
+        canvas.style.width = canvasDims.cssWidth + 'px';
+        canvas.style.height = canvasDims.cssHeight + 'px';
+
         console.log(`[CONTAINER_ZOOM_AWARENESS] Canvas updated for new DPR:`, {
           newDpr,
           canvasDimensions: `${canvasDims.width}x${canvasDims.height}`
@@ -93,9 +86,6 @@
 
     // Store cleanup function for onDestroy
     onDestroy(() => {
-      // 🔧 DEBUGGER: Unregister from drift monitor
-      canvasDriftMonitor.unregisterElement(id);
-
       if (cleanupZoomDetector) {
         cleanupZoomDetector();
       }
@@ -139,7 +129,11 @@
     const { canvas: canvasDims } = canvasSizingConfig.dimensions;
     canvas.width = canvasDims.width;
     canvas.height = canvasDims.height;
-    
+
+    // 🔧 CRITICAL FIX: Set CSS dimensions to match container exactly
+    canvas.style.width = canvasDims.cssWidth + 'px';
+    canvas.style.height = canvasDims.cssHeight + 'px';
+
     console.log('[CONTAINER] Clean foundation renderingContext:', renderingContext);
   }
 
@@ -321,6 +315,12 @@
     // 🔧 CLEAN FOUNDATION: Use rendering context for all operations
     const { contentArea, adrAxisX } = currentRenderingContext;
 
+    // 🔧 BOUNDARY FIX: Establish clipping region to constrain all visualizations
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, contentArea.width, contentArea.height);
+    ctx.clip();
+
     // Initialize/update y-scale for the current render frame
     y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([contentArea.height, 0]);
 
@@ -335,14 +335,6 @@
       ctx.clearRect(0, 0, canvasArea.width, canvasArea.height);
       ctx.fillStyle = '#111827'; // Ensure background is always drawn
       ctx.fillRect(0, 0, canvasArea.width, canvasArea.height);
-
-      console.log('[DEBUGGER:Container:draw] Canvas clearing:', {
-        displayId: id,
-        frameCount: renderFrameCount,
-        canvasArea,
-        contentArea,
-        dpr: currentDpr
-      });
     } else {
       // Fallback to content area dimensions (context is already DPR-scaled)
       ctx.clearRect(0, 0, contentArea.width, contentArea.height);
@@ -486,7 +478,11 @@
 
     // 🔧 CLEAN FOUNDATION: Restore context to prevent cumulative transformations
     const beforeRestore = ctx.getTransform();
-    ctx.restore();
+
+    // 🔧 BOUNDARY FIX: Restore clipping region before other restores
+    ctx.restore(); // Restore from clipping region save
+
+    ctx.restore(); // Original context restore
     const afterRestore = ctx.getTransform();
 
     // 🔧 CRITICAL FIX: Explicit reset to identity matrix to prevent drift
@@ -509,22 +505,12 @@
       timestamp: startTime
     };
 
-    // 🔧 DEBUGGER: Take drift monitor snapshot during render
-    if (renderFrameCount % 60 === 0) { // Every 60 frames
-      canvasDriftMonitor.takeSnapshot(id, 'render', {
-        frameCount: renderFrameCount,
-        renderTime: totalTime,
-        vizTimers: Object.fromEntries(vizTimers)
-      });
-    }
-
+  
     // Log performance warnings
     if (totalTime > 16.67) { // More than one frame time (60fps)
       console.warn('[DEBUGGER:PERF:Container:draw] Slow render detected:', renderingStats);
 
-      // Report slow render to drift monitor
-      canvasDriftMonitor.takeSnapshot(id, 'slow_render', renderingStats);
-    }
+          }
 
     // Log comprehensive diagnostics every 300 frames (5 seconds at 60fps)
     if (renderFrameCount % 300 === 0) {
@@ -541,12 +527,7 @@
             : 0
         });
 
-        // Report drift to global monitor
-        canvasDriftMonitor.takeSnapshot(id, 'drift_summary', {
-          totalDriftEvents: driftHistory.length,
-          recentDrifts: driftHistory.slice(-5)
-        });
-      }
+              }
     }
 
     // Update position tracking for next frame

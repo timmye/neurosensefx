@@ -15,7 +15,8 @@
       "Bash(./run.sh:*)",
       "Bash(curl:*)",
       "Bash(xargs ls -la:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

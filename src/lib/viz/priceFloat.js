@@ -52,17 +52,17 @@ export function drawPriceFloat(ctx, renderingContext, config, state, y) {
 function calculateRenderData(contentArea, adrAxisX, config, state, y) {
   // Calculate price position using same scale as dayRangeMeter
   const priceY = y(state.currentPrice);
-  
+
   // Check if price line is within canvas bounds
   const inBounds = boundsUtils.isYInBounds(priceY, config, { canvasArea: contentArea });
-  
+
   // Calculate content-relative dimensions using simplified decimal format
   const floatWidth = contentArea.width * (config.priceFloatWidth ?? 0.15);
   const floatHeight = Math.max(1, contentArea.height * (config.priceFloatHeight ?? 0.02));
 
   // Calculate X offset from priceFloatXOffset parameter
   const xOffset = contentArea.width * (config.priceFloatXOffset ?? 0);
-  
+
   // Calculate start position: center on ADR axis, then apply offset
   const centeredStartX = adrAxisX - (floatWidth / 2);
   const startX = centeredStartX + xOffset;
@@ -74,6 +74,7 @@ function calculateRenderData(contentArea, adrAxisX, config, state, y) {
     floatWidth,
     floatHeight,
     startX,
+    contentArea, // Include contentArea for boundary checking
     xOffset // Include for debugging
   };
 }
@@ -96,29 +97,37 @@ function configureRenderContext(ctx) {
 }
 
 /**
- * Draw the core price line with perfect alignment to dayRangeMeter
+ * Draw the core price line with perfect alignment to dayRangeMeter and boundary constraints
  */
 function drawPriceLine(ctx, renderData, config, state) {
   const { axisX, priceY, floatWidth, floatHeight, startX } = renderData;
-  
+
   // Determine color based on configuration
   const color = determineColor(config, state);
-  
+
   // Apply glow effects if configured
   if (config.priceFloatGlowStrength > 0) {
     ctx.shadowColor = config.priceFloatGlowColor ?? color;
     ctx.shadowBlur = config.priceFloatGlowStrength;
   }
-  
-  // Draw the price line with crisp rendering
+
+  // Calculate clamped coordinates to respect canvas bounds
+  const endX = startX + floatWidth;
+  const clampedStartX = Math.max(0, Math.min(renderData.contentArea?.width || Infinity, startX));
+  const clampedEndX = Math.max(0, Math.min(renderData.contentArea?.width || Infinity, endX));
+
+  // Draw the price line with crisp rendering and boundary constraints
   ctx.strokeStyle = color;
   ctx.lineWidth = floatHeight; // Configurable height
   ctx.lineCap = 'round'; // Smooth end caps
 
-  ctx.beginPath();
-  ctx.moveTo(startX, priceY);
-  ctx.lineTo(startX + floatWidth, priceY);
-  ctx.stroke();
+  // Only draw if line segment has valid length after clamping
+  if (clampedEndX > clampedStartX) {
+    ctx.beginPath();
+    ctx.moveTo(clampedStartX, priceY);
+    ctx.lineTo(clampedEndX, priceY);
+    ctx.stroke();
+  }
 
   // Reset shadow for subsequent drawing operations
   ctx.shadowBlur = 0;

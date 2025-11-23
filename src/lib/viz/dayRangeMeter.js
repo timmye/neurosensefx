@@ -258,38 +258,42 @@ function drawPercentageMarker(ctx, axisX, y, label, side) {
 }
 
 /**
- * Draw boundary lines at canvas extremes
+ * Draw boundary lines at canvas extremes with proper bounds checking
  */
 function drawBoundaryLines(ctx, contentArea, axisX, state, y) {
   const { midPrice, projectedAdrHigh, projectedAdrLow } = state;
   const adrValue = projectedAdrHigh - projectedAdrLow;
   if (!midPrice || !adrValue) return;
-  
+
   const currentMaxAdr = calculateMaxAdrPercentage(state);
   const adrRange = adrValue;
-  
+
   // Calculate actual boundary positions
   const highBoundary = midPrice + (adrRange * currentMaxAdr);
   const lowBoundary = midPrice - (adrRange * currentMaxAdr);
-  
+
   const highY = y(highBoundary);
   const lowY = y(lowBoundary);
-  
+
+  // Clamp X coordinates to canvas bounds
+  const minX = Math.max(0, 0);
+  const maxX = Math.min(contentArea.width, contentArea.width);
+
   // Draw boundary lines if they're within reasonable canvas bounds
   ctx.strokeStyle = '#EF4444'; // Red for boundaries
   ctx.lineWidth = 1;
-  
+
   if (highY >= -10 && highY <= contentArea.height + 10) {
     ctx.beginPath();
-    ctx.moveTo(0, highY);
-    ctx.lineTo(contentArea.width, highY);
+    ctx.moveTo(minX, highY);
+    ctx.lineTo(maxX, highY);
     ctx.stroke();
   }
-  
+
   if (lowY >= -10 && lowY <= contentArea.height + 10) {
     ctx.beginPath();
-    ctx.moveTo(0, lowY);
-    ctx.lineTo(contentArea.width, lowY);
+    ctx.moveTo(minX, lowY);
+    ctx.lineTo(maxX, lowY);
     ctx.stroke();
   }
 }

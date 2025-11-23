@@ -24,10 +24,11 @@
 - Self-documenting code structure
 
 #### **PERFORMANT** - Handles professional trading requirements
-- 60fps rendering for smooth visual updates during price movements
-- Sub-100ms latency so displays feel responsive during active trading
-- Supports 20+ concurrent displays for multi-instrument monitoring
-- 8+ hour session stability without performance degradation
+- **60fps rendering** for smooth price movement visualization without stuttering during rapid market changes
+- **Sub-100ms latency** from market data to visual display for real-time decision accuracy
+- **DPR-aware crisp rendering** for precise numerical display and reduced eye strain during extended sessions
+- **20+ concurrent displays** for comprehensive multi-instrument monitoring without performance degradation
+- **8+ hour session stability** for full trading day coverage without memory leaks or visual degradation
 
 #### **MAINTAINABLE** - Reliable when it matters
 - Single responsibility components with clear interfaces
@@ -65,10 +66,11 @@ When making implementation decisions, use this framework to ensure alignment wit
 - Does it follow established patterns in the codebase?
 
 ### **Performant Considerations**
-- Does this maintain 60fps with 20+ displays?
-- Does data-to-visual update complete in under 100ms?
-- Is memory usage reasonable for extended sessions?
-- Will this scale to professional trading usage?
+- Does this maintain 60fps rendering during rapid price movements without stuttering?
+- Does market data reach the visual display in under 100ms for real-time accuracy?
+- Are numerical displays crisp and precise at all device pixel ratios?
+- Will memory usage remain stable during 8+ hour trading sessions?
+- Can this handle 20+ simultaneous displays without visual degradation?
 
 ### **Maintainable Considerations**
 - Can this component be tested independently?
@@ -77,10 +79,11 @@ When making implementation decisions, use this framework to ensure alignment wit
 - Is the code structure clear and documented?
 
 ### **User Context Check**
-- Does this support monitoring multiple currency pairs?
-- Can this be used effectively for extended trading sessions?
-- Does keyboard-first interaction work for this feature?
-- Will this remain responsive during active trading?
+- Does this provide precise, accurate visual representation of market data?
+- Are numerical displays crisp and readable during rapid price movements?
+- Can this be used effectively for 8+ hour trading sessions without eye strain?
+- Does keyboard-first interaction provide rapid access during time-critical decisions?
+- Will visual displays remain accurate and responsive during volatile market conditions?
 
 ## User Workflows This System Supports
 
@@ -139,7 +142,7 @@ neurosensefx/                          # Root repository
 **Use Svelte's declarative event system** - prefer modifiers like `on:contextmenu|preventDefault|stopPropagation` over manual `addEventListener`.
 
 #### Canvas Rendering Best Practices
-**DPR-aware rendering** - scale canvas context for crisp text (see `src/lib/viz/DPR_RENDERING_SYSTEM.md` for examples).
+**DPR-aware rendering** - scale canvas context for crisp, precise text and numerical displays at all device pixel ratios. Essential for accurate price visualization during extended trading sessions. (see `src/lib/viz/DPR_RENDERING_SYSTEM.md` for examples).
 
 ## Component System
 
@@ -153,7 +156,7 @@ neurosensefx/                          # Root repository
 - Color modes for volatility and momentum analysis
 
 **Day Range Meter** (`dayRangeMeter.js`)
-- ADR reference system with graduated markers
+- The core anchoring visualisation ADR reference system with graduated markers
 - Price positioning as percentage of daily range
 
 **Price Display System**
@@ -242,10 +245,12 @@ npm run test:e2e      # Run end-to-end tests (Playwright)
 ```
 
 **Key Testing Areas:**
-- Canvas rendering with multiple displays (20+)
-- WebSocket connection stability and reconnection
-- Configuration inheritance and persistence
-- Keyboard accessibility for all interactions
+- **Visual accuracy**: Canvas rendering with crisp numerical displays at all DPR levels
+- **Performance under load**: 20+ displays without visual degradation or stuttering
+- **Real-time accuracy**: Data-to-visual latency under 100ms during volatile markets
+- **Extended session stability**: 8+ hour operation without memory leaks or visual drift
+- **Connection reliability**: WebSocket stability and automatic reconnection
+- **Precision workflow**: Keyboard accessibility for rapid, accurate trading decisions
 
 ## Contributing
 

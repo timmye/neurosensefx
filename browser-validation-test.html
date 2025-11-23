@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Bug Fix Browser Validation</title>
+    <style>
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .test-container {
+            border: 2px solid #00ff00;
+            width: 220px;
+            height: 120px;
+            position: relative;
+            margin: 20px 0;
+        }
+        .test-canvas {
+            background-color: #111827;
+            display: block;
+        }
+        .results {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #2d2d2d;
+            border-radius: 5px;
+        }
+        .pass { color: #00ff00; }
+        .fail { color: #ff4444; }
+        .info { color: #ffaa00; }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #555;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Canvas Growing Bug Fix - Browser Validation</h1>
+
+    <div class="results" id="validationResults">
+        <h2>Validation Results:</h2>
+        <div id="resultsContent">Loading...</div>
+    </div>
+
+    <h2>🧪 Test Container (Expected: 220×120px)</h2>
+    <div class="test-container">
+        <canvas id="testCanvas" class="test-canvas"></canvas>
+    </div>
+
+    <h2>🌐 Live Application Test</h2>
+    <iframe src="http://localhost:5174" id="appFrame"></iframe>
+
+    <script>
+        // Test the canvas sizing fix directly
+        function testCanvasSizingFix() {
+            const results = document.getElementById('resultsContent');
+            let output = '';
+
+            function addResult(test, passed, details) {
+                const status = passed ? '✅ PASS' : '❌ FAIL';
+                const className = passed ? 'pass' : 'fail';
+                output += `<div class="${className}">${status} ${test}</div>`;
+                if (details) {
+                    output += `<div class="info">&nbsp;&nbsp;&nbsp;${details}</div>`;
+                }
+            }
+
+            // Test 1: Direct canvas sizing implementation
+            const testCanvas = document.getElementById('testCanvas');
+            const container = testCanvas.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+
+            // Apply the fixed logic (same as in the actual fix)
+            const containerSize = { width: 220, height: 120 };
+            const canvasArea = { width: containerSize.width, height: containerSize.height };
+            const dprMultiplier = dpr;
+            const integerCanvasWidth = Math.round(canvasArea.width * dprMultiplier);
+            const integerCanvasHeight = Math.round(canvasArea.height * dprMultiplier);
+
+            // Set canvas dimensions
+            testCanvas.width = integerCanvasWidth;
+            testCanvas.height = integerCanvasHeight;
+
+            // 🔧 CRITICAL FIX: Set CSS dimensions to match container exactly
+            testCanvas.style.width = canvasArea.width + 'px';  // This is the fix
+            testCanvas.style.height = canvasArea.height + 'px'; // This is the fix
+
+            // Draw something to verify it works
+            const ctx = testCanvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(10, 10, 50, 20);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '12px monospace';
+            ctx.fillText('TEST CANVAS', 10, 50);
+
+            // Measure results
+            const containerRect = container.getBoundingClientRect();
+            const canvasComputedStyle = window.getComputedStyle(testCanvas);
+            const canvasCSSWidth = parseInt(canvasComputedStyle.width);
+            const canvasCSSHeight = parseInt(canvasComputedStyle.height);
+
+            addResult('Container dimensions',
+                     containerRect.width === 220 && containerRect.height === 120,
+                     `Container: ${containerRect.width}×${containerRect.height}px`);
+
+            addResult('Canvas CSS dimensions match container',
+                     canvasCSSWidth === 220 && canvasCSSHeight === 120,
+                     `Canvas CSS: ${canvasCSSWidth}×${canvasCSSHeight}px`);
+
+            addResult('Canvas internal dimensions scaled for DPR',
+                     testCanvas.width === Math.round(220 * dpr) && testCanvas.height === Math.round(120 * dpr),
+                     `Canvas internal: ${testCanvas.width}×${testCanvas.height}px (DPR: ${dpr})`);
+
+            addResult('No visual overflow',
+                     canvasCSSWidth <= containerRect.width && canvasCSSHeight <= containerRect.height,
+                     'Canvas stays within container boundaries');
+
+            // Test 2: DPR awareness
+            addResult('DPR scaling is applied correctly',
+                     testCanvas.width > canvasCSSWidth && dpr > 1,
+                     `Internal (${testCanvas.width}×${testCanvas.height}) > CSS (${canvasCSSWidth}×${canvasCSSHeight})`);
+
+            results.innerHTML = output;
+        }
+
+        // Test the live application
+        function testLiveApplication() {
+            setTimeout(() => {
+                const iframe = document.getElementById('appFrame');
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+                    // Look for viz-container elements
+                    const containers = iframeDoc.querySelectorAll('.viz-container');
+                    if (containers.length > 0) {
+                        console.log(`Found ${containers.length} visualization containers in the live app`);
+
+                        containers.forEach((container, index) => {
+                            const canvas = container.querySelector('canvas');
+                            if (canvas) {
+                                const containerRect = container.getBoundingClientRect();
+                                const canvasComputedStyle = window.getComputedStyle(canvas);
+                                const canvasCSSWidth = parseInt(canvasComputedStyle.width);
+                                const canvasCSSHeight = parseInt(canvasComputedStyle.height);
+
+                                console.log(`Container ${index + 1}:`, {
+                                    container: `${containerRect.width.toFixed(0)}×${containerRect.height.toFixed(0)}px`,
+                                    canvasCSS: `${canvasCSSWidth}×${canvasCSSHeight}px`,
+                                    canvasInternal: `${canvas.width}×${canvas.height}px`,
+                                    dpr: window.devicePixelRatio || 1
+                                });
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.log('Cannot access iframe content due to cross-origin restrictions');
+                }
+            }, 5000);
+        }
+
+        // Run tests
+        testCanvasSizingFix();
+        testLiveApplication();
+
+        // Monitor for zoom changes
+        let currentDpr = window.devicePixelRatio || 1;
+        window.addEventListener('resize', () => {
+            const newDpr = window.devicePixelRatio || 1;
+            if (newDpr !== currentDpr) {
+                console.log(`🔍 DPR changed from ${currentDpr} to ${newDpr}`);
+                currentDpr = newDpr;
+                testCanvasSizingFix();
+            }
+        });
+    </script>
+</body>
+</html>

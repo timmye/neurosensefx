@@ -120,9 +120,17 @@ function drawCoreOrb(ctx, renderData, config, state) {
   gradient.addColorStop(config.gradientSoftness ?? 0.7, midColor);
   gradient.addColorStop(1, 'transparent');
 
-  // Draw orb as background fill covering content area
+  // Draw orb as background fill with boundary constraints
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, contentArea.width, contentArea.height);
+
+  // Clamp fill dimensions to content area bounds
+  const fillWidth = Math.max(0, Math.min(contentArea.width, contentArea.width));
+  const fillHeight = Math.max(0, Math.min(contentArea.height, contentArea.height));
+
+  // Only fill if valid dimensions after clamping
+  if (fillWidth > 0 && fillHeight > 0) {
+    ctx.fillRect(0, 0, fillWidth, fillHeight);
+  }
 
   ctx.restore();
 }

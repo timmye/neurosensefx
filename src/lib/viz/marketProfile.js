@@ -660,8 +660,15 @@ function renderBarBasedProfile(ctx, renderingContext, config, data) {
         width = barWidth;
     }
 
-    // Render bar with bounds checking
-    if (boundsUtils.isPointInBounds(x, level.priceY, { canvasArea: renderingContext.contentArea })) {
+    // Render bar with comprehensive bounds checking
+    const contentArea = renderingContext.contentArea;
+    const endX = x + width;
+
+    // Check if entire bar stays within canvas bounds
+    const startInBounds = boundsUtils.isPointInBounds(x, level.priceY, { canvasArea: contentArea });
+    const endInBounds = boundsUtils.isPointInBounds(endX, level.priceY, { canvasArea: contentArea });
+
+    if (startInBounds && endInBounds) {
       ctx.fillStyle = color;
       ctx.fillRect(x, level.priceY, width, 1);
 

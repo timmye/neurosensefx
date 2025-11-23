@@ -103,8 +103,8 @@ export function getCanvasDimensions(containerSize, options = {}) {
     canvas: {
       width: integerCanvasWidth,
       height: integerCanvasHeight,
-      cssWidth: integerCanvasWidth / dprMultiplier, // Ensure CSS matches canvas internal dimensions
-      cssHeight: integerCanvasHeight / dprMultiplier
+      cssWidth: canvasArea.width, // CSS must match container dimensions exactly
+      cssHeight: canvasArea.height
     },
     
     // Device pixel ratio information

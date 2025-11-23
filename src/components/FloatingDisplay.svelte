@@ -15,13 +15,7 @@
   import { drawVolatilityMetric } from '../lib/viz/volatilityMetric.js';
   import { drawPriceMarkers } from '../lib/viz/priceMarkers.js';
   
-  // Debug: Verify imports are working
-  console.log('[FloatingDisplay] Imports loaded:', {
-    drawVolatilityOrb: typeof drawVolatilityOrb,
-    drawDayRangeMeter: typeof drawDayRangeMeter,
-    drawMarketProfile: typeof drawMarketProfile
-  });
-
+  
   // ✅ INTERACT.JS: Import interact.js for drag and resize
   import interact from 'interactjs';
   
@@ -49,7 +43,11 @@
 
   // Marker state
   let markers = [];
-  
+
+  // Header visibility state for hover-based show/hide
+  let headerVisible = false;
+  let headerTimeout = null;
+
   // Declare variables to avoid ReferenceError
   let displayPosition = position;
 
@@ -101,18 +99,29 @@
         const centeredVisualLow = dailyOpen - halfRange;
         const centeredVisualHigh = dailyOpen + halfRange;
 
-        console.log('[ADR_ALIGNMENT_FIX] Centering visual range around daily open:', {
-          dailyOpen,
-          originalRange: [state.visualLow, state.visualHigh],
-          centeredRange: [centeredVisualLow, centeredVisualHigh],
-          canvasCenterY: contentArea.height / 2
-        });
-
+        
         return scaleLinear().domain([centeredVisualLow, centeredVisualHigh]).range([contentArea.height, 0]);
       })()
     : null;
   
     
+  // Header visibility handlers for hover-based show/hide
+  function showHeader() {
+    if (headerTimeout) {
+      clearTimeout(headerTimeout);
+      headerTimeout = null;
+    }
+    headerVisible = true;
+  }
+
+  function hideHeader() {
+    // Delay hiding to prevent flickering when moving between header and container
+    headerTimeout = setTimeout(() => {
+      headerVisible = false;
+      headerTimeout = null;
+    }, 300);
+  }
+
   // Container-level event handlers (always work regardless of canvas state)
   function handleContainerClose() {
     displayActions.removeDisplay(id);
@@ -144,7 +153,6 @@
 
   // 🎨 CANVAS CONTEXT MENU: Direct handler for canvas right-click (the fix!)
   function handleCanvasContextMenu(event) {
-    console.log('🎨 [FLOATING_DISPLAY] Canvas context menu triggered');
 
     // Create canvas context
     const context = {
@@ -167,22 +175,6 @@
   function handleRefresh() {
     handleContainerRefresh();
   }
-
-  // 🔧 DEBUGGER: Test ADR alignment
-  function testAdrAlignment() {
-    if (window.coordinateDebugger) {
-      window.coordinateDebugger.checkAdrAlignment(id);
-      console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] ADR alignment test initiated`);
-    }
-  }
-
-  // 🔧 DEBUGGER: Test mouse interaction
-  function testMouseInteraction() {
-    if (window.coordinateDebugger) {
-      window.coordinateDebugger.testMouseInteraction(id);
-      console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] Mouse interaction test initiated`);
-    }
-  }
   
   
     
@@ -192,17 +184,6 @@
 
     // Wait for canvas to be available
     await tick();
-
-    // 🔧 DEBUGGER: Register this floating display with drift monitor
-    if (element) {
-      canvasDriftMonitor.registerElement(id, element, 'floating');
-    }
-
-    // 🔧 DEBUGGER: Activate coordinate system debugging
-    if (element && canvas) {
-      const debugHelper = window.coordinateDebugger.activateElement(id, element, canvas);
-      console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] Coordinate system debugging activated`);
-    }
 
     // ✅ GRID ENHANCED: Setup interact.js with grid snapping
     if (element) {
@@ -218,9 +199,6 @@
           onstart: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of drag start
             workspaceGrid.setDraggingState(true);
-
-            // 🔧 DEBUGGER: Track drag start
-            trackPositionChange('dragStart', displayPosition, displaySize, 'interact.js drag start');
           },
           onmove: (event) => {
             // ✅ GRID SNAPPING: event.rect already includes snapped coordinates
@@ -230,16 +208,10 @@
             };
 
             displayActions.moveDisplay(id, newPosition);
-
-            // 🔧 DEBUGGER: Track drag movement
-            trackPositionChange('dragMove', newPosition, displaySize, 'interact.js drag move');
           },
           onend: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of drag end
             workspaceGrid.setDraggingState(false);
-
-            // 🔧 DEBUGGER: Track drag end
-            trackPositionChange('dragEnd', displayPosition, displaySize, 'interact.js drag end');
           }
         })
         .resizable({
@@ -259,9 +231,6 @@
           onstart: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize start
             workspaceGrid.setDraggingState(true);
-
-            // 🔧 DEBUGGER: Track resize start
-            trackPositionChange('resizeStart', displayPosition, displaySize, 'interact.js resize start');
           },
           onmove: (event) => {
             // ✅ GRID SNAPPING: Update element style for visual feedback
@@ -279,31 +248,17 @@
 
             displayActions.moveDisplay(id, newPosition);
             displayActions.resizeDisplay(id, event.rect.width, event.rect.height);
-
-            // 🔧 DEBUGGER: Track resize movement
-            trackPositionChange('resizeMove', newPosition, newSize, 'interact.js resize move');
           },
           onend: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize end
             workspaceGrid.setDraggingState(false);
-
-            // 🔧 DEBUGGER: Track resize end
-            trackPositionChange('resizeEnd', displayPosition, displaySize, 'interact.js resize end');
           }
         });
       
       // Register interactable with workspace grid for dynamic updates
       workspaceGrid.registerInteractInstance(interactable);
 
-      // 🔧 DEBUGGER: Connect interact.js instance to coordinate debugger
-      if (window.coordinateDebugger) {
-        const elementData = window.coordinateDebugger.elementData?.get(id);
-        if (elementData) {
-          elementData.setInteractInstance(interactable);
-          console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] Interact.js instance connected to debugger`);
-        }
-      }
-
+      
       // Click to activate
       interactable.on('tap', (event) => {
         displayActions.setActiveDisplay(id);
@@ -382,7 +337,7 @@
         dpr = window.devicePixelRatio || 1;
 
         // 🔧 ZOOM AWARENESS: Initialize zoom detector
-        const cleanupZoomDetector = createZoomDetector((newDpr) => {
+        cleanupZoomDetector = createZoomDetector((newDpr) => {
           dpr = newDpr;
 
           // Recalculate canvas dimensions with new DPR
@@ -407,9 +362,7 @@
           }
         });
 
-        // Store cleanup function for onDestroy - will be handled in the main onDestroy block
-        // Note: Zoom detector cleanup moved to main onDestroy for proper lifecycle management
-
+        
         // 🔧 CONTAINER-STYLE: Calculate contentArea from config (headerless design)
         const containerSize = config.containerSize || { width: 220, height: 120 };
         const newContentArea = {
@@ -442,8 +395,7 @@
         canvasWidth = contentArea.width;
         canvasHeight = contentArea.height;
 
-        console.log(`[FLOATING_DISPLAY] Canvas initialized successfully`);
-      } else {
+              } else {
         throw new Error('Failed to get 2D context');
       }
     } catch (error) {
@@ -469,6 +421,7 @@
   // ✅ ULTRA-MINIMAL: Simple rendering - no complex dependencies
   let renderFrame;
   let pendingRender = false; // 🔧 CRITICAL FIX: Prevent concurrent render frames
+  let cleanupZoomDetector = null; // Zoom detector cleanup function
 
   // 🔧 CRITICAL FIX: Render deduplication to prevent race conditions
   function scheduleRender() {
@@ -482,13 +435,7 @@
     }
   }
 
-  // 🔧 DEBUGGER: FloatingDisplay position and interaction tracking
-  let interactionHistory = [];
-  let lastPositionState = null;
-  let resizeHistory = [];
-  let renderCount = 0;
-
-    // Function to render symbol as canvas background (drawn before other visualizations)
+  // Function to render symbol as canvas background (drawn before other visualizations)
   function renderSymbolBackground() {
     if (!ctx || !contentArea) return;
 
@@ -508,67 +455,7 @@
     ctx.restore();
   }
 
-  // 🔧 DEBUGGER: Track position changes and interactions
-  function trackPositionChange(eventType, newPosition, newSize, cause = 'unknown') {
-    const timestamp = performance.now();
-    const currentState = {
-      timestamp,
-      eventType,
-      displayId: id,
-      symbol,
-      position: newPosition || displayPosition,
-      size: newSize || displaySize,
-      cause,
-      elementRect: element ? element.getBoundingClientRect() : null,
-      canvasRect: canvas ? canvas.getBoundingClientRect() : null,
-      windowSize: {
-        width: window.innerWidth,
-        height: window.innerHeight
-      },
-      dpr: window.devicePixelRatio || 1
-    };
-
-    // Detect position changes
-    if (lastPositionState) {
-      const positionDelta = {
-        xDelta: currentState.position.x - lastPositionState.position.x,
-        yDelta: currentState.position.y - lastPositionState.position.y,
-        widthDelta: currentState.size.width - lastPositionState.size.width,
-        heightDelta: currentState.size.height - lastPositionState.size.height,
-        timeDelta: timestamp - lastPositionState.timestamp,
-        dprDelta: currentState.dpr - lastPositionState.dpr
-      };
-
-      // 🔧 FIXED: Log only significant position changes (>1px or timing >200ms)
-      // Previous thresholds (0.1px, 50ms) were too sensitive and caused false positives
-      if (Math.abs(positionDelta.xDelta) > 1.0 ||
-          Math.abs(positionDelta.yDelta) > 1.0 ||
-          Math.abs(positionDelta.widthDelta) > 1.0 ||
-          Math.abs(positionDelta.heightDelta) > 1.0 ||
-          Math.abs(positionDelta.timeDelta) > 200) {
-
-        console.warn('[DEBUGGER:DRIFT:FloatingDisplay] Position change detected:', {
-          ...currentState,
-          positionDelta,
-          previousState: lastPositionState,
-          interactionCause: cause
-        });
-
-        interactionHistory.push({
-          ...currentState,
-          positionDelta
-        });
-
-        // Keep only last 20 interaction events
-        if (interactionHistory.length > 20) {
-          interactionHistory.shift();
-        }
-      }
-    }
-
-    lastPositionState = currentState;
-  }
-
+  
 
 
   function render() {
@@ -577,37 +464,6 @@
     }
 
     const startTime = performance.now();
-    renderCount++;
-
-    // 🔧 DEBUGGER: Canvas state monitoring for FloatingDisplay
-    const canvasRect = canvas.getBoundingClientRect();
-    const elementRect = element.getBoundingClientRect();
-    const currentDpr = window.devicePixelRatio || 1;
-
-    // 🔧 DEBUGGER: Track render position drift
-    if (renderCount % 60 === 0) { // Log every 60 frames
-      console.log('[DEBUGGER:FloatingDisplay:render] Render monitoring:', {
-        displayId: id,
-        symbol,
-        frameCount: renderCount,
-        canvasRect: {
-          left: canvasRect.left,
-          top: canvasRect.top,
-          width: canvasRect.width,
-          height: canvasRect.height
-        },
-        elementRect: {
-          left: elementRect.left,
-          top: elementRect.top,
-          width: elementRect.width,
-          height: elementRect.height
-        },
-        displayPosition,
-        displaySize,
-        dpr: currentDpr,
-        interactionHistoryCount: interactionHistory.length
-      });
-    }
 
     // 🔧 CLEAN FOUNDATION: Create rendering context (headerless design)
     const containerSize = config.containerSize || { width: canvasWidth, height: canvasHeight };
@@ -627,73 +483,30 @@
       adrAxisXPosition: adrAxisX
     };
 
-    // 🔧 DEBUGGER: Canvas clearing monitoring
-    const clearStart = performance.now();
+    // Clear canvas and set background
     ctx.clearRect(0, 0, contentArea.width, contentArea.height);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, contentArea.width, contentArea.height);
-    const clearTime = performance.now() - clearStart;
-
-    // Track position changes during render
-    trackPositionChange('render', displayPosition, displaySize, `render frame ${renderCount}`);
 
     // Draw symbol background first (behind all other visualizations)
     renderSymbolBackground();
 
-    // 🔧 DEBUGGER: Visualization timing
-    const vizTimers = new Map();
-
     // Draw visualizations
     if (state.visualLow && state.visualHigh && yScale) {
       try {
-        // Draw Volatility Orb (Background Layer - MUST be first)
-        let vizStart = performance.now();
+        // Draw visualizations in correct order for layering
         drawVolatilityOrb(ctx, renderingContext, config, state, yScale);
-        vizTimers.set('volatilityOrb', performance.now() - vizStart);
-
-        vizStart = performance.now();
         drawMarketProfile(ctx, renderingContext, config, state, yScale);
-        vizTimers.set('marketProfile', performance.now() - vizStart);
-
-        vizStart = performance.now();
         drawDayRangeMeter(ctx, renderingContext, config, state, yScale);
-        vizTimers.set('dayRangeMeter', performance.now() - vizStart);
-
-        vizStart = performance.now();
         drawPriceFloat(ctx, renderingContext, config, state, yScale);
-        vizTimers.set('priceFloat', performance.now() - vizStart);
-
-        vizStart = performance.now();
         drawPriceDisplay(ctx, renderingContext, config, state, yScale);
-        vizTimers.set('priceDisplay', performance.now() - vizStart);
-
-        vizStart = performance.now();
         drawVolatilityMetric(ctx, renderingContext, config, state);
-        vizTimers.set('volatilityMetric', performance.now() - vizStart);
-
-        vizStart = performance.now();
         drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);
-        vizTimers.set('priceMarkers', performance.now() - vizStart);
-              } catch (error) {
+      } catch (error) {
         console.error(`[RENDER] Error in visualization functions:`, error);
       }
     }
-
-    // 🔧 DEBUGGER: Performance monitoring
-    const totalTime = performance.now() - startTime;
-    if (totalTime > 16.67 || renderCount % 300 === 0) { // Log slow renders or every 300 frames
-      console.log('[DEBUGGER:PERF:FloatingDisplay:render] Performance stats:', {
-        displayId: id,
-        symbol,
-        frameCount: renderCount,
-        totalTime,
-        clearTime,
-        vizTimers: Object.fromEntries(vizTimers),
-        contentArea,
-        currentDpr
-      });
-    }
-      }
+  }
   
   // ✅ ULTRA-MINIMAL: Simple render trigger with deduplication
   $: if (state && config && yScale) {
@@ -702,13 +515,10 @@
   
   // 🔧 ARCHITECTURAL FIX: Consolidated cleanup with proper resource management
   onDestroy(() => {
-    // 🔧 DEBUGGER: Unregister from drift monitor
-    canvasDriftMonitor.unregisterElement(id);
-
-    // 🔧 DEBUGGER: Deactivate coordinate system debugging
-    if (window.coordinateDebugger) {
-      window.coordinateDebugger.deactivateElement(id);
-      console.log(`[DEBUGGER:FLOATING_DISPLAY:${id}] Coordinate system debugging deactivated`);
+    // Cleanup header timeout
+    if (headerTimeout) {
+      clearTimeout(headerTimeout);
+      headerTimeout = null;
     }
 
     // Cleanup render frame and deduplication state
@@ -747,9 +557,13 @@
   class:active={isActive}
   style="left: {displayPosition.x}px; top: {displayPosition.y}px; width: {displaySize.width}px; height: {displaySize.height}px; z-index: {zIndex};"
   data-display-id={id}
+  role="region"
+  aria-label="Trading display for {symbol}"
+  on:mouseenter={showHeader}
+  on:mouseleave={hideHeader}
 >
   <!-- Container Header - appears on hover -->
-  <div class="container-header" class:error={canvasError}>
+  <div class="container-header" class:error={canvasError} class:visible={headerVisible}>
     <div class="symbol-info">
       {#if canvasError}
         <span class="error-symbol">⚠️ Failed to load {symbol}</span>
@@ -758,23 +572,6 @@
       {/if}
     </div>
     <div class="header-controls">
-      <!-- 🔧 DEBUGGER: Debug buttons -->
-      <button
-        class="header-btn debug-btn"
-        on:click={testAdrAlignment}
-        title="Test ADR alignment"
-        aria-label="Test ADR alignment"
-      >
-        ADR
-      </button>
-      <button
-        class="header-btn debug-btn"
-        on:click={testMouseInteraction}
-        title="Test mouse interaction"
-        aria-label="Test mouse interaction"
-      >
-        🖱️
-      </button>
       <button
         class="header-btn refresh-btn"
         class:error={canvasError}
@@ -895,7 +692,7 @@
     100% { opacity: 0.4; }
   }
 
-  /* Container Header - visible by default, no transform animations */
+  /* Container Header - opacity-based show/hide without transforms */
   .container-header {
     position: absolute;
     top: 0;
@@ -909,10 +706,18 @@
     justify-content: space-between;
     align-items: center;
     padding: 0 8px;
-    /* 🔧 CRITICAL FIX: Removed ALL transform animations that caused canvas positioning issues */
-    /* No more transform: translateY(-100%) or hover transitions - was causing canvas to render below container top */
+    /* 🔧 CRITICAL FIX: Opacity transitions instead of transforms to prevent canvas positioning issues */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
     z-index: 100; /* Reduced to prevent resize interference, still above canvas */
     border-radius: 6px 6px 0 0;
+  }
+
+  /* Header visible state - show with opacity */
+  .container-header.visible {
+    opacity: 1;
+    visibility: visible;
   }
 
   .container-header.error {
@@ -972,13 +777,6 @@
   .refresh-btn.error {
     background: rgba(251, 146, 60, 0.9);
     color: white;
-  }
-
-  .debug-btn {
-    background: rgba(139, 92, 246, 0.9); /* Purple for debug buttons */
-    color: white;
-    font-size: 10px;
-    padding: 2px 4px;
   }
 
   /* Ensure container maintains rounded corners when header is visible */
