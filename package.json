@@ -34,6 +34,13 @@
     "test:e2e:basic": "playwright test tests/e2e/basic-load.spec.js",
     "test:e2e:canvas": "playwright test tests/e2e/canvas-rendering.spec.js",
     "test:e2e:interactions": "playwright test tests/e2e/user-interactions.spec.js",
+    "test:e2e:validation": "node tests/validation-runner.js",
+    "test:e2e:validation-quick": "node tests/validation-runner.js --quick",
+    "test:e2e:coordinate-precision": "playwright test tests/e2e/coordinate-precision.spec.js",
+    "test:e2e:extended-session": "playwright test tests/e2e/extended-session-stability.spec.js",
+    "test:e2e:user-workflows": "playwright test tests/e2e/user-interaction-workflows.spec.js",
+    "test:e2e:benchmarking": "playwright test tests/e2e/performance-benchmarking.spec.js",
+    "test:e2e:memory-cleanup": "playwright test tests/e2e/memory-management-cleanup.spec.js",
     "test:e2e:report": "playwright show-report",
     "test:e2e:install": "playwright install chromium firefox webkit",
     "test:e2e:codegen": "playwright codegen"

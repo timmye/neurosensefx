@@ -16,7 +16,10 @@
       "Bash(curl:*)",
       "Bash(xargs ls -la:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)"
     ],
     "deny": [],
     "ask": []

@@ -1,6 +1,7 @@
 import { scaleLinear } from 'd3-scale';
 import { createCanvasSizingConfig, configureCanvasContext, boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
 import { formatPriceSimple } from '../utils/priceFormatting.js';
+import { priceScale, currentBounds, coordinateActions } from '../../stores/coordinateStore.js';
 
 /**
  * DPR-Aware Day Range Meter Implementation
@@ -13,14 +14,14 @@ import { formatPriceSimple } from '../utils/priceFormatting.js';
 
 export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
   // Guard clauses for safety
-  if (!ctx || !renderingContext || !config || !state || !y) {
+  if (!ctx || !renderingContext || !config || !state) {
     console.warn('[DayRangeMeter] Missing required parameters, skipping render');
     return;
   }
 
   // Extract rendering context from the unified infrastructure
   const { contentArea, adrAxisX } = renderingContext;
-  
+
   // Extract essential data using source of truth from dataProcessor schema
   const {
     midPrice,        // Daily open price (from todaysOpen in backend)
@@ -41,16 +42,32 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
     return;
   }
 
+  // === REACTIVE COORDINATE SYSTEM INTEGRATION ===
+  // Update coordinate store with current price data for reactive transformations
+  coordinateActions.updatePriceRange({
+    midPrice,
+    projectedAdrHigh,
+    projectedAdrLow,
+    todaysHigh,
+    todaysLow
+  });
+
+  // Create reactive Y transformation function using coordinate store
+  const priceToY = (price) => {
+    const currentScale = coordinateActions.transform(price, 'price', 'pixel');
+    return currentScale !== null ? currentScale : y(price); // Fallback to provided y function
+  };
+
   // === FOUNDATION LAYER IMPLEMENTATION ===
   // 1. Draw ADR Axis (Core Meter Element)
   drawAdrAxis(ctx, contentArea, adrAxisX);
-  
-  // 2. Draw Percentage Markers (Spatial Context)
-  drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y);
-  
-  // 3. Draw Price Markers (OHL + Current)
-  drawPriceMarkers(ctx, contentArea, adrAxisX, state, y, digits);
-  
+
+  // 2. Draw Percentage Markers (Spatial Context) - Using reactive coordinates
+  drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, priceToY);
+
+  // 3. Draw Price Markers (OHL + Current) - Using reactive coordinates
+  drawPriceMarkers(ctx, contentArea, adrAxisX, state, priceToY, digits);
+
   // 4. Draw ADR Information Display (DISABLED - context menu configs not working)
   // drawAdrInformation(ctx, contentArea, state);
 }
@@ -86,8 +103,9 @@ function drawAdrAxis(ctx, contentArea, adrAxisX) {
 
 /**
  * Draw Percentage Markers for spatial context
+ * Updated to use reactive coordinate transformations
  */
-function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
+function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, priceToY) {
   // Use source of truth from dataProcessor schema
   const dailyOpen = state.midPrice;  // This IS the daily open price
   const adrValue = state.projectedAdrHigh - state.projectedAdrLow;
@@ -149,10 +167,10 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
         const adrHigh = dailyOpen + (adrRange * level);
         const adrLow = dailyOpen - (adrRange * level);
 
-        // High side marker
-        const highY = y(adrHigh);
+        // High side marker - Using reactive coordinates
+        const highY = priceToY(adrHigh);
         const highInBounds = boundsUtils.isYInBounds(highY, config, { canvasArea: contentArea });
-        console.log('[ADR_DEBUG] Static high marker:', {
+        console.log('[ADR_DEBUG] Static high marker (reactive):', {
           level,
           adrHigh,
           highY,
@@ -163,10 +181,10 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
           drawPercentageMarker(ctx, adrAxisX, highY, `${level * 100}%`, markerSide);
         }
 
-        // Low side marker
-        const lowY = y(adrLow);
+        // Low side marker - Using reactive coordinates
+        const lowY = priceToY(adrLow);
         const lowInBounds = boundsUtils.isYInBounds(lowY, config, { canvasArea: contentArea });
-        console.log('[ADR_DEBUG] Static low marker:', {
+        console.log('[ADR_DEBUG] Static low marker (reactive):', {
           level,
           adrLow,
           lowY,
@@ -187,11 +205,11 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
 
     if (todaysHigh !== undefined) {
       const highPercentage = ((todaysHigh - dailyOpen) / adrRange) * 100;
-      const highY = y(todaysHigh);
+      const highY = priceToY(todaysHigh); // Using reactive coordinates
       const highLabel = `${highPercentage >= 0 ? '+' : ''}${highPercentage.toFixed(0)}%`;
       const highInBounds = boundsUtils.isYInBounds(highY, config, { canvasArea: contentArea });
 
-      console.log('[ADR_DEBUG] Dynamic high marker:', {
+      console.log('[ADR_DEBUG] Dynamic high marker (reactive):', {
         todaysHigh,
         dailyOpen,
         highPercentage,
@@ -208,11 +226,11 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
 
     if (todaysLow !== undefined) {
       const lowPercentage = ((dailyOpen - todaysLow) / adrRange) * 100;
-      const lowY = y(todaysLow);
+      const lowY = priceToY(todaysLow); // Using reactive coordinates
       const lowLabel = `${lowPercentage >= 0 ? '+' : ''}${lowPercentage.toFixed(0)}%`;
       const lowInBounds = boundsUtils.isYInBounds(lowY, config, { canvasArea: contentArea });
 
-      console.log('[ADR_DEBUG] Dynamic low marker:', {
+      console.log('[ADR_DEBUG] Dynamic low marker (reactive):', {
         todaysLow,
         dailyOpen,
         lowPercentage,
@@ -229,8 +247,8 @@ function drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, y) {
     }
   }
 
-  // Draw boundary lines at current canvas extremes
-  drawBoundaryLines(ctx, contentArea, adrAxisX, state, y);
+  // Draw boundary lines at current canvas extremes - Using reactive coordinates
+  drawBoundaryLines(ctx, contentArea, adrAxisX, state, priceToY);
 
   ctx.restore();
 }
@@ -259,8 +277,9 @@ function drawPercentageMarker(ctx, axisX, y, label, side) {
 
 /**
  * Draw boundary lines at canvas extremes with proper bounds checking
+ * Updated to use reactive coordinate transformations
  */
-function drawBoundaryLines(ctx, contentArea, axisX, state, y) {
+function drawBoundaryLines(ctx, contentArea, axisX, state, priceToY) {
   const { midPrice, projectedAdrHigh, projectedAdrLow } = state;
   const adrValue = projectedAdrHigh - projectedAdrLow;
   if (!midPrice || !adrValue) return;
@@ -272,8 +291,8 @@ function drawBoundaryLines(ctx, contentArea, axisX, state, y) {
   const highBoundary = midPrice + (adrRange * currentMaxAdr);
   const lowBoundary = midPrice - (adrRange * currentMaxAdr);
 
-  const highY = y(highBoundary);
-  const lowY = y(lowBoundary);
+  const highY = priceToY(highBoundary); // Using reactive coordinates
+  const lowY = priceToY(lowBoundary); // Using reactive coordinates
 
   // Clamp X coordinates to canvas bounds
   const minX = Math.max(0, 0);
@@ -300,8 +319,9 @@ function drawBoundaryLines(ctx, contentArea, axisX, state, y) {
 
 /**
  * Draw Price Markers (Open, High, Low, Current)
+ * Updated to use reactive coordinate transformations
  */
-function drawPriceMarkers(ctx, contentArea, axisX, state, y, digits) {
+function drawPriceMarkers(ctx, contentArea, axisX, state, priceToY, digits) {
   const { midPrice, currentPrice, todaysHigh, todaysLow } = state;
   
   ctx.save();
@@ -323,32 +343,32 @@ function drawPriceMarkers(ctx, contentArea, axisX, state, y, digits) {
     fillStyle: '#9CA3AF' // Light gray for price markers
   });
   
-  // Draw Open Price (always at center)
+  // Draw Open Price (always at center) - Using reactive coordinates
   if (midPrice !== undefined) {
-    const openY = y(midPrice);
+    const openY = priceToY(midPrice);
     drawPriceMarker(ctx, axisX, openY, `O ${formatPrice(midPrice, digits)}`, '#6B7280', 'right');
   }
-  
-  // Draw High Price
+
+  // Draw High Price - Using reactive coordinates
   if (todaysHigh !== undefined) {
-    const highY = y(todaysHigh);
+    const highY = priceToY(todaysHigh);
     if (boundsUtils.isYInBounds(highY, {}, { canvasArea: contentArea })) {
       drawPriceMarker(ctx, axisX, highY, `H ${formatPrice(todaysHigh, digits)}`, '#F59E0B', 'right');
     }
   }
-  
-  // Draw Low Price
+
+  // Draw Low Price - Using reactive coordinates
   if (todaysLow !== undefined) {
-    const lowY = y(todaysLow);
+    const lowY = priceToY(todaysLow);
     if (boundsUtils.isYInBounds(lowY, {}, { canvasArea: contentArea })) {
       drawPriceMarker(ctx, axisX, lowY, `L ${formatPrice(todaysLow, digits)}`, '#F59E0B', 'right');
     }
   }
 
-  
-  // Draw Current Price (emphasized)
+
+  // Draw Current Price (emphasized) - Using reactive coordinates
   if (currentPrice !== undefined) {
-    const currentY = y(currentPrice);
+    const currentY = priceToY(currentPrice);
     if (boundsUtils.isYInBounds(currentY, {}, { canvasArea: contentArea })) {
       drawPriceMarker(ctx, axisX, currentY, `C ${formatPrice(currentPrice, digits)}`, '#10B981', 'right');
     }

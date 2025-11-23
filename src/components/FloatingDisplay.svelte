@@ -24,6 +24,9 @@
   
   // 🔧 ZOOM AWARENESS: Import zoom detection utilities
   import { createZoomDetector } from '../utils/canvasSizing.js';
+
+  // ✅ CSS CLIP-PATH BOUNDS: Import coordinate store for reactive bounds
+  import { currentBounds, coordinateActions } from '../stores/coordinateStore.js';
   
   // Component props
   export let id;
@@ -59,7 +62,72 @@
   
   // Local state for interact.js instance
   let interactable = null;
-  
+
+  // ✅ CSS CLIP-PATH BOUNDS: Reactive clip-path calculation for Y-axis overflow prevention
+  let clipPathBounds = { top: 0, right: 0, bottom: 0, left: 0 };
+
+  // Enhanced Y-axis overflow detection with dynamic clipping
+  $: if (contentArea && state?.visualLow && state?.visualHigh && yScale) {
+    // Default: no clipping (show full container)
+    let topClip = 0;
+    let bottomClip = 0;
+
+    // Calculate Y positions for critical price levels
+    const extremeHighY = yScale(state.visualHigh * 1.5); // 150% of current high
+    const extremeLowY = yScale(state.visualLow * 0.5);  // 50% of current low
+    const adrHighY = yScale(state.projectedAdrHigh || state.visualHigh);
+    const adrLowY = yScale(state.projectedAdrLow || state.visualLow);
+
+    // Detect upward overflow (elements extending above container)
+    if (extremeHighY < -20) {
+      // Elements extend significantly above container - clip top portion
+      topClip = Math.abs(extremeHighY) + 10; // Add 10px buffer
+      topClip = Math.min(topClip, contentArea.height * 0.3); // Limit to 30% of height
+    }
+
+    // Detect downward overflow (elements extending below container)
+    if (extremeLowY > contentArea.height + 20) {
+      // Elements extend significantly below container - clip bottom portion
+      bottomClip = extremeLowY - contentArea.height + 10; // Add 10px buffer
+      bottomClip = Math.min(bottomClip, contentArea.height * 0.3); // Limit to 30% of height
+    }
+
+    // Apply more conservative clipping for ADR boundaries (essential trading info)
+    if (adrHighY < -10) {
+      // ADR high extends above - use minimal clipping
+      topClip = Math.max(topClip, Math.abs(adrHighY) + 5);
+    }
+    if (adrLowY > contentArea.height + 10) {
+      // ADR low extends below - use minimal clipping
+      bottomClip = Math.max(bottomClip, adrLowY - contentArea.height + 5);
+    }
+
+    // Update clip-path bounds
+    clipPathBounds = {
+      top: Math.round(topClip),
+      right: 0, // No horizontal clipping needed
+      bottom: Math.round(bottomClip),
+      left: 0   // No horizontal clipping needed
+    };
+
+    // Update coordinate store with current bounds for reactive transformations
+    coordinateActions.updatePriceRange({
+      midPrice: state.midPrice,
+      projectedAdrHigh: state.projectedAdrHigh,
+      projectedAdrLow: state.projectedAdrLow,
+      todaysHigh: state.todaysHigh,
+      todaysLow: state.todaysLow
+    });
+  } else {
+    // Fallback: no clipping when data unavailable
+    clipPathBounds = { top: 0, right: 0, bottom: 0, left: 0 };
+  }
+
+  // Reactive clip-path string for CSS with hardware acceleration
+  $: cssClipPath = clipPathBounds.top || clipPathBounds.bottom
+    ? `inset(${clipPathBounds.top}px ${clipPathBounds.right}px ${clipPathBounds.bottom}px ${clipPathBounds.left}px)`
+    : 'none'; // Use 'none' for better performance when no clipping needed
+
   // ✅ UNIFIED STORE: Simple store binding - no reactive conflicts
   $: display = $displays?.get(id);
   $: {
@@ -69,7 +137,7 @@
     isActive = display?.isActive || false;
     zIndex = display?.zIndex || 1;
     displaySize = display?.size || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct fallback size
-    
+
     }
   
   // Update markers from store
@@ -293,6 +361,12 @@
       // Update contentArea for reactive use
       contentArea = newContentArea;
 
+      // ✅ CSS CLIP-PATH BOUNDS: Update coordinate store with new container bounds
+      coordinateActions.updateBounds({
+        x: [0, contentArea.width],
+        y: [0, contentArea.height]
+      });
+
       // 🔧 PIXEL-PERFIX: Use integer canvas dimensions for crisp rendering
       const integerCanvasWidth = Math.round(contentArea.width * dpr);
       const integerCanvasHeight = Math.round(contentArea.height * dpr);
@@ -372,6 +446,12 @@
 
         // Update contentArea for reactive use
         contentArea = newContentArea;
+
+        // ✅ CSS CLIP-PATH BOUNDS: Initialize coordinate store with container bounds
+        coordinateActions.updateBounds({
+          x: [0, contentArea.width],
+          y: [0, contentArea.height]
+        });
 
         // 🔧 PIXEL-PERFECT: Use integer canvas dimensions for crisp rendering
         const integerCanvasWidth = Math.round(contentArea.width * dpr);
@@ -601,6 +681,7 @@
     <canvas
       bind:this={canvas}
       class="full-canvas"
+      style="clip-path: {cssClipPath};"
       on:contextmenu|preventDefault|stopPropagation={handleCanvasContextMenu}
     ></canvas>
     {:else}
@@ -645,6 +726,13 @@
     width: 100%;
     height: 100%;
     /* cursor removed - let interact.js control resize cursors */
+
+    /* ✅ CSS CLIP-PATH BOUNDS: Hardware acceleration for smooth clipping */
+    will-change: clip-path;
+    transform: translateZ(0); /* Force hardware acceleration */
+
+    /* Ensure clip-path transitions are smooth for resize events */
+    transition: clip-path 0.1s ease-out;
   }
 
   .loading {
