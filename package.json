@@ -41,7 +41,24 @@
     "test:unit:watch": "vitest watch",
     "test:unit:ui": "vitest --ui",
     "test:unit:coverage": "vitest run --coverage",
-    "test:all": "npm run test:unit && npm run test:e2e"
+    "test:all": "npm run test:unit && npm run test:e2e",
+    "test:live-trading": "node scripts/validate-live-trading.js",
+    "test:live:e2e": "playwright test e2e/complete-trader-workflow.spec.js",
+    "test:complete-workflow": "npm run test:live-trading && npm run test:live:e2e",
+
+    "pipeline": "node tests/pipeline/pipeline-runner.js",
+    "pipeline:dev": "node tests/pipeline/pipeline-runner.js --environment development",
+    "pipeline:prod": "node tests/pipeline/pipeline-runner.js --environment production",
+    "pipeline:headed": "node tests/pipeline/pipeline-runner.js --headed",
+    "pipeline:quick": "node tests/pipeline/pipeline-runner.js --skip-performance --skip-deployment",
+    "pipeline:phase:build": "node tests/pipeline/pipeline-runner.js --phase build",
+    "pipeline:phase:deployment": "node tests/pipeline/pipeline-runner.js --phase deployment",
+    "pipeline:phase:workflows": "node tests/pipeline/pipeline-runner.js --phase workflows --headed",
+    "pipeline:phase:performance": "node tests/pipeline/pipeline-runner.js --phase performance",
+    "test:build-validation": "node tests/pipeline/build-validation.spec.js",
+    "test:deployment-validation": "node tests/pipeline/deployment-testing.spec.js",
+    "test:workflow-validation": "node tests/pipeline/user-workflow-testing.spec.js",
+    "test:performance-regression": "node tests/pipeline/performance-regression-testing.spec.js"
   },
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",

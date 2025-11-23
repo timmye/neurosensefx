@@ -241,7 +241,7 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
       document.addEventListener(eventType, handleShortcutEvents);
     });
 
-      });
+  });
 
 
   // Handle workspace right-click

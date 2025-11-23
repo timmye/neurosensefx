@@ -239,6 +239,11 @@ function createActionForShortcut(id) {
 				document.dispatchEvent(new CustomEvent('navigateDisplay', { detail: { direction: 'down' } }));
 			};
 
+		case 'display.close':
+			return () => {
+				document.dispatchEvent(new CustomEvent('closeDisplay'));
+			};
+
 		// === QUICK ACTIONS ===
 		case 'quick.contextMenu':
 			return () => {

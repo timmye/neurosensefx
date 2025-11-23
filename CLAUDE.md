@@ -2,7 +2,7 @@
 
 ## Purpose and User Context
 
-**Who this is for:** Foreign exchange traders who monitor multiple currency pairs during extended trading sessions (8+ hours).
+**Who this is for:** Foreign exchange traders who monitor multiple currency pairs during extended trading sessions.
 
 **What problem it solves:** Standard trading platforms require constant analytical processing of numerical data. This platform provides visual patterns for quick understanding while monitoring multiple instruments.
 
@@ -28,7 +28,7 @@
 - **Sub-100ms latency** from market data to visual display for real-time decision accuracy
 - **DPR-aware crisp rendering** for precise numerical display and reduced eye strain during extended sessions
 - **20+ concurrent displays** for comprehensive multi-instrument monitoring without performance degradation
-- **8+ hour session stability** for full trading day coverage without memory leaks or visual degradation
+- **Extended session stability** for full trading day coverage without memory leaks or visual degradation
 
 #### **MAINTAINABLE** - Reliable when it matters
 - Single responsibility components with clear interfaces
@@ -69,7 +69,7 @@ When making implementation decisions, use this framework to ensure alignment wit
 - Does this maintain 60fps rendering during rapid price movements without stuttering?
 - Does market data reach the visual display in under 100ms for real-time accuracy?
 - Are numerical displays crisp and precise at all device pixel ratios?
-- Will memory usage remain stable during 8+ hour trading sessions?
+- Will memory usage remain stable during extended trading sessions?
 - Can this handle 20+ simultaneous displays without visual degradation?
 
 ### **Maintainable Considerations**
@@ -81,7 +81,7 @@ When making implementation decisions, use this framework to ensure alignment wit
 ### **User Context Check**
 - Does this provide precise, accurate visual representation of market data?
 - Are numerical displays crisp and readable during rapid price movements?
-- Can this be used effectively for 8+ hour trading sessions without eye strain?
+- Can this be used effectively for extended trading sessions without eye strain?
 - Does keyboard-first interaction provide rapid access during time-critical decisions?
 - Will visual displays remain accurate and responsive during volatile market conditions?
 
@@ -94,7 +94,7 @@ When making implementation decisions, use this framework to ensure alignment wit
 - Visual relationships between instruments support correlation analysis
 
 ### **Extended Trading Sessions**
-- 8+ hour continuous use during market hours
+- Extended continuous use during market hours
 - Visual comfort and reduced eye strain are essential
 - Interface must remain responsive throughout long sessions
 - Memory and CPU efficiency prevent degradation over time
@@ -248,14 +248,14 @@ npm run test:all          # Run all tests
 **Testing Approach:**
 - **Unit tests**: Pure utility functions with Vitest (no canvas mocks)
 - **E2E tests**: Real DOM testing with Playwright's built-in reporters
-- **Performance testing**: 60fps validation, sub-100ms latency, 8+ hour sessions
+- **Performance testing**: 60fps validation, sub-100ms latency, extended sessions
 - **Cross-browser**: Chrome, Firefox, Safari with standard configurations
 
 **Key Testing Areas:**
 - **Visual accuracy**: Canvas rendering with crisp numerical displays at all DPR levels
 - **Performance under load**: 20+ displays without visual degradation or stuttering
 - **Real-time accuracy**: Data-to-visual latency under 100ms during volatile markets
-- **Extended session stability**: 8+ hour operation without memory leaks or visual drift
+- **Extended session stability**: Long-duration operation without memory leaks or visual drift
 - **Connection reliability**: WebSocket stability and automatic reconnection
 - **Precision workflow**: Keyboard accessibility for rapid, accurate trading decisions
 

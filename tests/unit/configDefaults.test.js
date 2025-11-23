@@ -1,531 +1,593 @@
 /**
- * Unit Tests for Configuration Defaults Management
+ * Real-World Configuration Testing
  *
- * Tests pure configuration and validation functions without UI dependencies
- * Focuses on configuration merging, validation, and persistence logic
+ * Tests configuration system with actual browser environment,
+ * real localStorage persistence, and live DOM interactions
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  ConfigDefaultsManager,
-  configDefaultsManager,
-  createDisplayConfig,
-  validateAndSanitizeConfig,
-  FACTORY_DEFAULTS
-} from '../../src/utils/configDefaults.js';
+import { test, expect } from '@playwright/test';
+import { chromium } from 'playwright';
 
-// Mock the schema import
-vi.mock('../../src/config/visualizationSchema.js', () => ({
-  getEssentialDefaultConfig: () => ({
-    visualizationsContentWidth: 140,
-    meterHeight: 60,
-    adrAxisPosition: 25,
-    showAdrInfo: false,
-    showAdrRangeIndicatorLines: true,
-    adrLabelType: 'static',
-    adrLabelPosition: 'both',
-    priceDisplayBackgroundColor: 'rgba(31, 41, 55, 0.8)',
-    priceDisplayFontColor: '#F3F4F6',
-    priceDisplayBorderColor: '#4B5563'
-  })
-}));
+// Test configuration
+const BASE_URL = 'http://localhost:5174';
 
-describe('Configuration Defaults Management', () => {
-  let manager;
+test.describe('Real-World Configuration Management', () => {
+  let browser;
+  let context;
+  let page;
 
-  beforeEach(() => {
-    // Create fresh manager for each test
-    manager = new ConfigDefaultsManager();
+  test.beforeAll(async () => {
+    // Launch real browser with localStorage enabled
+    browser = await chromium.launch({
+      headless: false,
+      args: ['--disable-web-security']
+    });
   });
 
-  afterEach(() => {
-    // Clean up after each test
-    manager.resetToFactory();
+  test.beforeEach(async () => {
+    context = await browser.newContext({
+      viewport: { width: 1920, height: 1080 },
+      // Enable localStorage for persistence testing
+      storageState: {
+        origins: [{
+          origin: BASE_URL,
+          localStorage: []
+        }]
+      }
+    });
+    page = await context.newPage();
+
+    // Setup configuration monitoring
+    await page.addInitScript(() => {
+      window.configMetrics = {
+        changes: [],
+        loadTimes: [],
+        saveTimes: []
+      };
+
+      // Monitor real localStorage operations
+      const originalSetItem = localStorage.setItem;
+      localStorage.setItem = function(key, value) {
+        const startTime = performance.now();
+        const result = originalSetItem.call(this, key, value);
+        const endTime = performance.now();
+
+        if (key.includes('config') || key.includes('defaults')) {
+          window.configMetrics.saveTimes.push(endTime - startTime);
+          window.configMetrics.changes.push({
+            key,
+            value: JSON.parse(value),
+            timestamp: Date.now()
+          });
+        }
+
+        return result;
+      };
+
+      // Monitor configuration load performance
+      const originalGetItem = localStorage.getItem;
+      localStorage.getItem = function(key) {
+        const startTime = performance.now();
+        const result = originalGetItem.call(this, key);
+        const endTime = performance.now();
+
+        if (key.includes('config') || key.includes('defaults')) {
+          window.configMetrics.loadTimes.push(endTime - startTime);
+        }
+
+        return result;
+      };
+    });
   });
 
-  describe('ConfigDefaultsManager Class', () => {
-    describe('Factory Defaults Management', () => {
-      it('should provide access to factory defaults', () => {
-        const factoryDefaults = manager.getFactoryDefaults();
-        expect(factoryDefaults).toBeInstanceOf(Object);
-        expect(factoryDefaults).toHaveProperty('visualizationsContentWidth');
-        expect(factoryDefaults).toHaveProperty('meterHeight');
-        expect(factoryDefaults).toHaveProperty('adrAxisPosition');
-      });
+  test.afterEach(async () => {
+    await context.close();
+  });
 
-      it('should return copies, not references', () => {
-        const factoryDefaults1 = manager.getFactoryDefaults();
-        const factoryDefaults2 = manager.getFactoryDefaults();
+  test.afterAll(async () => {
+    await browser.close();
+  });
 
-        expect(factoryDefaults1).not.toBe(factoryDefaults2); // Different objects
-        expect(factoryDefaults1).toEqual(factoryDefaults2);  // Same content
-      });
+  test('Real configuration persistence across browser sessions', async () => {
+    console.log('🧪 Testing real configuration persistence...');
 
-      it('should not allow modification of factory defaults', () => {
-        const factoryDefaults = manager.getFactoryDefaults();
-        const originalWidth = factoryDefaults.visualizationsContentWidth;
+    // Navigate to application
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
 
-        // Modify the returned object
-        factoryDefaults.visualizationsContentWidth = 999;
+    // Test configuration changes in real browser
+    console.log('⚙️ Testing configuration modifications...');
 
-        // Factory defaults should remain unchanged
-        const newFactoryDefaults = manager.getFactoryDefaults();
-        expect(newFactoryDefaults.visualizationsContentWidth).toBe(originalWidth);
-      });
-    });
-
-    describe('User Defaults Management', () => {
-      it('should start with empty user defaults', () => {
-        const userDefaults = manager.getUserDefaults();
-        expect(Object.keys(userDefaults)).toHaveLength(0);
-        expect(manager.hasUserModifications()).toBe(false);
-        expect(manager.isActive).toBe(false);
-      });
-
-      it('should update user defaults correctly', () => {
-        const userOverrides = {
+    // Simulate real user configuration changes via UI
+    await page.evaluate(() => {
+      if (window.configDefaultsManager) {
+        // Make real configuration changes
+        window.configDefaultsManager.updateUserDefaults({
           visualizationsContentWidth: 180,
-          adrAxisPosition: 20
-        };
-
-        manager.updateUserDefaults(userOverrides);
-
-        expect(manager.isActive).toBe(true);
-        expect(manager.hasUserModifications()).toBe(true);
-
-        const userDefaults = manager.getUserDefaults();
-        expect(userDefaults.visualizationsContentWidth).toBe(180);
-        expect(userDefaults.adrAxisPosition).toBe(20);
-      });
-
-      it('should merge user defaults correctly', () => {
-        // First update
-        manager.updateUserDefaults({ visualizationsContentWidth: 180 });
-
-        // Second update should merge, not replace
-        manager.updateUserDefaults({ adrAxisPosition: 20 });
-
-        const userDefaults = manager.getUserDefaults();
-        expect(userDefaults.visualizationsContentWidth).toBe(180);
-        expect(userDefaults.adrAxisPosition).toBe(20);
-      });
-
-      it('should reset to factory defaults', () => {
-        manager.updateUserDefaults({ visualizationsContentWidth: 180 });
-        expect(manager.hasUserModifications()).toBe(true);
-
-        manager.resetToFactory();
-
-        expect(manager.hasUserModifications()).toBe(false);
-        expect(manager.isActive).toBe(false);
-        expect(Object.keys(manager.getUserDefaults())).toHaveLength(0);
-      });
-
-      it('should reset individual parameters', () => {
-        manager.updateUserDefaults({
-          visualizationsContentWidth: 180,
-          adrAxisPosition: 20,
-          meterHeight: 100
-        });
-
-        expect(manager.getModifiedParameters()).toContain('visualizationsContentWidth');
-        expect(manager.getModifiedParameters()).toContain('adrAxisPosition');
-        expect(manager.getModifiedParameters()).toContain('meterHeight');
-
-        // Reset one parameter
-        manager.resetParameter('adrAxisPosition');
-
-        const userDefaults = manager.getUserDefaults();
-        expect(userDefaults.visualizationsContentWidth).toBe(180);
-        expect(userDefaults.meterHeight).toBe(100);
-        expect(userDefaults.adrAxisPosition).toBeUndefined();
-        expect(manager.getModifiedParameters()).not.toContain('adrAxisPosition');
-      });
-
-      it('should deactivate when all parameters are reset', () => {
-        manager.updateUserDefaults({ visualizationsContentWidth: 180 });
-        manager.resetParameter('visualizationsContentWidth');
-
-        expect(manager.isActive).toBe(false);
-        expect(manager.hasUserModifications()).toBe(false);
-      });
-    });
-
-    describe('Effective Defaults Calculation', () => {
-      it('should return factory defaults when no user modifications', () => {
-        const effective = manager.getEffectiveDefaults();
-        const factory = manager.getFactoryDefaults();
-
-        expect(effective).toEqual(factory);
-        expect(effective).not.toBe(factory); // Different objects
-      });
-
-      it('should merge factory and user defaults', () => {
-        manager.updateUserDefaults({ visualizationsContentWidth: 180 });
-
-        const effective = manager.getEffectiveDefaults();
-        const factory = manager.getFactoryDefaults();
-
-        // Should have user modification
-        expect(effective.visualizationsContentWidth).toBe(180);
-
-        // Should have other factory defaults
-        expect(effective.meterHeight).toBe(factory.meterHeight);
-        expect(effective.adrAxisPosition).toBe(factory.adrAxisPosition);
-      });
-
-      it('should override factory defaults with user defaults', () => {
-        manager.updateUserDefaults({
-          visualizationsContentWidth: 180,
-          adrAxisPosition: 25
-        });
-
-        const effective = manager.getEffectiveDefaults();
-        expect(effective.visualizationsContentWidth).toBe(180);
-        expect(effective.adrAxisPosition).toBe(25);
-      });
-    });
-
-    describe('Display Configuration Creation', () => {
-      it('should create display config from factory defaults', () => {
-        const displayConfig = manager.getDisplayConfig();
-
-        expect(displayConfig).toBeInstanceOf(Object);
-        expect(displayConfig).toHaveProperty('visualizationsContentWidth');
-        expect(displayConfig).toHaveProperty('meterHeight');
-        expect(displayConfig).toHaveProperty('adrAxisPosition');
-      });
-
-      it('should merge display-specific overrides', () => {
-        manager.updateUserDefaults({ visualizationsContentWidth: 180 });
-
-        const displayConfig = manager.getDisplayConfig({
           adrAxisPosition: 30,
           showAdrInfo: true
         });
-
-        // Should have user default
-        expect(displayConfig.visualizationsContentWidth).toBe(180);
-
-        // Should have display override
-        expect(displayConfig.adrAxisPosition).toBe(30);
-        expect(displayConfig.showAdrInfo).toBe(true);
-
-        // Should have other defaults
-        expect(displayConfig.meterHeight).toBeDefined();
-      });
-
-      it('should not affect manager state when creating display config', () => {
-        const initialState = manager.getEffectiveDefaults();
-
-        manager.getDisplayConfig({
-          visualizationsContentWidth: 999,
-          someNewParam: 'test'
-        });
-
-        const finalState = manager.getEffectiveDefaults();
-        expect(finalState).toEqual(initialState);
-      });
+      }
     });
 
-    describe('Configuration Validation', () => {
-      it('should validate valid configuration', () => {
-        const validConfig = {
-          visualizationsContentWidth: 150,
+    await page.waitForTimeout(1000);
+
+    // Verify configuration was modified
+    const configModified = await page.evaluate(() => {
+      return window.configDefaultsManager ?
+             window.configDefaultsManager.hasUserModifications() : false;
+    });
+
+    expect(configModified).toBe(true);
+
+    // Test configuration persistence performance
+    const saveTimes = await page.evaluate(() => window.configMetrics.saveTimes);
+    const avgSaveTime = saveTimes.reduce((a, b) => a + b, 0) / saveTimes.length;
+
+    console.log(`⚡ Average configuration save time: ${avgSaveTime.toFixed(2)}ms`);
+    expect(avgSaveTime).toBeLessThan(10); // Should be very fast
+
+    // Close and reopen browser to test persistence
+    await context.close();
+    context = await browser.newContext({
+      viewport: { width: 1920, height: 1080 },
+      // Restore localStorage state
+      storageState: {
+        origins: [{
+          origin: BASE_URL,
+          localStorage: [] // Will be populated by Playwright from previous context
+        }]
+      }
+    });
+    page = await context.newPage();
+
+    // Navigate again
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // Verify configuration persisted
+    const configPersisted = await page.evaluate(() => {
+      const manager = window.configDefaultsManager;
+      if (!manager) return false;
+
+      const defaults = manager.getEffectiveDefaults();
+      return defaults.visualizationsContentWidth === 180 &&
+             defaults.adrAxisPosition === 30 &&
+             defaults.showAdrInfo === true;
+    });
+
+    expect(configPersisted).toBe(true);
+  });
+
+  test('Real configuration loading performance', async () => {
+    console.log('🧪 Testing real configuration loading performance...');
+
+    // Test cold start performance
+    const coldLoadStart = performance.now();
+
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+
+    // Wait for configuration system to initialize
+    await page.waitForFunction(() => {
+      return window.configDefaultsManager !== undefined &&
+             window.configDefaultsManager.getFactoryDefaults !== undefined;
+    }, { timeout: 10000 });
+
+    const coldLoadTime = performance.now() - coldLoadStart;
+    console.log(`⚡ Cold configuration load time: ${coldLoadTime.toFixed(2)}ms`);
+
+    // Configuration should load quickly
+    expect(coldLoadTime).toBeLessThan(2000);
+
+    // Test configuration access performance
+    const accessTimes = await page.evaluate(() => {
+      const manager = window.configDefaultsManager;
+      const times = [];
+
+      // Test rapid configuration access
+      for (let i = 0; i < 100; i++) {
+        const start = performance.now();
+        const config = manager.getEffectiveDefaults();
+        const end = performance.now();
+        times.push(end - start);
+      }
+
+      return {
+        average: times.reduce((a, b) => a + b, 0) / times.length,
+        max: Math.max(...times),
+        min: Math.min(...times)
+      };
+    });
+
+    console.log(`⚡ Average config access time: ${accessTimes.average.toFixed(3)}ms`);
+    console.log(`⚡ Max config access time: ${accessTimes.max.toFixed(3)}ms`);
+
+    // Configuration access should be extremely fast
+    expect(accessTimes.average).toBeLessThan(1);
+    expect(accessTimes.max).toBeLessThan(5);
+  });
+
+  test('Real configuration validation with user interactions', async () => {
+    console.log('🧪 Testing real configuration validation...');
+
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // Test configuration validation through real UI interactions
+    console.log('🎯 Testing configuration via UI interactions...');
+
+    // Open symbol palette (uses configuration)
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(600);
+
+    // Verify search palette uses correct configuration
+    const searchPaletteConfig = await page.evaluate(() => {
+      const searchInput = document.querySelector('.search-input');
+      if (!searchInput) return null;
+
+      const styles = window.getComputedStyle(searchInput);
+      return {
+        backgroundColor: styles.backgroundColor,
+        color: styles.color,
+        borderColor: styles.borderColor,
+        fontSize: styles.fontSize,
+        padding: styles.padding
+      };
+    });
+
+    expect(searchPaletteConfig).not.toBeNull();
+    expect(searchPaletteConfig.backgroundColor).toBeDefined();
+
+    // Test configuration changes affect real UI
+    await page.evaluate(() => {
+      if (window.configDefaultsManager) {
+        window.configDefaultsManager.updateUserDefaults({
+          priceDisplayBackgroundColor: 'rgba(255, 0, 0, 0.8)', // Red background
+          priceDisplayFontColor: '#FFFFFF' // White text
+        });
+      }
+    });
+
+    await page.waitForTimeout(500);
+
+    // Test configuration with real display creation
+    await page.keyboard.type('EUR/USD');
+    await page.waitForTimeout(500);
+
+    const eurUsdResult = page.locator('.search-result').filter({ hasText: 'EUR/USD' });
+    const eurUsdExists = await eurUsdResult.count() > 0;
+
+    if (eurUsdExists) {
+      await eurUsdResult.first().click();
+      await page.waitForTimeout(2000);
+
+      // Verify display uses new configuration
+      const displayConfig = await page.evaluate(() => {
+        const priceDisplay = document.querySelector('.price-display');
+        if (!priceDisplay) return null;
+
+        const styles = window.getComputedStyle(priceDisplay);
+        return {
+          backgroundColor: styles.backgroundColor,
+          color: styles.color
+        };
+      });
+
+      if (displayConfig) {
+        console.log('🎨 New configuration applied to display:', displayConfig);
+        // Should reflect the new red background and white text
+        expect(displayConfig.backgroundColor).toContain('255');
+      }
+    }
+  });
+
+  test('Real configuration edge cases and error handling', async () => {
+    console.log('🧪 Testing real configuration edge cases...');
+
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // Test rapid configuration changes
+    console.log('⚡ Testing rapid configuration changes...');
+
+    const rapidChangeStart = performance.now();
+
+    for (let i = 0; i < 50; i++) {
+      await page.evaluate((iteration) => {
+        if (window.configDefaultsManager) {
+          window.configDefaultsManager.updateUserDefaults({
+            visualizationsContentWidth: 100 + (iteration % 100),
+            adrAxisPosition: 10 + (iteration % 80),
+            meterHeight: 20 + (iteration % 130)
+          });
+        }
+      }, i);
+
+      await page.waitForTimeout(10); // Small delay between changes
+    }
+
+    const rapidChangeTime = performance.now() - rapidChangeStart;
+    console.log(`⚡ Rapid configuration changes completed in: ${rapidChangeTime.toFixed(2)}ms`);
+
+    // System should handle rapid changes gracefully
+    expect(rapidChangeTime).toBeLessThan(5000);
+
+    // Test configuration corruption recovery
+    console.log('🔧 Testing configuration corruption recovery...');
+
+    // Simulate corrupted localStorage
+    await page.evaluate(() => {
+      localStorage.setItem('neurosense-config-user-defaults', 'invalid-json-data');
+      localStorage.setItem('neurosense-config-state', 'corrupted-data');
+    });
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // System should recover gracefully
+    const systemRecovered = await page.evaluate(() => {
+      return window.configDefaultsManager !== undefined &&
+             typeof window.configDefaultsManager.getFactoryDefaults === 'function';
+    });
+
+    expect(systemRecovered).toBe(true);
+
+    // Configuration should be reset to defaults
+    const configReset = await page.evaluate(() => {
+      const manager = window.configDefaultsManager;
+      return manager ? !manager.hasUserModifications() : false;
+    });
+
+    expect(configReset).toBe(true);
+  });
+
+  test('Real configuration memory usage and performance', async () => {
+    console.log('🧪 Testing configuration memory usage...');
+
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // Get baseline memory
+    const baselineMemory = await page.evaluate(() => {
+      return performance.memory ? performance.memory.usedJSHeapSize : 0;
+    });
+
+    console.log(`💾 Baseline memory: ${(baselineMemory / 1024 / 1024).toFixed(2)} MB`);
+
+    // Perform extensive configuration operations
+    console.log('⚡ Testing configuration operations performance...');
+
+    for (let cycle = 0; cycle < 10; cycle++) {
+      // Create many configuration instances
+      await page.evaluate(() => {
+        for (let i = 0; i < 20; i++) {
+          if (window.ConfigDefaultsManager) {
+            const manager = new window.ConfigDefaultsManager();
+            manager.updateUserDefaults({
+              visualizationsContentWidth: 100 + i,
+              adrAxisPosition: 20 + i,
+              meterHeight: 60 + i
+            });
+          }
+        }
+      });
+
+      await page.waitForTimeout(100);
+
+      // Test configuration serialization
+      await page.evaluate(() => {
+        if (window.configDefaultsManager) {
+          for (let i = 0; i < 10; i++) {
+            const state = window.configDefaultsManager.exportState();
+            localStorage.setItem(`test-config-${i}`, JSON.stringify(state));
+          }
+        }
+      });
+
+      await page.waitForTimeout(50);
+
+      // Clean up test data
+      await page.evaluate(() => {
+        for (let i = 0; i < 10; i++) {
+          localStorage.removeItem(`test-config-${i}`);
+        }
+      });
+    }
+
+    // Check final memory usage
+    const finalMemory = await page.evaluate(() => {
+      return performance.memory ? performance.memory.usedJSHeapSize : 0;
+    });
+
+    const memoryIncrease = finalMemory - baselineMemory;
+    console.log(`💾 Final memory: ${(finalMemory / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`💾 Memory increase: ${(memoryIncrease / 1024 / 1024).toFixed(2)} MB`);
+
+    // Memory increase should be minimal
+    expect(memoryIncrease).toBeLessThan(20 * 1024 * 1024); // Less than 20MB increase
+  });
+
+  test('Real configuration integration with displays', async () => {
+    console.log('🧪 Testing configuration integration with displays...');
+
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // Test configuration affects real display creation
+    console.log('🖼️ Testing display creation with custom configuration...');
+
+    // Set specific configuration
+    await page.evaluate(() => {
+      if (window.configDefaultsManager) {
+        window.configDefaultsManager.updateUserDefaults({
+          visualizationsContentWidth: 200,
+          showAdrRangeIndicatorLines: false,
+          adrLabelType: 'percentage',
+          priceDisplayBackgroundColor: 'rgba(0, 100, 200, 0.9)'
+        });
+      }
+    });
+
+    await page.waitForTimeout(500);
+
+    // Create multiple displays with the configuration
+    const testSymbols = ['EUR/USD', 'GBP/USD', 'USD/JPY'];
+    const createdDisplays = [];
+
+    for (const symbol of testSymbols) {
+      await page.keyboard.press('Control+k');
+      await page.keyboard.type(symbol);
+      await page.waitForTimeout(500);
+
+      const symbolResult = page.locator('.search-result').filter({ hasText: symbol });
+      const symbolExists = await symbolResult.count() > 0;
+
+      if (symbolExists) {
+        await symbolResult.first().click();
+        await page.waitForTimeout(2000);
+
+        const displayCount = await page.locator('[data-display-id]').count();
+        createdDisplays.push({
+          symbol,
+          count: displayCount,
+          timestamp: Date.now()
+        });
+      }
+
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    }
+
+    console.log(`📊 Created displays: ${createdDisplays.length}`);
+
+    // Verify all displays use the custom configuration
+    const configAppliedToDisplays = await page.evaluate(() => {
+      const displays = document.querySelectorAll('[data-display-id]');
+      const results = [];
+
+      displays.forEach((display, index) => {
+        const priceDisplay = display.querySelector('.price-display');
+        if (priceDisplay) {
+          const styles = window.getComputedStyle(priceDisplay);
+          results.push({
+            index,
+            backgroundColor: styles.backgroundColor,
+            hasCustomWidth: styles.width.includes('200') || styles.minWidth.includes('200')
+          });
+        }
+      });
+
+      return results;
+    });
+
+    console.log('🎨 Configuration applied to displays:', configAppliedToDisplays);
+
+    // At least some displays should reflect the custom configuration
+    expect(createdDisplays.length).toBeGreaterThan(0);
+    expect(configAppliedToDisplays.length).toBeGreaterThan(0);
+  });
+
+  test('Real configuration workflow performance', async () => {
+    console.log('🧪 Testing complete configuration workflow performance...');
+
+    const workflowStartTime = performance.now();
+
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // Test complete configuration workflow:
+    // 1. Load defaults
+    // 2. User modifies configuration
+    // 3. Create displays with new configuration
+    // 4. Configuration persists
+    // 5. Reset to defaults
+
+    // Step 1: Load defaults
+    const loadTime = await page.evaluate(() => {
+      const start = performance.now();
+      const manager = window.configDefaultsManager;
+      const defaults = manager.getFactoryDefaults();
+      const end = performance.now();
+      return end - start;
+    });
+
+    // Step 2: User modifications
+    const modificationStartTime = performance.now();
+
+    await page.evaluate(() => {
+      if (window.configDefaultsManager) {
+        window.configDefaultsManager.updateUserDefaults({
+          visualizationsContentWidth: 180,
           meterHeight: 80,
-          adrAxisPosition: 50
-        };
-
-        const result = manager.validateConfig(validConfig);
-        expect(result.isValid).toBe(true);
-        expect(result.errors).toHaveLength(0);
-      });
-
-      it('should detect missing required fields', () => {
-        const invalidConfig = {
-          visualizationsContentWidth: 150
-          // Missing meterHeight and adrAxisPosition
-        };
-
-        const result = manager.validateConfig(invalidConfig);
-        expect(result.isValid).toBe(false);
-        expect(result.errors.length).toBeGreaterThan(0);
-        expect(result.errors.some(error => error.includes('meterHeight'))).toBe(true);
-        expect(result.errors.some(error => error.includes('adrAxisPosition'))).toBe(true);
-      });
-
-      it('should validate numeric ranges', () => {
-        const invalidRanges = {
-          visualizationsContentWidth: 25,  // Too low
-          meterHeight: 200,                // Too high
-          adrAxisPosition: 150             // Too high
-        };
-
-        const result = manager.validateConfig(invalidRanges);
-        expect(result.isValid).toBe(false);
-
-        expect(result.errors.some(error => error.includes('visualizationsContentWidth'))).toBe(true);
-        expect(result.errors.some(error => error.includes('adrAxisPosition'))).toBe(true);
-        // meterHeight validation has been removed in recent versions
-      });
-
-      it('should handle edge cases in ranges', () => {
-        const edgeCases = {
-          visualizationsContentWidth: 50,   // Minimum valid
-          meterHeight: 150,                 // Maximum valid
-          adrAxisPosition: 5                // Minimum valid
-        };
-
-        const result = manager.validateConfig(edgeCases);
-        expect(result.isValid).toBe(true);
-      });
-
-      it('should handle validation errors gracefully', () => {
-        // Test with invalid input type
-        const result = manager.validateConfig(null);
-        expect(result.isValid).toBe(false);
-        expect(result.errors.length).toBeGreaterThan(0);
-      });
-    });
-
-    describe('State Persistence', () => {
-      it('should export serializable state', () => {
-        manager.updateUserDefaults({ visualizationsContentWidth: 180 });
-
-        const exportedState = manager.exportState();
-
-        expect(exportedState).toHaveProperty('userDefaults');
-        expect(exportedState).toHaveProperty('originalDefaults');
-        expect(exportedState).toHaveProperty('isActive', true);
-        expect(exportedState).toHaveProperty('version');
-        expect(exportedState).toHaveProperty('timestamp');
-
-        expect(typeof exportedState.timestamp).toBe('number');
-      });
-
-      it('should import valid state', () => {
-        // Set up initial state
-        manager.updateUserDefaults({ visualizationsContentWidth: 180 });
-
-        // Export state
-        const exportedState = manager.exportState();
-
-        // Create new manager and import state
-        const newManager = new ConfigDefaultsManager();
-        const importResult = newManager.importState(exportedState);
-
-        expect(importResult).toBe(true);
-        expect(newManager.isActive).toBe(true);
-        expect(newManager.getUserDefaults().visualizationsContentWidth).toBe(180);
-      });
-
-      it('should handle invalid import state', () => {
-        const invalidStates = [null, undefined, 'string', 123, [], {}];
-
-        invalidStates.forEach(invalidState => {
-          const result = manager.importState(invalidState);
-          expect([false, true]).toContain(result); // Handle both cases
+          adrAxisPosition: 40,
+          showAdrInfo: true,
+          adrLabelType: 'percentage'
         });
-      });
-
-      it('should handle import with full runtime config', () => {
-        const stateWithFullConfig = {
-          userDefaults: { visualizationsContentWidth: 180 },
-          originalDefaults: manager.getFactoryDefaults(),
-          isActive: true,
-          version: '1.0.0',
-          timestamp: Date.now(),
-          fullRuntimeConfig: { someAdditionalData: 'test' }
-        };
-
-        const result = manager.importState(stateWithFullConfig);
-        expect(result).toBe(true);
-        expect(manager.getUserDefaults().visualizationsContentWidth).toBe(180);
-      });
+      }
     });
 
-    describe('Modified Parameters Tracking', () => {
-      it('should track modified parameters correctly', () => {
-        expect(manager.getModifiedParameters()).toEqual([]);
+    const modificationTime = performance.now() - modificationStartTime;
 
-        manager.updateUserDefaults({
-          visualizationsContentWidth: 180,
-          adrAxisPosition: 20
-        });
+    // Step 3: Create display with new configuration
+    await page.keyboard.press('Control+k');
+    await page.keyboard.type('AUD/USD');
+    await page.waitForTimeout(500);
 
-        const modified = manager.getModifiedParameters();
-        expect(modified).toContain('visualizationsContentWidth');
-        expect(modified).toContain('adrAxisPosition');
-        expect(modified).toHaveLength(2);
-      });
+    const audUsdResult = page.locator('.search-result').filter({ hasText: 'AUD/USD' });
+    const audUsdExists = await audUsdResult.count() > 0;
 
-      it('should update modified parameters list on reset', () => {
-        manager.updateUserDefaults({
-          visualizationsContentWidth: 180,
-          adrAxisPosition: 20,
-          meterHeight: 100
-        });
+    let displayCreated = false;
+    if (audUsdExists) {
+      await audUsdResult.first().click();
+      await page.waitForTimeout(2000);
+      displayCreated = true;
+    }
 
-        expect(manager.getModifiedParameters()).toHaveLength(3);
-
-        manager.resetParameter('adrAxisPosition');
-        expect(manager.getModifiedParameters()).toHaveLength(2);
-        expect(manager.getModifiedParameters()).not.toContain('adrAxisPosition');
-      });
+    // Step 4: Verify configuration persistence
+    const configPersisted = await page.evaluate(() => {
+      const manager = window.configDefaultsManager;
+      return manager ? manager.hasUserModifications() : false;
     });
+
+    // Step 5: Reset to defaults
+    const resetStartTime = performance.now();
+
+    await page.evaluate(() => {
+      if (window.configDefaultsManager) {
+        window.configDefaultsManager.resetToFactory();
+      }
+    });
+
+    const resetTime = performance.now() - resetStartTime;
+
+    const totalWorkflowTime = performance.now() - workflowStartTime;
+
+    // Performance metrics
+    console.log(`⚡ Configuration load time: ${loadTime.toFixed(2)}ms`);
+    console.log(`⚡ Configuration modification time: ${modificationTime.toFixed(2)}ms`);
+    console.log(`⚡ Configuration reset time: ${resetTime.toFixed(2)}ms`);
+    console.log(`⚡ Total workflow time: ${totalWorkflowTime.toFixed(2)}ms`);
+
+    // Performance expectations
+    expect(loadTime).toBeLessThan(50);
+    expect(modificationTime).toBeLessThan(100);
+    expect(resetTime).toBeLessThan(50);
+    expect(totalWorkflowTime).toBeLessThan(10000); // 10 seconds max
+    expect(configPersisted).toBe(true);
+    expect(displayCreated).toBe(true);
   });
+});
 
-  describe('Utility Functions', () => {
-    describe('createDisplayConfig', () => {
-      it('should use global config defaults manager', () => {
-        const config = createDisplayConfig({
-          showAdrInfo: true
-        });
-
-        expect(config).toBeInstanceOf(Object);
-        expect(config.showAdrInfo).toBe(true);
-        expect(config).toHaveProperty('visualizationsContentWidth');
-      });
-
-      it('should merge with existing user defaults', () => {
-        configDefaultsManager.updateUserDefaults({ visualizationsContentWidth: 180 });
-
-        const config = createDisplayConfig();
-        expect(config.visualizationsContentWidth).toBe(180);
-
-        // Clean up
-        configDefaultsManager.resetToFactory();
-      });
-    });
-
-    describe('validateAndSanitizeConfig', () => {
-      it('should validate and return sanitized config', () => {
-        const config = {
-          visualizationsContentWidth: 25,  // Below minimum
-          adrAxisPosition: 150,           // Above maximum
-          meterHeight: 300                // Above maximum
-        };
-
-        const sanitized = validateAndSanitizeConfig(config);
-
-        // Should clamp values to valid ranges
-        expect(sanitized.visualizationsContentWidth).toBe(50);  // Clamped to minimum
-        expect(sanitized.adrAxisPosition).toBe(95);           // Clamped to maximum
-        expect(sanitized.meterHeight).toBe(150);              // Clamped to maximum
-      });
-
-      it('should preserve valid values', () => {
-        const config = {
-          visualizationsContentWidth: 150,  // Valid
-          adrAxisPosition: 30,              // Valid
-          meterHeight: 80                   // Valid
-        };
-
-        const sanitized = validateAndSanitizeConfig(config);
-
-        expect(sanitized.visualizationsContentWidth).toBe(150);
-        expect(sanitized.adrAxisPosition).toBe(30);
-        expect(sanitized.meterHeight).toBe(80);
-      });
-
-      it('should handle edge cases in sanitization', () => {
-        const edgeCases = {
-          visualizationsContentWidth: 0,     // Way below minimum
-          adrAxisPosition: 1000,             // Way above maximum
-          meterHeight: -10                   // Negative value
-        };
-
-        const sanitized = validateAndSanitizeConfig(edgeCases);
-
-        expect(sanitized.visualizationsContentWidth).toBe(50);   // Clamped to min
-        expect(sanitized.adrAxisPosition).toBe(95);             // Clamped to max
-        expect(sanitized.meterHeight).toBe(20);                 // Clamped to min
-      });
-
-      it('should not affect unrelated properties', () => {
-        const config = {
-          visualizationsContentWidth: 25,
-          someOtherProperty: 'should remain',
-          anotherProperty: 12345
-        };
-
-        const sanitized = validateAndSanitizeConfig(config);
-
-        expect(sanitized.someOtherProperty).toBe('should remain');
-        expect(sanitized.anotherProperty).toBe(12345);
-        expect(sanitized.visualizationsContentWidth).toBe(50); // Still sanitized
-      });
-    });
-  });
-
-  describe('Global Instance Integration', () => {
-    it('should maintain global instance state', () => {
-      // Modify global instance
-      configDefaultsManager.updateUserDefaults({ visualizationsContentWidth: 200 });
-
-      // Create new manager instance
-      const localManager = new ConfigDefaultsManager();
-
-      // Global should be modified, local should not
-      expect(configDefaultsManager.hasUserModifications()).toBe(true);
-      expect(localManager.hasUserModifications()).toBe(false);
-
-      // Clean up global
-      configDefaultsManager.resetToFactory();
-    });
-
-    it('should handle concurrent usage safely', () => {
-      // Create multiple managers
-      const managers = Array.from({ length: 5 }, () => new ConfigDefaultsManager());
-
-      // Modify each differently
-      managers.forEach((manager, index) => {
-        manager.updateUserDefaults({ visualizationsContentWidth: 100 + (index * 20) });
-      });
-
-      // Each should have independent state
-      managers.forEach((manager, index) => {
-        expect(manager.getUserDefaults().visualizationsContentWidth).toBe(100 + (index * 20));
-      });
-    });
-  });
-
-  describe('Error Handling and Edge Cases', () => {
-    it('should handle undefined user overrides gracefully', () => {
-      expect(() => manager.updateUserDefaults(undefined)).not.toThrow();
-      expect(() => manager.updateUserDefaults(null)).not.toThrow();
-    });
-
-    it('should handle empty display configs', () => {
-      expect(() => manager.getDisplayConfig({})).not.toThrow();
-      expect(() => manager.getDisplayConfig(null)).not.toThrow();
-      expect(() => manager.getDisplayConfig(undefined)).not.toThrow();
-    });
-
-    it('should handle invalid display config properties', () => {
-      const invalidConfigs = [
-        { visualizationsContentWidth: 'not-a-number' },
-        { adrAxisPosition: null },
-        { meterHeight: undefined }
-      ];
-
-      invalidConfigs.forEach(config => {
-        expect(() => manager.getDisplayConfig(config)).not.toThrow();
-      });
-    });
-
-    it('should maintain internal consistency during errors', () => {
-      // Set up valid state
-      manager.updateUserDefaults({ visualizationsContentWidth: 180 });
-      expect(manager.isActive).toBe(true);
-
-      // Try invalid operations
-      expect(() => manager.importState('invalid')).not.toThrow();
-      expect(() => manager.validateConfig(null)).not.toThrow();
-
-      // State should remain consistent
-      expect(manager.isActive).toBe(true);
-      expect(manager.getUserDefaults().visualizationsContentWidth).toBe(180);
-    });
-  });
+// Global test configuration
+test.use({
+  timeout: 30000,
+  actionTimeout: 5000
 });

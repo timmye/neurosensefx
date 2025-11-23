@@ -192,6 +192,15 @@ export const DEFAULT_SHORTCUTS = {
 		priority: 2,
 		workflow: 'enhanced'
 	},
+	'display.close': {
+		key: 'Ctrl+Shift+W',
+		description: 'Close current/focused display',
+		category: SHORTCUT_CATEGORIES.DISPLAY,
+		contexts: [SHORTCUT_CONTEXTS.DISPLAY_FOCUSED],
+		priority: 1,
+		workflow: 'core',
+		implemented: true
+	},
 
 	// === QUICK ACTIONS (Phase 2) ===
 	'quick.contextMenu': {
@@ -345,16 +354,7 @@ export const DEFAULT_SHORTCUTS = {
 		implemented: true
 	},
 
-	// === EXISTING SHORTCUTS (to be migrated) ===
-	'legacy.newDisplay': {
-		key: 'Ctrl+N',
-		description: 'Create new display',
-		category: SHORTCUT_CATEGORIES.DISPLAY,
-		contexts: [SHORTCUT_CONTEXTS.GLOBAL],
-		priority: 1,
-		workflow: 'legacy'
-	}
-};
+	};
 
 /**
  * Workflow priorities for organizing shortcuts

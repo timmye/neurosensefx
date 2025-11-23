@@ -146,7 +146,7 @@ describe('Keyboard Core Functions', () => {
 ### **4. Financial Platform Specific**
 - **Multi-display**: Test 5-20 concurrent displays
 - **Real-time data**: WebSocket connection stability
-- **Extended sessions**: 8+ hour operation simulation
+- **Extended sessions**: Long-duration operation simulation
 - **Professional workflows**: Rapid response during active trading
 
 ---
