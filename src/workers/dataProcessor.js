@@ -75,6 +75,8 @@ function initialize(payload) {
             time: bar.timestamp,
             ticks: bar.volume ?? 1
         })),
+        // 🎯 PERFORMANCE MONITORING: Initialize performance tracking fields
+        lastDataReceiptTimestamp: null,
     };
 
     runCalculationsAndPostUpdate();
@@ -86,6 +88,8 @@ function processTick(rawTick) {
         return;
     }
 
+    // 🎯 PERFORMANCE MONITORING: Track data receipt timestamp for latency measurement
+    const dataReceiptTimestamp = performance.now();
     const tick = TickSchema.parse(rawTick);
     const lastPrice = state.currentPrice;
     state.currentPrice = tick.bid;
@@ -95,14 +99,17 @@ function processTick(rawTick) {
     state.lastTickTime = tick.timestamp; // TRADER-FOCUSED: Track real tick timestamp for data freshness
     state.todaysHigh = Math.max(state.todaysHigh, tick.bid);
     state.todaysLow = Math.min(state.todaysLow, tick.bid);
-    
+
     const magnitude = Math.abs(state.currentPrice - lastPrice) * Math.pow(10, localDigits);
     const now = performance.now();
     const newTick = { price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now, ticks: 1 };
-    
+
     state.ticks.push(newTick);
     state.allTicks.push(newTick);
     state.tickMagnitudes.push(magnitude);
+
+    // 🎯 PERFORMANCE MONITORING: Include data receipt timestamp for latency tracking
+    state.lastDataReceiptTimestamp = dataReceiptTimestamp;
 
     runCalculationsAndPostUpdate();
 }
@@ -236,8 +243,14 @@ function postStateUpdate() {
     console.log('[WORKER_DEBUG] Posting state update, state.ready:', state.ready);
     console.log('[WORKER_DEBUG] State hasPrice:', state.hasPrice);
     console.log('[WORKER_DEBUG] State sample:', { ready: state.ready, hasPrice: state.hasPrice, currentPrice: state.currentPrice });
-    
-    const result = VisualizationStateSchema.safeParse(state);
+
+    // Include data receipt timestamp for latency tracking
+    const stateWithTimestamp = {
+        ...state,
+        lastDataReceiptTimestamp: state.lastDataReceiptTimestamp || null
+    };
+
+    const result = VisualizationStateSchema.safeParse(stateWithTimestamp);
     if (result.success) {
         console.log('[WORKER_DEBUG] Schema validation passed, posting message');
         self.postMessage({

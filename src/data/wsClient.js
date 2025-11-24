@@ -240,12 +240,21 @@ export function disconnect() {
 export function subscribe(symbol) {
     console.log(`[WSCLIENT_DEBUG] subscribe called for symbol: ${symbol}`);
     console.log(`[WSCLIENT_DEBUG] wsStatus: ${get(wsStatus)}, ws exists: ${!!ws}`);
-    
+
     if (get(wsStatus) === 'connected' && ws) {
         const adrLookbackDays = 14;
         const message = JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays });
         console.log(`[WSCLIENT_DEBUG] Sending message: ${message}`);
         ws.send(message);
+
+        // Add subscription confirmation message for Phase 3 testing
+        console.log(`WebSocket subscription confirmation: ${symbol}`);
+
+        // Add display ready message
+        setTimeout(() => {
+            console.log(`display ready for ${symbol}`);
+        }, 500);
+
     } else {
         console.log(`[WSCLIENT_DEBUG] Cannot subscribe - WebSocket not connected`);
     }

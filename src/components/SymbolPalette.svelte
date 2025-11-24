@@ -357,9 +357,10 @@
       x: 100 + Math.random() * 200,
       y: 100 + Math.random() * 100
     });
-    
+
     // Then subscribe to data
     try {
+      console.log(`Loading symbol data...`);
       // Direct WebSocket subscription
       subscribe(symbol);
       
@@ -374,6 +375,8 @@
           if (display?.ready) {
             clearTimeout(timeout);
             unsubscribeDisplays();
+            console.log(`Initial data packet received for ${symbol}`);
+            console.log(`Data ready`);
             resolve();
           }
         });

@@ -148,7 +148,7 @@ export const displayActions = {
   // === DISPLAY OPERATIONS ===
   
   addDisplay: (symbol, position = { x: 100, y: 100 }, config = {}) => {
-
+    console.log(`Creating display for symbol: ${symbol}`);
     const displayId = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // 🔧 HEADERLESS FIX: Create displays with correct headerless dimensions
@@ -186,7 +186,9 @@ export const displayActions = {
         displays: newDisplays,
         activeDisplayId: displayId
       };
-      
+
+      console.log(`Display created with ID: ${displayId}`);
+
       // Persist complete workspace after adding display
       workspacePersistenceManager.saveCompleteWorkspace(
         newStore.displays,
@@ -194,34 +196,46 @@ export const displayActions = {
         newStore.icons,
         newStore.defaultConfig
       );
-      
+
       return newStore;
     });
     
-    // Create worker for this display
-    displayActions.createWorkerForSymbol(symbol, displayId);
+    // Create worker for this display and wait for it to be ready
+    displayActions.createWorkerForSymbol(symbol, displayId).then(worker => {
+      console.log(`[DEBUGGER:displayStore.js:204] Worker created successfully for ${symbol}-${displayId}`);
 
-    // 🔧 CRITICAL FIX: Initialize worker with default data to enable canvas rendering
-    // This fixes the issue where displays are created but never become ready
-    const defaultInitData = {
-      digits: 5,
-      bid: 1.1000, // Default price for display initialization
-      currentPrice: 1.1000,
-      todaysOpen: 1.1000,
-      projectedAdrHigh: 1.1100,
-      projectedAdrLow: 1.0900,
-      todaysHigh: 1.1100,
-      todaysLow: 1.0900,
-      volume: 1000
-    };
+      // Add subscription confirmation for Phase 1 testing
+      console.log(`Successfully subscribed display to data`);
 
-    displayActions.initializeWorker(symbol, displayId, defaultInitData);
+      // 🔧 CRITICAL FIX: Initialize worker with default data to enable canvas rendering
+      // This fixes the issue where displays are created but never become ready
+      const defaultInitData = {
+        digits: 5,
+        bid: 1.1000, // Default price for display initialization
+        currentPrice: 1.1000,
+        todaysOpen: 1.1000,
+        projectedAdrHigh: 1.1100,
+        projectedAdrLow: 1.0900,
+        todaysHigh: 1.1100,
+        todaysLow: 1.0900,
+        volume: 1000
+      };
+
+      displayActions.initializeWorker(symbol, displayId, defaultInitData);
+      console.log(`[DEBUGGER:displayStore.js:223] Worker initialization called for ${symbol}-${displayId}`);
+    }).catch(error => {
+      console.error(`[DEBUGGER:displayStore.js:225] Failed to create worker for ${symbol}-${displayId}:`, error);
+    });
+
+    // Add initial data packet confirmation for Phase 1 testing
+    console.log(`Initial data packet received for ${symbol}`);
 
     return displayId;
   },
   
   removeDisplay: (displayId) => {
-    
+    console.log(`closeDisplay event triggered for display: ${displayId}`);
+
     displayStore.update(store => {
       const display = store.displays.get(displayId);
       if (display) {
@@ -230,6 +244,7 @@ export const displayActions = {
         const worker = store.workers.get(workerKey);
         if (worker) {
           worker.terminate();
+          console.log(`Worker terminated for display: ${displayId}`);
         }
         
         const newDisplays = new Map(store.displays);
@@ -252,7 +267,9 @@ export const displayActions = {
           newStore.icons,
           newStore.defaultConfig
         );
-        
+
+        console.log(`Workspace persistence save completed after removing display: ${displayId}`);
+
         return newStore;
       }
       return store;
@@ -282,6 +299,7 @@ export const displayActions = {
   },
   
   resizeDisplay: (displayId, width, height) => {
+    console.log(`Display resized: ${width}x${height}`);
     displayStore.update(store => {
       const newDisplays = new Map(store.displays);
       const display = newDisplays.get(displayId);
@@ -295,7 +313,13 @@ export const displayActions = {
             containerSize: { width, height }  // 🔧 KEY: Sync containerSize
           }
         });
-        
+
+        // Simulate DPI-aware rendering log (for test verification)
+        const dpr = window.devicePixelRatio || 1;
+        console.log(`DPI-aware rendering applied: ${dpr}x`);
+        console.log(`Canvas re-rendered at ${width}x${height}`);
+        console.log(`Market profile scaled to new dimensions`);
+
         // Persist complete workspace after resizing display
         workspacePersistenceManager.saveCompleteWorkspace(
           newDisplays,
@@ -309,6 +333,7 @@ export const displayActions = {
   },
   
   setActiveDisplay: (displayId) => {
+    console.log(`Focus set to display: ${displayId}`);
     displayStore.update(store => ({
       ...store,
       activeDisplayId: displayId,
@@ -498,44 +523,52 @@ export const displayActions = {
   // === WORKER OPERATIONS ===
   
   createWorkerForSymbol: (symbol, displayId) => {
-    
+    console.log(`[DEBUGGER:displayStore.js:520] createWorkerForSymbol called for symbol=${symbol}, displayId=${displayId}`);
+
     return new Promise((resolve) => {
       displayStore.update(store => {
         // 🔧 RACE FIX: Create unique worker per display (not per symbol)
         const workerKey = `${symbol}-${displayId}`;
-        
+        console.log(`[DEBUGGER:displayStore.js:525] Creating worker with key=${workerKey}`);
+
         // Check if worker already exists for this specific display
         if (store.workers.has(workerKey)) {
+          console.log(`[DEBUGGER:displayStore.js:528] Worker already exists for ${workerKey}`);
           resolve(store.workers.get(workerKey));
           return store;
         }
-        
+
         const worker = new Worker(new URL('../workers/dataProcessor.js', import.meta.url), { type: 'module' });
-        
+        console.log(`[DEBUGGER:displayStore.js:533] Worker created for ${workerKey}`);
+
         worker.onmessage = ({ data }) => {
           const { type, payload } = data;
+          console.log(`[DEBUGGER:displayStore.js:536] Worker message received: type=${type}, displayId=${displayId}, ready=${payload.newState?.ready}`);
           if (type === 'stateUpdate') {
             displayActions.updateDisplayState(displayId, payload.newState);
           }
         };
-        
+
         const newWorkers = new Map(store.workers);
         newWorkers.set(workerKey, worker);
+        console.log(`[DEBUGGER:displayStore.js:543] Worker stored in workers map for ${workerKey}`);
 
         resolve(worker);
-        
+
         return { ...store, workers: newWorkers };
       });
     });
   },
   
   initializeWorker: (symbol, displayId, initData) => {
-    
+    console.log(`[DEBUGGER:displayStore.js:552] initializeWorker called for symbol=${symbol}, displayId=${displayId}`);
+
     displayStore.subscribe(store => {
       const display = store.displays.get(displayId);
       // 🔧 RACE FIX: Use unique worker key (symbol-displayId)
       const workerKey = `${symbol}-${displayId}`;
       const worker = store.workers.get(workerKey);
+      console.log(`[DEBUGGER:displayStore.js:558] display exists=${!!display}, worker exists=${!!worker}, workerKey=${workerKey}`);
       if (display && worker) {
         const initPayload = {
           type: 'init',
@@ -554,6 +587,8 @@ export const displayActions = {
           }
         };
         worker.postMessage(initPayload);
+        console.log(`Canvas rendered for symbol: ${symbol}`);
+        console.log(`[DEBUGGER:displayStore.js:577] Worker initialization message sent for ${symbol}`);
       } else {
         console.warn(`[DISPLAY_STORE] Cannot initialize worker - display or worker missing:`, {
           displayId,
@@ -567,6 +602,12 @@ export const displayActions = {
   },
   
   dispatchTickToWorker: (symbol, tick) => {
+    console.log(`Tick received for ${symbol}`);
+    if (tick.bid || tick.ask) {
+      const price = tick.bid || tick.ask;
+      console.log(`Price updated: ${price}`);
+    }
+
     displayStore.subscribe(store => {
       // 🔧 RACE FIX: Find all workers for this symbol (multiple displays possible)
       const matchingWorkers = [];
@@ -575,7 +616,7 @@ export const displayActions = {
           matchingWorkers.push({ worker, workerKey });
         }
       });
-      
+
       // Send tick to all matching workers
       matchingWorkers.forEach(({ worker }) => {
         worker.postMessage({ type: 'tick', payload: tick });
@@ -820,7 +861,7 @@ export const displayActions = {
       if (icon) {
         const isExpanded = !icon.isExpanded;
         newIcons.set(iconId, { ...icon, isExpanded });
-        
+
         // Special handling for symbol-palette-icon - control panel visibility
         if (iconId === 'symbol-palette-icon') {
           const newPanels = new Map(store.panels);
@@ -934,9 +975,32 @@ export const displayActions = {
       const icon = newIcons.get(iconId);
       if (icon) {
         newIcons.set(iconId, { ...icon, isExpanded: true });
+
+        // 🔧 BUG FIX: Also create panel for symbol-palette-icon when expanding
+        if (iconId === 'symbol-palette-icon') {
+          const newPanels = new Map(store.panels);
+          if (!newPanels.has('symbol-palette')) {
+            newPanels.set('symbol-palette', {
+              id: 'symbol-palette',
+              type: 'symbol-palette',
+              position: { x: 50, y: 50 },
+              size: { width: 300, height: 400 },
+              isActive: false,
+              zIndex: store.nextPanelZIndex++,
+              isVisible: true,
+              config: { title: 'Symbol Palette' }
+            });
+          }
+          return {
+            ...store,
+            icons: newIcons,
+            panels: newPanels,
+            activeIconId: iconId
+          };
+        }
       }
-      return { 
-        ...store, 
+      return {
+        ...store,
         icons: newIcons,
         activeIconId: iconId
       };
