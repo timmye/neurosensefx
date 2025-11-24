@@ -1,0 +1,230 @@
+# NeuroSense FX Production-Grade Docker Configuration
+# Optimized for professional trading environments with high performance and reliability
+
+version: '3.8'
+
+services:
+  # Frontend Service (Svelte + Vite)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      target: ${NODE_ENV:-production}
+    container_name: neurosensefx-frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - VITE_DEV=false
+      - VITE_BACKEND_URL=ws://backend:8080
+    ports:
+      - "4173:4173"
+    volumes:
+      # Mount only necessary files for production
+      - ./dist:/app/dist:ro
+      - ./public:/app/public:ro
+    depends_on:
+      - backend
+    networks:
+      - neurosensefx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+
+  # Backend Service (Node.js + WebSocket + cTrader)
+  backend:
+    build:
+      context: ./services/tick-backend
+      dockerfile: Dockerfile
+    container_name: neurosensefx-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - WS_PORT=8080
+      # cTrader Configuration (mounted from secrets)
+      - CTRADER_CLIENT_ID_FILE=/run/secrets/ctrader_client_id
+      - CTRADER_CLIENT_SECRET_FILE=/run/secrets/ctrader_client_secret
+      - CTRADER_ACCESS_TOKEN_FILE=/run/secrets/ctrader_access_token
+      - CTRADER_REFRESH_TOKEN_FILE=/run/secrets/ctrader_refresh_token
+      - CTRADER_ACCOUNT_ID_FILE=/run/secrets/ctrader_account_id
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      # Log volume for persistence and monitoring
+      - backend-logs:/app/logs
+      # cTrader library (mounted read-only for security)
+      - ./libs/cTrader-Layer:/app/libs/cTrader-Layer:ro
+    networks:
+      - neurosensefx-network
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    secrets:
+      - ctrader_client_id
+      - ctrader_client_secret
+      - ctrader_access_token
+      - ctrader_refresh_token
+      - ctrader_account_id
+
+  # Redis for session caching and performance optimization
+  redis:
+    image: redis:7-alpine
+    container_name: neurosensefx-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - neurosensefx-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Nginx Reverse Proxy with SSL termination
+  nginx:
+    image: nginx:alpine
+    container_name: neurosensefx-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/sites-available:/etc/nginx/sites-available:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - neurosensefx-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring and Logging
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: neurosensefx-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - neurosensefx-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: neurosensefx-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-neurosensefx123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - neurosensefx-network
+
+  # Performance Testing Container (development use)
+  performance-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.performance
+    container_name: neurosensefx-perf-test
+    profiles:
+      - testing
+    environment:
+      - TARGET_URL=http://nginx
+      - TEST_DURATION=60s
+      - CONCURRENT_USERS=10
+    depends_on:
+      - nginx
+    networks:
+      - neurosensefx-network
+    command: ["tail", "-f", "/dev/null"]  # Keep running for manual testing
+
+# Networks
+networks:
+  neurosensefx-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes for data persistence
+volumes:
+  backend-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/neurosensefx/logs/backend
+  redis-data:
+    driver: local
+  nginx-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/neurosensefx/logs/nginx
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# Secrets for sensitive configuration
+secrets:
+  ctrader_client_id:
+    file: ./secrets/ctrader_client_id.txt
+  ctrader_client_secret:
+    file: ./secrets/ctrader_client_secret.txt
+  ctrader_access_token:
+    file: ./secrets/ctrader_access_token.txt
+  ctrader_refresh_token:
+    file: ./secrets/ctrader_refresh_token.txt
+  ctrader_account_id:
+    file: ./secrets/ctrader_account_id.txt

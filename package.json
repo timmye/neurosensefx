@@ -45,7 +45,6 @@
     "test:live-trading": "node scripts/validate-live-trading.js",
     "test:live:e2e": "playwright test e2e/complete-trader-workflow.spec.js",
     "test:complete-workflow": "npm run test:live-trading && npm run test:live:e2e",
-
     "pipeline": "node tests/pipeline/pipeline-runner.js",
     "pipeline:dev": "node tests/pipeline/pipeline-runner.js --environment development",
     "pipeline:prod": "node tests/pipeline/pipeline-runner.js --environment production",
@@ -63,6 +62,7 @@
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
     "d3": "^7.9.0",
+    "d3-scale": "^4.0.2",
     "interactjs": "^1.10.27",
     "svelte": "^4.2.7",
     "ws": "^8.18.3",

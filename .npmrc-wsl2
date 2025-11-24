@@ -1,0 +1,26 @@
+# WSL2-specific npm configuration
+# Reduce concurrent operations to prevent inode exhaustion
+maxsockets=3
+
+# Disable npm cache to reduce I/O pressure
+cache=/tmp/npm-cache
+
+# Use flat dependencies to reduce nesting depth
+legacy-bundling=false
+flat=true
+
+# Timeout settings for WSL2 I/O delays
+fetch-timeout=60000
+fetch-retry-mintimeout=20000
+fetch-retry-maxtimeout=120000
+
+# Reduce parallel operations
+progress=false
+
+# WSL2 filesystem specific settings
+bin-links=false
+optional=false
+strict-ssl=false
+
+# Prevent atomic writes that fail on 9P filesystem
+force=true

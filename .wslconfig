@@ -1,0 +1,30 @@
+[wsl2]
+# Memory allocation optimized for Node.js and npm operations
+memory=6GB
+swap=8GB
+
+# CPU allocation for concurrent development tasks
+processors=4
+
+# Networking optimizations
+localhostForwarding=true
+dnsTunneling=true
+firewall=false
+autoProxy=true
+
+# Experimental performance features
+experimental=true
+nestedVirtualization=true
+
+# Virtualization and I/O optimizations
+vmVirtioMemoryMappedDeviceEnabled=true
+vmVirtioSharedMemoryEnabled=true
+
+# Kernel optimizations for WSL2
+kernelCommandLine = "sysctl.vm.max_map_count=262144"
+
+# Page file settings for better memory management
+pageFileSize=4GB
+
+# Filesystem performance tuning
+# These settings help mitigate 9P filesystem limitations
