@@ -22,7 +22,8 @@
       "Bash(npm run build)",
       "Bash(npx playwright test:*)",
       "Bash(/tmp/test-script.js:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
