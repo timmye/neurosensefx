@@ -1,0 +1,29 @@
+# Development Backend Dockerfile
+# Optimized for hot reload and debugging
+
+FROM node:18-alpine
+WORKDIR /app
+
+# Install development tools
+RUN apk add --no-cache curl tini bash
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Create logs directory
+RUN mkdir -p logs
+
+# Expose ports
+EXPOSE 8080 9229
+
+# Health check
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+# Use tini as init process
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["npm", "run", "dev"]

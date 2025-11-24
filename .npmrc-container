@@ -1,0 +1,10 @@
+maxsockets=2
+prefer-online=true
+bin-links=false
+omit=optional
+progress=false
+cache=/tmp/npm-cache
+tmp=/tmp/npm-tmp
+dedupe=false
+install-strategy=shallow
+force=true
