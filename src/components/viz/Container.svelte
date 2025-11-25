@@ -13,13 +13,7 @@
   import { writable } from 'svelte/store';
   import { Environment, EnvironmentConfig } from '../../lib/utils/environmentUtils.js';
     
-  // Debug: Verify imports are working
-  console.log('[Container] Imports loaded:', {
-    drawVolatilityOrb: typeof drawVolatilityOrb,
-    drawDayRangeMeter: typeof drawDayRangeMeter,
-    drawMarketProfile: typeof drawMarketProfile
-  });
-
+  
   // 🔧 UNIFIED SIZING: Import canvas sizing utilities
   import { createCanvasSizingConfig, configureCanvasContext, CANVAS_CONSTANTS, boundsUtils, createZoomDetector } from '../../utils/canvasSizing.js';
 
@@ -33,6 +27,9 @@
   let y; // Declare y scale at top level to be accessible everywhere
 
   let markers = []; // Local variable to hold markers from store
+  let canvasReady = false;
+  let canvasError = false;
+  let frameTimeHistory = [];
   // State for flash animation
   let flashOpacity = 0;
   let flashDuration = 300; // ms
@@ -50,22 +47,21 @@
   onMount(() => {
     ctx = canvas.getContext('2d');
     dpr = window.devicePixelRatio || 1;
+    canvasReady = true;
+    canvasError = false;
 
   
     // 🔧 ZOOM AWARENESS: Initialize zoom detector
     const cleanupZoomDetector = createZoomDetector((newDpr) => {
-      console.log(`[CONTAINER_ZOOM_AWARENESS] DPR changed to ${newDpr}`);
       dpr = newDpr;
 
-  
+
       // Recalculate canvas sizing with new DPR
       if (config) {
         const containerSize = config.containerSize || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct default
         canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
-          includeHeader: true,
-          padding: config.padding,
-          headerHeight: config.headerHeight,
-          respectDpr: true
+          padding: 0,           // ✅ NO PADDING in headerless design
+          respectDpr: true      // ✅ DPR-aware crisp rendering
         });
 
         // Update canvas with new dimensions (no configureCanvasContext call - scaling done in draw)
@@ -76,11 +72,6 @@
         // 🔧 CRITICAL FIX: Set CSS dimensions to match container exactly
         canvas.style.width = canvasDims.cssWidth + 'px';
         canvas.style.height = canvasDims.cssHeight + 'px';
-
-        console.log(`[CONTAINER_ZOOM_AWARENESS] Canvas updated for new DPR:`, {
-          newDpr,
-          canvasDimensions: `${canvasDims.width}x${canvasDims.height}`
-        });
       }
     });
 
@@ -88,7 +79,6 @@
     onDestroy(() => {
       cleanupStartTime = performance.now();
 
-      console.log(`[PHASE_5_CLEANUP] Starting cleanup for display: ${id}`);
 
       // Cleanup phase tracking
       const cleanupPhases = {
@@ -104,7 +94,6 @@
         if (cleanupZoomDetector) {
           cleanupZoomDetector();
           cleanupPhases.zoomDetector = true;
-          console.log(`[PHASE_5_CLEANUP] Zoom detector cleanup completed for display: ${id}`);
         }
       } catch (error) {
         console.error(`[PHASE_5_CLEANUP_ERROR] Zoom detector cleanup failed for display: ${id}`, error);
@@ -117,7 +106,6 @@
           ctx.clearRect(0, 0, canvas?.width || 0, canvas?.height || 0);
           ctx = null;
           cleanupPhases.canvasContext = true;
-          console.log(`[PHASE_5_CLEANUP] Canvas context cleanup completed for display: ${id}`);
         }
       } catch (error) {
         console.error(`[PHASE_5_CLEANUP_ERROR] Canvas context cleanup failed for display: ${id}`, error);
@@ -128,7 +116,6 @@
         if (canvas) {
           canvas.removeEventListener('contextmenu', handleCanvasContextMenu);
           cleanupPhases.eventListeners = true;
-          console.log(`[PHASE_5_CLEANUP] Event listener cleanup completed for display: ${id}`);
         }
       } catch (error) {
         console.error(`[PHASE_5_CLEANUP_ERROR] Event listener cleanup failed for display: ${id}`, error);
@@ -136,20 +123,12 @@
 
       // Phase 4: Memory cleanup tracking
       try {
-        const cleanupMemoryStart = performance.memory?.usedJSHeapSize || null;
-
         // Clear performance tracking arrays to free memory
         frameRateHistory = [];
         performanceHistory = [];
         driftHistory = [];
 
-        const cleanupMemoryEnd = performance.memory?.usedJSHeapSize || null;
         cleanupPhases.memoryCleanup = true;
-
-        if (cleanupMemoryStart && cleanupMemoryEnd) {
-          const memoryFreed = cleanupMemoryStart - cleanupMemoryEnd;
-          console.log(`[PHASE_5_CLEANUP] Memory cleanup completed for display: ${id}, freed: ${Math.round(memoryFreed / 1024)} KB`);
-        }
       } catch (error) {
         console.error(`[PHASE_5_CLEANUP_ERROR] Memory cleanup failed for display: ${id}`, error);
       }
@@ -170,55 +149,29 @@
           workerActive = false;
 
           cleanupPhases.workerTermination = true;
-          console.log(`[PHASE_5_CLEANUP] Orphaned worker terminated for display: ${id}`);
         } else {
           cleanupPhases.workerTermination = true;
-          console.log(`[PHASE_5_CLEANUP] No active workers to terminate for display: ${id}`);
         }
       } catch (error) {
         console.error(`[PHASE_5_CLEANUP_ERROR] Worker termination failed for display: ${id}`, error);
       }
-
-      // Final cleanup summary
-      const cleanupDuration = performance.now() - cleanupStartTime;
-      const successfulPhases = Object.values(cleanupPhases).filter(Boolean).length;
-      const totalPhases = Object.keys(cleanupPhases).length;
-
-      console.log(`[PHASE_5_CLEANUP_SUMMARY] Cleanup completed for display: ${id}`, {
-        duration: `${Math.round(cleanupDuration)}ms`,
-        successfulPhases: `${successfulPhases}/${totalPhases}`,
-        phases: cleanupPhases,
-        finalMemoryState: performance.memory ? {
-          usedMB: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
-          totalMB: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024)
-        } : 'unavailable'
-      });
-
-      // Log any cleanup failures for Phase 5 testing
-      if (successfulPhases < totalPhases) {
-        console.error(`[PHASE_5_CLEANUP_INCOMPLETE] Some cleanup phases failed for display: ${id}`, {
-          failedPhases: Object.entries(cleanupPhases)
-            .filter(([_, success]) => !success)
-            .map(([phase]) => phase)
-        });
-      }
     });
   });
 
-  // 🔧 CLEAN FOUNDATION: Container → Content → Rendering pipeline
+  // 🔧 UNIFIED PRECISION: Full container dimensions for headerless design
   $: if (canvas && config) {
     // 1. Container layer - physical dimensions
-    const containerSize = config.containerSize || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct default
-    
-    // 2. Content area - derived from container
+    const containerSize = config.containerSize || { width: 220, height: 120 };
+
+    // 2. Content area - FULL CONTAINER for headerless design (matches FloatingDisplay.svelte)
     const contentArea = {
-      width: containerSize.width - (config.padding * 2),
-      height: containerSize.height - config.headerHeight - config.padding
+      width: containerSize.width,   // ✅ FULL WIDTH (no padding)
+      height: containerSize.height  // ✅ FULL HEIGHT (no header, no padding)
     };
-    
+
     // 3. ADR axis - positioned relative to content
     const adrAxisX = contentArea.width * config.adrAxisPosition;
-    
+
     // 4. Create rendering context for visualizations
     renderingContext = {
       containerSize,
@@ -229,13 +182,11 @@
       meterHeight: contentArea.height,
       adrAxisXPosition: adrAxisX
     };
-    
-    // Create unified canvas sizing configuration
+
+    // Create unified canvas sizing configuration with padding=0 for headerless design
     canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
-      includeHeader: true,
-      padding: config.padding,
-      headerHeight: config.headerHeight,
-      respectDpr: true
+      padding: 0,           // ✅ NO PADDING in headerless design
+      respectDpr: true      // ✅ DPR-aware crisp rendering
     });
     
     // Set canvas dimensions first
@@ -247,8 +198,7 @@
     canvas.style.width = canvasDims.cssWidth + 'px';
     canvas.style.height = canvasDims.cssHeight + 'px';
 
-    console.log('[CONTAINER] Clean foundation renderingContext:', renderingContext);
-  }
+      }
 
   // 🌍 ENVIRONMENT INDICATOR: Reactive environment detection and tooltip generation
   $: {
@@ -274,8 +224,6 @@
 
     // 🎨 CANVAS CONTEXT MENU: Direct handler for canvas right-click (Svelte approach)
   function handleCanvasContextMenu(event) {
-    console.log('🎨 [CONTAINER] Canvas context menu triggered (Svelte handler)');
-
     // Create canvas context
     const context = {
       type: 'canvas',
@@ -332,7 +280,6 @@
     baselineMemoryUsage = performance.memory?.usedJSHeapSize || null;
     lastFrameTimestamp = performance.now();
     lastMemoryCheck = performance.now();
-    console.log('[PERF_MONITOR] Performance monitoring initialized for display:', id);
   }
 
   // 🎯 PERFORMANCE MONITORING: Track and log frame rate (60fps verification)
@@ -347,18 +294,6 @@
       if (frameRateHistory.length > 60) {
         frameRateHistory.shift();
       }
-
-      // Calculate average FPS over recent frames
-      const avgFPS = frameRateHistory.reduce((sum, fps) => sum + fps, 0) / frameRateHistory.length;
-
-      // Log 60fps verification every 60 frames (1 second at 60fps)
-      if (performanceFrameCount % 60 === 0) {
-        if (avgFPS >= 58) { // Allow small tolerance
-          console.log(`60fps rendering verified: ${avgFPS.toFixed(1)}fps`);
-        } else {
-          console.log(`Frame rate dropped below 60fps: ${avgFPS.toFixed(1)}fps`);
-        }
-      }
     }
     lastFrameTimestamp = now;
     performanceFrameCount++;
@@ -369,13 +304,6 @@
     if (currentState?.lastDataReceiptTimestamp) {
       const renderCompletionTime = performance.now();
       const latency = renderCompletionTime - currentState.lastDataReceiptTimestamp;
-
-      // Log latency according to specification
-      if (latency > 100) {
-        console.log(`Latency warning: ${latency.toFixed(1)}ms exceeded 100ms threshold`);
-      } else {
-        console.log(`Sub-100ms latency achieved: ${latency.toFixed(1)}ms`);
-      }
 
       // Store latency for performance history
       performanceHistory.push({
@@ -403,18 +331,10 @@
 
     if (baselineMemoryUsage === null) {
       baselineMemoryUsage = currentMemory;
-      console.log(`Memory usage stable: ${(currentMemory / 1024 / 1024).toFixed(1)}MB`);
       return;
     }
 
     const memoryGrowth = (currentMemory - baselineMemoryUsage) / 1024 / 1024; // Convert to MB
-
-    // Log memory warnings according to specification
-    if (memoryGrowth > 10) { // More than 10MB growth
-      console.log(`Memory leak warning: ${memoryGrowth.toFixed(1)}MB growth detected`);
-    } else {
-      console.log(`Memory usage stable: ${(currentMemory / 1024 / 1024).toFixed(1)}MB`);
-    }
 
     // Store memory for performance history
     performanceHistory.push({
@@ -425,56 +345,7 @@
     });
   }
 
-  // 🎯 PERFORMANCE MONITORING: Performance threshold logging
-  function logPerformanceThresholds(totalTime, renderingStats) {
-    const thresholds = {
-      renderTime: 16.67, // 60fps threshold
-      memoryGrowth: 10, // 10MB
-      latency: 100 // 100ms
-    };
-
-    let violations = [];
-
-    if (totalTime > thresholds.renderTime) {
-      violations.push(`render time ${totalTime.toFixed(1)}ms > ${thresholds.renderTime}ms`);
-    }
-
-    // Check recent performance data
-    const recentLatency = performanceHistory
-      .filter(p => p.type === 'latency')
-      .slice(-10)
-      .map(p => p.latency);
-
-    if (recentLatency.length > 0) {
-      const avgLatency = recentLatency.reduce((sum, lat) => sum + lat, 0) / recentLatency.length;
-      if (avgLatency > thresholds.latency) {
-        violations.push(`latency ${avgLatency.toFixed(1)}ms > ${thresholds.latency}ms`);
-      }
-    }
-
-    const recentMemory = performanceHistory
-      .filter(p => p.type === 'memory')
-      .slice(-5);
-
-    if (recentMemory.length > 1) {
-      const memoryGrowth = recentMemory[recentMemory.length - 1].memoryGrowth || 0;
-      if (memoryGrowth > thresholds.memoryGrowth) {
-        violations.push(`memory growth ${memoryGrowth.toFixed(1)}MB > ${thresholds.memoryGrowth}MB`);
-      }
-    }
-
-    // Log any threshold violations
-    if (violations.length > 0) {
-      console.warn('[PERF_MONITOR] Performance threshold violations detected:', {
-        displayId: id,
-        violations,
-        totalTime,
-        frameCount: performanceFrameCount,
-        timestamp: performance.now()
-      });
-    }
-  }
-
+  
   function draw(currentState, currentRenderingContext, currentMarkers) {
     // 🔧 ARCHITECTURAL FIX: Error boundaries around canvas operations
     if (!ctx || !currentState || !currentRenderingContext) return;
@@ -549,18 +420,10 @@
           timeDelta: startTime - lastPositionSnapshot.timestamp
         };
 
-        // Log significant position changes (>0.1px or timing >100ms)
+        // Track significant position changes (>0.1px or timing >100ms) but don't log during normal operation
         if (Math.abs(positionDelta.leftDelta) > 0.1 ||
             Math.abs(positionDelta.topDelta) > 0.1 ||
             Math.abs(positionDelta.timeDelta) > 100) {
-
-          console.warn('[DEBUGGER:DRIFT:Container:draw] Position drift detected:', {
-            displayId: id,
-            positionDelta,
-            currentSnapshot: positionSnapshot,
-            previousSnapshot: lastPositionSnapshot,
-            cause: 'Position change detected between render frames'
-          });
 
           driftHistory.push({
             timestamp: startTime,
@@ -595,14 +458,7 @@
       dprApplied: canvasSizingConfig?.dimensions?.dpr || 1
     };
 
-    if (renderFrameCount % 60 === 0) { // Log every 60 frames
-      console.log('[DEBUGGER:Container:draw] Transform monitoring:', {
-        displayId: id,
-        frameCount: renderFrameCount,
-        transformChange
-      });
-    }
-
+    
     // 🔧 CLEAN FOUNDATION: Use rendering context for all operations
     const { contentArea, adrAxisX } = currentRenderingContext;
 
@@ -641,17 +497,7 @@
       return index % 4 !== 3 && pixel !== clearBefore.data[index]; // Ignore alpha channel
     });
 
-    if (!canvasCleared && clearTime > 1) {
-      console.warn('[DEBUGGER:Container:draw] Canvas clearing anomaly:', {
-        displayId: id,
-        frameCount: renderFrameCount,
-        clearTime,
-        canvasCleared,
-        beforeSize: clearBefore.data.length,
-        afterSize: clearAfter.data.length
-      });
-    }
-
+    
     // --- Draw Core Visualizations ---
     // 🔧 CLEAN FOUNDATION: Pass rendering context to all visualization functions
 
@@ -659,23 +505,12 @@
     const vizTimers = new Map();
 
     // --- Draw Volatility Orb (Background Layer - MUST be first) ---
-    console.log('[Container] About to call drawVolatilityOrb:', {
-      drawVolatilityOrbExists: typeof drawVolatilityOrb,
-      hasCtx: !!ctx,
-      hasRenderingContext: !!currentRenderingContext,
-      hasConfig: !!config,
-      hasState: !!currentState,
-      showVolatilityOrb: config?.showVolatilityOrb,
-      stateHasVolatility: 'volatility' in (currentState || {}),
-      stateVolatility: currentState?.volatility
-    });
 
     try {
       const vizStart = performance.now();
       drawVolatilityOrb(ctx, currentRenderingContext, config, currentState, y);
       const vizTime = performance.now() - vizStart;
       vizTimers.set('volatilityOrb', vizTime);
-      console.log('Volatility orb updated');
     } catch (error) {
       console.error('[Container] Volatility Orb render error:', error);
     }
@@ -685,7 +520,6 @@
       drawMarketProfile(ctx, currentRenderingContext, config, currentState, y);
       const vizTime = performance.now() - vizStart;
       vizTimers.set('marketProfile', vizTime);
-      console.log('Market profile rendered');
     } catch (error) {
       console.error('[Container] Market Profile render error:', error);
       vizTimers.set('marketProfile', -1);
@@ -744,13 +578,7 @@
       vizTimers.set('priceDisplay', -1);
     }
 
-    // --- Display Ready Log ---
-    // Check if all visualizations rendered successfully (no negative times)
-    const allVizSuccessful = Array.from(vizTimers.values()).every(time => time > 0);
-    if (allVizSuccessful && renderFrameCount === 1) {
-      console.log(`display ready for ${state?.symbol || 'unknown'}`);
-    }
-
+    
     // --- Draw Flash Overlay ---
     if (flashOpacity > 0) {
       const elapsedTime = performance.now() - flashStartTime;
@@ -803,33 +631,9 @@
       timestamp: startTime
     };
 
-    // 🎯 PERFORMANCE MONITORING: Log performance threshold violations
-    logPerformanceThresholds(totalTime, renderingStats);
-
-    // Log performance warnings
-    if (totalTime > 16.67) { // More than one frame time (60fps)
-      console.warn('[DEBUGGER:PERF:Container:draw] Slow render detected:', renderingStats);
-
-          }
-
-    // Log comprehensive diagnostics every 300 frames (5 seconds at 60fps)
-    if (renderFrameCount % 300 === 0) {
-      console.log('[DEBUGGER:DIAG:Container:draw] Rendering diagnostics:', renderingStats);
-
-      // Log drift summary if we have drift events
-      if (driftHistory.length > 0) {
-        console.warn('[DEBUGGER:DRIFT:Container:draw] Drift summary:', {
-          displayId: id,
-          totalDriftEvents: driftHistory.length,
-          recentDrifts: driftHistory.slice(-5),
-          avgTimeBetweenDrifts: driftHistory.length > 1
-            ? (driftHistory[driftHistory.length - 1].timestamp - driftHistory[0].timestamp) / (driftHistory.length - 1)
-            : 0
-        });
-
-              }
-    }
-
+    
+    
+    
     // Update position tracking for next frame
     lastPositionSnapshot = positionSnapshot;
     lastRenderTime = startTime;
@@ -917,14 +721,6 @@
         canvasReady = false; // Force re-initialization
 
         const recoveryEndMemory = performance.memory?.usedJSHeapSize || null;
-        if (recoveryStartMemory && recoveryEndMemory) {
-          const memoryDelta = recoveryEndMemory - recoveryStartMemory;
-          console.log('[PHASE_4_ERROR_RECOVERY] Canvas error recovery completed:', {
-            displayId: id,
-            memoryDelta: Math.round(memoryDelta / 1024) + ' KB',
-            recoveryTime: '1000ms'
-          });
-        }
       }, 1000);
     }
   }

@@ -279,7 +279,16 @@
         
       case 'Escape':
         e.preventDefault();
-        clearSearch();
+        if (searchQuery) {
+          // If there's search text, clear it (current behavior)
+          clearSearch();
+        } else {
+          // If no search text, close the palette
+          const icon = $icons.get('symbol-palette-icon');
+          if (icon && icon.isExpanded) {
+            displayActions.collapseIcon('symbol-palette-icon');
+          }
+        }
         break;
         
       case 'Tab':

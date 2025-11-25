@@ -506,20 +506,22 @@
   let renderingContext = null;
 
   // ✅ ULTRA-MINIMAL: Simple rendering - no complex dependencies
-  let renderFrame;
-  let pendingRender = false; // 🔧 CRITICAL FIX: Prevent concurrent render frames
+  let renderFrame = null;
   let cleanupZoomDetector = null; // Zoom detector cleanup function
 
-  // 🔧 CRITICAL FIX: Render deduplication to prevent race conditions
+  // 🔧 CRITICAL TRADING SAFETY FIX: NEVER skip market data updates
+  // Always render the latest market data immediately - no deduplication for trading safety
   function scheduleRender() {
-    if (!pendingRender) {
-      pendingRender = true;
-      renderFrame = requestAnimationFrame(() => {
-        pendingRender = false;
-        renderFrame = null;
-        render();
-      });
+    // Cancel any existing render frame to replace with latest data
+    if (renderFrame) {
+      cancelAnimationFrame(renderFrame);
     }
+
+    // Always schedule new render with latest market data - NEVER skip updates
+    renderFrame = requestAnimationFrame(() => {
+      renderFrame = null;
+      render();
+    });
   }
 
   // Function to render symbol as canvas background (drawn before other visualizations)
@@ -608,12 +610,11 @@
       headerTimeout = null;
     }
 
-    // Cleanup render frame and deduplication state
+    // Cleanup render frame - cancel any pending render
     if (renderFrame) {
       cancelAnimationFrame(renderFrame);
       renderFrame = null;
     }
-    pendingRender = false; // 🔧 CRITICAL FIX: Reset deduplication flag
 
     // Cleanup zoom detector (memory leak fix)
     if (cleanupZoomDetector) {

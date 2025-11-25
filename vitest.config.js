@@ -102,7 +102,6 @@ export default defineConfig({
 
     // Memory and performance monitoring
     logHeapUsage: true,
-    isolate: true,
     dangerousIgnoreModuleErrors: false,
 
     // Test retry configuration for flaky real-world tests

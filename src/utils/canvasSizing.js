@@ -14,6 +14,14 @@ export const REFERENCE_CANVAS = {
   height: 120
 };
 
+// Performance thresholds (professional trading standards)
+export const PERFORMANCE_THRESHOLDS = {
+  CANVAS_OPERATION_MAX_MS: 10,
+  DATA_TO_VISUAL_MAX_MS: 100,
+  TARGET_FPS: 60,
+  CONCURRENT_DISPLAYS: 20
+};
+
 // Default container dimensions (headerless design)
 export const DEFAULT_CONTAINER = {
   width: 220,  // 220px canvas (no header, no padding)

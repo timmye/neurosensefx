@@ -50,8 +50,9 @@ class PriceFormattingEngine {
    * Returns structured formatting data for advanced components
    */
   formatPrice(price, digits = 5, config = {}) {
-    // Input validation - handle invalid prices gracefully
-    if (!isFinite(price)) {
+    // CRITICAL TRADING SAFETY FIX: Explicit null/undefined check BEFORE any operations
+    // isFinite(null) returns true, so we need explicit null check to prevent crashes
+    if (price === null || price === undefined || !isFinite(price)) {
       return {
         text: { bigFigure: 'N/A', pips: '', pipette: '' },
         sizing: { bigFigureRatio: 0.6, pipsRatio: 1.0, pipetteRatio: 0.4 },
@@ -62,7 +63,7 @@ class PriceFormattingEngine {
     // Validate digits parameter
     const safeDigits = Math.max(0, Math.min(10, digits || 5));
 
-    // Fast path: check format cache first
+    // Fast path: check format cache first (safe now that price is validated)
     const cacheKey = this.generateCacheKey(price, safeDigits, config);
     const cached = this.formatCache.get(cacheKey);
     if (cached) {
@@ -108,8 +109,9 @@ class PriceFormattingEngine {
    * Returns formatted string without pipettes
    */
   formatPriceSimple(price, digits) {
-    // Input validation
-    if (!isFinite(price)) {
+    // CRITICAL TRADING SAFETY FIX: Explicit null/undefined check BEFORE any operations
+    // isFinite(null) returns true, so we need explicit null check to prevent crashes
+    if (price === null || price === undefined || !isFinite(price)) {
       return 'N/A';
     }
 
@@ -134,8 +136,9 @@ class PriceFormattingEngine {
    * Returns minimal formatted string
    */
   formatPriceCompact(price, digits) {
-    // Input validation - comprehensive check
-    if (!isFinite(price)) {
+    // CRITICAL TRADING SAFETY FIX: Explicit null/undefined check BEFORE any operations
+    // isFinite(null) returns true, so we need explicit null check to prevent crashes
+    if (price === null || price === undefined || !isFinite(price)) {
       return 'N/A';
     }
 
@@ -200,8 +203,9 @@ class PriceFormattingEngine {
    * Optimized classification with caching and precomputed thresholds
    */
   getClassification(price, digits) {
-    // Input validation - handle edge cases
-    if (!isFinite(price)) {
+    // CRITICAL TRADING SAFETY FIX: Explicit null/undefined check BEFORE any operations
+    // isFinite(null) returns true, so we need explicit null check to prevent crashes
+    if (price === null || price === undefined || !isFinite(price)) {
       return { type: 'STANDARD_DECIMAL', magnitude: 0, description: 'Invalid price value' };
     }
 

@@ -11,6 +11,8 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
   import StatusPanel from './components/StatusPanel/StatusPanel.svelte';
   import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
   import ShortcutHelp from './components/ShortcutHelp.svelte';
+  import StoreDebugMonitor from './components/StoreDebugMonitor.svelte';
+  import TestDisplayButton from './components/TestDisplayButton.svelte';
     import symbolService from './services/symbolService.js';
   import { Environment, EnvironmentConfig, initializeEnvironment, getEnvironmentInfo } from './lib/utils/environmentUtils.js';
 
@@ -21,6 +23,18 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
   $: displayList = Array.from($displays.values());
   $: iconList = Array.from($icons.values());
   $: panelList = Array.from($panels.values());
+
+  // 🔧 DEBUG: Log display list changes
+  $: if (displayList.length !== (previousDisplayCount || 0)) {
+    console.log('[APP] Display list changed:', {
+      count: displayList.length,
+      previousCount: previousDisplayCount || 0,
+      displays: displayList.map(d => ({ id: d.id, symbol: d.symbol, ready: d.ready }))
+    });
+    previousDisplayCount = displayList.length;
+  }
+
+  let previousDisplayCount = 0;
   
   let symbolPaletteRef;
   let contextMenuRef; // Reference to UnifiedContextMenu for intelligent context detection
@@ -339,7 +353,13 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
   <!-- Keyboard Shortcut Help Overlay (Layer 5) -->
   <ShortcutHelp />
 
-    
+  <!-- Debug Monitor (Temporary for troubleshooting) -->
+  <StoreDebugMonitor />
+
+  <!-- Test Controls (Temporary for troubleshooting) -->
+  <TestDisplayButton />
+
+
 </main>
 
 <style>
