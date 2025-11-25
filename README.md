@@ -1,6 +1,6 @@
 # NeuroSense FX
 
-A financial trading visualization platform designed for extended market monitoring and analysis.
+A financial trading visualization platform designed for market monitoring and analysis.
 
 ## Vision & Philosophy
 
@@ -27,7 +27,7 @@ Every development decision is guided by these three non-negotiable pillars:
 
 ## Core Problem Solved
 
-Traditional trading interfaces overload traders with numerical data and cognitive demands during extended sessions, leading to mental fatigue, slower decision-making, and reduced pattern recognition capabilities.
+Traditional trading interfaces overload traders with numerical data and cognitive demands during trading sessions, leading to mental fatigue, slower decision-making, and reduced pattern recognition capabilities.
 
 **NeuroSense FX** addresses these issues through a perceptual interface that reduces cognitive load by presenting information visually rather than numerically, leveraging pattern recognition capabilities, and supporting intuitive rather than analytical processing.
 

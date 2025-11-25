@@ -7,6 +7,7 @@
 
 import { chromium } from 'playwright';
 import { execSync } from 'child_process';
+import os from 'os';
 
 async function globalSetup(config) {
   console.log('🌟 Global Test Setup - Initializing Real-World Testing Environment');
@@ -60,9 +61,9 @@ async function globalSetup(config) {
       nodeVersion: process.version,
       platform: process.platform,
       arch: process.arch,
-      totalMemory: require('os').totalmem(),
-      freeMemory: require('os').freemem(),
-      cpus: require('os').cpus().length,
+      totalMemory: os.totalmem(),
+      freeMemory: os.freemem(),
+      cpus: os.cpus().length,
       timestamp: new Date().toISOString()
     };
 

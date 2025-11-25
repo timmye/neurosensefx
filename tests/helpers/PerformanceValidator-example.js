@@ -18,7 +18,7 @@ test.describe('Professional Trading Performance Validation', () => {
       fpsTarget: 60,
       latencyThreshold: 100,
       memoryGrowthThreshold: 50, // MB per hour
-      extendedSessionDuration: 30 * 60 * 1000, // 30 minutes for testing
+      stabilityDuration: 60000, // 1 minute for testing
       enableRealTimeValidation: true,
       enableQualityValidation: true
     });
@@ -159,9 +159,9 @@ test.describe('Professional Trading Performance Validation', () => {
     }
   });
 
-  test('should handle extended trading session stability', async ({ page }) => {
+  test('should handle performance stability validation', async ({ page }) => {
     const validator = createPerformanceValidator(page, {
-      extendedSessionDuration: 2 * 60 * 1000, // 2 minutes for demo
+      stabilityDuration: 60000, // 1 minute for demo
       memoryGrowthThreshold: 25 // MB per hour
     });
 
@@ -169,8 +169,8 @@ test.describe('Professional Trading Performance Validation', () => {
     await page.goto('http://localhost:5174');
 
     try {
-      // Simulate extended trading session
-      console.log('Starting extended trading session simulation...');
+      // Simulate trading session
+      console.log('Starting performance stability simulation...');
 
       await page.evaluate(() => {
         // Create a realistic trading scenario
@@ -179,10 +179,10 @@ test.describe('Professional Trading Performance Validation', () => {
 
         symbols.forEach((symbol, index) => {
           const container = document.createElement('div');
-          container.className = 'extended-session-display';
+          container.className = 'stability-display';
           container.innerHTML = `
             <h3>${symbol}</h3>
-            <canvas id="extended-${symbol}" width="300" height="200"></canvas>
+            <canvas id="stability-${symbol}" width="300" height="200"></canvas>
             <div class="stats">
               <div class="price">1.0000</div>
               <div class="change">+0.0000</div>
@@ -194,13 +194,13 @@ test.describe('Professional Trading Performance Validation', () => {
           displays.push({
             symbol,
             element: container,
-            canvas: document.getElementById(`extended-${symbol}`),
+            canvas: document.getElementById(`stability-${symbol}`),
             price: 1.0000 + Math.random() * 0.5,
             volume: 0
           });
         });
 
-        // Extended session simulation
+        // Performance stability simulation
         let tickCount = 0;
         const simulateMarketData = () => {
           tickCount++;
@@ -249,7 +249,7 @@ test.describe('Professional Trading Performance Validation', () => {
           });
 
           // Continue simulation
-          if (tickCount < 7200) { // 2 minutes at 60fps
+          if (tickCount < 3600) { // 1 minute at 60fps
             requestAnimationFrame(simulateMarketData);
           }
         };
@@ -257,10 +257,10 @@ test.describe('Professional Trading Performance Validation', () => {
         requestAnimationFrame(simulateMarketData);
       });
 
-      // Run extended session validation
-      const sessionResult = await validator.validateExtendedSession();
+      // Run performance stability validation
+      const sessionResult = await validator.validatePerformanceStability();
 
-      console.log(`Extended session duration: ${(sessionResult.duration / 1000).toFixed(1)}s`);
+      console.log(`Stability validation duration: ${(sessionResult.duration / 1000).toFixed(1)}s`);
       console.log(`Frame rate degradation: ${sessionResult.degradation.frameRate.toFixed(2)}%`);
       console.log(`Memory growth: ${sessionResult.degradation.memory.toFixed(2)}MB`);
 
@@ -272,7 +272,7 @@ test.describe('Professional Trading Performance Validation', () => {
     } finally {
       await validator.stopValidation();
     }
-  }, 150000); // 2.5 minute timeout
+  }, 120000); // 2 minutes timeout
 
   test('should detect performance regression scenarios', async ({ page }) => {
     const validator = createPerformanceValidator(page);

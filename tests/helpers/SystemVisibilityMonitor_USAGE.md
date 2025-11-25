@@ -357,17 +357,17 @@ expect(['stable', 'moderate_growth']).toContain(health.memory.trend);
 ### 4. Extended Session Testing
 
 ```javascript
-// For tests running 2+ hours
-test('extended session stability', async ({ page }) => {
+// For performance stability validation
+test('performance stability validation', async ({ page }) => {
   const monitor = new SystemVisibilityMonitor(page, {
     thresholds: {
-      MEMORY: { MAX_GROWTH_MB: 200 } // Allow more growth for extended sessions
+      MEMORY: { MAX_GROWTH_MB: 50 } // Standard memory growth threshold
     }
   });
 
   await monitor.startMonitoring();
 
-  // Run 2-hour trading simulation...
+  // Run performance stability validation...
 
   // Check for memory leaks
   const health = await monitor.getSystemHealth();
@@ -439,4 +439,4 @@ test.afterEach(async ({}, testInfo) => {
 });
 ```
 
-This comprehensive monitoring infrastructure provides the foundation for validating that NeuroSense FX meets its performance requirements for professional trading workflows, including 60fps rendering, sub-100ms latency, and stable operation during extended sessions.
+This comprehensive monitoring infrastructure provides the foundation for validating that NeuroSense FX meets its performance requirements for professional trading workflows, including 60fps rendering, sub-100ms latency, and stable operation during trading sessions.

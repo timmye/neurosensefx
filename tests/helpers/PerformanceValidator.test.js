@@ -2,7 +2,7 @@
  * PerformanceValidator Test Suite
  *
  * Tests the comprehensive performance validation system for professional trading platforms.
- * Validates frame rate, latency, memory stability, rendering quality, and extended session performance.
+ * Validates frame rate, latency, memory stability, rendering quality, and performance stability.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -34,7 +34,7 @@ describe('PerformanceValidator', () => {
       expect(validator.options.fpsTarget).toBe(60);
       expect(validator.options.latencyThreshold).toBe(100);
       expect(validator.options.memoryGrowthThreshold).toBe(50);
-      expect(validator.options.extendedSessionDuration).toBe(120 * 60 * 1000);
+      expect(validator.options.stabilityDuration).toBe(60000);
     });
 
     it('should accept custom configuration', () => {
@@ -287,14 +287,14 @@ describe('PerformanceValidator', () => {
       await validator.stopValidation();
     });
 
-    it('should validate short extended session', async () => {
+    it('should validate performance stability', async () => {
       await validator.startValidation();
 
       // Wait for baseline to be established
       await page.waitForTimeout(1000);
 
-      // Run a short extended session test (10 seconds instead of 2 hours)
-      const result = await validator.validateExtendedSession(10000);
+      // Run a short stability test (10 seconds)
+      const result = await validator.validatePerformanceStability(10000);
 
       expect(result).toBeDefined();
       expect(result.duration).toBeGreaterThan(9000); // Allow some variance

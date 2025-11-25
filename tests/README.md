@@ -115,7 +115,7 @@ describe('Keyboard Core Functions', () => {
 - **Keyboard shortcuts**: Under 310ms response time
 - **Canvas updates**: Sub-100ms data-to-visual latency
 - **Display creation**: Under 1000ms per new display
-- **Memory stability**: No leaks during extended sessions
+- **Memory stability**: No leaks during trading sessions
 
 **Console Logging & Debugging:**
 - Network request monitoring and timing analysis
@@ -135,7 +135,7 @@ describe('Keyboard Core Functions', () => {
 - **Keyboard shortcuts**: Under 310ms response time
 - **Canvas updates**: Sub-100ms data-to-visual latency
 - **Test execution**: Under 60s for full suite
-- **Memory stability**: No leaks during extended testing
+- **Memory stability**: No leaks during performance testing
 
 ### **3. UX Interaction Flows**
 - **Complete workflows**: Open → Interact → Close patterns
@@ -146,7 +146,7 @@ describe('Keyboard Core Functions', () => {
 ### **4. Financial Platform Specific**
 - **Multi-display**: Test 5-20 concurrent displays
 - **Real-time data**: WebSocket connection stability
-- **Extended sessions**: Long-duration operation simulation
+- **Performance stability**: Reliable operation validation
 - **Professional workflows**: Rapid response during active trading
 
 ---

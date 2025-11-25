@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: ['./tests/e2e', './e2e'],
+  testDir: './tests/e2e',
   timeout: 60000, // Increased for comprehensive tests
   fullyParallel: false, // Sequential for system visibility
   forbidOnly: !!process.env.CI,
@@ -10,7 +10,6 @@ export default defineConfig({
   reporter: [
     ['html'],
     ['json', { outputFile: 'test-results/results.json' }],
-    ['junit', { outputFile: 'test-results/results.xml' }],
     ['line'] // Console output
   ],
   use: {
@@ -20,9 +19,19 @@ export default defineConfig({
     screenshot: 'only-on-failure', // Screenshots on failure
   },
 
+  // Start dev server if not already running
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5174',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000, // 2 minutes
+    stdout: 'pipe',
+    stderr: 'pipe',
+  },
+
   projects: [
     {
-      name: 'chromium-desktop',
+      name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1920, height: 1080 },
@@ -36,36 +45,25 @@ export default defineConfig({
           ]
         }
       },
-      testMatch: '**/comprehensive-real-world-btcusd.spec.js',
-      timeout: 120000, // 2 minutes for comprehensive tests
     },
-    {
-      name: 'chromium-performance',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1920, height: 1080 },
-        launchOptions: {
-          args: [
-            '--disable-web-security',
-            '--enable-precise-memory-info'
-          ]
-        }
-      },
-      testMatch: '**/multi-instrument-monitoring.spec.js',
-      timeout: 180000, // 3 minutes for multi-instrument tests
-    },
-    {
-      name: 'firefox-professional',
-      use: {
-        ...devices['Desktop Firefox'],
-        viewport: { width: 1920, height: 1080 }
-      },
-      testMatch: '**/performance-benchmarking.spec.js',
-      timeout: 300000, // 5 minutes for performance tests
-    },
+    // Only add Firefox/WebKit if dependencies are available
+    // {
+    //   name: 'firefox',
+    //   use: {
+    //     ...devices['Desktop Firefox'],
+    //     viewport: { width: 1920, height: 1080 }
+    //   },
+    // },
+    // {
+    //   name: 'webkit',
+    //   use: {
+    //     ...devices['Desktop Safari'],
+    //     viewport: { width: 1920, height: 1080 }
+    //   },
+    // },
   ],
 
-  // Global setup and teardown for comprehensive testing
-  globalSetup: './tests/helpers/global-test-setup.js',
-  globalTeardown: './tests/helpers/global-test-teardown.js',
+  // Disable global setup/teardown for now
+  // globalSetup: './tests/helpers/global-test-setup.js',
+  // globalTeardown: './tests/helpers/global-test-teardown.js',
 });

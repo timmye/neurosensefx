@@ -406,11 +406,11 @@ const hftValidator = new PerformanceValidator(page, {
 
 ```javascript
 const extendedSessionValidator = new PerformanceValidator(page, {
-  extendedSessionDuration: 4 * 60 * 60 * 1000, // 4 hours
+  stabilityDuration: 60000, // 1 minute stability validation
   enableMemoryTracking: true,
   thresholds: {
     EXTENDED_SESSION: {
-      MIN_DURATION_MS: 4 * 60 * 60 * 1000,     // 4 hours
+      MIN_DURATION_MS: 60000,                   // 1 minute
       MAX_DEGRADATION_PERCENT: 5,              // Stricter degradation limits
       RESOURCE_CLEANUP_TIMEOUT: 3000,          // Faster cleanup
       STABILITY_CHECK_INTERVAL: 30000          // More frequent checks
@@ -765,7 +765,7 @@ test('stress testing with maximum display load', async ({ page }) => {
 #### 4-Hour Trading Session Validation
 
 ```javascript
-test('extended trading session - 4 hours', async ({ page }) => {
+test('performance stability validation', async ({ page }) => {
   const monitor = new SystemVisibilityMonitor(page, {
     enableSystemHealthMonitoring: true,
     enablePerformanceTracking: true,
@@ -1111,7 +1111,7 @@ const tradingRequirements = {
 ```javascript
 // Professional traders work extended hours
 const sessionRequirements = {
-  minimumDuration: 8 * 60 * 60 * 1000,    // 8 hours minimum
+  stabilityDuration: 60000,               // 1 minute stability validation
   maximumDegradation: 5,                   // 5% maximum performance degradation
   stabilityChecks: {
     interval: 60000,                        // Check every minute
@@ -1308,20 +1308,20 @@ test('multi-instrument correlation performance', async ({ page }) => {
 
 ### Extended Trading Session Validation
 
-#### Full Trading Day Simulation
+#### Performance Stability Validation
 
 ```javascript
-test('full trading day simulation - 8 hours', async ({ page }) => {
+test('performance stability validation', async ({ page }) => {
   const monitor = new SystemVisibilityMonitor(page, {
     enableSystemHealthMonitoring: true,
     thresholds: {
-      MEMORY: { MAX_GROWTH_MB: 200 },  // Allow more growth for 8-hour session
+      MEMORY: { MAX_GROWTH_MB: 50 },
       FRAME_RATE: { MINIMUM: 55, CONSECUTIVE_DROPS: 10 }
     }
   });
 
   const validator = new PerformanceValidator(page, {
-    extendedSessionDuration: 8 * 60 * 60 * 1000,  // 8 hours
+    stabilityDuration: 60000,  // 1 minute stability validation
     memoryGrowthThreshold: 25,                   // 25MB/hour
     enableRealTimeValidation: true
   });
@@ -1330,7 +1330,7 @@ test('full trading day simulation - 8 hours', async ({ page }) => {
   await validator.startValidation();
 
   const tradingDayStart = Date.now();
-  const dayDuration = 8 * 60 * 60 * 1000;  // 8 hours
+  const testDuration = 60000;  // 1 minute stability test
   const hourInterval = 60 * 60 * 1000;     // 1 hour
 
   // Trading session phases
@@ -1342,7 +1342,7 @@ test('full trading day simulation - 8 hours', async ({ page }) => {
   ];
 
   try {
-    console.log('Starting 8-hour trading day simulation');
+    console.log('Starting performance stability validation');
 
     for (const phase of tradingPhases) {
       console.log(`Starting ${phase.name} phase`);
@@ -1411,7 +1411,7 @@ test('full trading day simulation - 8 hours', async ({ page }) => {
     expect(sessionResult.passed).toBe(true);
     expect(finalHealth.status).not.toBe('degraded');
 
-    console.log('8-hour trading day completed:', {
+    console.log('Performance stability validation completed:', {
       totalDuration: Math.floor(sessionResult.duration / 60000),
       frameRateDegradation: sessionResult.degradation.frameRate,
       memoryGrowthMB: sessionResult.degradation.memory,
@@ -1422,7 +1422,7 @@ test('full trading day simulation - 8 hours', async ({ page }) => {
     await monitor.stopMonitoring();
     await validator.stopValidation();
   }
-}, 8 * 60 * 60 * 1000 + 300000);  // 8 hours + 5 minutes timeout
+}, 120000);  // 2 minutes timeout
 ```
 
 ### Accuracy and Reliability Validation
@@ -4045,7 +4045,7 @@ const validatorConfig = {
 | Leak Detection Window | 30s | 60s | 120s |
 | Maximum GC Pause | 50ms | 100ms | 200ms |
 | Heap Utilization | 75% | 80% | 90% |
-| Total Growth (8 hours) | 200MB | 400MB | 800MB |
+| Total Growth (1 hour) | 25MB | 50MB | 100MB |
 
 #### Quality Requirements
 

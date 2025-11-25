@@ -20,13 +20,11 @@ export default defineConfig({
       'tests/**/*.spec.js'
     ],
 
-    // Exclude legacy mock-based tests
+    // Exclude tests that violate live-data-only philosophy
     exclude: [
       'node_modules/**',
-      'tests/unit/keyboardShortcutManager.test.js',
-      'tests/unit/configDefaults.test.js',
-      'tests/unit/coordinateStore.test.js',
-      // Any other files with mock patterns
+      // No mock-based market data tests allowed
+      // Only pure utility functions and real browser tests permitted
     ],
 
     // Test configuration for real-world validation
@@ -47,8 +45,7 @@ export default defineConfig({
       DATA_TO_VISUAL_LATENCY_MAX: 100, // ms
       FPS_RENDERING_MIN: 60,     // frames per second
 
-      // Extended session testing
-      EXTENDED_SESSION_DURATION: 28800000, // 8 hours in ms
+      // Memory management
       MEMORY_LEAK_THRESHOLD: 52428800,     // 50MB in bytes
     },
 
@@ -142,7 +139,6 @@ export default defineConfig({
 
     // Professional trading requirements
     __PROFESSIONAL_TRADING__: JSON.stringify(true),
-    __EXTENDED_SESSIONS__: JSON.stringify(true),
     __MULTI_DISPLAY__: JSON.stringify(true)
   },
 

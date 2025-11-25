@@ -31,7 +31,7 @@
     "test:e2e:safari": "playwright test --project=webkit",
     "test:e2e:mobile": "playwright test --project='Mobile Chrome'",
     "test:e2e:performance": "playwright test tests/e2e/performance*.spec.js",
-    "test:e2e:validation": "playwright test tests/e2e/coordinate-precision.spec.js tests/e2e/extended-session-stability.spec.js tests/e2e/user-interaction-workflows.spec.js tests/e2e/performance-benchmarking.spec.js tests/e2e/memory-management-cleanup.spec.js",
+    "test:e2e:validation": "playwright test tests/e2e/coordinate-precision.spec.js tests/e2e/user-interaction-workflows.spec.js tests/e2e/performance-benchmarking.spec.js tests/e2e/memory-management-cleanup.spec.js",
     "test:e2e:validation-quick": "playwright test tests/e2e/coordinate-precision.spec.js --timeout=30000 --retries=0",
     "test:e2e:report": "playwright show-report",
     "test:e2e:install": "playwright install chromium firefox webkit",

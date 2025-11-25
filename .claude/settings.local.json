@@ -23,7 +23,8 @@
       "Bash(npx playwright test:*)",
       "Bash(/tmp/test-script.js:*)",
       "Bash(node:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

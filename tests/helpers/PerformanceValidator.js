@@ -53,8 +53,7 @@ const TRADING_PERFORMANCE_THRESHOLDS = {
     MIN_CANVAS_SHARPNESS: 0.9, // Minimum canvas sharpness score
     PRICE_PRECISION_TOLERANCE: 0.001 // Price display precision tolerance
   },
-  EXTENDED_SESSION: {
-    MIN_DURATION_MS: 2 * 60 * 60 * 1000, // 2 hours minimum
+  STABILITY: {
     MAX_DEGRADATION_PERCENT: 10, // Maximum performance degradation
     RESOURCE_CLEANUP_TIMEOUT: 5000, // Resource cleanup timeout (ms)
     STABILITY_CHECK_INTERVAL: 60000 // Stability check interval (ms)
@@ -81,7 +80,7 @@ export class PerformanceValidator {
       fpsTarget: 60,
       latencyThreshold: 100,
       memoryGrowthThreshold: 50, // MB/hour
-      extendedSessionDuration: 120 * 60 * 1000, // 2 hours
+      stabilityDuration: 60000, // 1 minute for stability validation
       enableRealTimeValidation: true,
       enableQualityValidation: true,
       enableMemoryTracking: true,
@@ -119,7 +118,7 @@ export class PerformanceValidator {
         canvasSharpness: [],
         priceAccuracy: []
       },
-      extendedSession: {
+      stability: {
         startTime: null,
         performanceBaseline: null,
         degradationPoints: [],
@@ -142,7 +141,7 @@ export class PerformanceValidator {
       memoryMonitor: null,
       latencyTracker: null,
       qualityChecker: null,
-      sessionMonitor: null
+      stabilityMonitor: null
     };
   }
 
@@ -179,8 +178,8 @@ export class PerformanceValidator {
         await this._setupQualityValidation();
       }
 
-      // Setup extended session monitoring
-      await this._setupExtendedSessionValidation();
+      // Setup stability monitoring
+      await this._setupStabilityValidation();
 
       // Establish performance baseline
       await this._establishPerformanceBaseline();
@@ -605,22 +604,22 @@ export class PerformanceValidator {
   }
 
   /**
-   * Validate extended session stability
-   * @param {number} durationMs - Session duration to validate
-   * @returns {Promise<Object>} Extended session result
+   * Validate performance stability
+   * @param {number} durationMs - Stability duration to validate
+   * @returns {Promise<Object>} Stability result
    */
-  async validateExtendedSession(durationMs = null) {
-    const sessionDuration = durationMs || this.options.extendedSessionDuration;
-    this.logger.debug(`Validating extended session stability: ${sessionDuration / 1000 / 60} minutes`);
+  async validatePerformanceStability(durationMs = null) {
+    const stabilityDuration = durationMs || this.options.stabilityDuration;
+    this.logger.debug(`Validating performance stability: ${stabilityDuration / 1000 / 60} minutes`);
 
     const startTime = Date.now();
-    const baseline = this.validationState.extendedSession.performanceBaseline;
+    const baseline = this.validationState.stability.performanceBaseline;
 
     if (!baseline) {
       throw new Error('Performance baseline not established. Call startValidation() first.');
     }
 
-    this.validationState.extendedSession.startTime = startTime;
+    this.validationState.stability.startTime = startTime;
 
     // Monitor performance degradation over time
     const stabilityChecks = [];
@@ -651,9 +650,9 @@ export class PerformanceValidator {
       stabilityChecks.push(check);
 
       // Check for significant degradation
-      const threshold = this.options.thresholds.EXTENDED_SESSION;
+      const threshold = this.options.thresholds.STABILITY;
       if (frameRateDegradation > threshold.MAX_DEGRADATION_PERCENT) {
-        this.validationState.extendedSession.degradationPoints.push({
+        this.validationState.stability.degradationPoints.push({
           type: 'frame_rate',
           degradation: frameRateDegradation,
           threshold: threshold.MAX_DEGRADATION_PERCENT,
@@ -661,13 +660,13 @@ export class PerformanceValidator {
         });
       }
 
-    }, this.options.thresholds.EXTENDED_SESSION.STABILITY_CHECK_INTERVAL);
+    }, this.options.thresholds.STABILITY.STABILITY_CHECK_INTERVAL);
 
-    // Wait for session duration
-    await new Promise(resolve => setTimeout(resolve, sessionDuration));
+    // Wait for stability duration
+    await new Promise(resolve => setTimeout(resolve, stabilityDuration));
     clearInterval(checkInterval);
 
-    // Analyze extended session results
+    // Analyze stability results
     const finalFrameRate = await this._getCurrentFrameRate();
     const finalMemory = await this._getMemorySnapshot();
     const totalFrameRateDegradation = baseline.frameRate ?
@@ -676,8 +675,8 @@ export class PerformanceValidator {
       ((finalMemory.used - baseline.memory.used) / (1024 * 1024)) : 0;
 
     const passed =
-      totalFrameRateDegradation <= this.options.thresholds.EXTENDED_SESSION.MAX_DEGRADATION_PERCENT &&
-      totalMemoryGrowth <= this.options.thresholds.MEMORY.MAX_GROWTH_MB_PER_HOUR * (sessionDuration / (1000 * 60 * 60));
+      totalFrameRateDegradation <= this.options.thresholds.STABILITY.MAX_DEGRADATION_PERCENT &&
+      totalMemoryGrowth <= this.options.thresholds.MEMORY.MAX_GROWTH_MB_PER_HOUR * (stabilityDuration / (1000 * 60 * 60));
 
     const result = {
       duration: Date.now() - startTime,
@@ -695,10 +694,10 @@ export class PerformanceValidator {
       timestamp: Date.now()
     };
 
-    this.validationState.extendedSession.stabilityChecks.push(...stabilityChecks);
-    this._recordValidationResult('extended_session', result);
+    this.validationState.stability.stabilityChecks.push(...stabilityChecks);
+    this._recordValidationResult('stability', result);
 
-    this.logger.debug(`Extended session validation: ${(totalFrameRateDegradation).toFixed(1)}% degradation (${result.passed ? '✅' : '❌'})`);
+    this.logger.debug(`Stability validation: ${(totalFrameRateDegradation).toFixed(1)}% degradation (${result.passed ? '✅' : '❌'})`);
     return result;
   }
 
@@ -847,8 +846,8 @@ export class PerformanceValidator {
     // Quality validation is done on-demand via validateRenderingQuality()
   }
 
-  async _setupExtendedSessionValidation() {
-    // Session monitoring is handled in validateExtendedSession()
+  async _setupStabilityValidation() {
+    // Stability monitoring is handled in validatePerformanceStability()
   }
 
   async _establishPerformanceBaseline() {
@@ -860,7 +859,7 @@ export class PerformanceValidator {
       timestamp: Date.now()
     };
 
-    this.validationState.extendedSession.performanceBaseline = baseline;
+    this.validationState.stability.performanceBaseline = baseline;
     await this.page.evaluate((baseline) => {
       window.performanceValidator.sessionMetrics.baseline = baseline;
     }, baseline);

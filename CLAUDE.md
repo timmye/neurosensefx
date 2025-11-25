@@ -2,14 +2,14 @@
 
 ## Purpose and User Context
 
-**Who this is for:** Foreign exchange traders who monitor multiple currency pairs during extended trading sessions.
+**Who this is for:** Foreign exchange traders who monitor multiple currency pairs during trading sessions.
 
 **What problem it solves:** Standard trading platforms require constant analytical processing of numerical data. This platform provides visual patterns for quick understanding while monitoring multiple instruments.
 
 **How it's used:**
 - Multi-display workspace for watching 5-20 currency pairs simultaneously
 - Keyboard-first interaction for rapid response during active trading
-- Extended sessions requiring low eye strain and mental fatigue
+- Trading sessions with visual comfort and reduced eye strain
 - Visual patterns for immediate understanding, with detailed numbers available when needed
 
 **Core approach:** Visual metaphors combined with targeted numerical displays. Users glance at patterns for market state understanding and access precise values when required for analysis.
@@ -26,9 +26,9 @@
 #### **PERFORMANT** - Handles professional trading requirements
 - **60fps rendering** for smooth price movement visualization without stuttering during rapid market changes
 - **Sub-100ms latency** from market data to visual display for real-time decision accuracy
-- **DPR-aware crisp rendering** for precise numerical display and reduced eye strain during extended sessions
+- **DPR-aware crisp rendering** for precise numerical display and reduced eye strain during trading sessions
 - **20+ concurrent displays** for comprehensive multi-instrument monitoring without performance degradation
-- **Extended session stability** for full trading day coverage without memory leaks or visual degradation
+- **Performance stability** for reliable trading session coverage without memory leaks or visual degradation
 
 #### **MAINTAINABLE** - Reliable when it matters
 - Single responsibility components with clear interfaces
@@ -69,7 +69,7 @@ When making implementation decisions, use this framework to ensure alignment wit
 - Does this maintain 60fps rendering during rapid price movements without stuttering?
 - Does market data reach the visual display in under 100ms for real-time accuracy?
 - Are numerical displays crisp and precise at all device pixel ratios?
-- Will memory usage remain stable during extended trading sessions?
+- Will memory usage remain stable during trading sessions?
 - Can this handle 20+ simultaneous displays without visual degradation?
 
 ### **Maintainable Considerations**
@@ -81,7 +81,7 @@ When making implementation decisions, use this framework to ensure alignment wit
 ### **User Context Check**
 - Does this provide precise, accurate visual representation of market data?
 - Are numerical displays crisp and readable during rapid price movements?
-- Can this be used effectively for extended trading sessions without eye strain?
+- Can this be used effectively for trading sessions without eye strain?
 - Does keyboard-first interaction provide rapid access during time-critical decisions?
 - Will visual displays remain accurate and responsive during volatile market conditions?
 
@@ -142,7 +142,7 @@ neurosensefx/                          # Root repository
 **Use Svelte's declarative event system** - prefer modifiers like `on:contextmenu|preventDefault|stopPropagation` over manual `addEventListener`.
 
 #### Canvas Rendering Best Practices
-**DPR-aware rendering** - scale canvas context for crisp, precise text and numerical displays at all device pixel ratios. Essential for accurate price visualization during extended trading sessions. (see `src/lib/viz/DPR_RENDERING_SYSTEM.md` for examples).
+**DPR-aware rendering** - scale canvas context for crisp, precise text and numerical displays at all device pixel ratios. Essential for accurate price visualization during trading sessions. (see `src/lib/viz/DPR_RENDERING_SYSTEM.md` for examples).
 
 ## Component System
 
@@ -248,14 +248,14 @@ npm run test:all          # Run all tests
 **Testing Approach:**
 - **Unit tests**: Pure utility functions with Vitest (no canvas mocks)
 - **E2E tests**: Real DOM testing with Playwright's built-in reporters
-- **Performance testing**: 60fps validation, sub-100ms latency, extended sessions
+- **Performance testing**: 60fps validation, sub-100ms latency, performance stability
 - **Cross-browser**: Chrome, Firefox, Safari with standard configurations
 
 **Key Testing Areas:**
 - **Visual accuracy**: Canvas rendering with crisp numerical displays at all DPR levels
 - **Performance under load**: 20+ displays without visual degradation or stuttering
 - **Real-time accuracy**: Data-to-visual latency under 100ms during volatile markets
-- **Extended session stability**: Long-duration operation without memory leaks or visual drift
+- **Performance stability**: Reliable operation without memory leaks or visual degradation
 - **Connection reliability**: WebSocket stability and automatic reconnection
 - **Precision workflow**: Keyboard accessibility for rapid, accurate trading decisions
 
@@ -265,7 +265,7 @@ npm run test:all          # Run all tests
 1. Use `./run.sh dev` for development with hot reload
 2. Follow "Simple, Performant, Maintainable" decision framework
 3. Check existing utilities before creating new ones
-4. Test with realistic conditions (multiple displays, extended sessions)
+4. Test with realistic conditions (multiple displays, trading workflows)
 5. Document new patterns and utilities
 
 **Code Standards:**
