@@ -1140,16 +1140,10 @@
 
     const startTime = getPerformanceTime();
 
-    // 🔧 CLEAN FOUNDATION: Create rendering context (headerless design)
+    // 🔧 CLEAN FOUNDATION: Create rendering context (use reactive global contentArea)
     const containerSize = config.containerSize || { width: canvasWidth, height: canvasHeight };
-    // 🔧 CRITICAL FIX: Account for padding, border, and margin in container
-    const paddingTotal = 8; // 2px padding + 2px margin on each side for canvas
-    const borderWidth = 4; // 2px border on each side
-    const totalAdjustment = paddingTotal + borderWidth;
-    const contentArea = {
-      width: Math.max(50, containerSize.width - totalAdjustment),  // Minimum 50px
-      height: Math.max(50, containerSize.height - totalAdjustment) // Minimum 50px
-    };
+    // ✅ FIXED: Use reactive global contentArea to maintain reactivity chain
+    // Local contentArea calculation removed to fix container resize scaling issue
     const adrAxisX = contentArea.width * config.adrAxisPosition;
 
     // ✅ VISUALIZATION LOGGING: Enhance rendering context with display correlation
