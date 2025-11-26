@@ -58,7 +58,7 @@ export function drawVolatilityOrb(ctx, renderingContext, config, state, y) {
 
   // === FOUNDATION LAYER IMPLEMENTATION ===
   // 1. Calculate render data (always calculate for core element)
-  const renderData = calculateRenderData(contentArea, config, state);
+  const renderData = calculateRenderData(contentArea, config, state, y);
 
   // 2. Configure render context for crisp rendering
   configureRenderContext(ctx);
@@ -73,12 +73,29 @@ export function drawVolatilityOrb(ctx, renderingContext, config, state, y) {
 }
 
 /**
- * Calculate render data using contentArea coordinates
+ * Calculate render data using contentArea coordinates with reactive coordinate system
  */
-function calculateRenderData(contentArea, config, state) {
-  // Calculate orb center using new positioning parameters (decimal percentages)
-  const centerX = contentArea.width * (config.volatilityOrbXPosition ?? 0.5);
-  const centerY = contentArea.height * (config.volatilityOrbYPosition ?? 0.5);
+function calculateRenderData(contentArea, config, state, y) {
+  // Calculate orb center using reactive coordinate transformation
+  let centerX = contentArea.width * (config.volatilityOrbXPosition ?? 0.5);
+
+  // 🔧 CRITICAL FIX: Use reactive coordinate system for Y positioning
+  // Replace static contentArea positioning with reactive price-based positioning
+  let centerY;
+  if (y && typeof y === 'function' && state.midPrice !== undefined && state.midPrice !== null) {
+    // Use reactive D3 scale to map midPrice to pixel coordinate
+    centerY = y(state.midPrice);
+  } else {
+    // Fallback to static positioning if coordinate system unavailable
+    centerY = contentArea.height * (config.volatilityOrbYPosition ?? 0.5);
+  }
+
+  // 🔧 SAFETY CHECK: Add bounds checking to prevent rendering outside canvas
+  // Ensure the orb stays within contentArea bounds after coordinate transformation
+  centerY = Math.max(0, Math.min(contentArea.height, centerY));
+
+  // Also bound centerX for complete safety
+  centerX = Math.max(0, Math.min(contentArea.width, centerX));
 
   // Calculate base radius using smaller dimension for better fit
   const baseSize = Math.min(contentArea.width, contentArea.height);

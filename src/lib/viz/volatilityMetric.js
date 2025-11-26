@@ -32,14 +32,23 @@ export function drawVolatilityMetric(ctx, renderingContext, config, state) {
 
   ctx.save();
   ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-  ctx.font = '11px Arial';
+
+  // 🎯 RESPONSIVE FIX: Scale font size based on container dimensions for better visual consistency
+  const baseFontSize = Math.max(10, Math.min(12, contentArea.width * 0.025));
+  ctx.font = `${baseFontSize}px Arial`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
   const safeVolatility = volatility || 0;
   const sigmaText = `σ ${safeVolatility.toFixed(2)}`;
 
-  // 🔧 CLEAN FOUNDATION: Position sigma metric in bottom-left corner
-  ctx.fillText(sigmaText, 10, contentArea.height - 20);
+  // 🎯 RESPONSIVE FIX: Replace hardcoded pixel coordinates with percentage-based positioning
+  const marginPercent = 0.02; // 2% margin from left edge
+  const bottomMarginPercent = 0.05; // 5% margin from bottom edge
+  const xPosition = contentArea.width * marginPercent;
+  const yPosition = contentArea.height * (1 - bottomMarginPercent);
+
+  // Position sigma metric in bottom-left corner with responsive coordinates
+  ctx.fillText(sigmaText, xPosition, yPosition);
   ctx.restore();
 }

@@ -258,8 +258,11 @@
   let canvasHeight = 120; // Default container height (no header)
   let dpr = 1;
 
-  // 🔧 CONTAINER-STYLE: contentArea calculations like Container.svelte (headerless design)
-  let contentArea = { width: 220, height: 120 }; // Full content area (220×120 container - no header)
+  // 🔧 CONTAINER-STYLE: Reactive contentArea calculations based on displaySize (headerless design)
+  $: contentArea = {
+    width: Math.max(50, (displaySize?.width || 220) - 12), // Account for padding (8px) + border (4px)
+    height: Math.max(50, (displaySize?.height || 120) - 12) // Account for padding (8px) + border (4px)
+  };
   
   // ✅ SAFE COORDINATE HELPER: Bounded YScale with adaptive bounds and clamping
   function createBoundedYScale(state, contentArea) {

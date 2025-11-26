@@ -78,11 +78,14 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
     // Continue without coordinate store update - don't let this break rendering
   }
 
-  // 🔧 OPTIMIZED COORDINATE TRANSFORMATION: Cache transformation function to reduce conditional checks
+  // 🔧 PHASE 2 FIX: Prioritize D3 scale over coordinateActions for reactive contentArea support
+  // This ensures visualizations use the now-reactive D3 scale instead of static coordinate store
   let transformFunction = null;
 
-  // Determine transformation function once (optimized for performance)
-  if (coordinateActions && typeof coordinateActions.transform === 'function') {
+  // Determine transformation function once (FIXED PRIORITY ORDER)
+  if (y && typeof y === 'function') {
+    transformFunction = y; // Use D3 scale first (now reactive with contentArea)
+  } else if (coordinateActions && typeof coordinateActions.transform === 'function') {
     transformFunction = (price) => {
       try {
         const result = coordinateActions.transform(price, 'price', 'pixel');
@@ -91,8 +94,6 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
         return null; // Signal to use fallback
       }
     };
-  } else if (y && typeof y === 'function') {
-    transformFunction = y; // Use d3-scale directly
   }
 
   const priceToY = (price) => {
@@ -108,8 +109,8 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
   };
 
   // === FOUNDATION LAYER IMPLEMENTATION ===
-  // 1. Draw ADR Axis (Core Meter Element)
-  drawAdrAxis(ctx, contentArea, adrAxisX);
+  // 1. Draw ADR Axis (Core Meter Element) - Using reactive coordinates for center line
+  drawAdrAxis(ctx, contentArea, adrAxisX, state, priceToY);
 
   // 2. Draw Percentage Markers (Spatial Context) - Using reactive coordinates
   drawPercentageMarkers(ctx, contentArea, adrAxisX, config, state, priceToY);
@@ -124,11 +125,11 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
 /**
  * Draw ADR Axis - Core meter element with crisp 1px rendering
  */
-function drawAdrAxis(ctx, contentArea, adrAxisX) {
+function drawAdrAxis(ctx, contentArea, adrAxisX, state, priceToY) {
   // Configure for crisp 1px lines
   ctx.save();
   ctx.translate(0.5, 0.5); // Sub-pixel alignment for crispness
-  
+
   // Main ADR axis line
   ctx.strokeStyle = '#4B5563'; // Neutral gray
   ctx.lineWidth = 1;
@@ -136,9 +137,37 @@ function drawAdrAxis(ctx, contentArea, adrAxisX) {
   ctx.moveTo(adrAxisX, 0);
   ctx.lineTo(adrAxisX, contentArea.height);
   ctx.stroke();
-  
-  // Center reference line (Daily Open Price position)
-  const centerY = Math.floor(contentArea.height / 2);
+
+  // 🔧 CRITICAL FIX: Use reactive coordinate transformation for center line
+  // Center reference line (Daily Open Price position) - now reactive!
+  let centerY;
+
+  // Safety checks for reactive coordinate system
+  if (state && state.midPrice !== null && state.midPrice !== undefined && priceToY && typeof priceToY === 'function') {
+    try {
+      // Use reactive coordinate transformation for actual midPrice position
+      centerY = priceToY(state.midPrice);
+
+      // Validate the result
+      if (centerY === null || centerY === undefined || isNaN(centerY) || !isFinite(centerY)) {
+        // Fallback to static calculation if reactive fails
+        centerY = Math.floor(contentArea.height / 2);
+        console.warn('[DayRangeMeter] Reactive center coordinate failed, using static fallback');
+      }
+    } catch (error) {
+      // Fallback to static calculation if error occurs
+      centerY = Math.floor(contentArea.height / 2);
+      console.warn('[DayRangeMeter] Error calculating reactive center coordinate:', error);
+    }
+  } else {
+    // Fallback to static calculation if data unavailable
+    centerY = Math.floor(contentArea.height / 2);
+  }
+
+  // Ensure center line is within reasonable bounds
+  centerY = Math.max(-50, Math.min(contentArea.height + 50, centerY));
+
+  // Draw the center reference line with reactive positioning
   ctx.strokeStyle = '#6B7280'; // Lighter gray for center
   ctx.setLineDash([2, 2]); // Dashed line for center reference
   ctx.beginPath();
@@ -146,7 +175,7 @@ function drawAdrAxis(ctx, contentArea, adrAxisX) {
   ctx.lineTo(contentArea.width, centerY);
   ctx.stroke();
   ctx.setLineDash([]); // Reset dash pattern
-  
+
   ctx.restore();
 }
 
