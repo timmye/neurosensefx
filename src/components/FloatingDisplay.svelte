@@ -174,64 +174,16 @@
   let resizeStartTime = null;
   let lastWebSocketTimestamp = null;
 
-  // ✅ CSS CLIP-PATH BOUNDS: Reactive clip-path calculation for Y-axis overflow prevention
-  let clipPathBounds = { top: 0, right: 0, bottom: 0, left: 0 };
-
+  
   // ✅ COORDINATE SYSTEM: Reactive coordinate system info for performance
   let coordinateSystemInfo = null;
   $: coordinateSystemInfo = coordinateActions.getSystemInfo();
 
-  // Enhanced Y-axis overflow detection with dynamic clipping
-  $: if (contentArea && state?.visualLow && state?.visualHigh && yScale && coordinateActions) {
-    // Default: no clipping (show full container)
-    let topClip = 0;
-    let bottomClip = 0;
+  // ✅ SAFE COORDINATE UPDATES: Update coordinate store with bounded system info
+  $: coordinateStoreUpdate: if (contentArea && state?.midPrice && coordinateActions) {
 
-    // Calculate Y positions for critical price levels
-    const extremeHighY = yScale(state.visualHigh * 1.5); // 150% of current high
-    const extremeLowY = yScale(state.visualLow * 0.5);  // 50% of current low
-    const adrHighY = yScale(state.projectedAdrHigh || state.visualHigh);
-    const adrLowY = yScale(state.projectedAdrLow || state.visualLow);
-
-    // 🔧 CRITICAL FIX: Increased overflow tolerance from ±20px to ±50px for normal market movements
-    // Detect upward overflow (elements extending above container)
-    if (extremeHighY < -50) {
-      // Elements extend significantly above container - clip top portion
-      topClip = Math.abs(extremeHighY) + 20; // Increased buffer from 10px to 20px
-      // 🔧 CRITICAL FIX: Reduced maximum clipping from 30% to 15% to preserve essential trading information
-      topClip = Math.min(topClip, contentArea.height * 0.15);
-    }
-
-    // Detect downward overflow (elements extending below container)
-    if (extremeLowY > contentArea.height + 50) {
-      // Elements extend significantly below container - clip bottom portion
-      bottomClip = extremeLowY - contentArea.height + 20; // Increased buffer from 10px to 20px
-      // 🔧 CRITICAL FIX: Reduced maximum clipping from 30% to 15% to preserve essential trading information
-      bottomClip = Math.min(bottomClip, contentArea.height * 0.15);
-    }
-
-    // 🔧 CRITICAL FIX: Special handling for ADR boundaries - prevent clipping of essential ADR information
-    // Use more conservative clipping for ADR boundaries (essential trading info)
-    if (adrHighY < -25) {
-      // ADR high extends above - use minimal clipping only if significantly outside
-      topClip = Math.max(topClip, Math.abs(adrHighY) + 10);
-    }
-    if (adrLowY > contentArea.height + 25) {
-      // ADR low extends below - use minimal clipping only if significantly outside
-      bottomClip = Math.max(bottomClip, adrLowY - contentArea.height + 10);
-    }
-
-    // Update clip-path bounds
-    clipPathBounds = {
-      top: Math.round(topClip),
-      right: 0, // No horizontal clipping needed
-      bottom: Math.round(bottomClip),
-      left: 0   // No horizontal clipping needed
-    };
-
-    // 🔧 CRITICAL FIX: Add error handling for coordinate store updates
+    // Update coordinate store with current bounds for reactive transformations
     try {
-      // Update coordinate store with current bounds for reactive transformations
       coordinateActions.updatePriceRange({
         midPrice: state.midPrice,
         projectedAdrHigh: state.projectedAdrHigh,
@@ -243,57 +195,35 @@
       console.warn('[FLOATING_DISPLAY] Failed to update coordinate store:', error);
       // Continue without coordinate store update - don't let this break rendering
     }
-
-    // 🔧 CRITICAL FIX: Add debugging information for clipping behavior
-    if (topClip > 0 || bottomClip > 0) {
-      console.log('[FLOATING_DISPLAY] Clipping applied:', {
-        symbol,
-        contentArea: { width: contentArea.width, height: contentArea.height },
-        extremeY: { high: extremeHighY, low: extremeLowY },
-        adrY: { high: adrHighY, low: adrLowY },
-        clipping: { top: topClip, bottom: bottomClip },
-        finalBounds: clipPathBounds
-      });
-    }
-  } else {
-    // Fallback: no clipping when data unavailable
-    clipPathBounds = { top: 0, right: 0, bottom: 0, left: 0 };
   }
-
-  // Reactive clip-path string for CSS with hardware acceleration
-  $: cssClipPath = clipPathBounds.top || clipPathBounds.bottom
-    ? `inset(${clipPathBounds.top}px ${clipPathBounds.right}px ${clipPathBounds.bottom}px ${clipPathBounds.left}px)`
-    : 'none'; // Use 'none' for better performance when no clipping needed
 
   // ✅ MATHEMATICAL PRECISION VALIDATION: Initialize precision validator and evidence collector
   let precisionValidator;
   let evidenceCollector;
   let displayCreationLogger;
+  let display; // Missing display variable declaration
+
+  // ✅ UNIFIED STORE: Reactive display store binding
+  $: display = $displays?.get(id);
+
+  // Display properties reactive updates
+  $: displayPosition = display?.position || position;
+  $: config = display?.config || {};
+  $: state = display?.state || {};
+  $: isActive = display?.isActive || false;
+  $: zIndex = display?.zIndex || 1;
+  $: displaySize = display?.size || { width: 220, height: 120 };
+
+  // ✅ PRECISION VALIDATION: Initialize validators when display and symbol are available
   $: if (id && symbol) {
     precisionValidator = getPrecisionValidator(id, symbol);
     evidenceCollector = getEvidenceCollector(id, symbol);
     displayCreationLogger = getDisplayCreationLogger(id, symbol);
   }
 
-  // ✅ UNIFIED STORE: Simple store binding - no reactive conflicts
-  $: display = $displays?.get(id);
-
-  // 🔧 DEBUG: Log displays store content and display lookup
-  console.log(`[FLOATING_DISPLAY:${id}] Store lookup`, {
-    totalDisplays: $displays?.size || 0,
-    displayIds: Array.from($displays?.keys() || []),
-    foundDisplay: !!display,
-    displayKeys: display ? Object.keys(display) : [],
-    hasState: !!(display?.state)
-  });
-
+  // 🔧 DEBUG: Log state changes and store content
   $: {
-    displayPosition = display?.position || position;
-    config = display?.config || {};
     const previousState = state; // Track state changes for debugging
-    state = display?.state || {}; // ✅ FIXED: Get state from unified displayStore
-
-    // 🔧 DEBUG: Log state changes to diagnose canvas rendering issue
     if (state?.ready !== previousState?.ready) {
       console.log(`[FLOATING_DISPLAY:${id}] State ready changed: ${previousState?.ready} → ${state?.ready}`, {
         symbol,
@@ -305,21 +235,20 @@
       });
     }
 
-    isActive = display?.isActive || false;
-    zIndex = display?.zIndex || 1;
-    displaySize = display?.size || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct fallback size
+    console.log(`[FLOATING_DISPLAY:${id}] Store lookup`, {
+      totalDisplays: $displays?.size || 0,
+      displayIds: Array.from($displays?.keys() || []),
+      foundDisplay: !!display,
+      displayKeys: display ? Object.keys(display) : [],
+      hasState: !!(display?.state)
+    });
+  }
 
-    // ✅ PRECISION MONITORING: Track display state changes for precision validation
-    if (state?.ready && precisionValidator) {
-      // State is ready - precision validation will occur during render phase
-    }
-
-    // ✅ ENHANCED LOGGING: Log position and size changes
-    logPositionAndSizeChanges();
-    }
+  // ✅ ENHANCED LOGGING: Log position and size changes
+  $: logPositionAndSizeChanges();
   
   // Update markers from store
-  $: if ($markerStore !== undefined) {
+  $: markerStoreSync: if ($markerStore !== undefined) {
     markers = $markerStore;
   }
 
@@ -332,49 +261,38 @@
   // 🔧 CONTAINER-STYLE: contentArea calculations like Container.svelte (headerless design)
   let contentArea = { width: 220, height: 120 }; // Full content area (220×120 container - no header)
   
-  // yScale calculation using contentArea height, centered on daily open price for ADR alignment
-  $: yScale = state?.visualLow && state?.visualHigh && contentArea
-    ? (() => {
-        // 🔧 CRITICAL FIX: Ensure ADR 0 (daily open) aligns with canvas 50% height
-        // Center the visual range around the daily open price to guarantee ADR 0 = canvas center
-        const dailyOpen = state.midPrice; // This is ADR 0
-        const currentRange = state.visualHigh - state.visualLow;
-        const halfRange = currentRange / 2;
+  // ✅ SAFE COORDINATE HELPER: Bounded YScale with adaptive bounds and clamping
+  function createBoundedYScale(state, contentArea) {
+    if (!state?.midPrice || !contentArea) return null;
 
-        // Force the visual range to be centered on daily open
-        const centeredVisualLow = dailyOpen - halfRange;
-        const centeredVisualHigh = dailyOpen + halfRange;
+    // Calculate adaptive safety margin based on market conditions
+    const adrValue = (state.projectedAdrHigh || state.visualHigh) - (state.projectedAdrLow || state.visualLow);
+    const currentRange = state.visualHigh - state.visualLow;
+    const volatilityRatio = currentRange / Math.max(adrValue, 0.0001); // Avoid division by zero
 
-        const yScaleFunction = scaleLinear().domain([centeredVisualLow, centeredVisualHigh]).range([contentArea.height, 0]);
+    // Dynamic safety margin: 0.5 (50% ADR) adjusted for volatility
+    const baseMargin = 0.5;
+    const volatilityMultiplier = Math.min(2.0, 1 + volatilityRatio);
+    const safetyMargin = baseMargin * volatilityMultiplier;
 
-        // ✅ COORDINATE PRECISION VALIDATION: Validate YScale mathematical precision
-        if (precisionValidator && contentArea && state) {
-          try {
-            const canvasDimensions = getCanvasDimensions(contentArea);
-            validateCoordinateTransformation(id, yScaleFunction, {
-              low: centeredVisualLow,
-              high: centeredVisualHigh
-            }, canvasDimensions);
-          } catch (error) {
-            console.warn('[FLOATING_DISPLAY] Coordinate precision validation failed:', error);
-          }
-        }
+    // Calculate bounds centered on daily open (ADR 0) with adaptive safety margin
+    const dailyOpen = state.midPrice;
+    const lowerBound = dailyOpen - (adrValue * safetyMargin);
+    const upperBound = dailyOpen + (adrValue * safetyMargin);
 
-        // ✅ BROWSER EVIDENCE: Collect coordinate system evidence
-        if (evidenceCollector && canvas && yScaleFunction && state) {
-          try {
-            collectCoordinateEvidence(id, canvas, yScaleFunction, {
-              low: centeredVisualLow,
-              high: centeredVisualHigh
-            });
-          } catch (error) {
-            console.warn('[FLOATING_DISPLAY] Coordinate evidence collection failed:', error);
-          }
-        }
+    // Ensure minimum range to prevent collapse
+    const minRange = adrValue * 0.3; // At least 30% of ADR
+    const finalLowerBound = Math.min(lowerBound, upperBound - minRange);
+    const finalUpperBound = Math.max(upperBound, finalLowerBound + minRange);
 
-        return yScaleFunction;
-      })()
-    : null;
+    return scaleLinear()
+      .domain([finalLowerBound, finalUpperBound])
+      .range([contentArea.height, 0])
+      .clamp(true); // CRITICAL: Prevent coordinate overflow
+  }
+
+  // yScale calculation using bounded coordinate system
+  $: yScale = createBoundedYScale(state, contentArea);
   
     
   // Header visibility handlers for hover-based show/hide
@@ -990,7 +908,7 @@
   let pendingTransaction = null;
 
   // Single reactive statement for all canvas operations to prevent concurrent initialization
-  $: if (canvas && state?.ready && !canvasError && !canvasInitializing) {
+  $: canvasStateChange: if (canvas && state?.ready && !canvasError && !canvasInitializing) {
     handleCanvasStateChange();
   }
 
@@ -1310,7 +1228,7 @@
   }
   
   // ✅ ULTRA-MINIMAL: Simple render trigger with deduplication
-  $: if (state && config && yScale) {
+  $: renderTrigger: if (state && config && yScale) {
     scheduleRender();
   }
   
@@ -1421,8 +1339,7 @@
     <canvas
       bind:this={canvas}
       class="full-canvas"
-      style="clip-path: {cssClipPath};"
-      on:contextmenu|preventDefault|stopPropagation={handleCanvasContextMenu}
+            on:contextmenu|preventDefault|stopPropagation={handleCanvasContextMenu}
     ></canvas>
   {:else}
     <div class="loading">
@@ -1474,20 +1391,16 @@
   /* Full canvas fills entire container area (headerless design) */
   .full-canvas {
     display: block;
-    /* 🔧 CRITICAL FIX: Canvas properly fills padded container without overflow */
-    width: calc(100% - 4px); /* Account for padding */
-    height: calc(100% - 4px); /* Account for padding */
+    /* 🔧 CRITICAL FIX: Canvas properly fills padded container - aligned with JavaScript 12px adjustment */
+    width: calc(100% - 12px); /* Match JavaScript totalAdjustment (8px padding + 4px border) */
+    height: calc(100% - 12px); /* Match JavaScript totalAdjustment (8px padding + 4px border) */
     margin: 2px; /* Center within padding */
     border-radius: 4px; /* Match container border radius */
     /* cursor removed - let interact.js control resize cursors */
     /* FIXED: Removed pointer-events: none - was breaking keyboard shortcuts after canvas creation */
 
-    /* ✅ CSS CLIP-PATH BOUNDS: Hardware acceleration for smooth clipping */
-    will-change: clip-path;
+    /* ✅ PERFORMANCE: Hardware acceleration for smooth rendering */
     transform: translateZ(0); /* Force hardware acceleration */
-
-    /* Ensure clip-path transitions are smooth for resize events */
-    transition: clip-path 0.1s ease-out;
     /* 🔧 CRITICAL FIX: Ensure canvas stays within container */
     overflow: hidden;
   }
