@@ -258,10 +258,10 @@
   let canvasHeight = 120; // Default container height (no header)
   let dpr = 1;
 
-  // 🔧 CONTAINER-STYLE: Reactive contentArea calculations based on displaySize (headerless design)
+  // 🔧 PHASE 1B FIX: Remove fixed 12px reduction to allow full container usage
   $: contentArea = {
-    width: Math.max(50, (displaySize?.width || 220) - 12), // Account for padding (8px) + border (4px)
-    height: Math.max(50, (displaySize?.height || 120) - 12) // Account for padding (8px) + border (4px)
+    width: Math.max(50, displaySize?.width || 220), // Use full container width - no fixed reduction
+    height: Math.max(50, displaySize?.height || 120) // Use full container height - no fixed reduction
   };
   
   // ✅ SAFE COORDINATE HELPER: Bounded YScale with adaptive bounds and clamping
@@ -513,8 +513,7 @@
               height: event.rect.height
             };
 
-            // Update display config to trigger reactive canvas resize
-            displayActions.updateDisplayConfig(id, 'containerSize', containerSize);
+            // Config update is now handled by unified resizeDisplay function
 
             // ✅ ENHANCED LOGGING: Log container resize event
             try {
@@ -533,13 +532,22 @@
             }
 
             displayActions.moveDisplay(id, newPosition);
-            displayActions.resizeDisplay(id, event.rect.width, event.rect.height);
+            displayActions.resizeDisplay(id, event.rect.width, event.rect.height, { updateConfig: false });
           },
-          onend: () => {
+          onend: (event) => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize end
             workspaceGrid.setDraggingState(false);
             // ✅ ENHANCED LOGGING: Reset resize start time
             resizeStartTime = null;
+
+            // ✅ CRITICAL FIX: Final config sync after resize completes
+            const finalSize = {
+              width: event.rect.width,
+              height: event.rect.height
+            };
+            displayActions.resizeDisplay(id, finalSize.width, finalSize.height, {
+              updateConfig: true // Re-enable for final sync
+            });
           }
         });
       
@@ -562,12 +570,7 @@
     };
   });
   
-  // ✅ ATOMIC RESIZE TRANSACTION: Generate unique transaction IDs for tracking
-  let transactionCounter = 0;
-  function generateTransactionId() {
-    return `atomic-${id}-${Date.now()}-${++transactionCounter}`;
-  }
-
+  
   // ✅ ATOMIC RESIZE TRANSACTION: Comprehensive coordinate validation
   function validateYScaleConsistency(yScale, state, contentArea) {
     if (!yScale || !state || !contentArea) {
@@ -647,268 +650,38 @@
     };
   }
 
-  // ✅ ATOMIC RESIZE TRANSACTION: Main atomic resize transaction function
-  function executeAtomicResizeTransaction(newContentArea, resizeContext = {}) {
-    // Prevent concurrent transactions to maintain atomicity
-    if (transactionInProgress) {
-      console.warn(`[FLOATING_DISPLAY:${id}] Transaction already in progress, queuing new transaction`);
-      if (pendingTransaction) {
-        // Replace pending transaction with latest
-        pendingTransaction = { newContentArea, resizeContext };
-      } else {
-        pendingTransaction = { newContentArea, resizeContext };
-      }
-      return;
-    }
+  // 🔧 SIMPLIFIED: Direct canvas update without transaction overhead
+  function updateCanvasDimensions(newContentArea, resizeContext = {}) {
+    if (!canvas || !ctx || !newContentArea) return;
 
-    transactionInProgress = true;
-    const transactionId = generateTransactionId();
-    const startTime = getPerformanceTime();
-    const oldContentArea = { ...contentArea };
+    console.log(`[FLOATING_DISPLAY] Simple resize: ${contentArea.width}x${contentArea.height} → ${newContentArea.width}x${newContentArea.height}`);
 
-    console.log(`🔄 [RESIZE_TRANSACTION:${id}] Starting atomic resize transaction:`, {
-      transactionId,
-      oldSize: { width: oldContentArea.width, height: oldContentArea.height },
-      newSize: { width: newContentArea.width, height: newContentArea.height },
-      trigger: resizeContext.trigger || 'unknown',
-      timestamp: startTime
+    // Update contentArea
+    contentArea = { ...newContentArea };
+
+    // Update canvas dimensions directly (following Container.svelte pattern)
+    const integerCanvasWidth = Math.round(contentArea.width * dpr);
+    const integerCanvasHeight = Math.round(contentArea.height * dpr);
+
+    canvas.width = integerCanvasWidth;
+    canvas.height = integerCanvasHeight;
+    canvas.style.width = contentArea.width + 'px';
+    canvas.style.height = contentArea.height + 'px';
+
+    // Apply DPR scaling
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+
+    // Update coordinate store and trigger render
+    coordinateActions?.updateBounds({
+      x: [0, contentArea.width],
+      y: [0, contentArea.height]
     });
-
-    try {
-      // Phase 1: Validate input parameters
-      if (!newContentArea || newContentArea.width <= 0 || newContentArea.height <= 0) {
-        throw new Error('Invalid contentArea dimensions provided');
-      }
-
-      if (!canvas || !ctx) {
-        throw new Error('Canvas context not available');
-      }
-
-      // Phase 2: Update contentArea BEFORE any other operations (atomic)
-      contentArea = { ...newContentArea };
-
-      // Phase 3: Update canvas dimensions FIRST (critical ordering)
-      const integerCanvasWidth = Math.round(contentArea.width * dpr);
-      const integerCanvasHeight = Math.round(contentArea.height * dpr);
-      const cssWidth = integerCanvasWidth / dpr;
-      const cssHeight = integerCanvasHeight / dpr;
-
-      canvas.width = integerCanvasWidth;
-      canvas.height = integerCanvasHeight;
-      canvas.style.width = cssWidth + 'px';
-      canvas.style.height = cssHeight + 'px';
-      // 🔧 CRITICAL FIX: Apply DPR scaling to match physical canvas dimensions
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = false;
-
-      // Phase 4: Update coordinate store synchronously
-      coordinateActions.updateBounds({
-        x: [0, contentArea.width],
-        y: [0, contentArea.height]
-      });
-
-      // Phase 5: Verify YScale consistency
-      const yScaleValidation = validateYScaleConsistency(yScale, state, contentArea);
-
-      // Phase 6: Validate ADR alignment (trading-critical)
-      const adrAlignment = CoordinateValidator.validateADRAlignment(yScale, state, contentArea, id);
-
-      // Phase 7: Check overall coordinate synchronization
-      const synchronizationCheck = areCoordinatesSynchronized();
-
-      const allValidationsPassed = yScaleValidation.isValid &&
-                                  adrAlignment.isValid &&
-                                  synchronizationCheck.synchronized;
-
-      // Phase 8: Log comprehensive transaction results
-      const transactionDuration = getPerformanceTime() - startTime;
-
-      console.log(`✅ [RESIZE_TRANSACTION:${id}] Transaction completed:`, {
-        transactionId,
-        duration: `${transactionDuration.toFixed(2)}ms`,
-        meets60fpsTarget: transactionDuration <= 16.67,
-        validations: {
-          yScale: yScaleValidation.isValid,
-          adrAlignment: adrAlignment.isValid,
-          synchronization: synchronizationCheck.synchronized
-        },
-        metrics: {
-          maxADRDeviation: adrAlignment.maxDeviation,
-          yScaleTestResults: yScaleValidation.testCount,
-          synchronizationDetails: synchronizationCheck.details
-        }
-      });
-
-      // Phase 9: Implement graceful validation degradation
-      const criticalValidationsPassed = yScaleValidation.isValid && synchronizationCheck.synchronized;
-
-      if (allValidationsPassed) {
-        // ✅ All validations passed - proceed with full render
-        canvasWidth = contentArea.width;
-        canvasHeight = contentArea.height;
-
-        logRenderScheduling(id, 'atomic_resize_complete', {
-          transactionId,
-          duration: transactionDuration,
-          validationsPassed: true
-        });
-
-        scheduleRender();
-
-      } else if (criticalValidationsPassed) {
-        // ⚠️ Non-critical validation failures (ADR alignment) - render with best effort
-        console.warn(`⚠️ [RESIZE_TRANSACTION:${id}] Non-critical validation failures - rendering with best effort:`, {
-          transactionId,
-          failedValidations: {
-            adrAlignment: !adrAlignment.isValid
-          },
-          errors: {
-            adrAlignmentErrors: adrAlignment.testResults.filter(r => !r.passed)
-          },
-          note: 'Market data will continue to display with reduced positioning accuracy'
-        });
-
-        // Update canvas tracking variables and render anyway
-        canvasWidth = contentArea.width;
-        canvasHeight = contentArea.height;
-
-        logRenderScheduling(id, 'atomic_resize_best_effort', {
-          transactionId,
-          duration: transactionDuration,
-          validationsPassed: false,
-          criticalValidationsPassed: true,
-          renderMode: 'best_effort'
-        });
-
-        scheduleRender();
-
-      } else {
-        // ❌ Critical validation failures - render safe minimum with warnings
-        console.error(`❌ [RESIZE_TRANSACTION:${id}] Critical validation failures - rendering safe minimum:`, {
-          transactionId,
-          failedValidations: {
-            yScale: !yScaleValidation.isValid,
-            adrAlignment: !adrAlignment.isValid,
-            synchronization: !synchronizationCheck.synchronized
-          },
-          errors: {
-            yScaleError: yScaleValidation.reason,
-            adrAlignmentErrors: adrAlignment.testResults.filter(r => !r.passed),
-            synchronizationErrors: synchronizationCheck
-          },
-          note: 'Essential market visualization maintained - full functionality pending validation recovery'
-        });
-
-        // Update canvas tracking variables for safe rendering
-        canvasWidth = contentArea.width;
-        canvasHeight = contentArea.height;
-
-        logRenderScheduling(id, 'atomic_resize_safe_minimum', {
-          transactionId,
-          duration: transactionDuration,
-          validationsPassed: false,
-          criticalValidationsPassed: false,
-          renderMode: 'safe_minimum'
-        });
-
-        // Schedule render even for critical failures to maintain market visibility
-        scheduleRender();
-      }
-
-      // Log transaction completion
-      const logger = getDisplayCreationLogger(id);
-      logger.logAtomicResizeTransaction(transactionId, oldContentArea, newContentArea, {
-        yScaleValid: yScaleValidation,
-        adrAlignment: adrAlignment,
-        synchronization: synchronizationCheck
-      }, {
-        duration: transactionDuration,
-        meets60fpsTarget: transactionDuration <= 16.67
-      });
-
-      // Cleanup transaction state and process pending transaction
-      transactionInProgress = false;
-      const pending = pendingTransaction;
-      pendingTransaction = null;
-
-      if (pending) {
-        // Process pending transaction in next frame to prevent recursion
-        requestAnimationFrame(() => {
-          executeAtomicResizeTransaction(pending.newContentArea, pending.resizeContext);
-        });
-      }
-
-      return {
-        transactionId,
-        success: allValidationsPassed,
-        duration: transactionDuration,
-        validations: {
-          yScaleValidation,
-          adrAlignment,
-          synchronizationCheck
-        }
-      };
-
-    } catch (error) {
-      // Defensive timing calculation with robust HMR-safe performance API
-      let transactionDuration = 0;
-      try {
-        // Use our robust HMR-safe getPerformanceTime() function
-        const errorTimingNow = getPerformanceTime();
-        transactionDuration = errorTimingNow - startTime;
-      } catch (timingError) {
-        // This should never happen with our robust implementation, but handle it gracefully
-        console.warn(`[RESIZE_TRANSACTION:${id}] Unexpected timing error:`, timingError.message);
-        transactionDuration = 0; // Set to 0 if timing fails completely
-      }
-      console.error(`❌ [RESIZE_TRANSACTION:${id}] Transaction failed:`, {
-        transactionId,
-        error: error.message,
-        stack: error.stack,
-        duration: `${transactionDuration.toFixed(2)}ms`,
-        context: {
-          oldContentArea,
-          newContentArea,
-          hasCanvas: !!canvas,
-          hasContext: !!ctx,
-          hasCoordinateActions: !!coordinateActions
-        }
-      });
-
-      // Cleanup transaction state even on error
-      transactionInProgress = false;
-      const pending = pendingTransaction;
-      pendingTransaction = null;
-
-      if (pending) {
-        // Process pending transaction in next frame to prevent recursion
-        requestAnimationFrame(() => {
-          executeAtomicResizeTransaction(pending.newContentArea, pending.resizeContext);
-        });
-      }
-
-      return {
-        transactionId,
-        success: false,
-        duration: transactionDuration,
-        error: error.message
-      };
-    }
-  }
-
-  // 🔧 CRITICAL FIX: Consolidated canvas dimension management to prevent race conditions
-  function updateCanvasDimensions(newContentArea) {
-    // Legacy wrapper for backward compatibility - use atomic transaction
-    executeAtomicResizeTransaction(newContentArea, {
-      trigger: 'legacy_wrapper',
-      source: 'updateCanvasDimensions'
-    });
+    scheduleRender();
   }
 
   // 🔧 CONSOLIDATED CANVAS STATE MANAGEMENT: Single entry point to prevent race conditions
   let canvasInitializing = false;
-  let transactionInProgress = false;
-  let pendingTransaction = null;
 
   // Single reactive statement for all canvas operations to prevent concurrent initialization
   $: canvasStateChange: if (canvas && state?.ready && !canvasError && !canvasInitializing) {
@@ -929,13 +702,10 @@
   function handleConfigChanges() {
     // Calculate new contentArea from config (full container, no header)
     const containerSize = config.containerSize || { width: 220, height: 120 };
-    // 🔧 CRITICAL FIX: Account for padding and border in container calculations
-    const paddingTotal = 8; // 2px padding + 2px margin on each side for canvas
-    const borderWidth = 4; // 2px border on each side
-    const totalAdjustment = paddingTotal + borderWidth;
+    // 🔧 PHASE 1B FIX: Remove fixed reduction - use full container dimensions
     const newContentArea = {
-      width: Math.max(50, containerSize.width - totalAdjustment),  // Minimum 50px
-      height: Math.max(50, containerSize.height - totalAdjustment) // Minimum 50px
+      width: Math.max(50, containerSize.width),  // Use full container width - maintain 50px minimum
+      height: Math.max(50, containerSize.height) // Use full container height - maintain 50px minimum
     };
 
     // 🔧 CRITICAL FIX: Reduced threshold for responsive resizing
@@ -952,7 +722,7 @@
         changes: { widthChange, heightChange }
       });
 
-      executeAtomicResizeTransaction(newContentArea, {
+      updateCanvasDimensions(newContentArea, {
         trigger: 'reactive_config_change',
         source: 'config_reactive_update',
         oldSize: { width: contentArea.width, height: contentArea.height },
@@ -1020,21 +790,17 @@
         });
 
 
-        // 🔧 CRITICAL FIX: Use consolidated canvas dimension function with correct calculations
+        // 🔧 PHASE 1B FIX: Use consolidated canvas dimension function with full container usage
         const containerSize = config.containerSize || { width: 220, height: 120 };
-        // 🔧 CRITICAL FIX: Account for padding, border, and margin in container
-        const paddingTotal = 8; // 2px padding + 2px margin on each side for canvas
-        const borderWidth = 4; // 2px border on each side
-        const totalAdjustment = paddingTotal + borderWidth;
+        // 🔧 PHASE 1B FIX: Remove fixed reduction - use full container dimensions
         const newContentArea = {
-          width: Math.max(50, containerSize.width - totalAdjustment),  // Minimum 50px
-          height: Math.max(50, containerSize.height - totalAdjustment) // Minimum 50px
+          width: Math.max(50, containerSize.width),  // Use full container width - maintain 50px minimum
+          height: Math.max(50, containerSize.height) // Use full container height - maintain 50px minimum
         };
 
         console.log(`[FLOATING_DISPLAY] Canvas initial sizing:`, {
           id,
           containerSize,
-          totalAdjustment,
           newContentArea
         });
 
@@ -1097,7 +863,7 @@
   function scheduleRender() {
     // 🚨 CRITICAL FIX: Always render market data, coordinate issues handled separately
     if (!areCoordinatesSynchronized()) {
-      console.warn(`[FLOATING_DISPLAY:${displayId}] Coordinate systems not synchronized, rendering with latest market data`);
+      console.warn(`[FLOATING_DISPLAY:${id}] Coordinate systems not synchronized, rendering with latest market data`);
       // NEVER skip rendering - always show latest market data to traders
     }
 
@@ -1388,9 +1154,9 @@
   /* Full canvas fills entire container area (headerless design) */
   .full-canvas {
     display: block;
-    /* 🔧 CRITICAL FIX: Canvas properly fills padded container - aligned with JavaScript 12px adjustment */
-    width: calc(100% - 12px); /* Match JavaScript totalAdjustment (8px padding + 4px border) */
-    height: calc(100% - 12px); /* Match JavaScript totalAdjustment (8px padding + 4px border) */
+    /* 🔧 PHASE 1B FIX: Remove CSS constraints that prevent horizontal scaling visibility */
+    width: 100%; /* Use full container width - no fixed reduction */
+    height: 100%; /* Use full container height - no fixed reduction */
     margin: 2px; /* Center within padding */
     border-radius: 4px; /* Match container border radius */
     /* cursor removed - let interact.js control resize cursors */
@@ -1398,8 +1164,8 @@
 
     /* ✅ PERFORMANCE: Hardware acceleration for smooth rendering */
     transform: translateZ(0); /* Force hardware acceleration */
-    /* 🔧 CRITICAL FIX: Ensure canvas stays within container */
-    overflow: hidden;
+    /* 🔧 PHASE 1B FIX: Allow expansion beyond container for horizontal scaling visibility */
+    overflow: visible;
   }
 
   .loading {

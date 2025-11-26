@@ -223,18 +223,24 @@ export const displayActions = {
     return displayStateActions.moveDisplay(displayId, position);
   },
 
-  resizeDisplay: (displayId, width, height) => {
-    console.log(`Display resized: ${width}x${height}`);
+  // 🔧 UNIFIED: Single resize path that updates both display and config
+  resizeDisplay: (displayId, width, height, options = {}) => {
+    console.log(`[DISPLAY_STORE] Unified resize: ${displayId} → ${width}x${height}`);
 
-    // Delegate to displayStateStore
+    // Update display state (existing logic)
     const updated = displayStateActions.resizeDisplay(displayId, width, height);
 
-    // Simulate DPI-aware rendering log (for test verification)
     if (updated) {
+      // Simulate DPI-aware rendering log (for test verification)
       const dpr = window.devicePixelRatio || 1;
       console.log(`DPI-aware rendering applied: ${dpr}x`);
       console.log(`Canvas re-rendered at ${width}x${height}`);
       console.log(`Market profile scaled to new dimensions`);
+
+      // Update containerSize in config for consistency (unless explicitly disabled)
+      if (options.updateConfig !== false) {
+        updateDisplayConfig('containerSize', { width, height });
+      }
     }
 
     return updated;
@@ -272,29 +278,21 @@ export const displayActions = {
   },
   
   // === SIMPLIFIED CONFIGURATION OPERATIONS (global only) ===
-  
-  updateDisplayConfig: (displayId, parameter, value) => {
+
+  // Simplified config update (no displayId needed for containerSize)
+  updateDisplayConfig: (parameter, value) => {
+    console.log(`[DISPLAY_STORE] Updating global config: ${parameter} =`, value);
+
     displayStore.update(store => {
-      // Get the existing config for this display and only update the specific parameter
       const existingConfig = store.defaultConfig;
       const updatedConfig = { ...existingConfig, [parameter]: value };
-
-      const newStore = {
-        ...store,
-        defaultConfig: updatedConfig
-      };
-
+      const newStore = { ...store, defaultConfig: updatedConfig };
       return newStore;
     });
 
-    // Broadcast configuration update to all workers via workerManager
+    // Broadcast to workers and persist
     workerManager.broadcastConfigUpdate({ [parameter]: value });
-
-    // Auto-save global config change with full runtime config
-    displayStore.update(store => {
-      workspacePersistenceManager.saveGlobalConfig({ [parameter]: value }, store.defaultConfig);
-      return store;
-    });
+    workspacePersistenceManager.saveGlobalConfig({ [parameter]: value }, displayStore.defaultConfig);
   },
 
   updateGlobalConfig: (parameter, value) => {

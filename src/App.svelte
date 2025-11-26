@@ -407,7 +407,7 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
   :global(body) {
     background-color: #111827;
     margin: 0;
-    overflow: hidden;
+    /* overflow: hidden; ← REMOVED to allow expanded content visibility */
   }
   
   main {

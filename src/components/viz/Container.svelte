@@ -468,12 +468,6 @@
     // 🔧 CLEAN FOUNDATION: Use rendering context for all operations
     const { contentArea, adrAxisX } = currentRenderingContext;
 
-    // 🔧 BOUNDARY FIX: Establish clipping region to constrain all visualizations
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, contentArea.width, contentArea.height);
-    ctx.clip();
-
     // Initialize/update y-scale for the current render frame
     y = scaleLinear().domain([currentState.visualLow, currentState.visualHigh]).range([contentArea.height, 0]);
 
@@ -610,9 +604,6 @@
 
     // 🔧 CLEAN FOUNDATION: Restore context to prevent cumulative transformations
     const beforeRestore = ctx.getTransform();
-
-    // 🔧 BOUNDARY FIX: Restore clipping region before other restores
-    ctx.restore(); // Restore from clipping region save
 
     ctx.restore(); // Original context restore
     const afterRestore = ctx.getTransform();
