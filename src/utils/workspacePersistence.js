@@ -202,7 +202,7 @@ export class WorkspacePersistenceManager {
         displaysCount: latestSave.displays.size,
         panelsCount: latestSave.panels.size,
         iconsCount: latestSave.icons.size,
-        configKeys: Object.keys(latestSave.defaultConfig).length,
+        configKeys: (latestSave?.defaultConfig ? Object.keys(latestSave.defaultConfig).length : 0),
         developmentMode: this.isDevelopmentMode
       });
     } catch (error) {

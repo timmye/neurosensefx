@@ -420,7 +420,7 @@ function isShortcutActive(shortcut, currentContext) {
  */
 async function loadUserShortcuts() {
 	try {
-		const workspace = await workspacePersistenceManager.load();
+		const workspace = await workspacePersistenceManager.loadWorkspaceLayout();
 		if (workspace.shortcuts) {
 			shortcutStore.update(state => ({
 				...state,

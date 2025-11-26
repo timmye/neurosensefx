@@ -192,9 +192,11 @@ function handleDataPackage(data) {
     // 🔧 CRITICAL FIX: Check if display already exists before creating/updating
     const currentStore = get(displayStore);
     let existingDisplay = null;
-    
+
     // Search for existing display with this symbol
-    for (const [displayId, display] of currentStore.displays) {
+    const displays = currentStore.displays || new Map();
+
+    for (const [displayId, display] of displays) {
         if (display.symbol === data.symbol) {
             existingDisplay = display;
             break;

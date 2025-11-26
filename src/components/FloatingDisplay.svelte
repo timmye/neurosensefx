@@ -5,6 +5,7 @@
   import { scaleLinear } from 'd3-scale';
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
+  import { displayContextEnhancer } from '../utils/visualizationLoggingUtils.js';
         
   // Import drawing functions
   import { drawMarketProfile } from '../lib/viz/marketProfile.js';
@@ -21,12 +22,30 @@
   
   // ✅ GRID SNAPPING: Import workspace grid utility
   import { workspaceGrid } from '../utils/workspaceGrid.js';
-  
+
   // 🔧 ZOOM AWARENESS: Import zoom detection utilities
-  import { createZoomDetector } from '../utils/canvasSizing.js';
+  import { createZoomDetector, getCanvasDimensions } from '../utils/canvasSizing.js';
 
   // ✅ CSS CLIP-PATH BOUNDS: Import coordinate store for reactive bounds
   import { currentBounds, coordinateActions } from '../stores/coordinateStore.js';
+
+  // ✅ MATHEMATICAL PRECISION VALIDATION: Import exact validation system
+  import {
+    getPrecisionValidator,
+    removePrecisionValidator,
+    validateCanvasContainerMatch,
+    validateVisualizationBounds,
+    validateCoordinateTransformation,
+    validateDayRangeMeterPrecision
+  } from '../utils/canvasPrecisionValidator.js';
+
+  // ✅ BROWSER EVIDENCE COLLECTION: Import real browser measurements
+  import {
+    getEvidenceCollector,
+    removeEvidenceCollector,
+    collectBrowserEvidence,
+    collectCoordinateEvidence
+  } from '../utils/browserEvidenceCollector.js';
   
   // Component props
   export let id;
@@ -150,6 +169,14 @@
     ? `inset(${clipPathBounds.top}px ${clipPathBounds.right}px ${clipPathBounds.bottom}px ${clipPathBounds.left}px)`
     : 'none'; // Use 'none' for better performance when no clipping needed
 
+  // ✅ MATHEMATICAL PRECISION VALIDATION: Initialize precision validator and evidence collector
+  let precisionValidator;
+  let evidenceCollector;
+  $: if (id && symbol) {
+    precisionValidator = getPrecisionValidator(id, symbol);
+    evidenceCollector = getEvidenceCollector(id, symbol);
+  }
+
   // ✅ UNIFIED STORE: Simple store binding - no reactive conflicts
   $: display = $displays?.get(id);
   $: {
@@ -160,6 +187,10 @@
     zIndex = display?.zIndex || 1;
     displaySize = display?.size || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct fallback size
 
+    // ✅ PRECISION MONITORING: Track display state changes for precision validation
+    if (state?.ready && precisionValidator) {
+      // State is ready - precision validation will occur during render phase
+    }
     }
   
   // Update markers from store
@@ -189,8 +220,34 @@
         const centeredVisualLow = dailyOpen - halfRange;
         const centeredVisualHigh = dailyOpen + halfRange;
 
-        
-        return scaleLinear().domain([centeredVisualLow, centeredVisualHigh]).range([contentArea.height, 0]);
+        const yScaleFunction = scaleLinear().domain([centeredVisualLow, centeredVisualHigh]).range([contentArea.height, 0]);
+
+        // ✅ COORDINATE PRECISION VALIDATION: Validate YScale mathematical precision
+        if (precisionValidator && contentArea && state) {
+          try {
+            const canvasDimensions = getCanvasDimensions(contentArea);
+            validateCoordinateTransformation(id, yScaleFunction, {
+              low: centeredVisualLow,
+              high: centeredVisualHigh
+            }, canvasDimensions);
+          } catch (error) {
+            console.warn('[FLOATING_DISPLAY] Coordinate precision validation failed:', error);
+          }
+        }
+
+        // ✅ BROWSER EVIDENCE: Collect coordinate system evidence
+        if (evidenceCollector && canvas && yScaleFunction && state) {
+          try {
+            collectCoordinateEvidence(id, canvas, yScaleFunction, {
+              low: centeredVisualLow,
+              high: centeredVisualHigh
+            });
+          } catch (error) {
+            console.warn('[FLOATING_DISPLAY] Coordinate evidence collection failed:', error);
+          }
+        }
+
+        return yScaleFunction;
       })()
     : null;
   
@@ -427,12 +484,15 @@
     }
   }
   
-  // Canvas initialization function with retry logic
+  // Canvas initialization function with retry logic and comprehensive logging
   function initializeCanvas() {
     if (!canvas) {
       console.error('[FLOATING_DISPLAY] Canvas element not available');
       return;
     }
+
+    // ✅ MATHEMATICAL PRECISION VALIDATION: Start canvas initialization validation
+    console.log(`🎯 [PRECISION:${id}] Canvas initialization started - Attempt ${canvasRetries + 1}/${MAX_CANVAS_RETRIES}`);
 
     canvasRetries++;
 
@@ -448,6 +508,9 @@
         // 🔧 ZOOM AWARENESS: Initialize zoom detector
         cleanupZoomDetector = createZoomDetector((newDpr) => {
           dpr = newDpr;
+
+          // ✅ PRECISION VALIDATION: Track DPR changes for canvas precision
+          console.log(`📏 [PRECISION:${id}] DPR change: ${dpr} → ${newDpr}`);
 
           // Recalculate canvas dimensions with new DPR
           if (contentArea) {
@@ -471,7 +534,7 @@
           }
         });
 
-        
+
         // 🔧 CRITICAL FIX: Use consolidated canvas dimension function
         const containerSize = config.containerSize || { width: 220, height: 120 };
         const newContentArea = {
@@ -482,6 +545,24 @@
         // Use the consolidated function to prevent duplicate code and race conditions
         updateCanvasDimensions(newContentArea);
 
+        // ✅ BROWSER EVIDENCE COLLECTION: Collect real browser measurements for canvas-container validation
+        if (evidenceCollector && element && canvas) {
+          try {
+            collectBrowserEvidence(id, element, canvas);
+          } catch (error) {
+            console.warn('[FLOATING_DISPLAY] Browser evidence collection failed:', error);
+          }
+        }
+
+        // ✅ MATHEMATICAL PRECISION VALIDATION: Validate canvas-container match exactly
+        if (precisionValidator && element && canvas) {
+          try {
+            validateCanvasContainerMatch(id, canvas, element, newContentArea);
+          } catch (error) {
+            console.warn('[FLOATING_DISPLAY] Canvas precision validation failed:', error);
+          }
+        }
+
               } else {
         throw new Error('Failed to get 2D context');
       }
@@ -490,6 +571,9 @@
       canvasError = true;
       ctx = null;
       console.error(`[FLOATING_DISPLAY] Canvas initialization failed (attempt ${canvasRetries}/${MAX_CANVAS_RETRIES}):`, error);
+
+      // ✅ PRECISION VALIDATION: Track canvas initialization failure
+      console.error(`❌ [PRECISION:${id}] Canvas initialization failed (attempt ${canvasRetries}/${MAX_CANVAS_RETRIES}):`, error.message);
 
       if (canvasRetries >= MAX_CANVAS_RETRIES) {
         console.error(`[FLOATING_DISPLAY] Maximum canvas initialization retries exceeded`);
@@ -562,7 +646,8 @@
     };
     const adrAxisX = contentArea.width * config.adrAxisPosition;
 
-    renderingContext = {
+    // ✅ VISUALIZATION LOGGING: Enhance rendering context with display correlation
+    renderingContext = displayContextEnhancer.getContext(id, symbol, {
       containerSize,
       contentArea,
       adrAxisX,
@@ -570,7 +655,7 @@
       visualizationsContentWidth: contentArea.width,
       meterHeight: contentArea.height,
       adrAxisXPosition: adrAxisX
-    };
+    });
 
     // Clear canvas and set background
     ctx.clearRect(0, 0, contentArea.width, contentArea.height);
@@ -580,18 +665,56 @@
     // Draw symbol background first (behind all other visualizations)
     renderSymbolBackground();
 
-    // Draw visualizations
+    // Draw visualizations with performance tracking
     if (state.visualLow && state.visualHigh && yScale) {
       try {
-        // Draw visualizations in correct order for layering
+        // ✅ PRECISION VALIDATION: Track first render with mathematical precision validation
+        if (!renderingContext.firstRenderLogged && precisionValidator) {
+          console.log(`🎯 [PRECISION:${id}] First render initiated for ${symbol}`);
+          renderingContext.firstRenderLogged = true;
+        }
+
+        // Draw visualizations in correct order for layering with performance tracking
+        const visualizationStartTime = performance.now();
+
         drawVolatilityOrb(ctx, renderingContext, config, state, yScale);
+        logVisualizationPerformance(id, 'VolatilityOrb', visualizationStartTime, renderingContext, state);
+
         drawMarketProfile(ctx, renderingContext, config, state, yScale);
+        logVisualizationPerformance(id, 'MarketProfile', visualizationStartTime, renderingContext, state);
+
         drawDayRangeMeter(ctx, renderingContext, config, state, yScale);
+        logVisualizationPerformance(id, 'DayRangeMeter', visualizationStartTime, renderingContext, state);
+
         drawPriceFloat(ctx, renderingContext, config, state, yScale);
+        logVisualizationPerformance(id, 'PriceFloat', visualizationStartTime, renderingContext, state);
+
         drawPriceDisplay(ctx, renderingContext, config, state, yScale);
+        logVisualizationPerformance(id, 'PriceDisplay', visualizationStartTime, renderingContext, state);
+
         drawVolatilityMetric(ctx, renderingContext, config, state);
+        logVisualizationPerformance(id, 'VolatilityMetric', visualizationStartTime, renderingContext, state);
+
         drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);
+        logVisualizationPerformance(id, 'PriceMarkers', visualizationStartTime, renderingContext, state);
+
+        // Log total render time
+        const totalRenderTime = performance.now() - visualizationStartTime;
+        const meets60fps = totalRenderTime <= 16.67;
+
+        if (!meets60fps) {
+          console.warn(`⚠️ [DISPLAY:${id}] Total render time ${totalRenderTime.toFixed(2)}ms exceeds 60fps target`);
+        }
+
       } catch (error) {
+        // ✅ PRECISION VALIDATION: Track render errors
+        console.error(`❌ [PRECISION:${id}] Render error for ${symbol}:`, {
+          error: error.message,
+          hasCanvas: !!ctx,
+          hasRenderingContext: !!renderingContext,
+          hasYScale: !!yScale
+        });
+
         console.error(`[RENDER] Error in visualization functions:`, error);
       }
     }
@@ -604,6 +727,26 @@
   
   // 🔧 ARCHITECTURAL FIX: Consolidated cleanup with proper resource management
   onDestroy(() => {
+    // ✅ MATHEMATICAL PRECISION VALIDATION: Generate final precision compliance report
+    if (precisionValidator) {
+      try {
+        const precisionReport = precisionValidator.generatePrecisionReport();
+        console.log(`[PRECISION:${id}] Mathematical precision completed for ${symbol}:`, precisionReport);
+      } catch (error) {
+        console.warn(`[PRECISION:${id}] Error generating precision report:`, error);
+      }
+    }
+
+    // ✅ BROWSER EVIDENCE COLLECTION: Generate final evidence compliance report
+    if (evidenceCollector) {
+      try {
+        const evidenceReport = evidenceCollector.generateEvidenceReport();
+        console.log(`[EVIDENCE:${id}] Browser evidence completed for ${symbol}:`, evidenceReport);
+      } catch (error) {
+        console.warn(`[EVIDENCE:${id}] Error generating evidence report:`, error);
+      }
+    }
+
     // Cleanup header timeout
     if (headerTimeout) {
       clearTimeout(headerTimeout);
