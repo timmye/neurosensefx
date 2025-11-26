@@ -13,11 +13,12 @@ import { wsStatus, availableSymbols } from '../../data/wsClient.js';
 import { subscribe, unsubscribe } from '../../data/wsClient.js';
 import { displayStore } from '../../stores/displayStore.js';
 
-// Default ping endpoints for connectivity testing
+// Trading-appropriate connectivity endpoints
+// Chosen for: reliability, global distribution, financial infrastructure proximity
 const PING_ENDPOINTS = [
-  'https://dns.google/resolve?name=google.com',
-  'https://httpbin.org/get',
-  'https://api.github.com/rate_limit'
+  'https://dns.google/resolve?name=google.com',        // DNS infrastructure - highly reliable
+  'https://www.cloudflare.com/',                       // CDN backbone - trading data proximity
+  'https://ripe.net/'                                  // Network infrastructure - monitoring focused
 ];
 
 // Status thresholds

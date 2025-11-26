@@ -2,6 +2,7 @@ import { scaleLinear } from 'd3-scale';
 import { createCanvasSizingConfig, configureCanvasContext, boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
 import { formatPriceSimple } from '../utils/priceFormatting.js';
 import { priceScale, currentBounds, coordinateActions } from '../../stores/coordinateStore.js';
+import { CoordinateValidator } from '../../utils/coordinateValidator.js';
 
 /**
  * DPR-Aware Day Range Meter Implementation
@@ -19,6 +20,18 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
     return;
   }
 
+  // 🔧 PHASE 2: Enhanced YScale Validation for Trading-Critical Accuracy
+  const displayId = renderingContext?.displayId || 'unknown';
+  const coordinateValidation = CoordinateValidator.validateVisualizationCoordinateSystem(
+    'DayRangeMeter', y, state, renderingContext.contentArea, displayId
+  );
+
+  if (!coordinateValidation.isValid) {
+    console.warn(`[${displayId}] ${coordinateValidation.visualizationName} coordinate validation failed:`,
+      coordinateValidation);
+    // Continue rendering for resilience, but log the issue
+  }
+
   // Extract rendering context from the unified infrastructure
   const { contentArea, adrAxisX } = renderingContext;
 
@@ -34,11 +47,16 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
   } = state;
 
   // Calculate ADR value from projected boundaries (consistent with dataProcessor)
-  const adrValue = projectedAdrHigh - projectedAdrLow;
+  const adrValue = (projectedAdrHigh !== null && projectedAdrLow !== null)
+    ? projectedAdrHigh - projectedAdrLow
+    : null;
 
-  // Guard for essential data
-  if (!midPrice || !adrValue) {
-    console.warn('[DayRangeMeter] Missing essential data (midPrice, adrValue), skipping render');
+  // Guard for essential data - check for null, undefined, or invalid values
+  if (midPrice === null || midPrice === undefined || adrValue === null || adrValue === undefined || adrValue <= 0) {
+    // Skip render silently in production to avoid console spam
+    if (import.meta.env.DEV) {
+      console.warn('[DayRangeMeter] Missing essential data (midPrice, adrValue), skipping render');
+    }
     return;
   }
 
@@ -60,31 +78,33 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
     // Continue without coordinate store update - don't let this break rendering
   }
 
-  // 🔧 CRITICAL FIX: Create reactive Y transformation function with comprehensive error handling
+  // 🔧 OPTIMIZED COORDINATE TRANSFORMATION: Cache transformation function to reduce conditional checks
+  let transformFunction = null;
+
+  // Determine transformation function once (optimized for performance)
+  if (coordinateActions && typeof coordinateActions.transform === 'function') {
+    transformFunction = (price) => {
+      try {
+        const result = coordinateActions.transform(price, 'price', 'pixel');
+        return (result !== null && !isNaN(result) && isFinite(result)) ? result : null;
+      } catch (error) {
+        return null; // Signal to use fallback
+      }
+    };
+  } else if (y && typeof y === 'function') {
+    transformFunction = y; // Use d3-scale directly
+  }
+
   const priceToY = (price) => {
-    try {
-      // First try coordinate store transformation if available
-      if (coordinateActions && typeof coordinateActions.transform === 'function') {
-        const currentScale = coordinateActions.transform(price, 'price', 'pixel');
-        if (currentScale !== null && !isNaN(currentScale) && isFinite(currentScale)) {
-          return currentScale;
-        }
-      }
-    } catch (error) {
-      console.warn('[DayRangeMeter] Coordinate transformation failed, using fallback:', error);
-    }
-
-    // 🔧 CRITICAL FIX: Always provide fallback to the provided y function
-    if (y && typeof y === 'function') {
-      const fallbackResult = y(price);
-      if (fallbackResult !== null && !isNaN(fallbackResult) && isFinite(fallbackResult)) {
-        return fallbackResult;
+    if (transformFunction) {
+      const result = transformFunction(price);
+      if (result !== null && !isNaN(result) && isFinite(result)) {
+        return result;
       }
     }
 
-    // 🔧 CRITICAL FIX: Last resort - return a reasonable default to prevent crashes
-    console.warn('[DayRangeMeter] All coordinate transformations failed for price:', price, 'using center position');
-    return contentArea ? contentArea.height / 2 : 60; // Center position as last resort
+    // Silent fallback to center (production-optimized, no console spam)
+    return contentArea ? contentArea.height / 2 : 60;
   };
 
   // === FOUNDATION LAYER IMPLEMENTATION ===

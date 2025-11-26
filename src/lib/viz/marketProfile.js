@@ -11,6 +11,7 @@ import {
   boundsUtils,
   configureTextForDPR
 } from '../../utils/canvasSizing.js';
+import { CoordinateValidator } from '../../utils/coordinateValidator.js';
 
 /**
  * Market Profile Visualization Engine
@@ -20,9 +21,21 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
   // ✅ DISPLAY CREATION LOGGING: Get display context for correlation
   const displayId = renderingContext?.displayId || 'unknown';
   const symbol = renderingContext?.symbol || 'unknown';
+
   // Early exit for performance optimization
   if (!config.showMarketProfile) {
     return;
+  }
+
+  // 🔧 PHASE 2: Enhanced YScale Validation for Trading-Critical Accuracy
+  const coordinateValidation = CoordinateValidator.validateVisualizationCoordinateSystem(
+    'MarketProfile', y, state, renderingContext.contentArea, displayId
+  );
+
+  if (!coordinateValidation.isValid) {
+    console.warn(`[${displayId}] ${coordinateValidation.visualizationName} coordinate validation failed:`,
+      coordinateValidation);
+    // Continue rendering for resilience, but log the issue
   }
 
   // Input validation with graceful fallback

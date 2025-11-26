@@ -116,7 +116,27 @@ export const displayStateActions = {
    * Safety: Atomic state update, no partial display creation
    */
   addDisplay: (symbol, position = { x: 100, y: 100 }, config = {}, size = null) => {
-    console.log(`[DISPLAY_STATE] Creating display for symbol: ${symbol}`);
+    const normalizedSymbol = symbol.toUpperCase();
+    console.log(`[DISPLAY_STATE] Creating display for symbol: ${normalizedSymbol}`);
+
+    // CRITICAL FIX: Check for existing displays with same symbol to prevent duplicates
+    let existingDisplayId = null;
+    let existingDisplay = null;
+    displayStateStore.update(state => {
+      for (const [id, display] of state.displays) {
+        if (display.symbol === normalizedSymbol) {
+          existingDisplayId = id;
+          existingDisplay = display;
+          break;
+        }
+      }
+      return state;
+    });
+
+    if (existingDisplayId) {
+      console.warn(`[DISPLAY_STATE] Display for ${normalizedSymbol} already exists: ${existingDisplayId}`, existingDisplay);
+      return existingDisplayId; // Return existing display ID instead of creating duplicate
+    }
 
     const displayId = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 

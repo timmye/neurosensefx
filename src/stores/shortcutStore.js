@@ -421,14 +421,16 @@ function isShortcutActive(shortcut, currentContext) {
 async function loadUserShortcuts() {
 	try {
 		const workspace = await workspacePersistenceManager.loadWorkspaceLayout();
-		if (workspace.shortcuts) {
+
+		// ✅ FIXED: Check if workspace exists and has shortcuts
+		if (workspace && workspace.shortcuts) {
 			shortcutStore.update(state => ({
 				...state,
-				customShortcuts: workspace.shortcuts || {}
+				customShortcuts: workspace.shortcuts
 			}));
 
 			// Register custom shortcuts
-			Object.entries(workspace.shortcuts || {}).forEach(([id, config]) => {
+			Object.entries(workspace.shortcuts).forEach(([id, config]) => {
 				const action = createActionForShortcut(id);
 				if (action) {
 					keyboardManager.register(id, {
@@ -447,11 +449,34 @@ async function loadUserShortcuts() {
  * Save user custom shortcuts to workspace persistence
  */
 export async function saveUserShortcuts() {
-	const $shortcutStore = get(shortcutStore);
-	const workspace = await workspacePersistenceManager.load();
+	try {
+		const $shortcutStore = get(shortcutStore);
 
-	workspace.shortcuts = $shortcutStore.customShortcuts;
-	await workspacePersistenceManager.save(workspace);
+		// ✅ FIXED: Use correct API method and handle null workspace
+		const workspace = await workspacePersistenceManager.loadWorkspaceLayout();
+
+		// If no workspace exists, create a basic structure
+		const workspaceToSave = workspace || {
+			version: '1.0.0',
+			displays: [],
+			panels: [],
+			icons: [],
+			timestamp: Date.now(),
+			metadata: {
+				exportDate: '',
+				exportedBy: 'NeuroSense FX',
+				description: ''
+			}
+		};
+
+		workspaceToSave.shortcuts = $shortcutStore.customShortcuts;
+
+		// Save using the immediate save method (bypassing auto-saver for user actions)
+		workspacePersistenceManager.saveWorkspaceLayoutImmediate(workspaceToSave);
+	} catch (error) {
+		console.error('Failed to save user shortcuts:', error);
+		throw error; // Re-throw to allow caller to handle the error
+	}
 }
 
 /**

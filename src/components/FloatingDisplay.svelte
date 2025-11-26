@@ -46,12 +46,97 @@
     collectBrowserEvidence,
     collectCoordinateEvidence
   } from '../utils/browserEvidenceCollector.js';
-  
+
+  // ✅ ENHANCED DISPLAY CREATION LOGGING: Import comprehensive logging system
+  import {
+    getDisplayCreationLogger,
+    removeDisplayCreationLogger,
+    logContainerResize,
+    logContainerMovement,
+    logWebSocketToRenderLatency,
+    logRenderScheduling,
+    logVisualizationPerformance
+  } from '../utils/displayCreationLogger.js';
+
+  // ✅ COORDINATE VALIDATION: Import centralized YScale validation system
+  import { CoordinateValidator } from '../utils/coordinateValidator.js';
+
+  // 🚨 PERFORMANCE API FALLBACK: HMR-safe robust performance.now() with functional validation
+  // Cache fallback state to avoid repeated corruption detection
+  let useDateFallback = false;
+  let lastCorruptionCheck = 0;
+  const CORRUPTION_CHECK_INTERVAL = 1000; // Check every 1 second max
+
+  function getPerformanceTime() {
+    // HMR-RACE-CONDITION-SAFE: Ultra-robust performance timing with HMR corruption detection
+    // This function is hardened against Hot Module Replacement race conditions that can
+    // corrupt the performance API where typeof checks pass but actual calls fail
+    try {
+      // If we've recently detected corruption, use Date.now() to avoid repeated failures
+      const now = Date.now();
+      if (useDateFallback && (now - lastCorruptionCheck) < CORRUPTION_CHECK_INTERVAL) {
+        return now;
+      }
+
+      // Attempt to use performance.now() with comprehensive safety checks
+      if (typeof performance !== 'undefined' &&
+          performance &&
+          typeof performance.now === 'function') {
+
+        // CRITICAL: Try the actual call to detect HMR corruption
+        // This is the key - typeof checks aren't enough during HMR races
+        try {
+          const perfResult = performance.now();
+
+          // Validate the result is a finite number
+          if (typeof perfResult === 'number' && isFinite(perfResult) && perfResult >= 0) {
+            // Performance API working correctly, reset corruption flag
+            useDateFallback = false;
+            lastCorruptionCheck = now;
+            return perfResult;
+          } else {
+            // Performance returned invalid result, assume corruption
+            console.warn('[GET_PERFORMANCE_TIME] Performance API returned invalid result:', perfResult);
+            useDateFallback = true;
+            lastCorruptionCheck = now;
+            return Date.now();
+          }
+        } catch (perfError) {
+          // CRITICAL: This is where "performance.now is not a function" occurs
+          // despite typeof checks passing - classic HMR corruption signature
+          console.warn('[GET_PERFORMANCE_TIME] Performance API corrupted during call:', perfError.message);
+          useDateFallback = true;
+          lastCorruptionCheck = now;
+          return Date.now();
+        }
+      }
+
+      // Performance API not available, use Date.now() fallback
+      useDateFallback = true;
+      lastCorruptionCheck = now;
+      return Date.now();
+
+    } catch (criticalError) {
+      // Ultimate safety net - any unexpected error uses Date.now()
+      console.error('[GET_PERFORMANCE_TIME] Critical error, using Date.now() fallback:', criticalError.message);
+      useDateFallback = true;
+      lastCorruptionCheck = Date.now();
+      return Date.now();
+    }
+  }
+
   // Component props
   export let id;
   export let symbol;
   export let position = { x: 100, y: 100 };
-  
+
+  // 🔧 DEBUG: Log component mount immediately
+  console.log(`[FLOATING_DISPLAY:${id}] Component mounting`, {
+    symbol,
+    position,
+    timestamp: Date.now()
+  });
+
   // Local state
   let element;
   let canvas;
@@ -82,8 +167,19 @@
   // Local state for interact.js instance
   let interactable = null;
 
+  // ✅ ENHANCED LOGGING: Track previous dimensions and position for logging
+  let previousDimensions = { width: 220, height: 120 };
+  let previousPosition = { x: 100, y: 100 };
+  let dragStartTime = null;
+  let resizeStartTime = null;
+  let lastWebSocketTimestamp = null;
+
   // ✅ CSS CLIP-PATH BOUNDS: Reactive clip-path calculation for Y-axis overflow prevention
   let clipPathBounds = { top: 0, right: 0, bottom: 0, left: 0 };
+
+  // ✅ COORDINATE SYSTEM: Reactive coordinate system info for performance
+  let coordinateSystemInfo = null;
+  $: coordinateSystemInfo = coordinateActions.getSystemInfo();
 
   // Enhanced Y-axis overflow detection with dynamic clipping
   $: if (contentArea && state?.visualLow && state?.visualHigh && yScale && coordinateActions) {
@@ -172,17 +268,43 @@
   // ✅ MATHEMATICAL PRECISION VALIDATION: Initialize precision validator and evidence collector
   let precisionValidator;
   let evidenceCollector;
+  let displayCreationLogger;
   $: if (id && symbol) {
     precisionValidator = getPrecisionValidator(id, symbol);
     evidenceCollector = getEvidenceCollector(id, symbol);
+    displayCreationLogger = getDisplayCreationLogger(id, symbol);
   }
 
   // ✅ UNIFIED STORE: Simple store binding - no reactive conflicts
   $: display = $displays?.get(id);
+
+  // 🔧 DEBUG: Log displays store content and display lookup
+  console.log(`[FLOATING_DISPLAY:${id}] Store lookup`, {
+    totalDisplays: $displays?.size || 0,
+    displayIds: Array.from($displays?.keys() || []),
+    foundDisplay: !!display,
+    displayKeys: display ? Object.keys(display) : [],
+    hasState: !!(display?.state)
+  });
+
   $: {
     displayPosition = display?.position || position;
     config = display?.config || {};
+    const previousState = state; // Track state changes for debugging
     state = display?.state || {}; // ✅ FIXED: Get state from unified displayStore
+
+    // 🔧 DEBUG: Log state changes to diagnose canvas rendering issue
+    if (state?.ready !== previousState?.ready) {
+      console.log(`[FLOATING_DISPLAY:${id}] State ready changed: ${previousState?.ready} → ${state?.ready}`, {
+        symbol,
+        hasState: !!state,
+        stateKeys: state ? Object.keys(state) : [],
+        ready: state?.ready,
+        canvasReady,
+        canvasError
+      });
+    }
+
     isActive = display?.isActive || false;
     zIndex = display?.zIndex || 1;
     displaySize = display?.size || { width: 220, height: 120 }; // ✅ HEADERLESS: Correct fallback size
@@ -191,6 +313,9 @@
     if (state?.ready && precisionValidator) {
       // State is ready - precision validation will occur during render phase
     }
+
+    // ✅ ENHANCED LOGGING: Log position and size changes
+    logPositionAndSizeChanges();
     }
   
   // Update markers from store
@@ -274,6 +399,46 @@
     displayActions.removeDisplay(id);
   }
 
+  // ✅ ENHANCED LOGGING: Log position/size changes from display store updates
+  function logPositionAndSizeChanges() {
+    if (!displayCreationLogger) return;
+
+    const currentPosition = displayPosition || { x: 100, y: 100 };
+    const currentSize = displaySize || { width: 220, height: 120 };
+
+    // Log position changes
+    if (currentPosition.x !== previousPosition.x || currentPosition.y !== previousPosition.y) {
+      try {
+        const movementContext = {
+          trigger: 'store_update',
+          duration: 0,
+          smooth: false
+        };
+
+        logContainerMovement(id, previousPosition, currentPosition, movementContext);
+        previousPosition = { ...currentPosition };
+      } catch (error) {
+        console.warn('[FLOATING_DISPLAY] Failed to log position change:', error);
+      }
+    }
+
+    // Log size changes
+    if (currentSize.width !== previousDimensions.width || currentSize.height !== previousDimensions.height) {
+      try {
+        const resizeContext = {
+          trigger: 'store_update',
+          duration: 0,
+          animated: false
+        };
+
+        logContainerResize(id, previousDimensions, currentSize, resizeContext);
+        previousDimensions = { ...currentSize };
+      } catch (error) {
+        console.warn('[FLOATING_DISPLAY] Failed to log size change:', error);
+      }
+    }
+  }
+
   function handleContainerRefresh() {
     if (canvasError) {
       // Retry canvas initialization
@@ -328,6 +493,13 @@
     
   // ✅ GRID SNAPPING: Enhanced interact.js setup with grid integration
   onMount(async () => {
+    // CRITICAL FIX: Detect duplicate component instances to prevent two canvases
+    const existingInstances = document.querySelectorAll(`[data-display-id="${id}"]`);
+    if (existingInstances.length > 1) {
+      console.error(`[FLOATING_DISPLAY:${id}] CRITICAL: Duplicate component detected! Existing instances:`, existingInstances.length);
+      // This is a duplicate instance - destroy it to prevent multiple canvases
+      return;
+    }
 
     // Wait for canvas to be available
     await tick();
@@ -346,6 +518,8 @@
           onstart: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of drag start
             workspaceGrid.setDraggingState(true);
+            // ✅ ENHANCED LOGGING: Track drag start time
+            dragStartTime = getPerformanceTime();
           },
           onmove: (event) => {
             // ✅ GRID SNAPPING: event.rect already includes snapped coordinates
@@ -354,11 +528,28 @@
               y: event.rect.top
             };
 
+            // ✅ ENHANCED LOGGING: Log container movement event
+            try {
+              const movementContext = {
+                trigger: 'user_drag',
+                duration: dragStartTime ? getPerformanceTime() - dragStartTime : 0,
+                smooth: false
+              };
+
+              logContainerMovement(id, previousPosition, newPosition, movementContext);
+              previousPosition = newPosition;
+            } catch (error) {
+              // Silently handle logging errors to prevent breaking drag functionality
+              console.warn('[FLOATING_DISPLAY] Failed to log movement event:', error);
+            }
+
             displayActions.moveDisplay(id, newPosition);
           },
           onend: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of drag end
             workspaceGrid.setDraggingState(false);
+            // ✅ ENHANCED LOGGING: Reset drag start time
+            dragStartTime = null;
           }
         })
         .resizable({
@@ -378,6 +569,8 @@
           onstart: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize start
             workspaceGrid.setDraggingState(true);
+            // ✅ ENHANCED LOGGING: Track resize start time
+            resizeStartTime = getPerformanceTime();
           },
           onmove: (event) => {
             // ✅ GRID SNAPPING: Update element style for visual feedback
@@ -393,28 +586,52 @@
               height: event.rect.height
             };
 
+            // 🔧 CRITICAL FIX: Trigger immediate canvas resize update
+            const containerSize = {
+              width: event.rect.width,
+              height: event.rect.height
+            };
+
+            // Update display config to trigger reactive canvas resize
+            displayActions.updateDisplayConfig(id, 'containerSize', containerSize);
+
+            // ✅ ENHANCED LOGGING: Log container resize event
+            try {
+              const currentDimensions = { width: event.rect.width, height: event.rect.height };
+              const resizeContext = {
+                trigger: 'user_drag',
+                duration: resizeStartTime ? getPerformanceTime() - resizeStartTime : 0,
+                animated: false
+              };
+
+              logContainerResize(id, previousDimensions, currentDimensions, resizeContext);
+              previousDimensions = currentDimensions;
+            } catch (error) {
+              // Silently handle logging errors to prevent breaking resize functionality
+              console.warn('[FLOATING_DISPLAY] Failed to log resize event:', error);
+            }
+
             displayActions.moveDisplay(id, newPosition);
             displayActions.resizeDisplay(id, event.rect.width, event.rect.height);
           },
           onend: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize end
             workspaceGrid.setDraggingState(false);
+            // ✅ ENHANCED LOGGING: Reset resize start time
+            resizeStartTime = null;
           }
         });
       
       // Register interactable with workspace grid for dynamic updates
       workspaceGrid.registerInteractInstance(interactable);
 
-      
       // Click to activate
       interactable.on('tap', (event) => {
         displayActions.setActiveDisplay(id);
       });
-
-      }
+    }
 
     return () => {
-
       // ✅ CLEANUP: Enhanced cleanup with grid unregistration
       if (interactable) {
         workspaceGrid.unregisterInteractInstance(interactable);
@@ -424,63 +641,402 @@
     };
   });
   
-  // 🔧 CRITICAL FIX: Consolidated canvas dimension management to prevent race conditions
-  function updateCanvasDimensions(newContentArea) {
-    if (!canvas || !ctx) return;
-
-    // Update contentArea for reactive use
-    contentArea = newContentArea;
-
-    // 🔧 CRITICAL FIX: Update coordinate store AFTER canvas dimensions are set
-    // and add error handling to prevent initialization failures
-    try {
-      if (coordinateActions) {
-        coordinateActions.updateBounds({
-          x: [0, contentArea.width],
-          y: [0, contentArea.height]
-        });
-      }
-    } catch (error) {
-      console.warn('[FLOATING_DISPLAY] Failed to update coordinate bounds:', error);
-      // Continue without coordinate store update - don't let this break canvas sizing
-    }
-
-    // 🔧 PIXEL-PERFECT: Use integer canvas dimensions for crisp rendering
-    const integerCanvasWidth = Math.round(contentArea.width * dpr);
-    const integerCanvasHeight = Math.round(contentArea.height * dpr);
-
-    // Calculate corresponding CSS dimensions
-    const cssWidth = integerCanvasWidth / dpr;
-    const cssHeight = integerCanvasHeight / dpr;
-
-    // Apply pixel-perfect dimensions
-    canvas.width = integerCanvasWidth;
-    canvas.height = integerCanvasHeight;
-    canvas.style.width = cssWidth + 'px';
-    canvas.style.height = cssHeight + 'px';
-
-    // 🔧 FIX: Remove DPR scaling here - Individual visualizations handle their own DPR scaling
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform to prevent double scaling
-    ctx.imageSmoothingEnabled = false; // Disable anti-aliasing for crisp lines
-
-    canvasWidth = contentArea.width;
-    canvasHeight = contentArea.height;
+  // ✅ ATOMIC RESIZE TRANSACTION: Generate unique transaction IDs for tracking
+  let transactionCounter = 0;
+  function generateTransactionId() {
+    return `atomic-${id}-${Date.now()}-${++transactionCounter}`;
   }
 
-  // 🔧 CONTAINER-STYLE: Update canvas with pixel-perfect dimensions (headerless design)
-  $: if (canvas && ctx && config) {
+  // ✅ ATOMIC RESIZE TRANSACTION: Comprehensive coordinate validation
+  function validateYScaleConsistency(yScale, state, contentArea) {
+    if (!yScale || !state || !contentArea) {
+      return { isValid: false, reason: 'Missing required inputs for YScale validation' };
+    }
+
+    try {
+      // Test critical coordinate transformations
+      const testPrices = [
+        state.midPrice,
+        state.visualLow,
+        state.visualHigh,
+        state.midPrice * 0.99, // Small variation test
+        state.midPrice * 1.01
+      ].filter(price => price !== undefined && price !== null);
+
+      const results = testPrices.map(price => {
+        const y = yScale(price);
+        return {
+          price,
+          y,
+          isValid: typeof y === 'number' && !isNaN(y) && isFinite(y),
+          inBounds: y >= -50 && y <= contentArea.height + 50 // 50px tolerance
+        };
+      });
+
+      const allValid = results.every(r => r.isValid);
+      const allInBounds = results.every(r => r.inBounds);
+
+      return {
+        isValid: allValid && allInBounds,
+        testCount: testPrices.length,
+        validResults: results.filter(r => r.isValid).length,
+        inBoundsResults: results.filter(r => r.inBounds).length,
+        sampleResults: results.slice(0, 3) // Include first 3 results for debugging
+      };
+    } catch (error) {
+      return {
+        isValid: false,
+        reason: error.message,
+        error: true
+      };
+    }
+  }
+
+  // ✅ ATOMIC RESIZE TRANSACTION: Verify coordinate system synchronization
+  function areCoordinatesSynchronized() {
+    // Validate canvas dimensions match contentArea
+    const canvasMatchesContentArea = canvas &&
+      canvas.width === Math.round(contentArea.width * dpr) &&
+      canvas.height === Math.round(contentArea.height * dpr);
+
+    // Validate YScale exists and is functional
+    const yScaleValid = yScale && typeof yScale === 'function';
+
+    // Use reactive coordinate system info for optimal performance
+    // Validate coordinate store bounds match contentArea
+    const coordinateStoreValid = coordinateSystemInfo &&
+      coordinateSystemInfo.bounds &&
+      coordinateSystemInfo.bounds.y &&
+      coordinateSystemInfo.bounds.y[1] === contentArea.height;
+
+    return {
+      synchronized: canvasMatchesContentArea && yScaleValid && coordinateStoreValid,
+      canvasMatchesContentArea,
+      yScaleValid,
+      coordinateStoreValid,
+      details: {
+        canvasSize: canvas ? { width: canvas.width, height: canvas.height } : null,
+        expectedCanvasSize: {
+          width: Math.round(contentArea.width * dpr),
+          height: Math.round(contentArea.height * dpr)
+        },
+        coordinateStoreBounds: coordinateSystemInfo?.bounds || null,
+        coordinateSystemInfo: coordinateSystemInfo
+      }
+    };
+  }
+
+  // ✅ ATOMIC RESIZE TRANSACTION: Main atomic resize transaction function
+  function executeAtomicResizeTransaction(newContentArea, resizeContext = {}) {
+    // Prevent concurrent transactions to maintain atomicity
+    if (transactionInProgress) {
+      console.warn(`[FLOATING_DISPLAY:${id}] Transaction already in progress, queuing new transaction`);
+      if (pendingTransaction) {
+        // Replace pending transaction with latest
+        pendingTransaction = { newContentArea, resizeContext };
+      } else {
+        pendingTransaction = { newContentArea, resizeContext };
+      }
+      return;
+    }
+
+    transactionInProgress = true;
+    const transactionId = generateTransactionId();
+    const startTime = getPerformanceTime();
+    const oldContentArea = { ...contentArea };
+
+    console.log(`🔄 [RESIZE_TRANSACTION:${id}] Starting atomic resize transaction:`, {
+      transactionId,
+      oldSize: { width: oldContentArea.width, height: oldContentArea.height },
+      newSize: { width: newContentArea.width, height: newContentArea.height },
+      trigger: resizeContext.trigger || 'unknown',
+      timestamp: startTime
+    });
+
+    try {
+      // Phase 1: Validate input parameters
+      if (!newContentArea || newContentArea.width <= 0 || newContentArea.height <= 0) {
+        throw new Error('Invalid contentArea dimensions provided');
+      }
+
+      if (!canvas || !ctx) {
+        throw new Error('Canvas context not available');
+      }
+
+      // Phase 2: Update contentArea BEFORE any other operations (atomic)
+      contentArea = { ...newContentArea };
+
+      // Phase 3: Update canvas dimensions FIRST (critical ordering)
+      const integerCanvasWidth = Math.round(contentArea.width * dpr);
+      const integerCanvasHeight = Math.round(contentArea.height * dpr);
+      const cssWidth = integerCanvasWidth / dpr;
+      const cssHeight = integerCanvasHeight / dpr;
+
+      canvas.width = integerCanvasWidth;
+      canvas.height = integerCanvasHeight;
+      canvas.style.width = cssWidth + 'px';
+      canvas.style.height = cssHeight + 'px';
+      // 🔧 CRITICAL FIX: Apply DPR scaling to match physical canvas dimensions
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+
+      // Phase 4: Update coordinate store synchronously
+      coordinateActions.updateBounds({
+        x: [0, contentArea.width],
+        y: [0, contentArea.height]
+      });
+
+      // Phase 5: Verify YScale consistency
+      const yScaleValidation = validateYScaleConsistency(yScale, state, contentArea);
+
+      // Phase 6: Validate ADR alignment (trading-critical)
+      const adrAlignment = CoordinateValidator.validateADRAlignment(yScale, state, contentArea, id);
+
+      // Phase 7: Check overall coordinate synchronization
+      const synchronizationCheck = areCoordinatesSynchronized();
+
+      const allValidationsPassed = yScaleValidation.isValid &&
+                                  adrAlignment.isValid &&
+                                  synchronizationCheck.synchronized;
+
+      // Phase 8: Log comprehensive transaction results
+      const transactionDuration = getPerformanceTime() - startTime;
+
+      console.log(`✅ [RESIZE_TRANSACTION:${id}] Transaction completed:`, {
+        transactionId,
+        duration: `${transactionDuration.toFixed(2)}ms`,
+        meets60fpsTarget: transactionDuration <= 16.67,
+        validations: {
+          yScale: yScaleValidation.isValid,
+          adrAlignment: adrAlignment.isValid,
+          synchronization: synchronizationCheck.synchronized
+        },
+        metrics: {
+          maxADRDeviation: adrAlignment.maxDeviation,
+          yScaleTestResults: yScaleValidation.testCount,
+          synchronizationDetails: synchronizationCheck.details
+        }
+      });
+
+      // Phase 9: Implement graceful validation degradation
+      const criticalValidationsPassed = yScaleValidation.isValid && synchronizationCheck.synchronized;
+
+      if (allValidationsPassed) {
+        // ✅ All validations passed - proceed with full render
+        canvasWidth = contentArea.width;
+        canvasHeight = contentArea.height;
+
+        logRenderScheduling(id, 'atomic_resize_complete', {
+          transactionId,
+          duration: transactionDuration,
+          validationsPassed: true
+        });
+
+        scheduleRender();
+
+      } else if (criticalValidationsPassed) {
+        // ⚠️ Non-critical validation failures (ADR alignment) - render with best effort
+        console.warn(`⚠️ [RESIZE_TRANSACTION:${id}] Non-critical validation failures - rendering with best effort:`, {
+          transactionId,
+          failedValidations: {
+            adrAlignment: !adrAlignment.isValid
+          },
+          errors: {
+            adrAlignmentErrors: adrAlignment.testResults.filter(r => !r.passed)
+          },
+          note: 'Market data will continue to display with reduced positioning accuracy'
+        });
+
+        // Update canvas tracking variables and render anyway
+        canvasWidth = contentArea.width;
+        canvasHeight = contentArea.height;
+
+        logRenderScheduling(id, 'atomic_resize_best_effort', {
+          transactionId,
+          duration: transactionDuration,
+          validationsPassed: false,
+          criticalValidationsPassed: true,
+          renderMode: 'best_effort'
+        });
+
+        scheduleRender();
+
+      } else {
+        // ❌ Critical validation failures - render safe minimum with warnings
+        console.error(`❌ [RESIZE_TRANSACTION:${id}] Critical validation failures - rendering safe minimum:`, {
+          transactionId,
+          failedValidations: {
+            yScale: !yScaleValidation.isValid,
+            adrAlignment: !adrAlignment.isValid,
+            synchronization: !synchronizationCheck.synchronized
+          },
+          errors: {
+            yScaleError: yScaleValidation.reason,
+            adrAlignmentErrors: adrAlignment.testResults.filter(r => !r.passed),
+            synchronizationErrors: synchronizationCheck
+          },
+          note: 'Essential market visualization maintained - full functionality pending validation recovery'
+        });
+
+        // Update canvas tracking variables for safe rendering
+        canvasWidth = contentArea.width;
+        canvasHeight = contentArea.height;
+
+        logRenderScheduling(id, 'atomic_resize_safe_minimum', {
+          transactionId,
+          duration: transactionDuration,
+          validationsPassed: false,
+          criticalValidationsPassed: false,
+          renderMode: 'safe_minimum'
+        });
+
+        // Schedule render even for critical failures to maintain market visibility
+        scheduleRender();
+      }
+
+      // Log transaction completion
+      const logger = getDisplayCreationLogger(id);
+      logger.logAtomicResizeTransaction(transactionId, oldContentArea, newContentArea, {
+        yScaleValid: yScaleValidation,
+        adrAlignment: adrAlignment,
+        synchronization: synchronizationCheck
+      }, {
+        duration: transactionDuration,
+        meets60fpsTarget: transactionDuration <= 16.67
+      });
+
+      // Cleanup transaction state and process pending transaction
+      transactionInProgress = false;
+      const pending = pendingTransaction;
+      pendingTransaction = null;
+
+      if (pending) {
+        // Process pending transaction in next frame to prevent recursion
+        requestAnimationFrame(() => {
+          executeAtomicResizeTransaction(pending.newContentArea, pending.resizeContext);
+        });
+      }
+
+      return {
+        transactionId,
+        success: allValidationsPassed,
+        duration: transactionDuration,
+        validations: {
+          yScaleValidation,
+          adrAlignment,
+          synchronizationCheck
+        }
+      };
+
+    } catch (error) {
+      // Defensive timing calculation with robust HMR-safe performance API
+      let transactionDuration = 0;
+      try {
+        // Use our robust HMR-safe getPerformanceTime() function
+        const errorTimingNow = getPerformanceTime();
+        transactionDuration = errorTimingNow - startTime;
+      } catch (timingError) {
+        // This should never happen with our robust implementation, but handle it gracefully
+        console.warn(`[RESIZE_TRANSACTION:${id}] Unexpected timing error:`, timingError.message);
+        transactionDuration = 0; // Set to 0 if timing fails completely
+      }
+      console.error(`❌ [RESIZE_TRANSACTION:${id}] Transaction failed:`, {
+        transactionId,
+        error: error.message,
+        stack: error.stack,
+        duration: `${transactionDuration.toFixed(2)}ms`,
+        context: {
+          oldContentArea,
+          newContentArea,
+          hasCanvas: !!canvas,
+          hasContext: !!ctx,
+          hasCoordinateActions: !!coordinateActions
+        }
+      });
+
+      // Cleanup transaction state even on error
+      transactionInProgress = false;
+      const pending = pendingTransaction;
+      pendingTransaction = null;
+
+      if (pending) {
+        // Process pending transaction in next frame to prevent recursion
+        requestAnimationFrame(() => {
+          executeAtomicResizeTransaction(pending.newContentArea, pending.resizeContext);
+        });
+      }
+
+      return {
+        transactionId,
+        success: false,
+        duration: transactionDuration,
+        error: error.message
+      };
+    }
+  }
+
+  // 🔧 CRITICAL FIX: Consolidated canvas dimension management to prevent race conditions
+  function updateCanvasDimensions(newContentArea) {
+    // Legacy wrapper for backward compatibility - use atomic transaction
+    executeAtomicResizeTransaction(newContentArea, {
+      trigger: 'legacy_wrapper',
+      source: 'updateCanvasDimensions'
+    });
+  }
+
+  // 🔧 CONSOLIDATED CANVAS STATE MANAGEMENT: Single entry point to prevent race conditions
+  let canvasInitializing = false;
+  let transactionInProgress = false;
+  let pendingTransaction = null;
+
+  // Single reactive statement for all canvas operations to prevent concurrent initialization
+  $: if (canvas && state?.ready && !canvasError && !canvasInitializing) {
+    handleCanvasStateChange();
+  }
+
+  function handleCanvasStateChange() {
+    // State machine: initialization → ready → config updates
+    if (!ctx && !canvasReady) {
+      // Initialize canvas first
+      initializeCanvas();
+    } else if (ctx && canvasReady && config) {
+      // Handle config changes after canvas is ready
+      handleConfigChanges();
+    }
+  }
+
+  function handleConfigChanges() {
     // Calculate new contentArea from config (full container, no header)
     const containerSize = config.containerSize || { width: 220, height: 120 };
+    // 🔧 CRITICAL FIX: Account for padding and border in container calculations
+    const paddingTotal = 8; // 2px padding + 2px margin on each side for canvas
+    const borderWidth = 4; // 2px border on each side
+    const totalAdjustment = paddingTotal + borderWidth;
     const newContentArea = {
-      width: containerSize.width,  // ✅ HEADERLESS: Full container width
-      height: containerSize.height // ✅ HEADERLESS: Full container height
+      width: Math.max(50, containerSize.width - totalAdjustment),  // Minimum 50px
+      height: Math.max(50, containerSize.height - totalAdjustment) // Minimum 50px
     };
 
-    // Only update if significant change to prevent unnecessary re-renders
-    if (Math.abs(contentArea.width - newContentArea.width) > 5 ||
-        Math.abs(contentArea.height - newContentArea.height) > 5) {
+    // 🔧 CRITICAL FIX: Reduced threshold for responsive resizing
+    const widthChange = Math.abs(contentArea.width - newContentArea.width);
+    const heightChange = Math.abs(contentArea.height - newContentArea.height);
 
-      updateCanvasDimensions(newContentArea);
+    // More sensitive to changes for responsive interaction
+    if (widthChange > 2 || heightChange > 2) {
+      console.log(`[FLOATING_DISPLAY] Config change detected:`, {
+        id,
+        containerSize,
+        newContentArea,
+        currentContentArea: contentArea,
+        changes: { widthChange, heightChange }
+      });
+
+      executeAtomicResizeTransaction(newContentArea, {
+        trigger: 'reactive_config_change',
+        source: 'config_reactive_update',
+        oldSize: { width: contentArea.width, height: contentArea.height },
+        changes: { widthChange, heightChange }
+      });
     }
   }
   
@@ -490,6 +1046,15 @@
       console.error('[FLOATING_DISPLAY] Canvas element not available');
       return;
     }
+
+    // Prevent concurrent initialization
+    if (canvasInitializing) {
+      console.warn('[FLOATING_DISPLAY] Canvas initialization already in progress, skipping duplicate call');
+      return;
+    }
+
+    // Set initialization lock
+    canvasInitializing = true;
 
     // ✅ MATHEMATICAL PRECISION VALIDATION: Start canvas initialization validation
     console.log(`🎯 [PRECISION:${id}] Canvas initialization started - Attempt ${canvasRetries + 1}/${MAX_CANVAS_RETRIES}`);
@@ -526,21 +1091,31 @@
             canvas.style.height = cssHeight + 'px';
 
             // Reconfigure canvas context for new DPR
-            // 🔧 FIX: Remove DPR scaling here - Container.svelte handles it per render frame
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            // ctx.scale(dpr, dpr); // REMOVED - Prevents double scaling with Container.svelte
-            // ctx.translate(0.5, 0.5); // REMOVED - Individual visualizations handle their own transforms
+            // 🔧 CRITICAL FIX: Apply DPR scaling to match physical canvas dimensions
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            // This ensures coordinate systems align between physical canvas and logical rendering
             ctx.imageSmoothingEnabled = false;
           }
         });
 
 
-        // 🔧 CRITICAL FIX: Use consolidated canvas dimension function
+        // 🔧 CRITICAL FIX: Use consolidated canvas dimension function with correct calculations
         const containerSize = config.containerSize || { width: 220, height: 120 };
+        // 🔧 CRITICAL FIX: Account for padding, border, and margin in container
+        const paddingTotal = 8; // 2px padding + 2px margin on each side for canvas
+        const borderWidth = 4; // 2px border on each side
+        const totalAdjustment = paddingTotal + borderWidth;
         const newContentArea = {
-          width: containerSize.width,  // ✅ HEADERLESS: Full container width
-          height: containerSize.height // ✅ HEADERLESS: Full container height
+          width: Math.max(50, containerSize.width - totalAdjustment),  // Minimum 50px
+          height: Math.max(50, containerSize.height - totalAdjustment) // Minimum 50px
         };
+
+        console.log(`[FLOATING_DISPLAY] Canvas initial sizing:`, {
+          id,
+          containerSize,
+          totalAdjustment,
+          newContentArea
+        });
 
         // Use the consolidated function to prevent duplicate code and race conditions
         updateCanvasDimensions(newContentArea);
@@ -563,7 +1138,11 @@
           }
         }
 
-              } else {
+        // Release initialization lock on success
+        canvasInitializing = false;
+        console.log(`✅ [PRECISION:${id}] Canvas initialization completed successfully`);
+
+      } else {
         throw new Error('Failed to get 2D context');
       }
     } catch (error) {
@@ -575,17 +1154,16 @@
       // ✅ PRECISION VALIDATION: Track canvas initialization failure
       console.error(`❌ [PRECISION:${id}] Canvas initialization failed (attempt ${canvasRetries}/${MAX_CANVAS_RETRIES}):`, error.message);
 
+      // Release initialization lock on error
+      canvasInitializing = false;
+
       if (canvasRetries >= MAX_CANVAS_RETRIES) {
         console.error(`[FLOATING_DISPLAY] Maximum canvas initialization retries exceeded`);
       }
     }
   }
 
-  // 🔧 CONTAINER-STYLE: Initialize canvas with pixel-perfect dimensions
-  $: if (state?.ready && canvas && !ctx && !canvasReady && !canvasError) {
-    initializeCanvas();
-  }
-  
+    
   // 🔧 CLEAN FOUNDATION: Create rendering context for visualization functions
   let renderingContext = null;
 
@@ -596,6 +1174,12 @@
   // 🔧 CRITICAL TRADING SAFETY FIX: NEVER skip market data updates
   // Always render the latest market data immediately - no deduplication for trading safety
   function scheduleRender() {
+    // 🚨 CRITICAL FIX: Always render market data, coordinate issues handled separately
+    if (!areCoordinatesSynchronized()) {
+      console.warn(`[FLOATING_DISPLAY:${displayId}] Coordinate systems not synchronized, rendering with latest market data`);
+      // NEVER skip rendering - always show latest market data to traders
+    }
+
     // Cancel any existing render frame to replace with latest data
     if (renderFrame) {
       cancelAnimationFrame(renderFrame);
@@ -636,13 +1220,17 @@
       return;
     }
 
-    const startTime = performance.now();
+    const startTime = getPerformanceTime();
 
     // 🔧 CLEAN FOUNDATION: Create rendering context (headerless design)
     const containerSize = config.containerSize || { width: canvasWidth, height: canvasHeight };
+    // 🔧 CRITICAL FIX: Account for padding, border, and margin in container
+    const paddingTotal = 8; // 2px padding + 2px margin on each side for canvas
+    const borderWidth = 4; // 2px border on each side
+    const totalAdjustment = paddingTotal + borderWidth;
     const contentArea = {
-      width: containerSize.width,  // ✅ HEADERLESS: Full container width
-      height: containerSize.height // ✅ HEADERLESS: Full container height
+      width: Math.max(50, containerSize.width - totalAdjustment),  // Minimum 50px
+      height: Math.max(50, containerSize.height - totalAdjustment) // Minimum 50px
     };
     const adrAxisX = contentArea.width * config.adrAxisPosition;
 
@@ -658,9 +1246,10 @@
     });
 
     // Clear canvas and set background
-    ctx.clearRect(0, 0, contentArea.width, contentArea.height);
+    // 🔧 CRITICAL FIX: Clear full physical canvas dimensions, not logical area
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, contentArea.width, contentArea.height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw symbol background first (behind all other visualizations)
     renderSymbolBackground();
@@ -675,7 +1264,7 @@
         }
 
         // Draw visualizations in correct order for layering with performance tracking
-        const visualizationStartTime = performance.now();
+        const visualizationStartTime = getPerformanceTime();
 
         drawVolatilityOrb(ctx, renderingContext, config, state, yScale);
         logVisualizationPerformance(id, 'VolatilityOrb', visualizationStartTime, renderingContext, state);
@@ -699,7 +1288,7 @@
         logVisualizationPerformance(id, 'PriceMarkers', visualizationStartTime, renderingContext, state);
 
         // Log total render time
-        const totalRenderTime = performance.now() - visualizationStartTime;
+        const totalRenderTime = getPerformanceTime() - visualizationStartTime;
         const meets60fps = totalRenderTime <= 16.67;
 
         if (!meets60fps) {
@@ -835,10 +1424,17 @@
       style="clip-path: {cssClipPath};"
       on:contextmenu|preventDefault|stopPropagation={handleCanvasContextMenu}
     ></canvas>
-    {:else}
+  {:else}
     <div class="loading">
       <div class="loading-spinner"></div>
-      <p>Initializing {symbol}...</p>
+      <p>Initializing {symbol}... (ready: {state?.ready}, error: {canvasError})</p>
+      {#if !state?.ready || canvasError}
+        <div style="font-size: 10px; color: #666; margin-top: 5px;">
+          {!state?.ready && !canvasError && 'Waiting for worker state...'}
+          {canvasError && `Canvas error: ${canvasError}`}
+          {state?.ready && canvasError && 'State ready but canvas failed'}
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -846,7 +1442,7 @@
 <style>
   /* ✅ ULTRA-MINIMAL: Headerless design CSS - maximize trading data display */
   .enhanced-floating {
-    position: fixed;
+    position: fixed; /* CRITICAL: Must remain fixed for interact.js drag functionality */
     background: #111827; /* Dark background for better contrast */
     border: 2px solid #374151;
     border-radius: 6px; /* Slightly smaller radius for headerless design */
@@ -854,7 +1450,11 @@
     user-select: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    overflow: hidden; /* Prevent canvas overflow */
+    /* 🔧 CRITICAL FIX: Changed overflow from hidden to visible to prevent canvas clipping */
+    overflow: visible;
+    box-sizing: border-box; /* CRITICAL FIX: Include border in width/height calculations */
+    /* 🔧 CRITICAL FIX: Add padding to account for border and ensure canvas fits perfectly */
+    padding: 2px;
   }
 
   .enhanced-floating:hover {
@@ -874,9 +1474,13 @@
   /* Full canvas fills entire container area (headerless design) */
   .full-canvas {
     display: block;
-    width: 100%;
-    height: 100%;
+    /* 🔧 CRITICAL FIX: Canvas properly fills padded container without overflow */
+    width: calc(100% - 4px); /* Account for padding */
+    height: calc(100% - 4px); /* Account for padding */
+    margin: 2px; /* Center within padding */
+    border-radius: 4px; /* Match container border radius */
     /* cursor removed - let interact.js control resize cursors */
+    /* FIXED: Removed pointer-events: none - was breaking keyboard shortcuts after canvas creation */
 
     /* ✅ CSS CLIP-PATH BOUNDS: Hardware acceleration for smooth clipping */
     will-change: clip-path;
@@ -884,6 +1488,8 @@
 
     /* Ensure clip-path transitions are smooth for resize events */
     transition: clip-path 0.1s ease-out;
+    /* 🔧 CRITICAL FIX: Ensure canvas stays within container */
+    overflow: hidden;
   }
 
   .loading {
@@ -949,14 +1555,16 @@
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.2s ease, visibility 0.2s ease;
-    z-index: 100; /* Reduced to prevent resize interference, still above canvas */
+    z-index: 10; /* Further reduced to prevent canvas interaction interference */
     border-radius: 6px 6px 0 0;
+    pointer-events: none; /* Prevent header from blocking canvas interactions when hidden */
   }
 
   /* Header visible state - show with opacity */
   .container-header.visible {
     opacity: 1;
     visibility: visible;
+    pointer-events: auto; /* Re-enable pointer events when visible */
   }
 
   .container-header.error {

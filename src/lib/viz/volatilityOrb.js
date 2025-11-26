@@ -11,6 +11,7 @@
  */
 
 import { boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
+import { CoordinateValidator } from '../../utils/coordinateValidator.js';
 
 export function drawVolatilityOrb(ctx, renderingContext, config, state, y) {
   // Guard clauses for safety
@@ -22,6 +23,18 @@ export function drawVolatilityOrb(ctx, renderingContext, config, state, y) {
   // Early exit if disabled
   if (!config.showVolatilityOrb) {
     return;
+  }
+
+  // 🔧 PHASE 2: Enhanced YScale Validation for Trading-Critical Accuracy
+  const displayId = renderingContext?.displayId || 'unknown';
+  const coordinateValidation = CoordinateValidator.validateVisualizationCoordinateSystem(
+    'VolatilityOrb', y, state, renderingContext.contentArea, displayId
+  );
+
+  if (!coordinateValidation.isValid) {
+    console.warn(`[${displayId}] ${coordinateValidation.visualizationName} coordinate validation failed:`,
+      coordinateValidation);
+    // Continue rendering for resilience, but log the issue
   }
 
   // Extract rendering context from the unified infrastructure

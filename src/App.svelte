@@ -17,23 +17,63 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
   
   // 📝 Window Type Extension: contextMenuRef will be available globally
   
-  // Store subscriptions
-  $: displayList = Array.from($displays.values());
-  $: iconList = Array.from($icons.values());
-  $: panelList = Array.from($panels.values());
+  // Store subscriptions - DEFENSIVE: Handle undefined stores during initialization
+  // DEFENSIVE: Add initialization guard to prevent race conditions
+  let storesInitialized = false;
 
-  // 🔧 DEBUG: Log display list changes
-  $: if (displayList.length !== (previousDisplayCount || 0)) {
-    console.log('[APP] Display list changed:', {
-      count: displayList.length,
-      previousCount: previousDisplayCount || 0,
-      displays: displayList.map(d => ({ id: d.id, symbol: d.symbol, ready: d.ready }))
+  $: if ($displays && $icons && $panels && !storesInitialized) {
+    storesInitialized = true;
+  }
+
+  // CRITICAL FIX: Add deduplication to prevent duplicate component creation causing two canvases
+  $: displayList = storesInitialized && $displays ?
+    Array.from($displays.values())
+      .filter((display, index, array) =>
+        // Remove duplicates by display.id - maintain first occurrence
+        array.findIndex(d => d.id === display.id) === index
+      ) : [];
+  $: iconList = storesInitialized && $icons ? Array.from($icons.values()) : [];
+  $: panelList = storesInitialized && $panels ? Array.from($panels.values()) : [];
+
+  // 🔧 DEBUG: Enhanced display list logging for diagnosis - DEFENSIVE: Guard against undefined lists
+  // DEFENSIVE: Only log when stores are properly initialized
+  $: if (storesInitialized) {
+    console.log('[APP] Display list update:', {
+      displaysCount: $displays?.size || 0,
+      displayListCount: displayList?.length || 0,
+      displayIds: Array.from($displays?.keys() || []),
+      displays: displayList?.map?.(d => ({
+        id: d.id,
+        symbol: d.symbol,
+        ready: d.ready,
+        hasState: !!d.state,
+        stateReady: d.state?.ready
+      })) || []
     });
-    previousDisplayCount = displayList.length;
+  }
+
+  // 🔧 DEBUG: Log display list changes - DEFENSIVE: Guard against undefined displayList
+  // DEFENSIVE: Only track changes when stores are initialized
+  $: if (storesInitialized && displayList?.length !== (previousDisplayCount || 0)) {
+    console.log('[APP] Display list changed:', {
+      count: displayList?.length || 0,
+      previousCount: previousDisplayCount || 0,
+      displays: displayList?.map?.(d => ({ id: d.id, symbol: d.symbol, ready: d.ready })) || []
+    });
+    previousDisplayCount = displayList?.length || 0;
   }
 
   let previousDisplayCount = 0;
-  
+
+  // DEFENSIVE: Store initialization health check
+  function validateStoreInitialization() {
+    if (!$displays || !$icons || !$panels) {
+      console.warn('[APP] Store initialization incomplete - some stores are undefined');
+      return false;
+    }
+    return true;
+  }
+
   let symbolPaletteRef;
   let contextMenuRef; // Reference to UnifiedContextMenu for intelligent context detection
 
@@ -299,8 +339,9 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
     {/if}
   </div>
   
-      <!-- Floating Icons (Layer 3) -->
-      {#each iconList as icon (icon.id)}
+      <!-- Floating Icons (Layer 3) - DEFENSIVE: Only iterate if iconList exists -->
+      {#if iconList?.length > 0}
+        {#each iconList as icon (icon.id)}
         <FloatingIcon
           id={icon.id}
           type={icon.type}
@@ -321,30 +362,37 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
           {/if}
         </FloatingIcon>
       {/each}
-  
-  <!-- Floating Displays (Layer 1) -->
-  {#each displayList as display (display.id)}
+      {/if}
+
+  <!-- Floating Displays (Layer 1) - DEFENSIVE: Only iterate if displayList exists -->
+  {#if displayList?.length > 0}
+    {#each displayList as display (display.id)}
     <FloatingDisplay 
       id={display.id}
       symbol={display.symbol}
       position={display.position}
     />
-  {/each}
-  
-  <!-- Symbol Palette (Layer 2) -->
-  {#each panelList as panel (panel.id)}
-    {#if panel.id === 'symbol-palette'}
-      <SymbolPalette bind:this={symbolPaletteRef} />
-    {/if}
-  {/each}
+    {/each}
+  {/if}
 
-  <!-- Status Panel (Layer 2 - Expanded when icon is clicked) -->
-  {#each panelList as panel (panel.id)}
+  <!-- Symbol Palette (Layer 2) - DEFENSIVE: Only iterate if panelList exists -->
+  {#if panelList?.length > 0}
+    {#each panelList as panel (panel.id)}
+      {#if panel.id === 'symbol-palette'}
+        <SymbolPalette bind:this={symbolPaletteRef} />
+      {/if}
+    {/each}
+  {/if}
+
+  <!-- Status Panel (Layer 2 - Expanded when icon is clicked) - DEFENSIVE: Only iterate if panelList exists -->
+  {#if panelList?.length > 0}
+    {#each panelList as panel (panel.id)}
     {#if panel.id === 'status-panel'}
       <StatusPanel position={panel.position} config={panel.config} isFromIconExpansion={true} />
     {/if}
-  {/each}
-  
+    {/each}
+  {/if}
+
   <!-- Unified Context Menu (Layer 4) -->
   <UnifiedContextMenu bind:this={contextMenuRef} />
 

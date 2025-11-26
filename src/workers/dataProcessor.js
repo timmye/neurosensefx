@@ -9,8 +9,32 @@ let config = {};
 let state = {};
 let localDigits = 5;
 
+// 🚨 WORKER PERFORMANCE API: Enhanced timing fallback for web worker context
+function getWorkerTime() {
+  try {
+    // Worker context performance API
+    if (typeof self !== 'undefined' && self.performance &&
+        typeof self.performance.now === 'function') {
+      return self.performance.now();
+    }
+
+    // Global context fallback
+    if (typeof globalThis !== 'undefined' && globalThis.performance &&
+        typeof globalThis.performance.now === 'function') {
+      return globalThis.performance.now();
+    }
+
+    // Date.now() fallback
+    return Date.now();
+  } catch (error) {
+    console.warn('[WORKER] Performance API unavailable, using Date.now() fallback:', error.message);
+    return Date.now();
+  }
+}
+
 function convertValue(value, digits) {
-  if (typeof value !== 'number' || isNaN(value)) return 0;
+  if (value === null || value === undefined) return null; // Preserve null for missing data
+  if (typeof value !== 'number' || isNaN(value)) return null;
   return Number(value.toFixed(digits));
 }
 
@@ -89,7 +113,7 @@ function processTick(rawTick) {
     }
 
     // 🎯 PERFORMANCE MONITORING: Track data receipt timestamp for latency measurement
-    const dataReceiptTimestamp = performance.now();
+    const dataReceiptTimestamp = getWorkerTime();
     const tick = TickSchema.parse(rawTick);
     const lastPrice = state.currentPrice;
     state.currentPrice = tick.bid;
@@ -101,7 +125,7 @@ function processTick(rawTick) {
     state.todaysLow = Math.min(state.todaysLow, tick.bid);
 
     const magnitude = Math.abs(state.currentPrice - lastPrice) * Math.pow(10, localDigits);
-    const now = performance.now();
+    const now = getWorkerTime();
     const newTick = { price: state.currentPrice, direction: state.lastTickDirection === 'up' ? 1 : -1, magnitude, time: now, ticks: 1 };
 
     state.ticks.push(newTick);
@@ -126,7 +150,7 @@ function runCalculationsAndPostUpdate() {
         return;
     }
     
-    updateVolatility(performance.now());
+    updateVolatility(getWorkerTime());
     state.marketProfile = generateMarketProfile();
     console.log('[WORKER_DEBUG] Market profile generated:', {
       levelsCount: state.marketProfile.levels.length,

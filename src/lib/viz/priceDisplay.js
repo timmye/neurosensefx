@@ -9,6 +9,7 @@
  */
 
 import { boundsUtils, configureTextForDPR } from '../../utils/canvasSizing.js';
+import { CoordinateValidator } from '../../utils/coordinateValidator.js';
 import {
   formatPrice,
   formatPriceSimple,
@@ -116,6 +117,18 @@ export function drawPriceDisplay(ctx, renderingContext, config, state, y) {
   if (!ctx || !renderingContext || !config || !state || !y) {
     console.warn('[PriceDisplay] Missing required parameters, skipping render');
     return;
+  }
+
+  // 🔧 PHASE 2: Enhanced YScale Validation for Trading-Critical Accuracy
+  const displayId = renderingContext?.displayId || 'unknown';
+  const coordinateValidation = CoordinateValidator.validateVisualizationCoordinateSystem(
+    'PriceDisplay', y, state, renderingContext.contentArea, displayId
+  );
+
+  if (!coordinateValidation.isValid) {
+    console.warn(`[${displayId}] ${coordinateValidation.visualizationName} coordinate validation failed:`,
+      coordinateValidation);
+    // Continue rendering for resilience, but log the issue
   }
 
   // Extract rendering context from the unified infrastructure
