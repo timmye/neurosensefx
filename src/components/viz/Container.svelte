@@ -10,6 +10,7 @@
     import { drawPriceMarkers } from '../../lib/viz/priceMarkers.js'; // Import drawPriceMarkers
   import { markerStore } from '../../stores/markerStore.js'; // Import markerStore
   import { displayActions } from '../../stores/displayStore.js'; // Import displayActions for context menu
+  import { coordinateActions } from '../../stores/coordinateStore.js'; // Import coordinateActions for bounds sync
   import { writable } from 'svelte/store';
   import { Environment, EnvironmentConfig } from '../../lib/utils/environmentUtils.js';
     
@@ -168,6 +169,11 @@
       width: containerSize.width,   // ✅ FULL WIDTH (no padding)
       height: containerSize.height  // ✅ FULL HEIGHT (no header, no padding)
     };
+
+    // 🔧 CRITICAL FIX: Sync coordinate store with contentArea for proper scaling
+    if (coordinateActions && coordinateActions.updateBoundsFromContentArea) {
+      coordinateActions.updateBoundsFromContentArea(contentArea);
+    }
 
     // 3. ADR axis - positioned relative to content
     const adrAxisX = contentArea.width * config.adrAxisPosition;

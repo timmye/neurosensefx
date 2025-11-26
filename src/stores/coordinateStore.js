@@ -183,6 +183,33 @@ export const coordinateActions = {
   },
 
   /**
+   * Update bounds from contentArea (for container resize synchronization)
+   * @param {Object} contentArea - Container content area { width, height }
+   */
+  updateBoundsFromContentArea: (contentArea) => {
+    if (!contentArea || contentArea.width <= 0 || contentArea.height <= 0) {
+      console.warn('[COORDINATE_STORE] Invalid contentArea for bounds update');
+      return;
+    }
+
+    coordinateStore.update(state => ({
+      ...state,
+      bounds: {
+        x: [0, contentArea.width],
+        y: [0, contentArea.height]
+      },
+      cache: {
+        ...state.cache,
+        lastBounds: {
+          x: [0, contentArea.width],
+          y: [0, contentArea.height]
+        },
+        scale: null // Invalidate cache
+      }
+    }));
+  },
+
+  /**
    * Update price range from market data
    * @param {Object} priceData - Market data with price information
    */
