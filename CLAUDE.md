@@ -84,6 +84,8 @@ When making implementation decisions, use this framework to ensure alignment wit
 - Can this be used effectively for trading sessions without eye strain?
 - Does keyboard-first interaction provide rapid access during time-critical decisions?
 - Will visual displays remain accurate and responsive during volatile market conditions?
+- **Has this been validated with actual trader workflows on the production codebase?** (MANDATORY)
+- **Have existing tests been analyzed to avoid duplication before creating new tests?** (MANDATORY)
 
 ## User Workflows This System Supports
 
@@ -251,6 +253,59 @@ npm run test:all          # Run all tests
 - **Performance testing**: 60fps validation, sub-100ms latency, performance stability
 - **Cross-browser**: Chrome, Firefox, Safari with standard configurations
 
+### **MANDATORY: Real Browser Evidence - Actual User Workflows on Production Codebase**
+
+**CRITICAL REQUIREMENT**: All validation testing MUST collect **real browser evidence** by running **actual Playwright tests** that test **actual user workflows** on the **production codebase running in a real browser**. Creating custom application test utilities, simulations, or mock interfaces is strictly forbidden.
+
+**THREE CORE PRINCIPLES - NON-NEGOTIABLE:**
+1. **Actual user workflow tested in the production interface**
+2. **Real browser evidence collection**
+3. **Run actual Playwright tests to collect live production code real browser evidence**
+
+**PRODUCTION CODEBASE DEFINITION**:
+- **REQUIRED**: Current codebase (source files) tested via development server
+- **STANDARD**: Use development server (`npm run dev`, localhost:5174) for all testing
+- **FORBIDDEN**: Mock interfaces, simulated application behavior, custom test utilities
+
+**CUSTOM CODE RESTRICTIONS**:
+- **ALLOWED**: Browser automation (Playwright APIs), keyboard/mouse simulation, DOM queries
+- **FORBIDDEN**: Custom application testing utilities, component isolation testing, mock data generation
+
+**REQUIRED TRADER WORKFLOWS (tested on production interface):**
+- **Display Creation**: Ctrl+K → symbol search → Enter → display creation
+- **Navigation**: Ctrl+Tab display switching during active market monitoring
+- **Live Data Verification**: Real WebSocket data flow to visual display
+- **Responsiveness**: Drag-resize, reposition during live market updates
+- **Cleanup**: Ctrl+Shift+W display removal with resource cleanup
+
+**REQUIRED TEST EXECUTION WITH EVIDENCE COLLECTION:**
+```bash
+npm run test:e2e                    # Real browser evidence collection
+npm run test:e2e:performance       # Production codebase performance evidence
+npm run test:complete-workflow      # Full trader workflow evidence
+npm run pipeline:phase:workflows   # Professional scenario evidence
+```
+
+**MANDATORY EVIDENCE COLLECTION REQUIREMENTS:**
+- **Real browser traces**: Must capture actual trader interactions via dev server
+- **Console logs**: Must verify application console output from dev server
+- **Performance metrics**: Must collect from actual application execution via dev server
+
+**FORBIDDEN TESTING PATTERNS:**
+- NEVER create custom utilities to test application logic
+- NEVER mock or simulate user workflows
+- NEVER create isolated component tests separate from running application
+- NEVER bypass the running application with custom test interfaces
+- NEVER create duplicate tests when existing coverage already exists
+
+**MANDATORY TEST ANALYSIS REQUIREMENT:**
+- **ALWAYS analyze existing tests** in `tests/e2e/` directory first
+- **ONLY create new tests** if existing tests don't cover the specific workflow/interaction
+- **MODIFY existing tests** when enhancement is needed vs creating new files
+- **ENSURE comprehensive coverage** without unnecessary duplication
+
+**REFERENCE**: `tests/e2e/primary-trader-workflow.spec.js` - demonstrates actual user workflows on production codebase with real browser evidence collection.
+
 **Key Testing Areas:**
 - **Visual accuracy**: Canvas rendering with crisp numerical displays at all DPR levels
 - **Performance under load**: 20+ displays without visual degradation or stuttering
@@ -266,7 +321,8 @@ npm run test:all          # Run all tests
 2. Follow "Simple, Performant, Maintainable" decision framework
 3. Check existing utilities before creating new ones
 4. Test with realistic conditions (multiple displays, trading workflows)
-5. Document new patterns and utilities
+5. **Validate ALL changes with actual trader workflows on the production codebase** (MANDATORY)
+6. Document new patterns and utilities
 
 **Code Standards:**
 - Framework-first development approach

@@ -17,6 +17,9 @@ import {
  * Implements cognitive design foundation for pre-attentive market structure analysis
  */
 export function drawMarketProfile(ctx, renderingContext, config, state, y) {
+  // ✅ DISPLAY CREATION LOGGING: Get display context for correlation
+  const displayId = renderingContext?.displayId || 'unknown';
+  const symbol = renderingContext?.symbol || 'unknown';
   // Early exit for performance optimization
   if (!config.showMarketProfile) {
     return;
@@ -67,7 +70,8 @@ export function drawMarketProfile(ctx, renderingContext, config, state, y) {
     }
 
   } catch (error) {
-    console.error('[MARKET_PROFILE] Rendering error:', error);
+    // ✅ DISPLAY CREATION LOGGING: Enhanced error with display correlation
+    console.error(`[MARKET_PROFILE:${displayId}] Rendering error for ${symbol}:`, error);
     // Graceful fallback - don't crash the entire rendering pipeline
   } finally {
     ctx.restore();

@@ -11,9 +11,7 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
   import StatusPanel from './components/StatusPanel/StatusPanel.svelte';
   import StatusIcon from './components/StatusPanel/StatusIcon.svelte';
   import ShortcutHelp from './components/ShortcutHelp.svelte';
-  import StoreDebugMonitor from './components/StoreDebugMonitor.svelte';
-  import TestDisplayButton from './components/TestDisplayButton.svelte';
-    import symbolService from './services/symbolService.js';
+      import symbolService from './services/symbolService.js';
   import { Environment, EnvironmentConfig, initializeEnvironment, getEnvironmentInfo } from './lib/utils/environmentUtils.js';
 
   
@@ -353,12 +351,7 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
   <!-- Keyboard Shortcut Help Overlay (Layer 5) -->
   <ShortcutHelp />
 
-  <!-- Debug Monitor (Temporary for troubleshooting) -->
-  <StoreDebugMonitor />
-
-  <!-- Test Controls (Temporary for troubleshooting) -->
-  <TestDisplayButton />
-
+  
 
 </main>
 
