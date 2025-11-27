@@ -11,6 +11,24 @@
  * - Keyboard-first interaction support
  */
 
+// === COMPREHENSIVE DEBUG LOGGING SYSTEM ===
+/**
+ * Debug logging helper for event handling system
+ */
+function debugLog(message, data = null, level = 'INFO') {
+	const timestamp = new Date().toISOString();
+	const prefix = `[KEYBOARD-DEBUG] [${level}] ${timestamp}`;
+
+	if (data) {
+		console.log(`${prefix} ${message}`, data);
+	} else {
+		console.log(`${prefix} ${message}`);
+	}
+}
+
+// Log module import immediately
+debugLog('🔧 eventHandling.js module loading', { timestamp: Date.now() });
+
 /**
  * Action for handling document-level click outside events
  * Replaces manual document.addEventListener('click', handleClickOutside)
@@ -21,11 +39,30 @@
  * @returns {{ update: Function, destroy: Function }} - Action lifecycle
  */
 export function clickOutside(node, callback) {
+  debugLog('🎯 clickOutside() action initialized', {
+    nodeTagName: node.tagName,
+    nodeId: node.id,
+    nodeClass: node.className,
+    hasCallback: typeof callback === 'function'
+  });
+
   let rafId = null;
 
   const handleClick = (event) => {
+    debugLog('🖱️ clickOutside event detected', {
+      targetTagName: event.target.tagName,
+      targetId: event.target.id,
+      targetIsNode: event.target === node,
+      button: event.button,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey
+    });
+
     // Fast DOM check without contains() for performance
-    if (!node || event.target === node) return;
+    if (!node || event.target === node) {
+      debugLog('⚠️ Ignoring click - target is node or node is null');
+      return;
+    }
 
     // Use fast path for common cases
     let target = event.target;
@@ -37,31 +74,51 @@ export function clickOutside(node, callback) {
       depth++;
     }
 
-    if (target !== node) {
+    const isOutside = target !== node;
+    debugLog('🔍 DOM traversal completed', {
+      depth,
+      maxDepth,
+      isOutside,
+      reachedMaxDepth: depth >= maxDepth
+    });
+
+    if (isOutside) {
+      debugLog('⚡ Click outside detected, scheduling callback');
       // Use requestAnimationFrame for smooth UI updates
       if (rafId) {
+        debugLog('🔄 Canceling previous RAF callback');
         cancelAnimationFrame(rafId);
       }
 
       rafId = requestAnimationFrame(() => {
+        debugLog('📞 Executing clickOutside callback');
         callback(event);
         rafId = null;
       });
+    } else {
+      debugLog('⚠️ Click was inside element, ignoring');
     }
   };
 
+  debugLog('📡 Adding clickOutside event listener', { passive: true, capture: true });
   // Use passive listener for better scroll performance
   document.addEventListener('click', handleClick, { passive: true, capture: true });
 
   return {
     update(newCallback) {
+      debugLog('🔄 clickOutside update called', {
+        nodeTagName: node.tagName,
+        hasNewCallback: typeof newCallback === 'function'
+      });
       callback = newCallback;
     },
     destroy() {
+      debugLog('🗑️ clickOutside destroy called', { nodeTagName: node.tagName, hasRafId: !!rafId });
       if (rafId) {
         cancelAnimationFrame(rafId);
       }
       document.removeEventListener('click', handleClick, true);
+      debugLog('✅ clickOutside cleanup completed');
     }
   };
 }
@@ -369,3 +426,24 @@ export function interactiveElement(node, config = {}) {
     }
   };
 }
+
+// Final module completion log
+debugLog('✅ eventHandling.js module fully loaded and ready', {
+	exportedFunctions: [
+		'clickOutside',
+		'windowResize',
+		'focusTrap',
+		'contextMenu',
+		'connectionStatus',
+		'interactiveElement'
+	],
+	eventHandlingPhilosophy: 'Framework-First Development',
+	optimizations: [
+		'Declarative event management',
+		'Automatic cleanup',
+		'Sub-100ms performance',
+		'Passive listeners',
+		'RequestAnimationFrame optimization',
+		'Keyboard-first support'
+	]
+});

@@ -7,6 +7,24 @@
 
 import { SHORTCUT_CONTEXTS, SHORTCUT_CATEGORIES } from '../actions/keyboardAction.js';
 
+// === COMPREHENSIVE DEBUG LOGGING SYSTEM ===
+/**
+ * Debug logging helper for shortcut configuration system
+ */
+function debugLog(message, data = null, level = 'INFO') {
+	const timestamp = new Date().toISOString();
+	const prefix = `[KEYBOARD-DEBUG] [${level}] ${timestamp}`;
+
+	if (data) {
+		console.log(`${prefix} ${message}`, data);
+	} else {
+		console.log(`${prefix} ${message}`);
+	}
+}
+
+// Log module import immediately
+debugLog('🔧 shortcutConfig.js module loading', { timestamp: Date.now() });
+
 /**
  * Default shortcut definitions for NeuroSense FX
  * Organized by workflow priority and trader needs
@@ -355,7 +373,13 @@ export const DEFAULT_SHORTCUTS = Object.freeze({
 		implemented: true
 	}
 
-};
+});
+
+debugLog('📋 DEFAULT_SHORTCUTS defined', {
+	totalShortcuts: Object.keys(DEFAULT_SHORTCUTS).length,
+	categories: [...new Set(Object.values(DEFAULT_SHORTCUTS).map(s => s.category))],
+	contexts: [...new Set(Object.values(DEFAULT_SHORTCUTS).flatMap(s => s.contexts))]
+});
 
 /**
  * Workflow priorities for organizing shortcuts
@@ -368,61 +392,78 @@ export const WORKFLOW_PRIORITIES = Object.freeze({
 	SYSTEM: 4        // System and help functions
 });
 
+debugLog('📊 WORKFLOW_PRIORITIES defined', { priorities: WORKFLOW_PRIORITIES });
+
 /**
  * Validate shortcut configuration
  * @param {Object} config - Shortcut configuration to validate
  * @returns {Object} Validation result with errors and warnings
  */
 export function validateShortcutConfig(config) {
+	debugLog('🔍 validateShortcutConfig() called', { configType: typeof config, keysCount: config ? Object.keys(config).length : 0 });
+
 	const errors = [];
 	const warnings = [];
 
 	if (!config || typeof config !== 'object') {
 		errors.push('Configuration must be an object');
+		debugLog('❌ Invalid configuration object', { config, errors }, 'ERROR');
 		return { errors, warnings };
 	}
 
+	debugLog('🔍 Validating shortcuts configuration', { shortcutCount: Object.keys(config).length });
+
 	Object.entries(config).forEach(([id, shortcut]) => {
+		debugLog('🔍 Validating shortcut', { id, hasShortcut: !!shortcut });
+
 		// Validate shortcut ID
 		if (!id || typeof id !== 'string') {
 			errors.push('Invalid shortcut ID');
+			debugLog('❌ Invalid shortcut ID', { id }, 'ERROR');
 			return;
 		}
 
 		// Validate shortcut object
 		if (!shortcut || typeof shortcut !== 'object') {
 			errors.push(`Shortcut ${id}: Must be an object`);
+			debugLog('❌ Shortcut must be an object', { id, shortcut }, 'ERROR');
 			return;
 		}
 
 		// Required fields
 		if (!shortcut.key || typeof shortcut.key !== 'string') {
 			errors.push(`Shortcut ${id}: Missing or invalid key combination`);
+			debugLog('❌ Missing or invalid key', { id, key: shortcut.key }, 'ERROR');
 		}
 
 		if (!shortcut.description || typeof shortcut.description !== 'string') {
 			errors.push(`Shortcut ${id}: Missing or invalid description`);
+			debugLog('❌ Missing or invalid description', { id, description: shortcut.description }, 'ERROR');
 		}
 
 		// Optional fields with defaults
 		if (!shortcut.category) {
 			warnings.push(`Shortcut ${id}: Missing category, using 'general'`);
 			shortcut.category = 'general';
+			debugLog('⚠️ Setting default category', { id, category: shortcut.category });
 		}
 
 		if (!shortcut.contexts || !Array.isArray(shortcut.contexts) || shortcut.contexts.length === 0) {
 			warnings.push(`Shortcut ${id}: No valid contexts specified, using global`);
 			shortcut.contexts = [SHORTCUT_CONTEXTS.GLOBAL];
+			debugLog('⚠️ Setting default context', { id, contexts: shortcut.contexts });
 		}
 
 		// Key format validation
 		if (shortcut.key && !isValidKeyCombo(shortcut.key)) {
 			errors.push(`Shortcut ${id}: Invalid key format: ${shortcut.key}`);
+			debugLog('❌ Invalid key format', { id, key: shortcut.key }, 'ERROR');
 		}
 
 		// Priority validation
 		if (shortcut.priority !== undefined && (typeof shortcut.priority !== 'number' || shortcut.priority < 1 || shortcut.priority > 10)) {
 			warnings.push(`Shortcut ${id}: Priority should be a number between 1 and 10`);
+			debugLog('⚠️ Invalid priority', { id, priority: shortcut.priority });
 		}
 
 		// Validate contexts are valid
@@ -430,6 +471,7 @@ export function validateShortcutConfig(config) {
 			shortcut.contexts.forEach(context => {
 				if (!Object.values(SHORTCUT_CONTEXTS).includes(context)) {
 					warnings.push(`Shortcut ${id}: Invalid context "${context}"`);
+					debugLog('⚠️ Invalid context', { id, context });
 				}
 			});
 		}
@@ -437,10 +479,20 @@ export function validateShortcutConfig(config) {
 		// Validate category is valid
 		if (shortcut.category && !Object.values(SHORTCUT_CATEGORIES).includes(shortcut.category)) {
 			warnings.push(`Shortcut ${id}: Unknown category "${shortcut.category}"`);
+			debugLog('⚠️ Unknown category', { id, category: shortcut.category });
 		}
+
+		debugLog('✅ Shortcut validation completed', { id, errors: errors.filter(e => e.includes(id)), warnings: warnings.filter(w => w.includes(id)) });
 	});
 
-	return { errors, warnings };
+	const result = { errors, warnings };
+	debugLog('📊 Configuration validation completed', {
+		totalErrors: errors.length,
+		totalWarnings: warnings.length,
+		isValid: errors.length === 0
+	});
+
+	return result;
 }
 
 /**
@@ -449,7 +501,12 @@ export function validateShortcutConfig(config) {
  * @returns {boolean} Whether the format is valid
  */
 function isValidKeyCombo(keyCombo) {
-	if (typeof keyCombo !== 'string') return false;
+	debugLog('🔍 isValidKeyCombo() called', { keyCombo, type: typeof keyCombo });
+
+	if (typeof keyCombo !== 'string') {
+		debugLog('❌ Key combo is not a string', { keyCombo });
+		return false;
+	}
 
 	const validModifiers = ['ctrl', 'alt', 'shift', 'meta'];
 	const validKeys = [
@@ -464,20 +521,26 @@ function isValidKeyCombo(keyCombo) {
 	];
 
 	const parts = keyCombo.toLowerCase().split('+');
+	debugLog('🔍 Analyzing key combo parts', { parts, totalParts: parts.length });
 
 	// Check modifiers
 	const modifiers = parts.filter(part => validModifiers.includes(part));
 	const mainKey = parts.find(part => !validModifiers.includes(part));
 
+	debugLog('🔍 Key combo analysis', { modifiers, mainKey, validMainKey: validKeys.includes(mainKey) });
+
 	if (!mainKey || !validKeys.includes(mainKey)) {
+		debugLog('❌ Invalid main key', { mainKey, isValid: validKeys.includes(mainKey) });
 		return false;
 	}
 
 	// Single key shortcuts (should be avoided for most cases)
 	if (parts.length === 1 && !['escape', 'space', 'tab', 'enter'].includes(mainKey)) {
+		debugLog('❌ Single letter key not allowed', { mainKey });
 		return false; // Single letters should be avoided
 	}
 
+	debugLog('✅ Key combo is valid', { keyCombo, modifiers, mainKey });
 	return true;
 }
 
@@ -487,19 +550,49 @@ function isValidKeyCombo(keyCombo) {
  * @returns {Array} Array of conflict descriptions
  */
 export function findShortcutConflicts(shortcuts) {
+	debugLog('🔍 findShortcutConflicts() called', { shortcutsCount: shortcuts ? Object.keys(shortcuts).length : 0 });
+
 	const conflicts = [];
 	const keyMap = new Map();
 
+	if (!shortcuts || typeof shortcuts !== 'object') {
+		debugLog('❌ Invalid shortcuts object provided');
+		return conflicts;
+	}
+
+	debugLog('🔍 Analyzing shortcuts for conflicts');
+
 	Object.entries(shortcuts).forEach(([id, shortcut]) => {
+		if (!shortcut || !shortcut.key) {
+			debugLog('⚠️ Skipping invalid shortcut', { id, hasShortcut: !!shortcut, hasKey: !!(shortcut?.key) });
+			return;
+		}
+
 		const normalizedKey = shortcut.key.toLowerCase();
+		debugLog('🔍 Checking key for conflicts', { id, key: shortcut.key, normalizedKey });
+
 		if (keyMap.has(normalizedKey)) {
 			const existingId = keyMap.get(normalizedKey);
-			conflicts.push(
-				`Key conflict: "${shortcut.key}" used by both "${id}" and "${existingId}"`
-			);
+			const conflict = `Key conflict: "${shortcut.key}" used by both "${id}" and "${existingId}"`;
+			conflicts.push(conflict);
+			debugLog('⚠️ Key conflict detected', {
+				key: shortcut.key,
+				normalizedKey,
+				newId: id,
+				existingId,
+				conflict
+			});
 		} else {
 			keyMap.set(normalizedKey, id);
+			debugLog('✅ Key registered successfully', { id, normalizedKey });
 		}
+	});
+
+	debugLog('📊 Conflict analysis completed', {
+		totalShortcuts: Object.keys(shortcuts).length,
+		uniqueKeys: keyMap.size,
+		conflictsFound: conflicts.length,
+		conflictDetails: conflicts
 	});
 
 	return conflicts;
@@ -511,12 +604,23 @@ export function findShortcutConflicts(shortcuts) {
  * @returns {Object} Filtered shortcuts object
  */
 export function getShortcutsByCategory(category) {
+	debugLog('🔍 getShortcutsByCategory() called', { category });
+
 	const result = {};
 	Object.entries(DEFAULT_SHORTCUTS).forEach(([id, shortcut]) => {
 		if (shortcut.category === category) {
 			result[id] = shortcut;
+			debugLog('✅ Found shortcut in category', { id, shortcutKey: shortcut.key });
 		}
 	});
+
+	debugLog('📊 Category filtering completed', {
+		category,
+		totalShortcuts: Object.keys(DEFAULT_SHORTCUTS).length,
+		matchedShortcuts: Object.keys(result).length,
+		matchedIds: Object.keys(result)
+	});
+
 	return result;
 }
 
@@ -526,12 +630,23 @@ export function getShortcutsByCategory(category) {
  * @returns {Object} Filtered shortcuts object
  */
 export function getShortcutsByWorkflow(workflow) {
+	debugLog('🔍 getShortcutsByWorkflow() called', { workflow });
+
 	const result = {};
 	Object.entries(DEFAULT_SHORTCUTS).forEach(([id, shortcut]) => {
 		if (shortcut.workflow === workflow) {
 			result[id] = shortcut;
+			debugLog('✅ Found shortcut in workflow', { id, shortcutKey: shortcut.key });
 		}
 	});
+
+	debugLog('📊 Workflow filtering completed', {
+		workflow,
+		totalShortcuts: Object.keys(DEFAULT_SHORTCUTS).length,
+		matchedShortcuts: Object.keys(result).length,
+		matchedIds: Object.keys(result)
+	});
+
 	return result;
 }
 
@@ -541,7 +656,20 @@ export function getShortcutsByWorkflow(workflow) {
  * @returns {Array} Sorted shortcuts array
  */
 export function sortShortcutsByPriority(shortcuts) {
-	return shortcuts.sort((a, b) => (a.priority || 10) - (b.priority || 10));
+	debugLog('🔍 sortShortcutsByPriority() called', { shortcutsCount: shortcuts ? shortcuts.length : 0 });
+
+	if (!Array.isArray(shortcuts)) {
+		debugLog('❌ Invalid shortcuts array provided');
+		return [];
+	}
+
+	const sorted = shortcuts.sort((a, b) => (a.priority || 10) - (b.priority || 10));
+	debugLog('✅ Shortcuts sorted by priority', {
+		beforeSort: shortcuts.map(s => ({ id: s.id, priority: s.priority })),
+		afterSort: sorted.map(s => ({ id: s.id, priority: s.priority }))
+	});
+
+	return sorted;
 }
 
 /**
@@ -550,55 +678,84 @@ export function sortShortcutsByPriority(shortcuts) {
  * @returns {string} User-friendly display format
  */
 export function formatKeyForDisplay(keyCombo) {
+	debugLog('🎨 formatKeyForDisplay() called', { keyCombo, type: typeof keyCombo });
+
 	if (!keyCombo || typeof keyCombo !== 'string') {
+		debugLog('⚠️ Invalid key combo provided, returning empty string');
 		return '';
 	}
 
 	const parts = keyCombo.toLowerCase().split('+');
+	debugLog('🔍 Processing key parts', { parts });
+
 	const displayParts = parts.map(part => {
+		let displayPart;
 		switch (part) {
-			case 'ctrl': return 'Ctrl';
-			case 'alt': return 'Alt';
-			case 'shift': return 'Shift';
-			case 'meta': return '⌘';
-			case 'space': return 'Space';
-			case 'escape': return 'Esc';
-			case 'tab': return 'Tab';
-			case 'enter': return 'Enter';
-			case 'backspace': return 'Backspace';
-			case 'delete': return 'Delete';
-			case 'home': return 'Home';
-			case 'end': return 'End';
-			case 'pageup': return 'Page Up';
-			case 'pagedown': return 'Page Down';
-			case 'arrowup': return '↑';
-			case 'arrowdown': return '↓';
-			case 'arrowleft': return '←';
-			case 'arrowright': return '→';
-			case 'insert': return 'Insert';
-			case 'pause': return 'Pause';
-			case 'scrolllock': return 'Scroll Lock';
-			case 'numlock': return 'Num Lock';
-			case 'capslock': return 'Caps Lock';
+			case 'ctrl': displayPart = 'Ctrl'; break;
+			case 'alt': displayPart = 'Alt'; break;
+			case 'shift': displayPart = 'Shift'; break;
+			case 'meta': displayPart = '⌘'; break;
+			case 'space': displayPart = 'Space'; break;
+			case 'escape': displayPart = 'Esc'; break;
+			case 'tab': displayPart = 'Tab'; break;
+			case 'enter': displayPart = 'Enter'; break;
+			case 'backspace': displayPart = 'Backspace'; break;
+			case 'delete': displayPart = 'Delete'; break;
+			case 'home': displayPart = 'Home'; break;
+			case 'end': displayPart = 'End'; break;
+			case 'pageup': displayPart = 'Page Up'; break;
+			case 'pagedown': displayPart = 'Page Down'; break;
+			case 'arrowup': displayPart = '↑'; break;
+			case 'arrowdown': displayPart = '↓'; break;
+			case 'arrowleft': displayPart = '←'; break;
+			case 'arrowright': displayPart = '→'; break;
+			case 'insert': displayPart = 'Insert'; break;
+			case 'pause': displayPart = 'Pause'; break;
+			case 'scrolllock': displayPart = 'Scroll Lock'; break;
+			case 'numlock': displayPart = 'Num Lock'; break;
+			case 'capslock': displayPart = 'Caps Lock'; break;
 			// Function keys
 			case 'f1': case 'f2': case 'f3': case 'f4': case 'f5':
 			case 'f6': case 'f7': case 'f8': case 'f9': case 'f10':
 			case 'f11': case 'f12':
-				return part.toUpperCase();
+				displayPart = part.toUpperCase();
+				break;
 			default:
 				// Handle single letters and numbers
 				if (part.length === 1 && /[a-z0-9]/.test(part)) {
-					return part.toUpperCase();
+					displayPart = part.toUpperCase();
+				} else {
+					// Handle other cases
+					displayPart = part.charAt(0).toUpperCase() + part.slice(1);
 				}
-				// Handle other cases
-				return part.charAt(0).toUpperCase() + part.slice(1);
 		}
+		debugLog('🔤 Key part formatted', { original: part, formatted: displayPart });
+		return displayPart;
 	});
 
-	return displayParts.join(' + ');
+	const result = displayParts.join(' + ');
+	debugLog('✅ Key combo formatted for display', { original: keyCombo, formatted: result });
+
+	return result;
 }
 
 /**
  * Export default shortcuts for external use
  */
 export default DEFAULT_SHORTCUTS;
+
+// Final module completion log
+debugLog('✅ shortcutConfig.js module fully loaded and ready', {
+	exportedFunctions: [
+		'DEFAULT_SHORTCUTS',
+		'WORKFLOW_PRIORITIES',
+		'validateShortcutConfig',
+		'findShortcutConflicts',
+		'getShortcutsByCategory',
+		'getShortcutsByWorkflow',
+		'sortShortcutsByPriority',
+		'formatKeyForDisplay',
+		'default export (DEFAULT_SHORTCUTS)'
+	],
+	totalDefaultShortcuts: Object.keys(DEFAULT_SHORTCUTS).length
+});

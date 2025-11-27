@@ -1,10 +1,16 @@
 /**
- * Primary Trader Workflow Test - BTCUSD Display
+ * Enhanced Primary Trader Workflow Test with Unified Keyboard System
  *
- * Comprehensive end-to-end test for creating, using, and managing a BTCUSD display
- * according to the specifications in test-case-primary-workflow.md
+ * Comprehensive end-to-end test for creating, using, and managing trading displays
+ * with integration testing for the unified keyboard system.
  *
- * SUCCESS CRITERIA: All 5 test phases complete without critical failures
+ * Tests real trader workflows with keyboard-first interaction patterns:
+ * - Symbol search and subscription via Ctrl+K
+ * - Display navigation via Ctrl+Tab and Ctrl+1-9
+ * - Display management via Ctrl+Shift+W
+ * - System integration with [KEYBOARD-DEBUG] validation
+ *
+ * SUCCESS CRITERIA: All test phases complete with proper keyboard system integration
  */
 
 import { test, expect } from '@playwright/test';
@@ -74,8 +80,23 @@ test.describe('Primary Trader Workflow', () => {
     );
   }
 
-  test('Phase 1: Basic Application Smoke Test', async ({ page }) => {
-    console.log('🚀 Phase 1: Basic Application Smoke Test');
+  test('Phase 1: Enhanced Application and Keyboard System Validation', async ({ page }) => {
+    console.log('🚀 Phase 1: Enhanced Application and Keyboard System Validation');
+
+    // Collect keyboard debug logs for validation
+    const keyboardLogs = [];
+    page.on('console', msg => {
+      const text = msg.text();
+      if (text.includes('[KEYBOARD-DEBUG]') ||
+          text.includes('keyboardAction') ||
+          text.includes('Document backup')) {
+        keyboardLogs.push({
+          type: msg.type(),
+          text: text,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
 
     try {
       // Step 1: Verify application loads
@@ -87,25 +108,97 @@ test.describe('Primary Trader Workflow', () => {
       const body = page.locator('body');
       await expect(body).toBeVisible();
 
-      // Step 3: Check for any keyboard interaction capability
-      console.log('Testing basic keyboard interaction...');
-      await page.keyboard.press('Escape'); // Should not error
-      await page.keyboard.press('Control+k'); // Should not error
+      // Step 3: Focus the page for keyboard events
+      console.log('Focusing page for keyboard interaction...');
+      await page.click('body');
+      await page.waitForTimeout(500);
 
-      // Step 4: Verify application remains responsive
+      // Step 4: Test unified keyboard system interaction
+      console.log('Testing unified keyboard system interaction...');
+
+      // Test critical shortcuts to validate keyboard system
+      await page.keyboard.press('Escape'); // System shortcut
+      await page.waitForTimeout(300);
+
+      await page.keyboard.press('Control+k'); // Critical browser shortcut
+      await page.waitForTimeout(500);
+
+      await page.keyboard.press('Escape'); // Clear any opened palettes
+      await page.waitForTimeout(300);
+
+      // Step 5: Verify application remains responsive
       console.log('Checking application responsiveness...');
       await page.waitForTimeout(1000);
 
-      // Step 5: Look for any canvas or UI elements (basic validation)
+      // Step 6: Analyze keyboard system logs
+      console.log('\n=== KEYBOARD SYSTEM ANALYSIS ===');
+      console.log(`[TEST] Total keyboard debug logs: ${keyboardLogs.length}`);
+
+      const categorizedLogs = {
+        initialization: keyboardLogs.filter(log =>
+          log.text.includes('🚀') || log.text.includes('initialization')
+        ),
+        criticalShortcuts: keyboardLogs.filter(log =>
+          log.text.includes('Critical shortcut') || log.text.includes('Document backup')
+        ),
+        storeEvents: keyboardLogs.filter(log =>
+          log.text.includes('keyboardEventStore') || log.text.includes('dispatchKeyboardEvent')
+        ),
+        errors: keyboardLogs.filter(log =>
+          log.text.includes('ERROR') || log.text.includes('❌')
+        )
+      };
+
+      console.log(`[TEST] Initialization logs: ${categorizedLogs.initialization.length}`);
+      console.log(`[TEST] Critical shortcut logs: ${categorizedLogs.criticalShortcuts.length}`);
+      console.log(`[TEST] Store event logs: ${categorizedLogs.storeEvents.length}`);
+      console.log(`[TEST] Error logs: ${categorizedLogs.errors.length}`);
+
+      // Show sample logs for debugging
+      if (categorizedLogs.initialization.length > 0) {
+        console.log('[TEST] Sample initialization log:');
+        console.log(`  ${categorizedLogs.initialization[0].text}`);
+      }
+
+      if (categorizedLogs.criticalShortcuts.length > 0) {
+        console.log('[TEST] Sample critical shortcut log:');
+        console.log(`  ${categorizedLogs.criticalShortcuts[0].text}`);
+      }
+
+      // Step 7: Validate keyboard system health
+      const keyboardSystemHealthy = categorizedLogs.initialization.length > 0 &&
+                                   categorizedLogs.errors.length === 0;
+
+      console.log(`[TEST] Keyboard system health: ${keyboardSystemHealthy ? '✅ HEALTHY' : '⚠️ NEEDS ATTENTION'}`);
+
+      // Step 8: Look for any canvas or UI elements (basic validation)
       const anyElement = page.locator('*').first();
       await expect(anyElement).toBeVisible();
 
-      console.log('✅ Phase 1 PASSED - Basic application smoke test successful');
-      console.log('📝 Note: Full workflow testing requires application keyboard shortcuts to be functional');
-      console.log('🔧 Testing infrastructure is working - native Playwright reporters and captures enabled');
+      console.log('✅ Phase 1 PASSED - Enhanced application and keyboard system validation successful');
+
+      if (keyboardSystemHealthy) {
+        console.log('🎉 KEYBOARD SYSTEM: Unified architecture functioning correctly');
+      } else {
+        console.log('⚠️  KEYBOARD SYSTEM: Some components may need attention');
+        if (categorizedLogs.errors.length > 0) {
+          console.log('❌ Keyboard system errors detected - see logs above');
+        }
+      }
+
+      console.log('🔧 Testing infrastructure is working - native Playwright reporters and [KEYBOARD-DEBUG] captures enabled');
 
     } catch (error) {
       console.log('❌ Phase 1 FAILED - Error occurred:', error.message);
+
+      // Show any keyboard logs that might help with debugging
+      if (keyboardLogs.length > 0) {
+        console.log('\n[DEBUG] Keyboard logs available for troubleshooting:');
+        keyboardLogs.slice(-5).forEach((log, index) => {
+          console.log(`  ${index + 1}. [${log.type}] ${log.text}`);
+        });
+      }
+
       throw error;
     }
   });

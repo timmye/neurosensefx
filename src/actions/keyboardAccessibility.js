@@ -14,6 +14,24 @@
 
 import { tick } from 'svelte';
 
+// === COMPREHENSIVE DEBUG LOGGING SYSTEM ===
+/**
+ * Debug logging helper for keyboard accessibility system
+ */
+function debugLog(message, data = null, level = 'INFO') {
+	const timestamp = new Date().toISOString();
+	const prefix = `[KEYBOARD-DEBUG] [${level}] ${timestamp}`;
+
+	if (data) {
+		console.log(`${prefix} ${message}`, data);
+	} else {
+		console.log(`${prefix} ${message}`);
+	}
+}
+
+// Log module import immediately
+debugLog('🔧 keyboardAccessibility.js module loading', { timestamp: Date.now() });
+
 /**
  * Action for making any element keyboard-triggerable
  * Updated to work with unified keyboard system - no competing handlers
@@ -23,6 +41,13 @@ import { tick } from 'svelte';
  * @returns {{ update: Function, destroy: Function }} - Action lifecycle
  */
 export function keyboardClickable(node, options = {}) {
+  debugLog('🎯 keyboardClickable() action initialized', {
+    nodeTagName: node.tagName,
+    nodeId: node.id,
+    nodeClass: node.className,
+    optionsKeys: Object.keys(options)
+  });
+
   const {
     triggerKey = 'Enter', // Keyboard key to trigger the action
     triggerKey2 = ' ', // Spacebar as secondary trigger
@@ -32,14 +57,40 @@ export function keyboardClickable(node, options = {}) {
     role = 'button' // ARIA role
   } = options;
 
+  debugLog('⚙️ keyboardClickable options processed', {
+    triggerKey,
+    triggerKey2,
+    hasMouseClick: !!onMouseClick,
+    ariaLabel,
+    ariaDescription,
+    role
+  });
+
   // Set ARIA attributes for accessibility
+  debugLog('♿ Setting ARIA attributes for keyboard accessibility');
   if (ariaLabel) node.setAttribute('aria-label', ariaLabel);
   if (ariaDescription) node.setAttribute('aria-describedby', ariaDescription);
   if (role) node.setAttribute('role', role);
   node.setAttribute('tabindex', '0'); // Make focusable
 
+  debugLog('✅ ARIA attributes set', {
+    hasAriaLabel: !!ariaLabel,
+    hasAriaDescription: !!ariaDescription,
+    role,
+    tabindex: node.getAttribute('tabindex')
+  });
+
   const handleKeyDown = async (event) => {
+    debugLog('⌨️ keyboardClickable keyDown event', {
+      key: event.key,
+      triggerKey,
+      triggerKey2,
+      shouldTrigger: event.key === triggerKey || event.key === triggerKey2
+    });
+
     if (event.key === triggerKey || event.key === triggerKey2) {
+      debugLog('⚡ Keyboard trigger activated', { key: event.key });
+
       event.preventDefault();
       event.stopPropagation();
 
@@ -54,19 +105,28 @@ export function keyboardClickable(node, options = {}) {
       syntheticEvent.keyboardTriggered = true;
       syntheticEvent.originalKey = event.key;
 
+      debugLog('📡 Dispatching synthetic click event', {
+        keyboardTriggered: true,
+        originalKey: event.key,
+        bubbles: true
+      });
+
       // Dispatch synthetic click
       node.dispatchEvent(syntheticEvent);
 
       // Call original handler if provided
       if (onMouseClick) {
+        debugLog('🖱️ Calling original mouse click handler');
         onMouseClick(syntheticEvent);
       }
 
       // Visual feedback
+      debugLog('👁️ Adding keyboard-triggered visual feedback');
       node.classList.add('keyboard-triggered');
       await tick();
       setTimeout(() => {
         node.classList.remove('keyboard-triggered');
+        debugLog('👁️ Removed keyboard-triggered visual feedback');
       }, 150);
     }
   };
@@ -87,25 +147,38 @@ export function keyboardClickable(node, options = {}) {
   // This prevents competing addEventListener calls
   // Individual element keyboard triggers still use direct listeners for specific interactions
 
+  debugLog('✅ keyboardClickable setup completed', { nodeTagName: node.tagName });
+
   return {
     update(newOptions = {}) {
+      debugLog('🔄 keyboardClickable update called', {
+        nodeTagName: node.tagName,
+        newOptionsKeys: Object.keys(newOptions)
+      });
+
       Object.assign(options, newOptions);
 
       // Update ARIA attributes
       if (newOptions.ariaLabel) {
+        debugLog('📝 Updating aria-label', { newLabel: newOptions.ariaLabel });
         node.setAttribute('aria-label', newOptions.ariaLabel);
       }
       if (newOptions.role) {
+        debugLog('📝 Updating role', { newRole: newOptions.role });
         node.setAttribute('role', newOptions.role);
       }
     },
     destroy() {
+      debugLog('🗑️ keyboardClickable destroy called', { nodeTagName: node.tagName });
+
       // Clean up ARIA attributes
       node.removeAttribute('aria-label');
       node.removeAttribute('aria-describedby');
       node.removeAttribute('role');
       node.removeAttribute('tabindex');
       node.classList.remove('keyboard-triggered', 'keyboard-pressed');
+
+      debugLog('✅ keyboardClickable cleanup completed');
     }
   };
 }
@@ -119,12 +192,26 @@ export function keyboardClickable(node, options = {}) {
  * @returns {{ update: Function, destroy: Function }} - Action lifecycle
  */
 export function contextMenuNavigation(node, options = {}) {
+  debugLog('🎯 contextMenuNavigation() action initialized', {
+    nodeTagName: node.tagName,
+    nodeId: node.id,
+    nodeClass: node.className,
+    optionsKeys: Object.keys(options)
+  });
+
   const {
     onClose = null,
     onSelect = null,
     items = '.menu-item, button, [role="menuitem"]',
     firstFocus = null
   } = options;
+
+  debugLog('⚙️ contextMenuNavigation options processed', {
+    hasOnClose: !!onClose,
+    hasOnSelect: !!onSelect,
+    items,
+    hasFirstFocus: !!firstFocus
+  });
 
   let menuItems = [];
   let currentIndex = -1;

@@ -153,10 +153,29 @@
   }
 
   function handleEscape() {
-    console.log('🚪 Symbol palette received escape event');
-    const panel = $panels.get('symbol-palette');
-    if (panel?.isVisible) {
-      displayActions.hidePanel('symbol-palette');
+    console.log('[DEBUGGER:SymbolPalette:handleEscape] Symbol palette received escape event');
+
+    // Get the current icons store value
+    const iconsValue = $icons;
+    console.log('[DEBUGGER:SymbolPalette:handleEscape] Icons store type:', typeof iconsValue);
+    console.log('[DEBUGGER:SymbolPalette:handleEscape] Icons store value:', iconsValue);
+
+    // Check if icons is a Map and get the symbol-palette-icon
+    let icon = null;
+    if (iconsValue && typeof iconsValue.get === 'function') {
+      icon = iconsValue.get('symbol-palette-icon');
+      console.log('[DEBUGGER:SymbolPalette:handleEscape] Retrieved icon:', icon);
+      console.log('[DEBUGGER:SymbolPalette:handleEscape] Icon isExpanded:', icon?.isExpanded);
+    } else {
+      console.log('[DEBUGGER:SymbolPalette:handleEscape] Icons store is not a Map or is null/undefined');
+    }
+
+    if (icon && icon.isExpanded) {
+      console.log('[DEBUGGER:SymbolPalette:handleEscape] Icon is expanded, collapsing it');
+      displayActions.collapseIcon('symbol-palette-icon');
+      console.log('[DEBUGGER:SymbolPalette:handleEscape] Called displayActions.collapseIcon');
+    } else {
+      console.log('[DEBUGGER:SymbolPalette:handleEscape] Icon not expanded or not found, no action taken');
     }
   }
 

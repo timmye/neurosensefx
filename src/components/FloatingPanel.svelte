@@ -31,8 +31,19 @@
   function handleClose(e) {
     e?.stopPropagation();
     e?.preventDefault();
-    console.log(`[FLOATING_PANEL] Close button clicked for panel ${id}`);
-    displayActions.removePanel(id);
+    console.log(`[DEBUGGER:FloatingPanel:handleClose:34] Close button clicked for panel ${id}, panelType=${type}`);
+
+    // DEBUGGER: Check if this is a symbol palette and use correct method
+    if (id === 'symbol-palette' || type === 'symbol-palette') {
+      console.log(`[DEBUGGER:FloatingPanel:handleClose:38] FIX APPLIED: Using collapseIcon for symbol palette`);
+      console.log(`[DEBUGGER:FloatingPanel:handleClose:39] Calling: displayActions.collapseIcon('symbol-palette-icon')`);
+
+      displayActions.collapseIcon('symbol-palette-icon');
+      console.log(`[DEBUGGER:FloatingPanel:handleClose:42] FIXED: Symbol palette closed with collapseIcon`);
+    } else {
+      console.log(`[DEBUGGER:FloatingPanel:handleClose:45] Regular panel - using removePanel(${id})`);
+      displayActions.removePanel(id);
+    }
   }
 
   function handleContextMenu(e) {

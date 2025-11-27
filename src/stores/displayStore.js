@@ -559,7 +559,44 @@ export const displayActions = {
       activeIconId: null
     }));
   },
-  
+
+  showPanel: (panelId) => {
+    displayStore.update(store => {
+      const icons = new Map(store.icons);
+      const icon = icons.get(panelId);
+      if (icon) {
+        // Update icon's isExpanded state when showing panel
+        icons.set(panelId, { ...icon, isExpanded: true });
+      }
+      return {
+        ...store,
+        icons,
+        activePanelId: panelId,
+        activeDisplayId: null,
+        activeIconId: null
+      };
+    });
+  },
+
+  hidePanel: (panelId) => {
+    displayStore.update(store => {
+      const icons = new Map(store.icons);
+      const icon = icons.get(panelId);
+      if (icon) {
+        // Update icon's isExpanded state when hiding panel
+        icons.set(panelId, { ...icon, isExpanded: false });
+      }
+      const newStore = {
+        ...store,
+        icons
+      };
+      if (newStore.activePanelId === panelId) {
+        newStore.activePanelId = null;
+      }
+      return newStore;
+    });
+  },
+
   // === CONTEXT MENU OPERATIONS ===
   
   showContextMenu: (x, y, targetId, targetType, context = null) => {

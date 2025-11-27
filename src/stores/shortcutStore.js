@@ -8,6 +8,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { keyboardAction, registerShortcut, setContext, setEnabled, keyboardActionStore, dispatchKeyboardEvent, initializeKeyboardSystem, keyboardEventStore } from '../actions/keyboardAction.js';
 import DEFAULT_SHORTCUTS, {
+	WORKFLOW_PRIORITIES,
 	validateShortcutConfig,
 	findShortcutConflicts,
 	getShortcutsByCategory,
@@ -15,8 +16,26 @@ import DEFAULT_SHORTCUTS, {
 	sortShortcutsByPriority,
 	formatKeyForDisplay
 } from '../utils/shortcutConfig.js';
-import { displayStore } from './displayStore.js';
+import { displayStore, icons, displayActions } from './displayStore.js';
 import { workspacePersistenceManager } from '../utils/workspacePersistence.js';
+
+// === COMPREHENSIVE DEBUG LOGGING SYSTEM ===
+/**
+ * Debug logging helper for shortcut store system
+ */
+function debugLog(message, data = null, level = 'INFO') {
+	const timestamp = new Date().toISOString();
+	const prefix = `[KEYBOARD-DEBUG] [${level}] ${timestamp}`;
+
+	if (data) {
+		console.log(`${prefix} ${message}`, data);
+	} else {
+		console.log(`${prefix} ${message}`);
+	}
+}
+
+// Log module import immediately
+debugLog('🔧 shortcutStore.js module loading', { timestamp: Date.now() });
 
 /**
  * Store for shortcut state and configuration
@@ -33,6 +52,18 @@ export const shortcutStore = writable({
 	conflicts: []
 });
 
+debugLog('🗄️ shortcutStore initialized', {
+	totalDefaultShortcuts: Object.keys(DEFAULT_SHORTCUTS).length,
+	initialState: {
+		shortcutsCount: Object.keys(DEFAULT_SHORTCUTS).length,
+		userShortcutsCount: 0,
+		activeContext: 'global',
+		isEnabled: true,
+		customShortcutsCount: 0,
+		conflictsCount: 0
+	}
+});
+
 /**
  * Derived store for currently active shortcuts
  */
@@ -44,7 +75,7 @@ export const activeShortcuts = derived(
 			.filter(shortcut => isShortcutActive(shortcut, context))
 			.map(shortcut => ({
 				...shortcut,
-				formattedKey: formatKeyForDisplay(shortcut.key)
+				formattedKey: formatKeyForDisplay(typeof shortcut.key === 'string' ? shortcut.key : '')
 			}));
 	}
 );
@@ -62,7 +93,7 @@ export const shortcutsByCategory = derived(
 			}
 			categories[shortcut.category].push({
 				...shortcut,
-				formattedKey: formatKeyForDisplay(shortcut.key)
+				formattedKey: formatKeyForDisplay(typeof shortcut.key === 'string' ? shortcut.key : '')
 			});
 		});
 
@@ -93,7 +124,7 @@ export const shortcutsByWorkflow = derived(
 			if (workflows[workflow]) {
 				workflows[workflow].push({
 					...shortcut,
-					formattedKey: formatKeyForDisplay(shortcut.key)
+					formattedKey: formatKeyForDisplay(typeof shortcut.key === 'string' ? shortcut.key : '')
 				});
 			}
 		});
@@ -128,30 +159,66 @@ export const shortcutConflicts = derived(
  * Enhanced with dual-layer event interception support
  */
 export async function initializeShortcuts() {
+	debugLog('🚀 initializeShortcuts() called - starting shortcut system initialization');
+
 	try {
+		debugLog('📡 Phase 1: Initializing core keyboard system with document backup');
 		// First initialize the core keyboard system with document backup
 		await initializeKeyboardSystem();
 
 		const $shortcutStore = get(shortcutStore);
+		debugLog('📊 Current shortcut store state', {
+			shortcutsCount: Object.keys($shortcutStore.shortcuts).length,
+			activeContext: $shortcutStore.activeContext,
+			isEnabled: $shortcutStore.isEnabled
+		});
+
+		debugLog('📝 Phase 2: Registering default shortcuts with enhanced system');
+		let registeredCount = 0;
+		let skippedCount = 0;
 
 		// Register all default shortcuts with the enhanced system
 		// These will now work with the dual-layer architecture
 		Object.entries(DEFAULT_SHORTCUTS).forEach(([id, config]) => {
+			debugLog('🔍 Creating action for shortcut', { id, key: config.key, category: config.category });
+
 			const action = createActionForShortcut(id);
 			if (action) {
+				debugLog('📝 Registering shortcut with action system', { id, key: config.key });
 				registerShortcut(id, {
 					...config,
 					action
 				});
+				registeredCount++;
+			} else {
+				debugLog('⚠️ No action created for shortcut', { id, key: config.key });
+				skippedCount++;
 			}
 		});
 
+		debugLog('📊 Default shortcuts registration completed', {
+			totalShortcuts: Object.keys(DEFAULT_SHORTCUTS).length,
+			registeredCount,
+			skippedCount
+		});
+
+		debugLog('🎯 Phase 3: Setting up context management with dual-layer support');
 		// Setup context management with dual-layer support
 		setupContextManagement();
 
+		debugLog('💾 Phase 4: Loading user customizations');
 		// Load user customizations
 		await loadUserShortcuts();
+
+		debugLog('🎉 Shortcut system initialization completed successfully', {
+			registeredShortcuts: registeredCount,
+			totalDefaultShortcuts: Object.keys(DEFAULT_SHORTCUTS).length
+		});
 	} catch (error) {
+		debugLog('❌ Shortcut system initialization failed', {
+			error: error.message,
+			stack: error.stack
+		}, 'ERROR');
 		console.error('Shortcut system initialization failed:', error);
 		throw error;
 	}
@@ -161,37 +228,57 @@ export async function initializeShortcuts() {
  * Create action handlers for shortcuts
  */
 function createActionForShortcut(id) {
+	debugLog('🔧 createActionForShortcut() called', { shortcutId: id });
+
+	let action = null;
+
 	switch (id) {
 		// === SYMBOL WORKFLOW ===
 		case 'symbol.focusPalette':
-			return () => {
-				dispatchKeyboardEvent('focusSymbolPalette');
+			action = () => {
+				debugLog('⚡ Executing symbol.focusPalette action');
+				const $icons = get(icons);
+				const symbolIcon = $icons.get('symbol-palette-icon');
+				if (symbolIcon && !symbolIcon.isExpanded) {
+					displayActions.expandIcon('symbol-palette-icon');
+				}
 			};
+			break;
 
 		case 'symbol.togglePalette':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing symbol.togglePalette action');
 				dispatchKeyboardEvent('toggleSymbolPalette');
 			};
+			break;
 
 		case 'symbol.quickSubscribe':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing symbol.quickSubscribe action');
 				dispatchKeyboardEvent('quickSubscribe');
 			};
+			break;
 
 		case 'symbol.quickSubscribeNew':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing symbol.quickSubscribeNew action');
 				dispatchKeyboardEvent('quickSubscribe', { newDisplay: true });
 			};
+			break;
 
 		case 'symbol.recentCycle':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing symbol.recentCycle action');
 				dispatchKeyboardEvent('cycleRecentSymbols');
 			};
+			break;
 
 		case 'symbol.favorites':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing symbol.favorites action');
 				dispatchKeyboardEvent('showSymbolFavorites');
 			};
+			break;
 
 		// === DISPLAY NAVIGATION ===
 		case 'display.switch1':
@@ -204,48 +291,74 @@ function createActionForShortcut(id) {
 		case 'display.switch8':
 		case 'display.switch9':
 			const displayNumber = parseInt(id.replace('display.switch', ''));
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing display.switch action', { id, displayNumber });
 				const $displayStore = get(displayStore);
 				const displays = Array.from($displayStore.displays.values());
+				debugLog('🔍 Checking display availability', {
+					displayNumber,
+					totalDisplays: displays.length,
+					hasDisplay: !!displays[displayNumber - 1]
+				});
+
 				if (displays[displayNumber - 1]) {
-					dispatchKeyboardEvent('focusDisplay', { displayId: displays[displayNumber - 1].id });
+					const targetDisplayId = displays[displayNumber - 1].id;
+					debugLog('📡 Dispatching focusDisplay event', { targetDisplayId });
+					dispatchKeyboardEvent('focusDisplay', { displayId: targetDisplayId });
+				} else {
+					debugLog('⚠️ No display found for switch action', { displayNumber, availableDisplays: displays.length });
 				}
 			};
+			break;
 
 		case 'display.next':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing display.next action');
 				dispatchKeyboardEvent('navigateDisplay', { direction: 'next' });
 			};
+			break;
 
 		case 'display.previous':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing display.previous action');
 				dispatchKeyboardEvent('navigateDisplay', { direction: 'previous' });
 			};
+			break;
 
 		case 'display.navigateRight':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing display.navigateRight action');
 				dispatchKeyboardEvent('navigateDisplay', { direction: 'right' });
 			};
+			break;
 
 		case 'display.navigateLeft':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing display.navigateLeft action');
 				dispatchKeyboardEvent('navigateDisplay', { direction: 'left' });
 			};
+			break;
 
 		case 'display.navigateUp':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing display.navigateUp action');
 				dispatchKeyboardEvent('navigateDisplay', { direction: 'up' });
 			};
+			break;
 
 		case 'display.navigateDown':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing display.navigateDown action');
 				dispatchKeyboardEvent('navigateDisplay', { direction: 'down' });
 			};
+			break;
 
 		case 'display.close':
-			return () => {
+			action = () => {
+				debugLog('⚡ Executing display.close action');
 				dispatchKeyboardEvent('closeDisplay');
 			};
+			break;
 
 		// === QUICK ACTIONS ===
 		case 'quick.contextMenu':
@@ -340,14 +453,22 @@ function createActionForShortcut(id) {
 			};
 
 		default:
-			return null;
+		debugLog('⚠️ No action defined for shortcut', { id });
+		return null;
 	}
+
+	debugLog('✅ Action created for shortcut', { id, hasAction: !!action });
+	return action;
 }
 
 // Handle custom context events
 function handleSetShortcutContext(event) {
+	debugLog('🎯 handleSetShortcutContext() called', { context: event.detail.context });
+
 	setContext(event.detail.context);
 	shortcutStore.update(state => ({ ...state, activeContext: event.detail.context }));
+
+	debugLog('✅ Shortcut context updated', { newContext: event.detail.context });
 }
 
 /**
@@ -355,16 +476,27 @@ function handleSetShortcutContext(event) {
  * This processes Ctrl+K, Ctrl+F, Ctrl+Shift+K intercepted by document backup
  */
 function handleCriticalShortcut(eventData) {
+	debugLog('🚨 handleCriticalShortcut() called - processing critical shortcut from document backup');
+
 	const keyCombo = eventData?.data?.keyCombo;
 	const event = eventData?.data?.event;
 
+	debugLog('📊 Critical shortcut data received', { keyCombo, hasEvent: !!event, eventData });
+
 	if (!keyCombo) {
+		debugLog('❌ No key combo in critical shortcut event');
 		return;
 	}
 
 	// CRITICAL FIX: Normalize keyCombo for comparison to handle case sensitivity
 	// The issue: DEFAULT_SHORTCUTS uses "Ctrl+K" (uppercase) but getKeyCombo() returns "ctrl+k" (lowercase)
 	const normalizedKeyCombo = keyCombo.toLowerCase();
+
+	debugLog('🔍 Searching for matching critical shortcut', {
+		originalKeyCombo: keyCombo,
+		normalizedKeyCombo,
+		totalShortcuts: Object.keys(DEFAULT_SHORTCUTS).length
+	});
 
 	// Find matching shortcut with case-insensitive comparison
 	const matchingShortcut = Object.values(DEFAULT_SHORTCUTS).find(shortcut =>
@@ -373,15 +505,29 @@ function handleCriticalShortcut(eventData) {
 
 	if (matchingShortcut) {
 		const shortcutId = Object.keys(DEFAULT_SHORTCUTS).find(id => DEFAULT_SHORTCUTS[id] === matchingShortcut);
+		debugLog('✅ Found matching critical shortcut', { shortcutId, shortcut: matchingShortcut });
+
 		const action = createActionForShortcut(shortcutId);
 
 		if (action) {
+			debugLog('⚡ Executing critical shortcut action', { shortcutId, keyCombo });
 			try {
 				action(event);
+				debugLog('✅ Critical shortcut action completed successfully', { shortcutId });
 			} catch (error) {
+				debugLog('❌ Error executing critical shortcut', {
+					shortcutId,
+					keyCombo,
+					error: error.message,
+					stack: error.stack
+				}, 'ERROR');
 				console.error(`Error executing critical shortcut ${keyCombo}:`, error);
 			}
+		} else {
+			debugLog('❌ No action created for critical shortcut', { shortcutId });
 		}
+	} else {
+		debugLog('⚠️ No matching shortcut found for critical key combo', { normalizedKeyCombo });
 	}
 }
 
@@ -390,37 +536,59 @@ function handleCriticalShortcut(eventData) {
  * Enhanced with dual-layer event interception support
  */
 function setupContextManagement() {
-	// Listen for context changes
-	displayStore.subscribe($displayStore => {
-		const newContext = determineActiveContext($displayStore);
-		setContext(newContext);
-		shortcutStore.update(state => ({ ...state, activeContext: newContext }));
-	});
+	debugLog('🔧 setupContextManagement() called - setting up context management');
 
-	// Create custom event store for context management (Svelte-first pattern)
-	const customEventStore = writable(null);
+	try {
+		debugLog('👂 Setting up display store subscription for context changes');
+		// Listen for context changes
+		displayStore.subscribe($displayStore => {
+			const newContext = determineActiveContext($displayStore);
+			debugLog('🎯 Context change detected', {
+				newContext,
+				focusedDisplayId: $displayStore.focusedDisplayId,
+				displayCount: $displayStore.displays?.size || 0
+			});
 
-	// Subscribe to custom events and critical shortcuts from unified system
-	customEventStore.subscribe((eventData) => {
-		if (eventData) {
-			if (eventData.type === 'setShortcutContext') {
-				handleSetShortcutContext(eventData);
-			} else if (eventData.type === 'criticalShortcut') {
-				// Handle critical shortcuts intercepted by document backup
+			setContext(newContext);
+			shortcutStore.update(state => ({ ...state, activeContext: newContext }));
+		});
+
+		debugLog('📡 Creating custom event store for context management (Svelte-first pattern)');
+		// Create custom event store for context management (Svelte-first pattern)
+		const customEventStore = writable(null);
+
+		debugLog('👂 Setting up custom event store subscription');
+		// Subscribe to custom events and critical shortcuts from unified system
+		customEventStore.subscribe((eventData) => {
+			if (eventData) {
+				debugLog('📡 Custom event received', { type: eventData.type });
+				if (eventData.type === 'setShortcutContext') {
+					handleSetShortcutContext(eventData);
+				} else if (eventData.type === 'criticalShortcut') {
+					// Handle critical shortcuts intercepted by document backup
+					handleCriticalShortcut(eventData);
+				}
+			}
+		});
+
+		debugLog('🔧 Exporting custom event store setter to shortcutStore');
+		// Export for use in components
+		shortcutStore.setCustomEvent = customEventStore.set;
+
+		debugLog('👂 Setting up keyboard event store subscription for critical shortcuts');
+		// Listen to keyboard event store for critical shortcuts
+		keyboardEventStore.subscribe((eventData) => {
+			if (eventData && eventData.type === 'criticalShortcut') {
+				debugLog('🚨 Critical shortcut event received from keyboard store');
 				handleCriticalShortcut(eventData);
 			}
-		}
-	});
+		});
 
-	// Export for use in components
-	shortcutStore.setCustomEvent = customEventStore.set;
-
-	// Listen to keyboard event store for critical shortcuts
-	keyboardEventStore.subscribe((eventData) => {
-		if (eventData && eventData.type === 'criticalShortcut') {
-			handleCriticalShortcut(eventData);
-		}
-	});
+		debugLog('✅ Context management setup completed successfully');
+	} catch (error) {
+		debugLog('❌ Failed to setup context management', { error: error.message, stack: error.stack }, 'ERROR');
+		throw error;
+	}
 }
 
 /**
@@ -638,8 +806,29 @@ export function getShortcutsForContext(context) {
 		.filter(shortcut => isShortcutActive(shortcut, context))
 		.map(shortcut => ({
 			...shortcut,
-			formattedKey: formatKeyForDisplay(shortcut.key)
+			formattedKey: formatKeyForDisplay(typeof shortcut.key === 'string' ? shortcut.key : '')
 		}));
 }
 
 // Initialization handled by App.svelte to avoid conflicts
+
+// Final module completion log
+debugLog('✅ shortcutStore.js module fully loaded and ready', {
+	exportedFunctions: [
+		'shortcutStore',
+		'activeShortcuts',
+		'shortcutsByCategory',
+		'shortcutsByWorkflow',
+		'shortcutConflicts',
+		'initializeShortcuts',
+		'setShortcutContext',
+		'saveUserShortcuts',
+		'updateShortcut',
+		'removeShortcut',
+		'resetShortcuts',
+		'setShortcutsEnabled',
+		'setShowHelp',
+		'getShortcutsForContext'
+	],
+	totalDefaultShortcuts: Object.keys(DEFAULT_SHORTCUTS).length
+});

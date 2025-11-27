@@ -7,7 +7,6 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
-	KeyboardAction,
 	registerShortcut,
 	setContext,
 	setEnabled,
@@ -18,7 +17,9 @@ import {
 	getInitializationStatus,
 	resetKeyboardSystem,
 	initializeKeyboardSystem,
-	dispatchKeyboardEvent
+	dispatchKeyboardEvent,
+	keyboardActionStore,
+	keyboardEventStore
 } from '../../src/actions/keyboardAction.js';
 
 describe('KeyboardAction System', () => {
@@ -117,12 +118,14 @@ describe('KeyboardAction System', () => {
 			expect(typeof unregister).toBe('function');
 
 			// Verify shortcut was registered
-			const shortcuts = KeyboardAction.registeredShortcuts;
-			expect(shortcuts.has('test-shortcut')).toBe(true);
+			const status = keyboardActionStore.get();
+			const shortcuts = status.shortcuts;
+			expect(shortcuts['test-shortcut']).toBeDefined();
 
 			// Test unregister
 			unregister();
-			expect(shortcuts.has('test-shortcut')).toBe(false);
+			const statusAfter = keyboardActionStore.get();
+			expect(statusAfter.shortcuts['test-shortcut']).toBeUndefined();
 		});
 
 		it('should handle shortcut registration with defaults', () => {
@@ -131,7 +134,8 @@ describe('KeyboardAction System', () => {
 				action: () => {}
 			});
 
-			const shortcuts = KeyboardAction.registeredShortcuts;
+			const status = keyboardActionStore.get();
+const shortcuts = status.shortcuts;
 			const shortcut = shortcuts.get('minimal-shortcut');
 
 			expect(shortcut.description).toBe('minimal-shortcut');
@@ -146,19 +150,19 @@ describe('KeyboardAction System', () => {
 		it('should set and get active context', () => {
 			setContext(SHORTCUT_CONTEXTS.SYMBOL_PALETTE);
 
-			const status = KeyboardAction.keyboardActionStore.get();
+			const status = keyboardActionStore.get();
 			expect(status.activeContext).toBe(SHORTCUT_CONTEXTS.SYMBOL_PALETTE);
 		});
 
 		it('should enable and disable keyboard shortcuts', () => {
 			setEnabled(false);
 
-			let status = KeyboardAction.keyboardActionStore.get();
+			let status = keyboardActionStore.get();
 			expect(status.isEnabled).toBe(false);
 
 			setEnabled(true);
 
-			status = KeyboardAction.keyboardActionStore.get();
+			status = keyboardActionStore.get();
 			expect(status.isEnabled).toBe(true);
 		});
 	});
@@ -191,7 +195,7 @@ describe('KeyboardAction System', () => {
 		it('should dispatch keyboard events', () => {
 			let eventData = null;
 
-			KeyboardAction.keyboardEventStore.subscribe((data) => {
+			keyboardEventStore.subscribe((data) => {
 				eventData = data;
 			});
 
@@ -234,7 +238,8 @@ describe('KeyboardAction System', () => {
 				};
 
 				// This should not throw even if action fails
-				const shortcuts = KeyboardAction.registeredShortcuts;
+				const status = keyboardActionStore.get();
+const shortcuts = status.shortcuts;
 				const shortcut = shortcuts.get('error-shortcut');
 				if (shortcut) {
 					try {
@@ -264,7 +269,8 @@ describe('KeyboardAction System', () => {
 		});
 
 		it('should maintain memory efficiency', () => {
-			const shortcuts = KeyboardAction.registeredShortcuts;
+			const status = keyboardActionStore.get();
+const shortcuts = status.shortcuts;
 			const initialSize = shortcuts.size;
 
 			// Register many shortcuts
@@ -289,7 +295,7 @@ describe('KeyboardAction System', () => {
 		it('should maintain reactive store interface', () => {
 			let storeData = null;
 
-			KeyboardAction.keyboardActionStore.subscribe((data) => {
+			keyboardActionStore.subscribe((data) => {
 				storeData = data;
 			});
 
