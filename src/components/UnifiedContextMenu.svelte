@@ -1,6 +1,7 @@
 <script>
   import { displayStore, displayActions, contextMenu, displays, panels } from '../stores/displayStore.js';
   import { getZIndex } from '../constants/zIndex.js';
+  import { clickOutside, focusTrap } from '../actions/eventHandling.js';
     
   // Import context-specific components
   import CanvasTabbedInterface from './UnifiedContextMenu/CanvasTabbedInterface.svelte';
@@ -135,39 +136,29 @@
     adjustedPosition = { x, y };
   }
   
-  // Handle click outside to close
-  function handleClickOutside(event) {
-    if (menuElement && !menuElement.contains(event.target)) {
-      displayActions.hideContextMenu();
-    }
-  }
-  
-  // Handle keyboard shortcuts
-  function handleKeydown(event) {
-    if (event.key === 'Escape') {
-      displayActions.hideContextMenu();
-    }
-  }
-  
   // Stop propagation to prevent conflicts
   function stopPropagation(event) {
     event.stopPropagation();
   }
-  
-  // Lifecycle
-  $: if ($contextMenu.open) {
+
+  // Event handlers
+  function handleClickOutside() {
+    displayActions.hideContextMenu();
+  }
+
+  function handleEscape() {
+    displayActions.hideContextMenu();
+  }
+
+  // REMOVED: Keyboard shortcuts configuration - conflicting system
+// Keyboard shortcuts are now handled by the unified keyboardAction.js system
+
+  // Lifecycle - adjust position when menu opens
+  $: if ($contextMenu.open && menuElement) {
     // Adjust position after render
     setTimeout(() => {
       adjustPositionForViewport();
     }, 0);
-    
-    // Add event listeners
-    document.addEventListener('click', handleClickOutside);
-    document.addEventListener('keydown', handleKeydown);
-  } else {
-    // Remove event listeners
-    document.removeEventListener('click', handleClickOutside);
-    document.removeEventListener('keydown', handleKeydown);
   }
   
   // Get current context configuration
@@ -185,7 +176,7 @@
 
 
 {#if $contextMenu.open && $contextMenu.context}
-  <div 
+  <div
     bind:this={menuElement}
     class="unified-context-menu"
     class:canvas-context={$contextMenu.context.type === 'canvas'}
@@ -194,10 +185,15 @@
     style="left: {adjustedPosition.x}px; top: {adjustedPosition.y}px; width: {currentConfig.width}px; max-height: {currentConfig.height}px; z-index: {getZIndex('CONTEXT_MENU')};"
     on:click={stopPropagation}
     on:contextmenu={stopPropagation}
+    use:clickOutside={handleClickOutside}
+        use:focusTrap={true}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="menu-title"
   >
     <!-- Menu Header -->
     <div class="menu-header">
-      <h3>{currentConfig.title}</h3>
+      <h3 id="menu-title">{currentConfig.title}</h3>
       {#if $contextMenu.context.targetId}
         <span class="target-id">ID: {$contextMenu.context.targetId}</span>
       {/if}

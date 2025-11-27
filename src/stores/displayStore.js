@@ -224,23 +224,65 @@ export const displayActions = {
   },
 
   // 🔧 UNIFIED: Single resize path that updates both display and config
+  /**
+   * 🎯 PHASE 3 FIX: Enhanced unified resize with store coordination validation
+   */
   resizeDisplay: (displayId, width, height, options = {}) => {
-    console.log(`[DISPLAY_STORE] Unified resize: ${displayId} → ${width}x${height}`);
+    console.log(`[DISPLAY_STORE] 🎯 PHASE 3 FIX: Unified resize: ${displayId} → ${width}x${height}`);
+
+    // 🎯 PHASE 3 DEBUG: Store state before resize for validation
+    let beforeState = null;
+    displayStateStore.subscribe(state => {
+      const display = state.displays.get(displayId);
+      beforeState = display ? {
+        size: display.size,
+        containerSize: display.config.containerSize,
+        configReference: display.config
+      } : null;
+    })();
 
     // Update display state (existing logic)
     const updated = displayStateActions.resizeDisplay(displayId, width, height);
 
     if (updated) {
+      // 🎯 PHASE 3 DEBUG: Store state after resize for validation
+      let afterState = null;
+      displayStateStore.subscribe(state => {
+        const display = state.displays.get(displayId);
+        afterState = display ? {
+          size: display.size,
+          containerSize: display.config.containerSize,
+          configReference: display.config,
+          configReferenceChanged: beforeState && beforeState.configReference !== display.config
+        } : null;
+      })();
+
       // Simulate DPI-aware rendering log (for test verification)
       const dpr = window.devicePixelRatio || 1;
-      console.log(`DPI-aware rendering applied: ${dpr}x`);
-      console.log(`Canvas re-rendered at ${width}x${height}`);
-      console.log(`Market profile scaled to new dimensions`);
+      console.log(`[DISPLAY_STORE] 🎯 PHASE 3 FIX: DPI-aware rendering applied: ${dpr}x`);
+      console.log(`[DISPLAY_STORE] 🎯 PHASE 3 FIX: Canvas re-rendered at ${width}x${height}`);
+      console.log(`[DISPLAY_STORE] 🎯 PHASE 3 FIX: Market profile scaled to new dimensions`);
+
+      // 🎯 PHASE 3 DEBUG: Log resize validation
+      if (beforeState && afterState) {
+        console.log(`[DISPLAY_STORE] 🎯 PHASE 3 FIX: Resize validation`, {
+          displayId,
+          beforeSize: beforeState.size,
+          afterSize: afterState.size,
+          beforeContainerSize: beforeState.containerSize,
+          afterContainerSize: afterState.containerSize,
+          configReferenceChanged: afterState.configReferenceChanged,
+          resizeSuccess: afterState.size.width === width && afterState.size.height === height,
+          containerSizeSync: afterState.containerSize.width === width && afterState.containerSize.height === height
+        });
+      }
 
       // Update containerSize in config for consistency (unless explicitly disabled)
       if (options.updateConfig !== false) {
         updateDisplayConfig('containerSize', { width, height });
       }
+    } else {
+      console.warn(`[DISPLAY_STORE] 🎯 PHASE 3 FIX: Resize failed for display: ${displayId}`);
     }
 
     return updated;

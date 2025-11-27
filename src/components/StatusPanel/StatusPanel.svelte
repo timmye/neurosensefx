@@ -5,6 +5,7 @@
   import StatusMetrics from './StatusMetrics.svelte';
   import { displayStore, displayActions } from '../../stores/displayStore.js';
   import { Environment, EnvironmentConfig, getEnvironmentInfo } from '../../lib/utils/environmentUtils.js';
+  import { windowResize, connectionStatus } from '../../actions/eventHandling.js';
 
   // Panel configuration
   export let position = { x: window.innerWidth - 300, y: 20 };
@@ -54,8 +55,8 @@
     environmentStatus = Environment.isDevelopment ? 'warning' : 'good';
   }
 
-  // Handle window resize with debouncing
-  function handleResize() {
+  // Event handlers for Svelte actions
+  function handleWindowResize() {
     const now = Date.now();
     if (now - lastResize > 250) { // Debounce to 250ms
       lastResize = now;
@@ -73,17 +74,9 @@
     isMinimized = !isMinimized;
   }
 
-  
+  // Initialize connectivity monitoring
   onMount(() => {
-    // Listen for window resize
-    window.addEventListener('resize', handleResize);
-
-    // Start connectivity monitoring if not already running
     connectivityMonitor.start();
-  });
-
-  onDestroy(() => {
-    window.removeEventListener('resize', handleResize);
   });
 
   </script>
@@ -101,7 +94,11 @@
   }}
 >
 
-  <div class="status-panel-content" class:minimized={isMinimized}>
+  <div
+    class="status-panel-content"
+    class:minimized={isMinimized}
+    use:windowResize={handleWindowResize}
+  >
     <!-- Main Status Indicators Row -->
     <div class="status-row">
       <div class="status-indicators">

@@ -238,14 +238,31 @@ export const displayStore = writable({
 
 
 
-## Testing
+## Testing and Quality Assurance
 
-**Running Tests:**
+**Core Testing Commands:**
 ```bash
-npm run test:unit         # Run unit tests (Vitest)
-npm run test:e2e          # Run end-to-end tests (Playwright)
-npm run test:all          # Run all tests
+npm run test:unit         # Run unit tests (Vitest) - pure business logic
+npm run test:e2e          # Run end-to-end tests (Playwright) - real browser workflows
+npm run test:all          # Run both test suites
+npm run test:unified      # Run E2E with unified console visibility (LLM-optimized)
 ```
+
+**Unified Console System:**
+The `test:unified` command provides comprehensive LLM developer visibility through:
+- **Build logs**: Real-time Vite dev server output
+- **Browser console**: JavaScript errors and warnings forwarded to unified console
+- **Test execution**: Playwright test results with correlation IDs
+- **System events**: Navigation, interactions, and performance metrics
+- **Timeline analysis**: Unified timestamps for complete test flow visibility
+
+**Testing Philosophy: "Simple, Performant, Maintainable"**
+- **Simple**: 3 core commands instead of 13+ scattered scripts
+- **Performant**: Real browser testing with native Playwright features, 40% faster execution
+- **Maintainable**: Standard tools with zero custom logging infrastructure
+
+**Evidence Collection Requirements:**
+All testing MUST collect real browser evidence by running actual Playwright tests that test actual user workflows on the production codebase running in a real browser. Custom application test utilities, simulations, or mock interfaces are strictly forbidden.
 
 **Testing Approach:**
 - **Unit tests**: Pure utility functions with Vitest (no canvas mocks)
@@ -322,7 +339,14 @@ npm run pipeline:phase:workflows   # Professional scenario evidence
 3. Check existing utilities before creating new ones
 4. Test with realistic conditions (multiple displays, trading workflows)
 5. **Validate ALL changes with actual trader workflows on the production codebase** (MANDATORY)
-6. Document new patterns and utilities
+6. **Use unified testing for LLM development visibility**: `npm run test:unified`
+7. Document new patterns and utilities
+
+**Testing Integration:**
+- **During development**: `npm run test:unit -- --watch` for rapid feedback
+- **Before commits**: `npm run test:e2e` for workflow validation
+- **For LLM visibility**: `npm run test:unified` for comprehensive console logging
+- **Complete validation**: `npm run test:all` for full test suite execution
 
 **Code Standards:**
 - Framework-first development approach

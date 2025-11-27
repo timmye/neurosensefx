@@ -11,7 +11,8 @@
     const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     return text.replace(regex, '<mark>$1</mark>');
   }
-  import { createShortcutHandler, defaultShortcuts } from './utils/keyboardShortcuts.js';
+  // REMOVED: createShortcutHandler import - conflicting system
+// Keyboard shortcuts are now handled by the unified keyboardAction.js system
   import { displays } from '../../stores/displayStore.js';
   
   export let displayId = null;
@@ -29,7 +30,7 @@
   let selectedSearchIndex = 0;
   let menuElement = null;
   let searchInput = null;
-  let cleanupShortcuts = null;
+  // REMOVED: cleanupShortcuts variable - conflicting system
   let config = {};
 
   // 🌍 ENVIRONMENT AWARENESS: Environment state for configuration interface
@@ -192,36 +193,23 @@
   
   // Lifecycle
   onMount(() => {
-    // Setup keyboard shortcuts
-    cleanupShortcuts = createShortcutHandler({
-      onAction: handleShortcutAction,
-      target: menuElement
-    });
-    
+    // REMOVED: Setup keyboard shortcuts - conflicting system
+    // Keyboard shortcuts are now handled by the unified keyboardAction.js system
+
     // Add click outside listener
     document.addEventListener('click', handleClickOutside);
   });
-  
+
   onDestroy(() => {
-    // Cleanup shortcuts
-    if (cleanupShortcuts) {
-      cleanupShortcuts();
-    }
-    
+    // REMOVED: Cleanup shortcuts - conflicting system
+
     // Remove click outside listener
     document.removeEventListener('click', handleClickOutside);
   });
 </script>
 
-<svelte:window on:keydown={(e) => {
-  if (e.key === 'Escape') {
-    if (searchQuery.trim() === '') {
-      handleClose();
-    } else {
-      clearSearch();
-    }
-  }
-}} />
+<!-- REMOVED: window keydown handler - conflicting system -->
+<!-- Keyboard shortcuts are now handled by the unified keyboardAction.js system -->
 
 <div
   bind:this={menuElement}

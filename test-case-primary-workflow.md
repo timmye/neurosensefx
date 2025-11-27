@@ -3,7 +3,7 @@
 ## Prerequisites
 
 **Environment Requirements:**
-- WebSocket backend running (confirm with `./run.sh status`)
+- WebSocket backend running (confirm with `./run.sh status`) (? confirm)
 - BTCUSD symbol available in symbol list
 - No existing displays in workspace
 - Network connectivity to data source
@@ -35,22 +35,6 @@
 - Search results show BTCUSD as selectable option
 - Display creation completes without errors
 
-**Console Verification:**
-- ✓ `"Creating display for symbol: BTCUSD"`
-- ✓ `"Successfully subscribed display to data"`
-- ✓ `"Display created with ID: {displayId}"`
-- ✓ `"Canvas rendered for symbol: BTCUSD"`
-- ✓ `"Initial data packet received for BTCUSD"`
-- ✗ No `"Timeout waiting for BTCUSD data"` errors
-- ✗ No WebSocket connection errors
-
-**System State Verification:**
-- ✓ `displayStore.displays` contains new BTCUSD display entry
-- ✓ `display.displays.get(displayId).symbol === "BTCUSD"`
-- ✓ `display.displays.get(displayId).ready === true`
-- ✓ Canvas element exists in DOM with correct dimensions
-- ✗ No display creation failures in system state
-
 ### 2. Navigate and Verify Display Selection
 
 **Action:**
@@ -60,10 +44,6 @@ Press `Ctrl+Tab` to highlight the BTCUSD canvas, showing it's selected.
 - The BTCUSD canvas is visually highlighted as the active element
 - Visual feedback indicates focused display state
 - Canvas border or styling changes to indicate selection
-
-**Console Verification:**
-- ✓ `"focusDisplay"` event triggered
-- ✗ No focus-related errors
 
 ### 3. Verify Data Connection and Live Updates
 
@@ -76,15 +56,6 @@ Wait for data initialization and observe price updates.
 - Price values update in real-time
 - All visualisations report succesful intialisation, bounds and redering update
 
-**Console Verification:**
-- ✓ WebSocket subscription confirmation messages
-- ✓ `"display ready"` or similar data readiness indicators
-- ✓ Market data tick messages arriving: `"Tick received for BTCUSD"`
-- ✓ Price update messages: `"Price updated: {price}"`
-- ✓ Visualization rendering logs: `"Market profile rendered"` or `"Volatility orb updated"`
-- ✗ No data timeout or connection errors
-
-
 ### 4. Test Display Responsiveness
 
 **Action:**
@@ -96,21 +67,6 @@ Drag resize and move the BTCUSD display to test responsiveness.
 - Chart content scales smoothly and correctly to fit new dimensions
 - No breaking or unreadable content during resize
 
-**Console Verification:**
-- ✓ Resize event logs: `"Display resized: {width}x{height}"`
-- ✓ Canvas re-rendering messages: `"Canvas re-rendered at {width}x{height}"`
-- ✓ Visualization adaptation logs: `"Market profile scaled to new dimensions"`
-- ✓ DPI scaling logs: `"DPI-aware rendering applied: {scale}x"`
-- ✗ No canvas rendering errors or warnings
-- ✗ No memory leak warnings during extended resizing
-
-**System State Verification:**
-- ✓ All vislualisations: Succesful rendering with conatiner changes
-- ✓ `display.displays.get(displayId).dimensions` updated correctly
-- ✓ Canvas element dimensions match expected resize values
-- ✓ No frozen or stuck visualizations after resize
-- ✗ No orphaned rendering contexts or memory growth
-
 ### 5. Close the Display
 
 **Action:**
@@ -121,34 +77,8 @@ With BTCUSD display highlighted, type `Ctrl+Shift+W` to close the display.
 - Worker cleanup completes properly
 - Workspace state updates correctly
 
-**Console Verification:**
-- ✓ `"closeDisplay"` event triggered
-- ✓ Worker termination messages
-- ✓ Workspace persistence save completion
-- ✗ No cleanup-related errors or memory leaks
-- ✗ No orphaned worker processes
-
-**Workspace Verification:**
-- ✓ Display removed from active displays list
-- ✓ Workspace persists correctly after display removal
-- ✓ UI state returns to empty workspace state
-
 ---
 
-## Additional Verification Criteria
-
-### **Console Log Patterns to Check For:**
-
-### **Performance Standards (Console-Verifiable):**
-- **DPI rendering logs**: `"DPI-aware rendering applied: {scale}x"` for crisp text
-- **Memory monitoring**: No memory leak warnings during testing
-- **Resize responsiveness**: All visualizations log successful scaling events
-
-### **Accessibility and UX Standards (Console-Verifiable):**
-- **Keyboard events**: Console logs `"Keyboard shortcut triggered: {key}"` for all interactions
-- **Focus management**: `"Focus set to display: {displayId}"` logs for navigation
-- **Error handling**: Specific error messages logged for user feedback
-- **Loading states**: `"Loading symbol data..."` and `"Data ready"` progress logs
 
 ### **Environment-Specific Behavior:**
 

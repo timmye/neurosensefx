@@ -299,6 +299,8 @@ export const displayStateActions = {
    *
    * Performance: Sub-20ms operation, triggers canvas re-render
    * Critical: Maintains containerSize synchronization for DPI-aware rendering
+   *
+   * 🎯 PHASE 3 FIX: Forces config object reference change to trigger Svelte reactivity
    */
   resizeDisplay: (displayId, width, height) => {
     console.log(`[DISPLAY_STATE] Resizing display: ${displayId} to ${width}x${height}`);
@@ -316,21 +318,30 @@ export const displayStateActions = {
 
       const newSize = { width, height };
 
-      // CRITICAL: Sync containerSize with actual display size for DPI-aware rendering
+      // 🎯 PHASE 3 CRITICAL FIX: Force config object reference change for Svelte reactivity
+      // Create entirely new config object instead of spreading existing one
+      const newConfig = {
+        ...display.config,
+        containerSize: { ...newSize } // Force new object reference
+      };
+
+      // 🎯 PHASE 3 CRITICAL FIX: Create new display object to force reference change
       newDisplays.set(displayId, {
         ...display,
-        size: newSize,
-        config: {
-          ...display.config,
-          containerSize: newSize // KEY: Sync containerSize for immediate canvas fill
-        }
+        size: { ...newSize }, // Force new object reference
+        config: newConfig // Entirely new config object reference
       });
 
       updated = true;
 
       // Log DPI-aware rendering for performance monitoring
       const dpr = window.devicePixelRatio || 1;
-      console.log(`[DISPLAY_STATE] DPI-aware rendering: ${dpr}x scale for ${width}x${height}`);
+      console.log(`[DISPLAY_STATE] 🎯 PHASE 3 FIX: DPI-aware rendering: ${dpr}x scale for ${width}x${height}`, {
+        displayId,
+        newSize,
+        configReferenceChanged: true,
+        dpr
+      });
 
       // Persist workspace after resizing display
       workspacePersistenceManager.saveCompleteWorkspace(

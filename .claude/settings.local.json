@@ -26,7 +26,11 @@
       "Bash(cat:*)",
       "Bash(rm:*)",
       "Bash(npm run test:unit:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npx svelte-check:*)",
+      "Bash(npx eslint --no-eslintrc --parser-options=ecmaVersion:2020,sourceType:module src/components/FloatingDisplay.svelte:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(lsattr:*)"
     ],
     "deny": [],
     "ask": []

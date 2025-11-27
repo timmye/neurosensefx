@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { displayStore, displayActions, displays, icons, panels, defaultConfig, contextMenu } from './stores/displayStore.js';
   import { shortcutStore, initializeShortcuts } from './stores/shortcutStore.js';
-import { keyboardManager } from './utils/keyboardShortcutManager.js';
+import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardAction.js';
   import { subscribe, unsubscribe } from './data/wsClient.js';
   import FloatingDisplay from './components/FloatingDisplay.svelte';
   import FloatingIcon from './components/FloatingIcon.svelte';
@@ -130,47 +130,22 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
     }
   }
 
-  // Handle custom keyboard shortcut events from centralized system
-  function handleShortcutEvents(event) {
-    switch (event.type) {
-      case 'focusSymbolPalette':
-        focusSymbolPalette();
-        break;
-
-      case 'toggleSymbolPalette':
-        toggleSymbolPalette();
-        break;
-
-      case 'newDisplay':
-        focusSymbolPalette();
-        break;
-
-      case 'escape':
-        if ($contextMenu.open) {
-          displayActions.hideContextMenu();
-        } else {
-          // Collapse expanded icon if any
-          const expandedIcon = Array.from($icons.values()).find(icon => icon.isExpanded);
-          if (expandedIcon) {
-            displayActions.collapseIcon(expandedIcon.id);
-          }
-        }
-        break;
-
-      default:
-        // Other shortcuts are handled by components directly
-        break;
-    }
-  }
+  // REMOVED: handleShortcutEvents function - conflicting system
+// Keyboard shortcuts are now handled by the unified keyboardAction.js system
   
-  // Initialize displays on mount
+  // Initialize displays on mount with enhanced sequential initialization
   onMount(async () => {
     try {
-      // ⌨️ KEYBOARD SHORTCUTS: Initialize centralized shortcut system
-      initializeShortcuts();
+      // ⌨️ KEYBOARD SHORTCUTS: Enhanced sequential initialization
+      console.log('[APP] Starting enhanced keyboard system initialization...');
 
-      // ⌨️ KEYBOARD SHORTCUTS: Bind keyboard manager to document
-      keyboardManager.bindToElement();
+      // Phase 1: Initialize core keyboard system with sequencing guarantees
+      await initializeKeyboardSystem();
+
+      // Phase 2: Initialize shortcut system with proper dependencies
+      await initializeShortcuts();
+
+      console.log('[APP] Enhanced keyboard system initialization completed');
 
       // 🌍 ENVIRONMENT AWARENESS: Initialize environment system first
       console.log('[APP] Initializing environment system...');
@@ -263,35 +238,8 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
       }
     }, 1000); // Increase delay to ensure components are fully mounted
 
-    // ⌨️ KEYBOARD SHORTCUTS: Add event listeners for custom shortcut events
-    const shortcutEvents = [
-      'focusSymbolPalette',
-      'toggleSymbolPalette',
-      'newDisplay',
-      'escape',
-      'quickSubscribe',
-      'cycleRecentSymbols',
-      'focusDisplay',
-      'navigateDisplay',
-      'showContextMenu',
-      'showQuickConfig',
-      'toggleDataUpdates',
-      'toggleFullscreen',
-      'addPriceMarker',
-      'clearMarkers',
-      'applyLayoutPreset',
-      'groupDisplays',
-      'ungroupDisplays',
-      'saveLayoutPreset',
-      'toggleStatusPanel',
-      'togglePerformanceMonitor',
-      'takeScreenshot',
-      'saveWorkspace'
-    ];
-
-    shortcutEvents.forEach(eventType => {
-      document.addEventListener(eventType, handleShortcutEvents);
-    });
+    // REMOVED: KEYBOARD SHORTCUTS: Add event listeners for custom shortcut events - conflicting system
+// Keyboard shortcuts are now handled by the unified keyboardAction.js system
 
   });
 
@@ -314,7 +262,7 @@ import { keyboardManager } from './utils/keyboardShortcutManager.js';
 </script>
 
 
-<main>
+<main use:keyboardAction>
   <!-- Workspace Background -->
   <div
     class="workspace"

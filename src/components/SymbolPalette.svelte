@@ -6,6 +6,7 @@
   import { availableSymbols, subscribe } from '../data/wsClient.js';
   import { FuzzySearch } from '../utils/fuzzySearch.js';
   import { Environment, EnvironmentConfig } from '../lib/utils/environmentUtils.js';
+  import { keyboardEventStore } from '../actions/keyboardAction.js';
   
   let symbols = [];
   let availableSyms = [];
@@ -26,7 +27,7 @@
   const unsubscribeDisplays = displays.subscribe(value => {
     symbols = Array.from(value.values()).map(display => display.symbol);
   });
-  
+
   const unsubscribeAvailable = availableSymbols.subscribe(value => {
     console.log('📦 Available symbols updated:', {
       newCount: value.length,
@@ -50,7 +51,7 @@
       console.log('🚀 Initialized fuzzySearch with symbols');
     }
   });
-  
+
   const unsubscribePanels = panels.subscribe(panels => {
     const panel = panels.get('symbol-palette');
     if (panel && panel.isVisible) {
@@ -63,6 +64,9 @@
       }, 100);
     }
   });
+
+  // Store-based keyboard event subscription
+  let unsubscribeKeyboardEvents;
 
   // 🌍 ENVIRONMENT AWARENESS: Reactive environment warnings
   $: if (EnvironmentConfig.current.showEnvironmentIndicator) {
@@ -77,6 +81,25 @@
     console.log('🏗️ Component mounted:', {
       availableSymsCount: availableSyms.length,
       fuzzySearchExists: !!fuzzySearch
+    });
+
+    // Setup store-based keyboard event subscription (replaces CustomEvent listeners)
+    unsubscribeKeyboardEvents = keyboardEventStore.subscribe((eventData) => {
+      if (!eventData) return;
+
+      console.log('📞 Symbol palette received keyboard event:', eventData.type);
+
+      switch (eventData.type) {
+        case 'focusSymbolPalette':
+          handleFocusSymbolPalette();
+          break;
+        case 'toggleSymbolPalette':
+          handleToggleSymbolPalette();
+          break;
+        case 'escape':
+          handleEscape();
+          break;
+      }
     });
 
     // Only initialize if not already initialized by subscription
@@ -97,12 +120,58 @@
     }
   });
   
+  // Handle custom events from keyboard shortcuts
+  function handleFocusSymbolPalette() {
+    console.log('🎯 Symbol palette received focus event');
+    displayActions.showPanel('symbol-palette');
+
+    // Auto-focus search input after panel becomes visible
+    setTimeout(() => {
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    }, 150);
+  }
+
+  function handleToggleSymbolPalette() {
+    console.log('🔄 Symbol palette received toggle event');
+    const panel = $panels.get('symbol-palette');
+    if (panel?.isVisible) {
+      displayActions.hidePanel('symbol-palette');
+    } else {
+      displayActions.showPanel('symbol-palette');
+
+      // Auto-focus search input after panel becomes visible
+      setTimeout(() => {
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+      }, 150);
+    }
+  }
+
+  function handleEscape() {
+    console.log('🚪 Symbol palette received escape event');
+    const panel = $panels.get('symbol-palette');
+    if (panel?.isVisible) {
+      displayActions.hidePanel('symbol-palette');
+    }
+  }
+
+  
   // Cleanup
   onDestroy(() => {
     unsubscribeDisplays();
     unsubscribeAvailable();
     unsubscribePanels();
     clearPendingSearch();
+
+    // Cleanup store-based keyboard event subscription
+    if (unsubscribeKeyboardEvents) {
+      unsubscribeKeyboardEvents();
+    }
   });
   
   // Reactive search with simple, consistent debouncing

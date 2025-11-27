@@ -185,28 +185,59 @@ export const coordinateActions = {
   /**
    * Update bounds from contentArea (for container resize synchronization)
    * @param {Object} contentArea - Container content area { width, height }
+   *
+   * 🎯 PHASE 3 FIX: Enhanced synchronization with Container.svelte reactive updates
    */
   updateBoundsFromContentArea: (contentArea) => {
     if (!contentArea || contentArea.width <= 0 || contentArea.height <= 0) {
-      console.warn('[COORDINATE_STORE] Invalid contentArea for bounds update');
+      console.warn('[COORDINATE_STORE] Invalid contentArea for bounds update', contentArea);
       return;
     }
 
-    coordinateStore.update(state => ({
-      ...state,
-      bounds: {
+    // 🎯 PHASE 3 DEBUG: Log bounds update for troubleshooting
+    console.log(`[COORDINATE_STORE] 🎯 PHASE 3 FIX: Updating bounds from contentArea`, {
+      contentArea,
+      newBounds: {
         x: [0, contentArea.width],
         y: [0, contentArea.height]
-      },
-      cache: {
-        ...state.cache,
-        lastBounds: {
-          x: [0, contentArea.width],
-          y: [0, contentArea.height]
-        },
-        scale: null // Invalidate cache
       }
-    }));
+    });
+
+    coordinateStore.update(state => {
+      // 🎯 PHASE 3 CRITICAL FIX: Force new bounds object reference for reactive updates
+      const newBounds = {
+        x: [0, contentArea.width],
+        y: [0, contentArea.height]
+      };
+
+      const newLastBounds = {
+        x: [0, contentArea.width],
+        y: [0, contentArea.height]
+      };
+
+      // 🎯 PHASE 3 CRITICAL FIX: Force new cache object reference
+      const newCache = {
+        ...state.cache,
+        lastBounds: newLastBounds,
+        scale: null // Invalidate cache to force recalculation
+      };
+
+      // 🎯 PHASE 3 CRITICAL FIX: Force new state object reference
+      return {
+        ...state,
+        bounds: newBounds,
+        cache: newCache
+      };
+    });
+
+    // 🎯 PHASE 3 ENHANCEMENT: Verify bounds were actually updated
+    coordinateStore.subscribe(state => {
+      console.log(`[COORDINATE_STORE] 🎯 PHASE 3 FIX: Bounds updated successfully`, {
+        currentBounds: state.bounds,
+        contentArea,
+        boundsMatch: state.bounds.x[1] === contentArea.width && state.bounds.y[1] === contentArea.height
+      });
+    })();
   },
 
   /**
@@ -509,40 +540,58 @@ export const subscribeToMarketData = (displayStore) => {
 };
 
 // =============================================================================
-// EVENT LISTENERS FOR DPR CHANGES
+// DPR REACTIVE UPDATES
 // =============================================================================
 
 /**
- * Listen for zoom/resize events that affect DPR
+ * Svelte-compatible DPR management
+ * Instead of manual event listeners, this provides reactive updates
+ * that can be integrated into component lifecycle
  */
-export const setupDPRListeners = () => {
-  // Handle window resize events
-  const handleResize = () => {
-    coordinateActions.updateDPR();
+export const setupDPRReactivity = () => {
+  // Create a derived store that reacts to window/device changes
+  const createDPRStore = () => {
+    let currentDPR = getDevicePixelRatio();
+
+    return {
+      subscribe: (callback) => {
+        // Initial value
+        callback(currentDPR);
+
+        // Create a performance-optimized resize observer
+        let resizeTimeout;
+        const handleResize = () => {
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(() => {
+            const newDPR = getDevicePixelRatio();
+            if (newDPR !== currentDPR) {
+              currentDPR = newDPR;
+              coordinateActions.updateDPR();
+              callback(currentDPR);
+            }
+          }, 100); // Debounce for performance
+        };
+
+        // Use passive listeners for better performance
+        window.addEventListener('resize', handleResize, { passive: true });
+
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', handleResize, { passive: true });
+        }
+
+        // Return cleanup function
+        return () => {
+          clearTimeout(resizeTimeout);
+          window.removeEventListener('resize', handleResize);
+          if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', handleResize);
+          }
+        };
+      }
+    };
   };
 
-  // Handle zoom events (where supported)
-  const handleZoom = () => {
-    coordinateActions.updateDPR();
-  };
-
-  // Add event listeners
-  window.addEventListener('resize', handleResize);
-
-  // Add zoom detection for browsers that support it
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', handleZoom);
-  }
-
-  console.log('[COORDINATE_STORE] DPR listeners setup complete');
-
-  // Return cleanup function
-  return () => {
-    window.removeEventListener('resize', handleResize);
-    if (window.visualViewport) {
-      window.visualViewport.removeEventListener('resize', handleZoom);
-    }
-  };
+  return createDPRStore();
 };
 
 // =============================================================================

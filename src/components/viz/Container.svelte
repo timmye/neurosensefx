@@ -160,17 +160,21 @@
   });
 
   // 🔧 UNIFIED PRECISION: Full container dimensions for headerless design
-  $: if (canvas && config) {
-    // 1. Container layer - physical dimensions
-    const containerSize = config.containerSize || { width: 220, height: 120 };
+  // 🎯 PHASE 3 FIX: Force reactive dependency on containerSize object reference
+  $: if (canvas && config && config.containerSize) {
+    // 🎯 PHASE 3 FIX: Create local variables to force Svelte reactivity
+    const containerSize = config.containerSize;
+    const containerWidth = containerSize.width;
+    const containerHeight = containerSize.height;
 
     // 2. Content area - FULL CONTAINER for headerless design (matches FloatingDisplay.svelte)
     const contentArea = {
-      width: containerSize.width,   // ✅ FULL WIDTH (no padding)
-      height: containerSize.height  // ✅ FULL HEIGHT (no header, no padding)
+      width: containerWidth,   // ✅ FULL WIDTH (no padding)
+      height: containerHeight  // ✅ FULL HEIGHT (no header, no padding)
     };
 
-    // 🔧 CRITICAL FIX: Sync coordinate store with contentArea for proper scaling
+    // 🎯 PHASE 3 FIX: Sync coordinate store IMMEDIATELY with contentArea for proper scaling
+    // This ensures coordinate store stays synchronized during resize operations
     if (coordinateActions && coordinateActions.updateBoundsFromContentArea) {
       coordinateActions.updateBoundsFromContentArea(contentArea);
     }
@@ -194,7 +198,7 @@
       padding: 0,           // ✅ NO PADDING in headerless design
       respectDpr: true      // ✅ DPR-aware crisp rendering
     });
-    
+
     // Set canvas dimensions first
     const { canvas: canvasDims } = canvasSizingConfig.dimensions;
     canvas.width = canvasDims.width;
@@ -204,7 +208,14 @@
     canvas.style.width = canvasDims.cssWidth + 'px';
     canvas.style.height = canvasDims.cssHeight + 'px';
 
-      }
+    // 🎯 PHASE 3 DEBUG: Log resize events for troubleshooting
+    console.log(`[CONTAINER_REACTIVE] Display ${id} resized to ${containerWidth}x${containerHeight}`, {
+      contentArea,
+      adrAxisX,
+      canvasDimensions: { width: canvasDims.width, height: canvasDims.height },
+      cssDimensions: { width: canvasDims.cssWidth, height: canvasDims.cssHeight }
+    });
+  }
 
   // 🌍 ENVIRONMENT INDICATOR: Reactive environment detection and tooltip generation
   $: {

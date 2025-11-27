@@ -24,7 +24,7 @@
   import { workspaceGrid } from '../utils/workspaceGrid.js';
 
   // 🔧 ZOOM AWARENESS: Import zoom detection utilities
-  import { createZoomDetector, getCanvasDimensions } from '../utils/canvasSizing.js';
+  import { createZoomDetector, getCanvasDimensions, createCanvasSizingConfig } from '../utils/canvasSizing.js';
 
   // ✅ CSS CLIP-PATH BOUNDS: Import coordinate store for reactive bounds
   import { currentBounds, coordinateActions } from '../stores/coordinateStore.js';
@@ -179,24 +179,7 @@
   let coordinateSystemInfo = null;
   $: coordinateSystemInfo = coordinateActions.getSystemInfo();
 
-  // ✅ SAFE COORDINATE UPDATES: Update coordinate store with bounded system info
-  $: coordinateStoreUpdate: if (contentArea && state?.midPrice && coordinateActions) {
-
-    // Update coordinate store with current bounds for reactive transformations
-    try {
-      coordinateActions.updatePriceRange({
-        midPrice: state.midPrice,
-        projectedAdrHigh: state.projectedAdrHigh,
-        projectedAdrLow: state.projectedAdrLow,
-        todaysHigh: state.todaysHigh,
-        todaysLow: state.todaysLow
-      });
-    } catch (error) {
-      console.warn('[FLOATING_DISPLAY] Failed to update coordinate store:', error);
-      // Continue without coordinate store update - don't let this break rendering
-    }
-  }
-
+  
   // ✅ MATHEMATICAL PRECISION VALIDATION: Initialize precision validator and evidence collector
   let precisionValidator;
   let evidenceCollector;
@@ -257,12 +240,63 @@
   let canvasWidth = 220;  // Default container width (no header)
   let canvasHeight = 120; // Default container height (no header)
   let dpr = 1;
+  let canvasSizingConfig = null;
 
-  // 🔧 PHASE 1B FIX: Remove fixed 12px reduction to allow full container usage
-  $: contentArea = {
-    width: Math.max(50, displaySize?.width || 220), // Use full container width - no fixed reduction
-    height: Math.max(50, displaySize?.height || 120) // Use full container height - no fixed reduction
-  };
+  // ✅ CONSOLIDATED REACTIVE STATEMENT: Following Container.svelte working pattern
+  // Single consolidated reactive statement for all canvas operations to prevent race conditions
+  $: if (canvas && config && !canvasInitializing) {
+    // 1. Container layer - physical dimensions
+    const containerSize = config.containerSize || { width: 220, height: 120 };
+
+    // 2. Content area - FULL CONTAINER for headerless design (matches Container.svelte)
+    const contentArea = {
+      width: Math.max(50, containerSize.width),   // ✅ FULL WIDTH (no padding)
+      height: Math.max(50, containerSize.height) // ✅ FULL HEIGHT (no header, no padding)
+    };
+
+    // 🔧 CRITICAL FIX: Sync coordinate store with contentArea for proper scaling
+    if (coordinateActions && coordinateActions.updateBoundsFromContentArea) {
+      coordinateActions.updateBoundsFromContentArea(contentArea);
+    }
+
+    // ✅ FIXED REACTIVITY: Update coordinate store with bounded system info (moved from separate reactive statement)
+    if (contentArea && state?.midPrice && coordinateActions) {
+      // Update coordinate store with current bounds for reactive transformations
+      try {
+        coordinateActions.updatePriceRange({
+          midPrice: state.midPrice,
+          projectedAdrHigh: state.projectedAdrHigh,
+          projectedAdrLow: state.projectedAdrLow,
+          todaysHigh: state.todaysHigh,
+          todaysLow: state.todaysLow
+        });
+      } catch (error) {
+        console.warn('[FLOATING_DISPLAY] Failed to update coordinate store:', error);
+        // Continue without coordinate store update - don't let this break rendering
+      }
+    }
+
+    // 3. Create unified canvas sizing configuration with padding=0 for headerless design
+    canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
+      padding: 0,           // ✅ NO PADDING in headerless design
+      respectDpr: true      // ✅ DPR-aware crisp rendering
+    });
+
+    // Set canvas dimensions first
+    const { canvas: canvasDims } = canvasSizingConfig.dimensions;
+    canvas.width = canvasDims.width;
+    canvas.height = canvasDims.height;
+
+    // 🔧 CRITICAL FIX: Set CSS dimensions to match container exactly
+    canvas.style.width = canvasDims.cssWidth + 'px';
+    canvas.style.height = canvasDims.cssHeight + 'px';
+
+    // ✅ PHASE 2 STANDARDIZATION: Remove manual DPR scaling - handled per-frame in draw function like Container.svelte
+    // This ensures consistent DPR handling between Container.svelte and FloatingDisplay.svelte
+    if (ctx) {
+      ctx.imageSmoothingEnabled = false;
+    }
+  }
   
   // ✅ SAFE COORDINATE HELPER: Bounded YScale with adaptive bounds and clamping
   function createBoundedYScale(state, contentArea) {
@@ -295,7 +329,10 @@
   }
 
   // yScale calculation using bounded coordinate system
-  $: yScale = createBoundedYScale(state, contentArea);
+  $: yScale = createBoundedYScale(state, config?.containerSize ? {
+    width: Math.max(50, config.containerSize.width),
+    height: Math.max(50, config.containerSize.height)
+  } : { width: 220, height: 120 });
   
     
   // Header visibility handlers for hover-based show/hide
@@ -650,86 +687,16 @@
     };
   }
 
-  // 🔧 SIMPLIFIED: Direct canvas update without transaction overhead
-  function updateCanvasDimensions(newContentArea, resizeContext = {}) {
-    if (!canvas || !ctx || !newContentArea) return;
-
-    console.log(`[FLOATING_DISPLAY] Simple resize: ${contentArea.width}x${contentArea.height} → ${newContentArea.width}x${newContentArea.height}`);
-
-    // Update contentArea
-    contentArea = { ...newContentArea };
-
-    // Update canvas dimensions directly (following Container.svelte pattern)
-    const integerCanvasWidth = Math.round(contentArea.width * dpr);
-    const integerCanvasHeight = Math.round(contentArea.height * dpr);
-
-    canvas.width = integerCanvasWidth;
-    canvas.height = integerCanvasHeight;
-    canvas.style.width = contentArea.width + 'px';
-    canvas.style.height = contentArea.height + 'px';
-
-    // Apply DPR scaling
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-
-    // Update coordinate store and trigger render
-    coordinateActions?.updateBounds({
-      x: [0, contentArea.width],
-      y: [0, contentArea.height]
-    });
-    scheduleRender();
-  }
+  // ✅ REMOVED: updateCanvasDimensions() function - consolidated into reactive statement
+  // This function was causing reactive chain breaks at line 660: contentArea = { ...newContentArea };
+  // Canvas dimension updates are now handled directly in the consolidated reactive statement above
 
   // 🔧 CONSOLIDATED CANVAS STATE MANAGEMENT: Single entry point to prevent race conditions
   let canvasInitializing = false;
 
-  // Single reactive statement for all canvas operations to prevent concurrent initialization
-  $: canvasStateChange: if (canvas && state?.ready && !canvasError && !canvasInitializing) {
-    handleCanvasStateChange();
-  }
-
-  function handleCanvasStateChange() {
-    // State machine: initialization → ready → config updates
-    if (!ctx && !canvasReady) {
-      // Initialize canvas first
-      initializeCanvas();
-    } else if (ctx && canvasReady && config) {
-      // Handle config changes after canvas is ready
-      handleConfigChanges();
-    }
-  }
-
-  function handleConfigChanges() {
-    // Calculate new contentArea from config (full container, no header)
-    const containerSize = config.containerSize || { width: 220, height: 120 };
-    // 🔧 PHASE 1B FIX: Remove fixed reduction - use full container dimensions
-    const newContentArea = {
-      width: Math.max(50, containerSize.width),  // Use full container width - maintain 50px minimum
-      height: Math.max(50, containerSize.height) // Use full container height - maintain 50px minimum
-    };
-
-    // 🔧 CRITICAL FIX: Reduced threshold for responsive resizing
-    const widthChange = Math.abs(contentArea.width - newContentArea.width);
-    const heightChange = Math.abs(contentArea.height - newContentArea.height);
-
-    // More sensitive to changes for responsive interaction
-    if (widthChange > 2 || heightChange > 2) {
-      console.log(`[FLOATING_DISPLAY] Config change detected:`, {
-        id,
-        containerSize,
-        newContentArea,
-        currentContentArea: contentArea,
-        changes: { widthChange, heightChange }
-      });
-
-      updateCanvasDimensions(newContentArea, {
-        trigger: 'reactive_config_change',
-        source: 'config_reactive_update',
-        oldSize: { width: contentArea.width, height: contentArea.height },
-        changes: { widthChange, heightChange }
-      });
-    }
-  }
+  // ✅ CONSOLIDATED CANVAS INITIALIZATION: Simplified without fragmented reactive statements
+  // Canvas initialization is now handled directly in initializeCanvas() function
+  // Config changes are handled by the main consolidated reactive statement above
   
   // Canvas initialization function with retry logic and comprehensive logging
   function initializeCanvas() {
@@ -761,51 +728,25 @@
 
         dpr = window.devicePixelRatio || 1;
 
-        // 🔧 ZOOM AWARENESS: Initialize zoom detector
+        // 🔧 ZOOM AWARENESS: Initialize zoom detector - simplified with consolidated approach
         cleanupZoomDetector = createZoomDetector((newDpr) => {
           dpr = newDpr;
 
           // ✅ PRECISION VALIDATION: Track DPR changes for canvas precision
           console.log(`📏 [PRECISION:${id}] DPR change: ${dpr} → ${newDpr}`);
 
-          // Recalculate canvas dimensions with new DPR
-          if (contentArea) {
-            const integerCanvasWidth = Math.round(contentArea.width * dpr);
-            const integerCanvasHeight = Math.round(contentArea.height * dpr);
-            const cssWidth = integerCanvasWidth / dpr;
-            const cssHeight = integerCanvasHeight / dpr;
-
-            // Apply new pixel-perfect dimensions
-            canvas.width = integerCanvasWidth;
-            canvas.height = integerCanvasHeight;
-            canvas.style.width = cssWidth + 'px';
-            canvas.style.height = cssHeight + 'px';
-
-            // Reconfigure canvas context for new DPR
-            // 🔧 CRITICAL FIX: Apply DPR scaling to match physical canvas dimensions
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            // This ensures coordinate systems align between physical canvas and logical rendering
-            ctx.imageSmoothingEnabled = false;
-          }
+          // ✅ CONSOLIDATED: Canvas dimension updates are now handled by the main reactive statement
+          // The reactive statement will automatically pick up the dpr change and update canvas
+          // This prevents race conditions and ensures consistent updates
         });
 
 
-        // 🔧 PHASE 1B FIX: Use consolidated canvas dimension function with full container usage
-        const containerSize = config.containerSize || { width: 220, height: 120 };
-        // 🔧 PHASE 1B FIX: Remove fixed reduction - use full container dimensions
-        const newContentArea = {
-          width: Math.max(50, containerSize.width),  // Use full container width - maintain 50px minimum
-          height: Math.max(50, containerSize.height) // Use full container height - maintain 50px minimum
-        };
-
-        console.log(`[FLOATING_DISPLAY] Canvas initial sizing:`, {
+        // ✅ CONSOLIDATED INITIALIZATION: Canvas sizing is now handled by the main reactive statement
+        // No separate updateCanvasDimensions() call needed - prevents race conditions
+        console.log(`[FLOATING_DISPLAY] Canvas initialization completed - sizing handled by reactive statement`, {
           id,
-          containerSize,
-          newContentArea
+          containerSize: config.containerSize || { width: 220, height: 120 }
         });
-
-        // Use the consolidated function to prevent duplicate code and race conditions
-        updateCanvasDimensions(newContentArea);
 
         // ✅ BROWSER EVIDENCE COLLECTION: Collect real browser measurements for canvas-container validation
         if (evidenceCollector && element && canvas) {
@@ -909,10 +850,13 @@
 
     const startTime = getPerformanceTime();
 
-    // 🔧 CLEAN FOUNDATION: Create rendering context (use reactive global contentArea)
+    // 🔧 CLEAN FOUNDATION: Create rendering context (use consolidated contentArea calculation)
     const containerSize = config.containerSize || { width: canvasWidth, height: canvasHeight };
-    // ✅ FIXED: Use reactive global contentArea to maintain reactivity chain
-    // Local contentArea calculation removed to fix container resize scaling issue
+    // ✅ CONSOLIDATED: Calculate contentArea consistently with reactive statement
+    const contentArea = {
+      width: Math.max(50, containerSize.width),   // ✅ FULL WIDTH (no padding)
+      height: Math.max(50, containerSize.height) // ✅ FULL HEIGHT (no header, no padding)
+    };
     const adrAxisX = contentArea.width * config.adrAxisPosition;
 
     // ✅ VISUALIZATION LOGGING: Enhance rendering context with display correlation
@@ -926,11 +870,29 @@
       adrAxisXPosition: adrAxisX
     });
 
+    // ✅ PHASE 2 STANDARDIZATION: Apply DPR scaling per frame like Container.svelte
+    // Save context and apply DPR scaling for this render frame only
+    ctx.save();
+
+    // Apply DPR scaling for this render cycle only
+    if (canvasSizingConfig && canvasSizingConfig.dimensions.dpr > 1) {
+      ctx.scale(canvasSizingConfig.dimensions.dpr, canvasSizingConfig.dimensions.dpr);
+    }
+
     // Clear canvas and set background
-    // 🔧 CRITICAL FIX: Clear full physical canvas dimensions, not logical area
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 🔧 CRITICAL FIX: Clear using canvasSizingConfig like Container.svelte
+    if (canvasSizingConfig) {
+      const { canvasArea } = canvasSizingConfig.dimensions;
+      // Since context is DPR-scaled, use full canvas dimensions (no division by DPR)
+      ctx.clearRect(0, 0, canvasArea.width, canvasArea.height);
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 0, canvasArea.width, canvasArea.height);
+    } else {
+      // Fallback to canvas dimensions
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     // Draw symbol background first (behind all other visualizations)
     renderSymbolBackground();
@@ -988,6 +950,13 @@
         console.error(`[RENDER] Error in visualization functions:`, error);
       }
     }
+
+    // ✅ PHASE 2 STANDARDIZATION: Restore context to prevent cumulative transformations like Container.svelte
+    ctx.restore();
+
+    // 🔧 CRITICAL FIX: Explicit reset to identity matrix to prevent drift
+    // This ensures complete transform reset even if restore() is incomplete
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   
   // ✅ ULTRA-MINIMAL: Simple render trigger with deduplication

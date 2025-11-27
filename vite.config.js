@@ -2,7 +2,21 @@ import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [
+    svelte(),
+  ],
+  test: {
+    include: [
+      'src/**/*.test.js' // Only include unit tests in src
+    ],
+    exclude: [
+      'node_modules/**',
+      'services/**', // Exclude backend services
+      'tests/**', // Exclude all Playwright tests
+      '**/*.spec.js' // Exclude Playwright spec files
+    ],
+    environment: 'node'
+  },
   server: {
     host: true,
     port: 5174,

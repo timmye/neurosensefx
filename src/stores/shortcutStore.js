@@ -6,7 +6,7 @@
  */
 
 import { writable, derived, get } from 'svelte/store';
-import { keyboardManager } from '../utils/keyboardShortcutManager.js';
+import { keyboardAction, registerShortcut, setContext, setEnabled, keyboardActionStore, dispatchKeyboardEvent, initializeKeyboardSystem } from '../actions/keyboardAction.js';
 import DEFAULT_SHORTCUTS, {
 	validateShortcutConfig,
 	findShortcutConflicts,
@@ -20,6 +20,7 @@ import { workspacePersistenceManager } from '../utils/workspacePersistence.js';
 
 /**
  * Store for shortcut state and configuration
+ * Now uses the new action-based system internally
  */
 export const shortcutStore = writable({
 	shortcuts: { ...DEFAULT_SHORTCUTS },
@@ -124,28 +125,39 @@ export const shortcutConflicts = derived(
 
 /**
  * Initialize shortcut system with default shortcuts
+ * Enhanced with proper initialization sequencing
  */
-export function initializeShortcuts() {
-	const $shortcutStore = get(shortcutStore);
+export async function initializeShortcuts() {
+	try {
+		console.log('[SHORTCUT_STORE] Initializing enhanced shortcut system...');
 
-	// Register all default shortcuts
-	Object.entries(DEFAULT_SHORTCUTS).forEach(([id, config]) => {
-		const action = createActionForShortcut(id);
-		if (action) {
-			keyboardManager.register(id, {
-				...config,
-				action
-			});
-		}
-	});
+		// First initialize the core keyboard system
+		await initializeKeyboardSystem();
 
-	// Setup context management
-	setupContextManagement();
+		const $shortcutStore = get(shortcutStore);
 
-	// Load user customizations
-	loadUserShortcuts();
+		// Register all default shortcuts with the new system
+		Object.entries(DEFAULT_SHORTCUTS).forEach(([id, config]) => {
+			const action = createActionForShortcut(id);
+			if (action) {
+				registerShortcut(id, {
+					...config,
+					action
+				});
+			}
+		});
 
-	console.log('Keyboard shortcut system initialized');
+		// Setup context management
+		setupContextManagement();
+
+		// Load user customizations
+		await loadUserShortcuts();
+
+		console.log('[SHORTCUT_STORE] Enhanced shortcut system initialized successfully');
+	} catch (error) {
+		console.error('[SHORTCUT_STORE] Initialization failed:', error);
+		throw error;
+	}
 }
 
 /**
@@ -156,35 +168,32 @@ function createActionForShortcut(id) {
 		// === SYMBOL WORKFLOW ===
 		case 'symbol.focusPalette':
 			return () => {
-				document.dispatchEvent(new CustomEvent('focusSymbolPalette'));
+				dispatchKeyboardEvent('focusSymbolPalette');
 			};
 
 		case 'symbol.togglePalette':
 			return () => {
-				document.dispatchEvent(new CustomEvent('toggleSymbolPalette'));
+				dispatchKeyboardEvent('toggleSymbolPalette');
 			};
 
 		case 'symbol.quickSubscribe':
 			return () => {
-				const event = new CustomEvent('quickSubscribe');
-				document.dispatchEvent(event);
+				dispatchKeyboardEvent('quickSubscribe');
 			};
 
 		case 'symbol.quickSubscribeNew':
 			return () => {
-				const event = new CustomEvent('quickSubscribe', { detail: { newDisplay: true } });
-				document.dispatchEvent(event);
+				dispatchKeyboardEvent('quickSubscribe', { newDisplay: true });
 			};
 
 		case 'symbol.recentCycle':
 			return () => {
-				const event = new CustomEvent('cycleRecentSymbols');
-				document.dispatchEvent(event);
+				dispatchKeyboardEvent('cycleRecentSymbols');
 			};
 
 		case 'symbol.favorites':
 			return () => {
-				document.dispatchEvent(new CustomEvent('showSymbolFavorites'));
+				dispatchKeyboardEvent('showSymbolFavorites');
 			};
 
 		// === DISPLAY NAVIGATION ===
@@ -202,77 +211,74 @@ function createActionForShortcut(id) {
 				const $displayStore = get(displayStore);
 				const displays = Array.from($displayStore.displays.values());
 				if (displays[displayNumber - 1]) {
-					const event = new CustomEvent('focusDisplay', {
-						detail: { displayId: displays[displayNumber - 1].id }
-					});
-					document.dispatchEvent(event);
+					dispatchKeyboardEvent('focusDisplay', { displayId: displays[displayNumber - 1].id });
 				}
 			};
 
 		case 'display.next':
 			return () => {
-				document.dispatchEvent(new CustomEvent('navigateDisplay', { detail: { direction: 'next' } }));
+				dispatchKeyboardEvent('navigateDisplay', { direction: 'next' });
 			};
 
 		case 'display.previous':
 			return () => {
-				document.dispatchEvent(new CustomEvent('navigateDisplay', { detail: { direction: 'previous' } }));
+				dispatchKeyboardEvent('navigateDisplay', { direction: 'previous' });
 			};
 
 		case 'display.navigateRight':
 			return () => {
-				document.dispatchEvent(new CustomEvent('navigateDisplay', { detail: { direction: 'right' } }));
+				dispatchKeyboardEvent('navigateDisplay', { direction: 'right' });
 			};
 
 		case 'display.navigateLeft':
 			return () => {
-				document.dispatchEvent(new CustomEvent('navigateDisplay', { detail: { direction: 'left' } }));
+				dispatchKeyboardEvent('navigateDisplay', { direction: 'left' });
 			};
 
 		case 'display.navigateUp':
 			return () => {
-				document.dispatchEvent(new CustomEvent('navigateDisplay', { detail: { direction: 'up' } }));
+				dispatchKeyboardEvent('navigateDisplay', { direction: 'up' });
 			};
 
 		case 'display.navigateDown':
 			return () => {
-				document.dispatchEvent(new CustomEvent('navigateDisplay', { detail: { direction: 'down' } }));
+				dispatchKeyboardEvent('navigateDisplay', { direction: 'down' });
 			};
 
 		case 'display.close':
 			return () => {
-				document.dispatchEvent(new CustomEvent('closeDisplay'));
+				dispatchKeyboardEvent('closeDisplay');
 			};
 
 		// === QUICK ACTIONS ===
 		case 'quick.contextMenu':
 			return () => {
-				document.dispatchEvent(new CustomEvent('showContextMenu'));
+				dispatchKeyboardEvent('showContextMenu');
 			};
 
 		case 'quick.configPanel':
 			return () => {
-				document.dispatchEvent(new CustomEvent('showQuickConfig'));
+				dispatchKeyboardEvent('showQuickConfig');
 			};
 
 		case 'quick.pauseUpdates':
 			return () => {
-				document.dispatchEvent(new CustomEvent('toggleDataUpdates'));
+				dispatchKeyboardEvent('toggleDataUpdates');
 			};
 
 		case 'quick.fullscreen':
 			return () => {
-				document.dispatchEvent(new CustomEvent('toggleFullscreen'));
+				dispatchKeyboardEvent('toggleFullscreen');
 			};
 
 		case 'quick.addMarker':
 			return () => {
-				document.dispatchEvent(new CustomEvent('addPriceMarker'));
+				dispatchKeyboardEvent('addPriceMarker');
 			};
 
 		case 'quick.clearMarkers':
 			return () => {
-				document.dispatchEvent(new CustomEvent('clearMarkers'));
+				dispatchKeyboardEvent('clearMarkers');
 			};
 
 		// === PROFESSIONAL FEATURES ===
@@ -281,23 +287,22 @@ function createActionForShortcut(id) {
 		case 'pro.layoutPreset3':
 			const presetNumber = parseInt(id.replace('pro.layoutPreset', ''));
 			return () => {
-				const event = new CustomEvent('applyLayoutPreset', { detail: { preset: presetNumber } });
-				document.dispatchEvent(event);
+				dispatchKeyboardEvent('applyLayoutPreset', { preset: presetNumber });
 			};
 
 		case 'pro.groupDisplays':
 			return () => {
-				document.dispatchEvent(new CustomEvent('groupDisplays'));
+				dispatchKeyboardEvent('groupDisplays');
 			};
 
 		case 'pro.ungroupDisplays':
 			return () => {
-				document.dispatchEvent(new CustomEvent('ungroupDisplays'));
+				dispatchKeyboardEvent('ungroupDisplays');
 			};
 
 		case 'pro.saveLayout':
 			return () => {
-				document.dispatchEvent(new CustomEvent('saveLayoutPreset'));
+				dispatchKeyboardEvent('saveLayoutPreset');
 			};
 
 		// === SYSTEM & HELP ===
@@ -308,34 +313,33 @@ function createActionForShortcut(id) {
 
 		case 'system.statusPanel':
 			return () => {
-				document.dispatchEvent(new CustomEvent('toggleStatusPanel'));
+				dispatchKeyboardEvent('toggleStatusPanel');
 			};
 
 		case 'system.performanceMonitor':
 			return () => {
-				document.dispatchEvent(new CustomEvent('togglePerformanceMonitor'));
+				dispatchKeyboardEvent('togglePerformanceMonitor');
 			};
 
 		case 'system.screenshot':
 			return () => {
-				document.dispatchEvent(new CustomEvent('takeScreenshot'));
+				dispatchKeyboardEvent('takeScreenshot');
 			};
 
 		case 'system.saveWorkspace':
 			return () => {
-				const event = new CustomEvent('saveWorkspace');
-				document.dispatchEvent(event);
+				dispatchKeyboardEvent('saveWorkspace');
 			};
 
 		case 'system.escape':
 			return () => {
-				document.dispatchEvent(new CustomEvent('escape'));
+				dispatchKeyboardEvent('escape');
 			};
 
 		// === LEGACY ===
 		case 'legacy.newDisplay':
 			return () => {
-				document.dispatchEvent(new CustomEvent('newDisplay'));
+				dispatchKeyboardEvent('newDisplay');
 			};
 
 		default:
@@ -346,7 +350,7 @@ function createActionForShortcut(id) {
 
 // Handle custom context events
 function handleSetShortcutContext(event) {
-	keyboardManager.setContext(event.detail.context);
+	setContext(event.detail.context);
 	shortcutStore.update(state => ({ ...state, activeContext: event.detail.context }));
 }
 
@@ -357,19 +361,44 @@ function setupContextManagement() {
 	// Listen for context changes
 	displayStore.subscribe($displayStore => {
 		const newContext = determineActiveContext($displayStore);
-		keyboardManager.setContext(newContext);
+		setContext(newContext);
 		shortcutStore.update(state => ({ ...state, activeContext: newContext }));
 	});
 
-	// Listen for custom context events
-	document.addEventListener('setShortcutContext', handleSetShortcutContext);
+	// Create custom event store for context management (Svelte-first pattern)
+	const customEventStore = writable(null);
+
+	// Subscribe to custom events instead of manual addEventListener
+	customEventStore.subscribe((eventData) => {
+		if (eventData && eventData.type === 'setShortcutContext') {
+			handleSetShortcutContext(eventData);
+		}
+	});
+
+	// Export for use in components
+	shortcutStore.setCustomEvent = customEventStore.set;
+}
+
+/**
+ * Trigger custom context change event (Svelte-first approach)
+ * @param {string} context - New context to set
+ */
+export function setShortcutContext(context) {
+	const $shortcutStore = get(shortcutStore);
+	if ($shortcutStore.setCustomEvent) {
+		$shortcutStore.setCustomEvent({
+			type: 'setShortcutContext',
+			detail: { context }
+		});
+	}
 }
 
 /**
  * Cleanup context management event listeners
+ * @deprecated Not needed with Svelte-first approach
  */
 export function cleanupContextManagement() {
-	document.removeEventListener('setShortcutContext', handleSetShortcutContext);
+	console.warn('[SHORTCUT_STORE] cleanupContextManagement deprecated with Svelte-first approach');
 }
 
 /**
@@ -429,11 +458,11 @@ async function loadUserShortcuts() {
 				customShortcuts: workspace.shortcuts
 			}));
 
-			// Register custom shortcuts
+			// Register custom shortcuts with new system
 			Object.entries(workspace.shortcuts).forEach(([id, config]) => {
 				const action = createActionForShortcut(id);
 				if (action) {
-					keyboardManager.register(id, {
+					registerShortcut(id, {
 						...config,
 						action
 					});
@@ -497,10 +526,10 @@ export function updateShortcut(id, config) {
 		}
 	}));
 
-	// Register the updated shortcut
+	// Register the updated shortcut with new system
 	const action = createActionForShortcut(id);
 	if (action) {
-		keyboardManager.register(id, {
+		registerShortcut(id, {
 			...config,
 			action
 		});
@@ -521,7 +550,8 @@ export function removeShortcut(id) {
 		};
 	});
 
-	keyboardManager.unregister(id);
+	// Note: The new action system doesn't have explicit unregister -
+	// shortcuts are cleaned up automatically when no longer referenced
 	saveUserShortcuts();
 }
 
@@ -535,8 +565,7 @@ export function resetShortcuts() {
 		conflicts: []
 	}));
 
-	// Reinitialize with defaults
-	keyboardManager.destroy();
+	// Reinitialize with defaults using new system
 	initializeShortcuts();
 	saveUserShortcuts();
 }
@@ -545,7 +574,7 @@ export function resetShortcuts() {
  * Enable/disable shortcuts
  */
 export function setShortcutsEnabled(enabled) {
-	keyboardManager.setEnabled(enabled);
+	setEnabled(enabled);
 	shortcutStore.update(state => ({ ...state, isEnabled: enabled }));
 }
 

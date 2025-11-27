@@ -5,7 +5,7 @@
  * following the "Simple, Performant, Maintainable" philosophy.
  */
 
-import { SHORTCUT_CONTEXTS, SHORTCUT_CATEGORIES } from './keyboardShortcutManager.js';
+import { SHORTCUT_CONTEXTS, SHORTCUT_CATEGORIES } from '../actions/keyboardAction.js';
 
 /**
  * Default shortcut definitions for NeuroSense FX

@@ -4,8 +4,10 @@
   import { parameterGroups, getParameterMetadata } from './CanvasContextMenu/utils/parameterGroups.js';
   import { searchParameters } from './CanvasContextMenu/utils/searchUtils.js';
   import { highlightMatch } from '../utils/fuzzySearch.js';
-  import { createShortcutHandler, defaultShortcuts } from './CanvasContextMenu/utils/keyboardShortcuts.js';
+  // REMOVED: createShortcutHandler import - conflicting system
+// Keyboard shortcuts are now handled by the unified keyboardAction.js system
   import { getZIndex } from '../constants/zIndex.js';
+  import { clickOutside, windowResize, focusTrap } from '../../actions/eventHandling.js';
     
   // Import tab components
   import QuickActionsTab from './CanvasContextMenu/tabs/QuickActionsTab.svelte';
@@ -29,7 +31,6 @@
   let selectedSearchIndex = 0;
   let menuElement = null;
   let searchInput = null;
-  let cleanupShortcuts = null;
   
   // Viewport boundary detection
   let adjustedPosition = { ...position };
@@ -211,58 +212,43 @@
     dispatch('close', { canvasId });
   }
   
-  // Handle click outside to close
-  function handleClickOutside(event) {
-    if (menuElement && !menuElement.contains(event.target)) {
-      handleClose();
-    }
+  // Event handlers for Svelte actions
+  function handleClickOutside() {
+    handleClose();
   }
-  
-  // Lifecycle
-  onMount(() => {
-    // Adjust position after render
+
+  function handleWindowResize() {
+    adjustPositionForViewport();
+  }
+
+  // Enhanced keyboard shortcuts for the context menu
+  const contextMenuShortcuts = {
+    'escape': () => {
+      if (searchQuery.trim() === '') {
+        handleClose();
+      } else {
+        clearSearch();
+      }
+    },
+    'ctrl+f': () => {
+      if (searchInput) {
+        searchInput.focus();
+      }
+    },
+    'ctrl+tab': () => switchTab((activeTab + 1) % parameterGroups.length),
+    'ctrl+shift+tab': () => switchTab(activeTab === 0 ? parameterGroups.length - 1 : activeTab - 1),
+    'ctrl+r': () => handleReset(),
+    'enter': () => selectHighlightedResult(),
+    'arrowdown': () => navigateSearchResults('next'),
+    'arrowup': () => navigateSearchResults('prev')
+  };
+
+  // Lifecycle - adjust position when menu opens
+  $: if (menuElement) {
     setTimeout(() => {
       adjustPositionForViewport();
     }, 0);
-    
-    // Setup keyboard shortcuts
-    cleanupShortcuts = createShortcutHandler({
-      onAction: handleShortcutAction,
-      target: menuElement
-    });
-    
-    // Add click outside listener
-    document.addEventListener('click', handleClickOutside);
-    
-    // Handle window resize
-    const handleResize = () => adjustPositionForViewport();
-    window.addEventListener('resize', handleResize);
-    
-    // Store resize handler for cleanup
-    menuElement.dataset.resizeHandler = handleResize.toString();
-  });
-  
-  onDestroy(() => {
-    // Cleanup shortcuts
-    if (cleanupShortcuts) {
-      cleanupShortcuts();
-    }
-    
-    // Remove click outside listener
-    document.removeEventListener('click', handleClickOutside);
-    
-    // Remove resize listener if it exists
-    if (menuElement?.dataset.resizeHandler) {
-      try {
-        // This is a bit of a hack, but it's necessary to clean up the resize listener
-        const resizeHandlers = window.getEventListeners?.(window)?.resize || [];
-        resizeHandlers.forEach(handler => window.removeEventListener('resize', handler.listener));
-      } catch (e) {
-        // Fallback - remove all resize listeners
-        window.removeEventListener('resize', window.handleResize);
-      }
-    }
-  });
+  }
   
   // Context for child components
   setContext('canvasId', canvasId);
@@ -270,21 +256,19 @@
   setContext('onParameterChange', handleParameterChange);
 </script>
 
-<svelte:window on:keydown={(e) => {
-  if (e.key === 'Escape') {
-    if (searchQuery.trim() === '') {
-      handleClose();
-    } else {
-      clearSearch();
-    }
-  }
-}} />
 
 <div
   bind:this={menuElement}
   class="context-menu enhanced"
   style="left: {adjustedPosition.x}px; top: {adjustedPosition.y}px; max-height: {menuMaxHeight}; z-index: {getZIndex('CONTEXT_MENU')};"
   on:click|stopPropagation
+  role="dialog"
+  aria-modal="true"
+  aria-label="Canvas Controls"
+  use:clickOutside={handleClickOutside}
+  use:keyboardShortcuts={contextMenuShortcuts}
+  use:focusTrap={true}
+  use:windowResize={handleWindowResize}
 >
   <!-- Menu Header -->
   <div class="menu-header">
