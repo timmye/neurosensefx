@@ -7,7 +7,7 @@
  * SUCCESS CRITERIA: All 5 test phases complete without critical failures
  */
 
-const { test, expect } = require('./fixtures/unified-console.fixture.cjs');
+const { test, expect } = require('./fixtures/browser-console.js');
 
 test.describe('Primary Trader Workflow', () => {
   // Removed mode: 'serial' to allow all tests to run for comprehensive analysis
@@ -15,32 +15,9 @@ test.describe('Primary Trader Workflow', () => {
   // Store console logs for each test
   let consoleLogs = [];
 
-  test.beforeEach(async ({ page, correlationManager, unifiedReporter, browserLogCapture, testRunCorrelation }, testInfo) => {
+  test.beforeEach(async ({ page }, testInfo) => {
     // Clear console logs for fresh test start
     consoleLogs = [];
-
-    // Get test correlation from fixture correlation manager
-    const testCorrelation = correlationManager.startTestCorrelation(
-      testInfo.title,
-      testRunCorrelation.id
-    );
-
-    // Setup enhanced browser monitoring with unified console using fixtures
-    const browserSession = await browserLogCapture.setupPageMonitoring(page, {
-      correlationId: testCorrelation.id,
-      testInfo
-    });
-
-    // Store session info for cleanup
-    testInfo.browserSessionId = browserSession.sessionId;
-
-    // Log test start to unified console using fixtures
-    unifiedReporter.log(
-      'TEST',
-      `▶️  Starting: ${testInfo.title}`,
-      'info',
-      testCorrelation.id
-    );
 
     // Navigate to the application
     await page.goto('/');
@@ -53,52 +30,11 @@ test.describe('Primary Trader Workflow', () => {
 
     // Clear workspace before each test phase
     await clearWorkspace(page);
-
-    // Store correlation for use in test
-    testInfo.testCorrelationId = testCorrelation?.id;
   });
 
-  test.afterEach(async ({ page, correlationManager, unifiedReporter, browserLogCapture }, testInfo) => {
-    // End test correlation using fixtures
-    if (testInfo.testCorrelationId) {
-      correlationManager.endCorrelation(
-        testInfo.testCorrelationId,
-        testInfo.error ? 'failed' : 'completed',
-        {
-          duration: Date.now() - testInfo.startTime,
-          consoleLogCount: consoleLogs.length,
-          status: testInfo.status,
-          errors: testInfo.error ? [testInfo.error.message] : []
-        }
-      );
-    }
-
-    // Log test completion to unified console using fixtures
-    if (testInfo.testCorrelationId) {
-      const status = testInfo.error ? 'FAILED' : 'PASSED';
-      const emoji = testInfo.error ? '❌' : '✅';
-
-      unifiedReporter.log(
-        'TEST',
-        `${emoji} ${status}: ${testInfo.title} (${Date.now() - testInfo.startTime}ms)`,
-        testInfo.error ? 'error' : 'success',
-        testInfo.testCorrelationId
-      );
-
-      if (testInfo.error) {
-        unifiedReporter.log(
-          'ERROR',
-          `   Error: ${testInfo.error.message}`,
-          'error',
-          testInfo.testCorrelationId
-        );
-      }
-    }
-
-    // Cleanup browser session using fixtures
-    if (testInfo.browserSessionId) {
-      browserLogCapture.cleanupSession(testInfo.browserSessionId);
-    }
+  test.afterEach(async ({ page }, testInfo) => {
+    // Native browser console handles logging automatically
+    console.log(`[TEST] ${testInfo.error ? '❌ FAILED' : '✅ PASSED'}: ${testInfo.title}`);
   });
 
   // Helper function to clear workspace

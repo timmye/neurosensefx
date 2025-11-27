@@ -48,10 +48,7 @@ module.exports = defineConfig({
     timeout: 120 * 1000,
   },
 
-  // Global setup and teardown
-  globalSetup: 'tests/global-setup.cjs',
-  globalTeardown: 'tests/global-teardown.cjs',
-
+  
   // Configure projects for major browsers
   projects: [
     {

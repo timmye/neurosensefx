@@ -273,6 +273,17 @@ export function keyboardAction(node, config = {}) {
 	function handleKeyDown(event) {
 		if (!isEnabled) return;
 
+		// CRITICAL FIX: Immediate preventDefault for browser-native shortcuts
+		// This overrides browser search (Ctrl+F, Ctrl+K) before they execute
+		const keyCombo = getKeyCombo(event);
+		const criticalBrowserShortcuts = ['ctrl+f', 'ctrl+k', 'ctrl+shift+k'];
+
+		if (criticalBrowserShortcuts.includes(keyCombo)) {
+			event.preventDefault();
+			event.stopPropagation();
+			console.log('[KEYBOARD] Overriding browser shortcut:', keyCombo);
+		}
+
 		// Ignore when typing in input fields unless context allows it
 		const activeElement = document.activeElement;
 		const isInputElement = activeElement && (
@@ -282,8 +293,6 @@ export function keyboardAction(node, config = {}) {
 		);
 
 		if (isInputElement && activeContext !== 'input') return;
-
-		const keyCombo = getKeyCombo(event);
 		const triggeredShortcuts = Array.from(shortcuts.values())
 			.filter(shortcut => shortcut.key === keyCombo);
 
