@@ -269,7 +269,7 @@ npm run test:browser-logs | grep "LOG:"  # Show application logs
 
 **For LLM Development:**
 The `test:browser-logs` command provides direct visibility into browser JavaScript console output, making it easy to:
-- Identify initialization errors (keyboard, app startup failures)
+- Identify initialization errors (app startup failures)
 - Debug WebSocket connection issues
 - Monitor network request patterns
 - Trace application behavior during test execution

@@ -203,9 +203,12 @@ async function verifySystemReadiness() {
 
 	// Verify we can read back the test event
 	const currentEvent = new Promise(resolve => {
-		const unsubscribe = keyboardEventStore.subscribe(value => {
+		let unsubscribe;
+		unsubscribe = keyboardEventStore.subscribe(value => {
+			if (unsubscribe) {
+				unsubscribe(); // Only call if unsubscribe is defined
+			}
 			resolve(value);
-			unsubscribe();
 		});
 	});
 
@@ -224,6 +227,7 @@ async function verifySystemReadiness() {
  * Register a keyboard shortcut (backward compatibility)
  */
 export function registerShortcut(id, config) {
+	console.log('[KEYBOARD] Registering shortcut:', id, 'with key:', config.key);
 	const shortcut = {
 		id,
 		key: normalizeKeyCombo(config.key),
@@ -238,6 +242,7 @@ export function registerShortcut(id, config) {
 
 	shortcuts.set(id, shortcut);
 	updateStore();
+	console.log('[KEYBOARD] Shortcut registered. Total shortcuts:', shortcuts.size);
 
 	return () => {
 		shortcuts.delete(id);
