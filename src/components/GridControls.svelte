@@ -1,7 +1,12 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { workspaceGrid, enableGrid, disableGrid, toggleGrid, setGridSize, toggleGridLines, getGridSettings } from '../utils/workspaceGrid.js';
-  
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Consistent export pattern
+  export let config = {};  // Configuration from displayStore.defaultConfig
+  export let state = {};   // Reactive state from dataProcessor
+  export let id = '';      // Unique identifier for tracking
+
   // Local state for UI
   let gridSettings = {
     enabled: true,
@@ -10,13 +15,53 @@
     gridOpacity: 0.2,
     showGridOnlyOnDrag: true
   };
-  
+
   // Grid size presets
   const GRID_SIZE_PRESETS = [8, 10, 16, 20, 32, 40, 64];
-  
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Initialize component with proper setup
+  function initializeComponent() {
+    console.log(`[GRID_CONTROLS:${id}] Initializing component`);
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Setup store subscriptions if needed
+  function setupStoreSubscriptions() {
+    // Grid controls use workspace grid utilities, no store subscriptions needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Performance monitoring integration
+  function startPerformanceMonitoring() {
+    // Grid controls performance monitoring would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Cleanup component resources
+  function cleanupComponent() {
+    console.log(`[GRID_CONTROLS:${id}] Cleaning up component`);
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Unsubscribe from stores
+  function unsubscribeStores() {
+    // Grid controls use workspace grid utilities, no store subscriptions needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Stop performance monitoring
+  function stopPerformanceMonitoring() {
+    // Grid controls performance monitoring cleanup would go here if needed
+  }
+
   // Load current settings on mount
   onMount(() => {
+    initializeComponent();
+    setupStoreSubscriptions();
+    startPerformanceMonitoring();
     updateLocalSettings();
+  });
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Destroy lifecycle
+  onDestroy(() => {
+    cleanupComponent();
+    unsubscribeStores();
+    stopPerformanceMonitoring();
   });
   
   /**

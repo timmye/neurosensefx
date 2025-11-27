@@ -2,6 +2,8 @@
   import { createEventDispatcher } from 'svelte';
   import { shortcutStore, shortcutsByCategory, shortcutsByWorkflow, setShowHelp } from '../stores/shortcutStore.js';
   import { formatKeyForDisplay } from '../utils/shortcutConfig.js';
+  import { keyboardEventStore } from '../actions/keyboardAction.js';
+  import { onMount, onDestroy } from 'svelte';
 
   // Note: visible prop removed to prevent conflicts with shortcutStore.showHelp
 
@@ -25,13 +27,6 @@
   // Close help overlay
   function closeHelp() {
     setShowHelp(false);
-  }
-
-  // Handle keyboard shortcuts within help overlay
-  function handleKeyDown(event) {
-    if (event.key === 'Escape') {
-      closeHelp();
-    }
   }
 
   // Get icon for category
@@ -91,6 +86,26 @@
   let searchQuery = '';
   let filteredShortcuts = [];
 
+  // Unified keyboard event handling
+  let unsubscribeKeyboardEvents;
+
+  // Subscribe to unified keyboard events when component mounts
+  onMount(() => {
+    unsubscribeKeyboardEvents = keyboardEventStore.subscribe((event) => {
+      if (event && showHelp && event.type === 'escape') {
+        // Handle escape event for closing help overlay
+        closeHelp();
+      }
+    });
+  });
+
+  // Cleanup subscription when component unmounts
+  onDestroy(() => {
+    if (unsubscribeKeyboardEvents) {
+      unsubscribeKeyboardEvents();
+    }
+  });
+
   // Filter shortcuts based on search
   $: if (searchQuery.trim()) {
     const query = searchQuery.toLowerCase();
@@ -104,16 +119,28 @@
           shortcut.category.toLowerCase().includes(query) ||
           (shortcut.workflow && shortcut.workflow.toLowerCase().includes(query))
         ) {
-          filteredShortcuts.push(shortcut);
+          // ✅ CRITICAL FIX: Ensure every shortcut has a valid unique ID
+          filteredShortcuts.push({
+            ...shortcut,
+            id: shortcut.id || `search-${shortcut.key}-${Math.random().toString(36).substr(2, 9)}`
+          });
         }
       });
     });
   } else {
     filteredShortcuts = [];
   }
+
+  // ✅ CRITICAL FIX: Helper function to ensure unique keys for shortcuts
+  function getSafeShortcutKey(shortcut, index, category = '') {
+    if (shortcut.id && shortcut.id !== undefined) {
+      return shortcut.id;
+    }
+    // Fallback key generation using multiple properties to ensure uniqueness
+    return `${category || 'unknown'}-${shortcut.key || 'no-key'}-${index}-${Math.random().toString(36).substr(2, 6)}`;
+  }
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
 
 <!-- Help Overlay -->
 {#if showHelp}
@@ -175,19 +202,21 @@
             <h3 class="section-title">Search Results</h3>
             {#if filteredShortcuts.length > 0}
               <div class="shortcut-list">
-                {#each filteredShortcuts as shortcut (shortcut.id)}
-                  <div class="shortcut-item">
-                    <div class="shortcut-info">
-                      <div class="shortcut-description">{shortcut.description}</div>
-                      <div class="shortcut-meta">
-                        <span class="category">{getCategoryName(shortcut.category)}</span>
-                        {#if shortcut.workflow}
-                          <span class="workflow">• {getWorkflowName(shortcut.workflow)}</span>
-                        {/if}
+                {#each filteredShortcuts as shortcut, index (getSafeShortcutKey(shortcut, index, 'search'))}
+                  {#if shortcut && shortcut.description}
+                    <div class="shortcut-item">
+                      <div class="shortcut-info">
+                        <div class="shortcut-description">{shortcut.description}</div>
+                        <div class="shortcut-meta">
+                          <span class="category">{getCategoryName(shortcut.category || 'general')}</span>
+                          {#if shortcut.workflow}
+                            <span class="workflow">• {getWorkflowName(shortcut.workflow)}</span>
+                          {/if}
+                        </div>
                       </div>
+                      <div class="shortcut-key">{shortcut.formattedKey || shortcut.key}</div>
                     </div>
-                    <div class="shortcut-key">{shortcut.formattedKey}</div>
-                  </div>
+                  {/if}
                 {/each}
               </div>
             {:else}
@@ -201,21 +230,23 @@
           <!-- Workflow View -->
           <div class="workflow-view">
             {#each Object.entries(shortcutsByWork) as [workflow, shortcuts] (workflow)}
-              {#if shortcuts.length > 0}
+              {#if shortcuts && shortcuts.length > 0}
                 <div class="workflow-section">
                   <h3 class="workflow-title">
                     <span class="workflow-icon">{getWorkflowIcon(workflow)}</span>
                     {getWorkflowName(workflow)}
                   </h3>
                   <div class="shortcut-list">
-                    {#each shortcuts as shortcut (shortcut.id)}
-                      <div class="shortcut-item">
-                        <div class="shortcut-info">
-                          <div class="shortcut-description">{shortcut.description}</div>
-                          <div class="shortcut-category">{getCategoryName(shortcut.category)}</div>
+                    {#each shortcuts as shortcut, index (getSafeShortcutKey(shortcut, index, workflow))}
+                      {#if shortcut && shortcut.description}
+                        <div class="shortcut-item">
+                          <div class="shortcut-info">
+                            <div class="shortcut-description">{shortcut.description}</div>
+                            <div class="shortcut-category">{getCategoryName(shortcut.category || 'general')}</div>
+                          </div>
+                          <div class="shortcut-key">{shortcut.formattedKey || shortcut.key}</div>
                         </div>
-                        <div class="shortcut-key">{shortcut.formattedKey}</div>
-                      </div>
+                      {/if}
                     {/each}
                   </div>
                 </div>
@@ -226,23 +257,25 @@
           <!-- Category View -->
           <div class="category-view">
             {#each Object.entries(shortcutsByCat) as [category, shortcuts] (category)}
-              {#if shortcuts.length > 0}
+              {#if shortcuts && shortcuts.length > 0}
                 <div class="category-section">
                   <h3 class="category-title">
                     <span class="category-icon">{getCategoryIcon(category)}</span>
                     {getCategoryName(category)}
                   </h3>
                   <div class="shortcut-list">
-                    {#each shortcuts as shortcut (shortcut.id)}
-                      <div class="shortcut-item">
-                        <div class="shortcut-info">
-                          <div class="shortcut-description">{shortcut.description}</div>
-                          {#if shortcut.workflow}
-                            <div class="shortcut-workflow">{getWorkflowName(shortcut.workflow)}</div>
-                          {/if}
+                    {#each shortcuts as shortcut, index (getSafeShortcutKey(shortcut, index, category))}
+                      {#if shortcut && shortcut.description}
+                        <div class="shortcut-item">
+                          <div class="shortcut-info">
+                            <div class="shortcut-description">{shortcut.description}</div>
+                            {#if shortcut.workflow}
+                              <div class="shortcut-workflow">{getWorkflowName(shortcut.workflow)}</div>
+                            {/if}
+                          </div>
+                          <div class="shortcut-key">{shortcut.formattedKey || shortcut.key}</div>
                         </div>
-                        <div class="shortcut-key">{shortcut.formattedKey}</div>
-                      </div>
+                      {/if}
                     {/each}
                   </div>
                 </div>

@@ -7,7 +7,7 @@
   // Keyboard shortcuts are now handled by the unified keyboardAction.js system
   import { getZIndex } from '../constants/zIndex.js';
   import { clickOutside, windowResize, focusTrap } from '../../actions/eventHandling.js';
-    
+
   // Import unified keyboard system
   import { keyboardAction, registerShortcut, setContext, SHORTCUT_CONTEXTS } from '../actions/keyboardAction.js';
 
@@ -18,10 +18,15 @@
   import VolatilityTab from './CanvasContextMenu/tabs/VolatilityTab.svelte';
   import LayoutSizingTab from './CanvasContextMenu/tabs/LayoutSizingTab.svelte';
   import AdvancedTab from './CanvasContextMenu/tabs/AdvancedTab.svelte';
-  
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Consistent export pattern
+  export let config = defaultConfig;  // Configuration from displayStore.defaultConfig
+  export let state = {};             // Reactive state from dataProcessor
+  export let id = '';                // Unique identifier for tracking
+
+  // Legacy props for backward compatibility
   export let position = { x: 0, y: 0 };
   export let canvasId = null;
-  export let config = defaultConfig;
   
   const dispatch = createEventDispatcher();
   
@@ -252,8 +257,42 @@
     }, 0);
   }
 
-  // Register context menu shortcuts with unified system
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Initialize component with proper setup
+  function initializeComponent() {
+    // Canvas context menu initialization logic would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Setup store subscriptions if needed
+  function setupStoreSubscriptions() {
+    // Canvas context menu uses reactive bindings and event dispatcher
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Performance monitoring integration
+  function startPerformanceMonitoring() {
+    // Canvas context menu performance monitoring would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Cleanup component resources
+  function cleanupComponent() {
+    // Canvas context menu cleanup logic would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Unsubscribe from stores
+  function unsubscribeStores() {
+    // Canvas context menu uses reactive bindings, no manual unsubscription needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Stop performance monitoring
+  function stopPerformanceMonitoring() {
+    // Canvas context menu performance monitoring cleanup would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Mount lifecycle
   onMount(() => {
+    initializeComponent();
+    setupStoreSubscriptions();
+    startPerformanceMonitoring();
+
     // Set keyboard context to context-menu
     setContext(SHORTCUT_CONTEXTS.CONTEXT_MENU);
 
@@ -269,6 +308,13 @@
         stopPropagation: true
       });
     });
+  });
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Destroy lifecycle
+  onDestroy(() => {
+    cleanupComponent();
+    unsubscribeStores();
+    stopPerformanceMonitoring();
   });
 
   // Context for child components

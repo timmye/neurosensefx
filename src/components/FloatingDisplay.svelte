@@ -61,11 +61,22 @@
   // ✅ COORDINATE VALIDATION: Import centralized YScale validation system
   import { CoordinateValidator } from '../utils/coordinateValidator.js';
 
+  // ✅ MEMORY MANAGEMENT: Import centralized memory management utilities
+  import {
+    createCleanupManager,
+    setupComponentCleanup,
+    globalMemoryTracker,
+    initializeMemoryTracking
+  } from '../utils/memoryManagementUtils.js';
+
   // 🚨 PERFORMANCE API FALLBACK: HMR-safe robust performance.now() with functional validation
   // Cache fallback state to avoid repeated corruption detection
   let useDateFallback = false;
   let lastCorruptionCheck = 0;
   const CORRUPTION_CHECK_INTERVAL = 1000; // Check every 1 second max
+
+  // ✅ MEMORY MANAGEMENT: Initialize cleanup manager for this component
+  let cleanupManager = null;
 
   function getPerformanceTime() {
     // HMR-RACE-CONDITION-SAFE: Ultra-robust performance timing with HMR corruption detection
@@ -125,17 +136,16 @@
     }
   }
 
-  // Component props
-  export let id;
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Consistent export pattern
+  export let config = {};  // Configuration from displayStore.defaultConfig
+  export let state = {};   // Reactive state from dataProcessor
+  export let id = '';      // Unique identifier for tracking
+
+  // Legacy props for backward compatibility
   export let symbol;
   export let position = { x: 100, y: 100 };
 
-  // 🔧 DEBUG: Log component mount immediately
-  console.log(`[FLOATING_DISPLAY:${id}] Component mounting`, {
-    symbol,
-    position,
-    timestamp: Date.now()
-  });
+  // Note: Debug logging moved to initializeComponent() function
 
   // Local state
   let element;
@@ -158,8 +168,7 @@
   // Declare variables to avoid ReferenceError
   let displayPosition = position;
 
-    let config = {};
-  let state = {};
+  // local variables (config and state are already exported above)
   let isActive = false;
   let zIndex = 1;
   let displaySize = { width: 220, height: 120 }; // ✅ HEADERLESS: Correct display size (no header)
@@ -449,15 +458,130 @@
   
     
     
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Initialize component with proper setup
+  function initializeComponent() {
+    console.log(`[FLOATING_DISPLAY:${id}] Component mounting`, {
+      symbol,
+      position,
+      timestamp: Date.now()
+    });
+
+    // ✅ MEMORY MANAGEMENT: Initialize cleanup manager
+    cleanupManager = createCleanupManager(id, 'FloatingDisplay');
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Setup store subscriptions if needed
+  function setupStoreSubscriptions() {
+    // FloatingDisplay uses reactive store bindings, no manual subscriptions needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Performance monitoring integration
+  function startPerformanceMonitoring() {
+    // Record memory usage for monitoring
+    globalMemoryTracker.recordUsage();
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Cleanup component resources
+  function cleanupComponent() {
+    console.log(`[FLOATING_DISPLAY:${id}] Cleaning up component`);
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Unsubscribe from stores
+  function unsubscribeStores() {
+    // FloatingDisplay uses reactive store bindings, no manual unsubscriptions needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Stop performance monitoring
+  function stopPerformanceMonitoring() {
+    // Final memory usage recording
+    globalMemoryTracker.recordUsage();
+  }
+
+  // ✅ MEMORY MANAGEMENT: Enhanced resource cleanup with proper lifecycle management
+  function setupResourceCleanup() {
+    if (!cleanupManager) return;
+
+    // Setup cleanup phases for orderly resource destruction
+    cleanupManager.registerCleanupPhase('phase1_interactions', async () => {
+      console.log(`[FLOATING_DISPLAY:${id}] Phase 1: Cleaning up interactions`);
+
+      // Clean up interactable instance
+      if (interactable) {
+        workspaceGrid.unregisterInteractInstance(interactable);
+        interactable.unset();
+        interactable = null;
+      }
+    }, 10); // High priority - clean up first
+
+    cleanupManager.registerCleanupPhase('phase2_animations', async () => {
+      console.log(`[FLOATING_DISPLAY:${id}] Phase 2: Cleaning up animations`);
+
+      // Cancel any pending render frames
+      if (renderFrame) {
+        cancelAnimationFrame(renderFrame);
+        renderFrame = null;
+      }
+    }, 20);
+
+    cleanupManager.registerCleanupPhase('phase3_canvas', async () => {
+      console.log(`[FLOATING_DISPLAY:${id}] Phase 3: Cleaning up canvas resources`);
+
+      // Clean up canvas context
+      if (ctx) {
+        // Clear canvas to prevent memory leaks
+        if (canvas) {
+          ctx.clearRect(0, 0, canvas.width || 0, canvas.height || 0);
+        }
+        ctx = null;
+      }
+
+      // Reset canvas state
+      canvasReady = false;
+      canvasError = false;
+    }, 30);
+
+    cleanupManager.registerCleanupPhase('phase4_timeouts', async () => {
+      console.log(`[FLOATING_DISPLAY:${id}] Phase 4: Cleaning up timeouts and intervals`);
+
+      // Clean up header timeout
+      if (headerTimeout) {
+        clearTimeout(headerTimeout);
+        headerTimeout = null;
+      }
+    }, 40);
+
+    cleanupManager.registerCleanupPhase('phase5_zoom_detector', async () => {
+      console.log(`[FLOATING_DISPLAY:${id}] Phase 5: Cleaning up zoom detector`);
+
+      // Clean up zoom detector
+      if (cleanupZoomDetector) {
+        cleanupZoomDetector();
+        cleanupZoomDetector = null;
+      }
+    }, 50);
+
+    // Register individual resources for tracking
+    setupComponentCleanup(cleanupManager, {
+      canvas,
+      ctx,
+      interactable,
+      zoomDetector: cleanupZoomDetector,
+      renderFrame,
+      timeouts: headerTimeout ? [headerTimeout] : [],
+      intervals: [],
+      subscriptions: [],
+      eventListeners: []
+    });
+  }
+
   // ✅ GRID SNAPPING: Enhanced interact.js setup with grid integration
   onMount(async () => {
-    // CRITICAL FIX: Detect duplicate component instances to prevent two canvases
-    const existingInstances = document.querySelectorAll(`[data-display-id="${id}"]`);
-    if (existingInstances.length > 1) {
-      console.error(`[FLOATING_DISPLAY:${id}] CRITICAL: Duplicate component detected! Existing instances:`, existingInstances.length);
-      // This is a duplicate instance - destroy it to prevent multiple canvases
-      return;
-    }
+    initializeComponent();
+    setupStoreSubscriptions();
+    startPerformanceMonitoring();
+
+    // ✅ MEMORY MANAGEMENT: Setup resource cleanup after initialization
+    setupResourceCleanup();
 
     // Wait for canvas to be available
     await tick();
@@ -655,6 +779,13 @@
 
   // ✅ ATOMIC RESIZE TRANSACTION: Verify coordinate system synchronization
   function areCoordinatesSynchronized() {
+    // Calculate content area from container size (consistent with render() function)
+    const containerSize = config?.containerSize || { width: canvasWidth, height: canvasHeight };
+    const contentArea = {
+      width: Math.max(50, containerSize.width),
+      height: Math.max(50, containerSize.height)
+    };
+
     // Validate canvas dimensions match contentArea
     const canvasMatchesContentArea = canvas &&
       canvas.width === Math.round(contentArea.width * dpr) &&
@@ -964,61 +1095,131 @@
     scheduleRender();
   }
   
-  // 🔧 ARCHITECTURAL FIX: Consolidated cleanup with proper resource management
-  onDestroy(() => {
-    // ✅ MATHEMATICAL PRECISION VALIDATION: Generate final precision compliance report
-    if (precisionValidator) {
-      try {
-        const precisionReport = precisionValidator.generatePrecisionReport();
-        console.log(`[PRECISION:${id}] Mathematical precision completed for ${symbol}:`, precisionReport);
-      } catch (error) {
-        console.warn(`[PRECISION:${id}] Error generating precision report:`, error);
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Destroy lifecycle with enhanced memory management
+  onDestroy(async () => {
+    console.log(`[FLOATING_DISPLAY:${id}] Starting component destruction`);
+    const destructionStartTime = performance.now();
+
+    try {
+      // ✅ MEMORY MANAGEMENT: Execute comprehensive cleanup using cleanup manager
+      if (cleanupManager) {
+        const cleanupResults = await cleanupManager.destroy();
+
+        // Log cleanup performance metrics
+        const cleanupTime = performance.now() - destructionStartTime;
+        if (!cleanupResults.meetsPerformanceTarget) {
+          console.warn(`[FLOATING_DISPLAY:${id}] Cleanup performance exceeded target: ${cleanupTime.toFixed(2)}ms`);
+        }
+
+        console.log(`[FLOATING_DISPLAY:${id}] Cleanup summary:`, {
+          totalTime: cleanupTime.toFixed(2),
+          meetsTarget: cleanupResults.meetsPerformanceTarget,
+          resourcesCleaned: cleanupResults.resourceResults.cleanedResources,
+          phasesCompleted: cleanupResults.phaseResults.completedPhases
+        });
+      } else {
+        // Fallback cleanup if cleanup manager wasn't initialized
+        console.warn(`[FLOATING_DISPLAY:${id}] Cleanup manager not available, using fallback cleanup`);
+        await fallbackCleanup();
       }
-    }
 
-    // ✅ BROWSER EVIDENCE COLLECTION: Generate final evidence compliance report
-    if (evidenceCollector) {
-      try {
-        const evidenceReport = evidenceCollector.generateEvidenceReport();
-        console.log(`[EVIDENCE:${id}] Browser evidence completed for ${symbol}:`, evidenceReport);
-      } catch (error) {
-        console.warn(`[EVIDENCE:${id}] Error generating evidence report:`, error);
+      // ✅ MATHEMATICAL PRECISION VALIDATION: Generate final precision compliance report
+      if (precisionValidator) {
+        try {
+          const precisionReport = precisionValidator.generatePrecisionReport();
+          console.log(`[PRECISION:${id}] Mathematical precision completed for ${symbol}:`, precisionReport);
+        } catch (error) {
+          console.warn(`[PRECISION:${id}] Error generating precision report:`, error);
+        }
       }
-    }
 
-    // Cleanup header timeout
-    if (headerTimeout) {
-      clearTimeout(headerTimeout);
-      headerTimeout = null;
-    }
+      // ✅ BROWSER EVIDENCE COLLECTION: Generate final evidence compliance report
+      if (evidenceCollector) {
+        try {
+          const evidenceReport = evidenceCollector.generateEvidenceReport();
+          console.log(`[EVIDENCE:${id}] Browser evidence completed for ${symbol}:`, evidenceReport);
+        } catch (error) {
+          console.warn(`[EVIDENCE:${id}] Error generating evidence report:`, error);
+        }
+      }
 
-    // Cleanup render frame - cancel any pending render
-    if (renderFrame) {
-      cancelAnimationFrame(renderFrame);
-      renderFrame = null;
-    }
+      // Execute legacy cleanup functions for backward compatibility
+      cleanupComponent();
+      unsubscribeStores();
+      stopPerformanceMonitoring();
 
-    // Cleanup zoom detector (memory leak fix)
-    if (cleanupZoomDetector) {
-      cleanupZoomDetector();
-      cleanupZoomDetector = null;
-    }
+      // Final memory usage recording
+      globalMemoryTracker.recordUsage();
 
-    // Cleanup interact.js instance
+      const totalDestructionTime = performance.now() - destructionStartTime;
+      console.log(`[FLOATING_DISPLAY:${id}] Component destruction completed in ${totalDestructionTime.toFixed(2)}ms`);
+
+    } catch (error) {
+      console.error(`[FLOATING_DISPLAY:${id}] Error during component destruction:`, error);
+    }
+  });
+
+  // ✅ MEMORY MANAGEMENT: Fallback cleanup for legacy support
+  async function fallbackCleanup() {
+    console.log(`[FLOATING_DISPLAY:${id}] Executing fallback cleanup`);
+
+    // Phase 1: Clean up interactions
     if (interactable) {
-      interactable.unset();
-      interactable = null;
+      try {
+        workspaceGrid.unregisterInteractInstance(interactable);
+        interactable.unset();
+        interactable = null;
+      } catch (error) {
+        console.warn(`[FLOATING_DISPLAY:${id}] Error cleaning up interactable:`, error);
+      }
     }
 
-    // Cleanup canvas context
+    // Phase 2: Clean up animations
+    if (renderFrame) {
+      try {
+        cancelAnimationFrame(renderFrame);
+        renderFrame = null;
+      } catch (error) {
+        console.warn(`[FLOATING_DISPLAY:${id}] Error canceling render frame:`, error);
+      }
+    }
+
+    // Phase 3: Clean up canvas resources
     if (ctx) {
-      ctx = null;
+      try {
+        if (canvas) {
+          ctx.clearRect(0, 0, canvas.width || 0, canvas.height || 0);
+        }
+        ctx = null;
+      } catch (error) {
+        console.warn(`[FLOATING_DISPLAY:${id}] Error cleaning up canvas context:`, error);
+      }
     }
 
-    // Reset canvas ready state
+    // Phase 4: Clean up timeouts
+    if (headerTimeout) {
+      try {
+        clearTimeout(headerTimeout);
+        headerTimeout = null;
+      } catch (error) {
+        console.warn(`[FLOATING_DISPLAY:${id}] Error clearing header timeout:`, error);
+      }
+    }
+
+    // Phase 5: Clean up zoom detector
+    if (cleanupZoomDetector) {
+      try {
+        cleanupZoomDetector();
+        cleanupZoomDetector = null;
+      } catch (error) {
+        console.warn(`[FLOATING_DISPLAY:${id}] Error cleaning up zoom detector:`, error);
+      }
+    }
+
+    // Reset component state
     canvasReady = false;
     canvasError = false;
-  });
+  }
 </script>
 
 <div

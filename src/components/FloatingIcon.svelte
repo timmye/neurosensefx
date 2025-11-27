@@ -5,11 +5,14 @@
   // ✅ INTERACT.JS: Import interact.js for drag
   import interact from 'interactjs';
   
-  // Component props
-  export let id;
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Consistent export pattern
+  export let config = {};  // Configuration from displayStore.defaultConfig
+  export let state = {};   // Reactive state from dataProcessor
+  export let id = '';      // Unique identifier for tracking
+
+  // Legacy props for backward compatibility
   export let type;
   export let position = { x: 20, y: 20 };
-  export let config = {};
   export let title = config?.title || type; // Add title prop with fallback
   
   // Local state
@@ -68,8 +71,43 @@
     displayActions.showContextMenu(e.clientX, e.clientY, id, 'icon', context);
   }
   
-  // ✅ ULTRA-MINIMAL: Simple interact.js setup
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Initialize component with proper setup
+  function initializeComponent() {
+    console.log(`[FLOATING_ICON] Initializing icon ${id} of type ${type}`);
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Setup store subscriptions if needed
+  function setupStoreSubscriptions() {
+    // Icon-specific store subscriptions would go here if needed
+    // Currently using reactive store bindings ($icons)
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Performance monitoring integration
+  function startPerformanceMonitoring() {
+    // Icon-specific performance monitoring would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Cleanup component resources
+  function cleanupComponent() {
+    console.log(`[FLOATING_ICON] Cleaning up icon ${id}`);
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Unsubscribe from stores
+  function unsubscribeStores() {
+    // Icon-specific store unsubscriptions would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Stop performance monitoring
+  function stopPerformanceMonitoring() {
+    // Icon-specific performance monitoring cleanup would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Mount lifecycle
   onMount(() => {
+    initializeComponent();
+    setupStoreSubscriptions();
+    startPerformanceMonitoring();
+
     console.log(`[FLOATING_ICON] Mounting icon ${id} of type ${type}`);
 
     // ✅ INTERACT.JS: Ultra-minimal setup with proper drag tracking
@@ -108,13 +146,20 @@
 
       // Remove the conflicting tap event - we'll handle clicks with native mouse events
     }
-    
+
     return () => {
       // ✅ CLEANUP: Simple interact.js cleanup
       if (element) {
         interact(element).unset();
       }
     };
+  });
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Destroy lifecycle
+  onDestroy(() => {
+    cleanupComponent();
+    unsubscribeStores();
+    stopPerformanceMonitoring();
   });
   
   // Show/hide based on visibility

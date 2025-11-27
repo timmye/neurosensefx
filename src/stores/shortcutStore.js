@@ -16,7 +16,8 @@ import DEFAULT_SHORTCUTS, {
 	sortShortcutsByPriority,
 	formatKeyForDisplay
 } from '../utils/shortcutConfig.js';
-import { displayStore, icons, displayActions } from './displayStore.js';
+import { displayStore, icons, displayActions, panels } from './displayStore.js';
+import { displayStateStore, displayStateActions } from './displayStateStore.js';
 import { workspacePersistenceManager } from '../utils/workspacePersistence.js';
 
 // === COMPREHENSIVE DEBUG LOGGING SYSTEM ===
@@ -71,10 +72,11 @@ export const activeShortcuts = derived(
 	[shortcutStore, displayStore],
 	([$shortcutStore, $displayStore]) => {
 		const context = determineActiveContext($displayStore);
-		return Object.values($shortcutStore.shortcuts)
-			.filter(shortcut => isShortcutActive(shortcut, context))
-			.map(shortcut => ({
+		return Object.entries($shortcutStore.shortcuts)
+			.filter(([id, shortcut]) => isShortcutActive(shortcut, context))
+			.map(([id, shortcut]) => ({
 				...shortcut,
+				id, // ✅ CRITICAL FIX: Include the shortcut ID to prevent undefined keys
 				formattedKey: formatKeyForDisplay(typeof shortcut.key === 'string' ? shortcut.key : '')
 			}));
 	}
@@ -87,12 +89,13 @@ export const shortcutsByCategory = derived(
 	shortcutStore,
 	($shortcutStore) => {
 		const categories = {};
-		Object.values($shortcutStore.shortcuts).forEach(shortcut => {
+		Object.entries($shortcutStore.shortcuts).forEach(([id, shortcut]) => {
 			if (!categories[shortcut.category]) {
 				categories[shortcut.category] = [];
 			}
 			categories[shortcut.category].push({
 				...shortcut,
+				id, // ✅ CRITICAL FIX: Include the shortcut ID to prevent undefined keys
 				formattedKey: formatKeyForDisplay(typeof shortcut.key === 'string' ? shortcut.key : '')
 			});
 		});
@@ -119,11 +122,12 @@ export const shortcutsByWorkflow = derived(
 			system: []
 		};
 
-		Object.values($shortcutStore.shortcuts).forEach(shortcut => {
+		Object.entries($shortcutStore.shortcuts).forEach(([id, shortcut]) => {
 			const workflow = shortcut.workflow || 'system';
 			if (workflows[workflow]) {
 				workflows[workflow].push({
 					...shortcut,
+					id, // ✅ CRITICAL FIX: Include the shortcut ID to prevent undefined keys
 					formattedKey: formatKeyForDisplay(typeof shortcut.key === 'string' ? shortcut.key : '')
 				});
 			}
@@ -166,11 +170,23 @@ export async function initializeShortcuts() {
 		// First initialize the core keyboard system with document backup
 		await initializeKeyboardSystem();
 
+		debugLog('🔧 Phase 1.5: Verifying display store initialization');
+		// 🔧 CRITICAL FIX: Ensure display stores are properly initialized before registering shortcuts
+		const $displayStateStore = get(displayStateStore);
+		if (!$displayStateStore || !$displayStateStore.displays) {
+			debugLog('❌ Display state store not available during shortcut initialization', {
+				hasStore: !!$displayStateStore,
+				hasDisplays: !!$displayStateStore?.displays
+			}, 'ERROR');
+			// Don't throw error - continue with initialization but display switching may not work
+		}
+
 		const $shortcutStore = get(shortcutStore);
 		debugLog('📊 Current shortcut store state', {
 			shortcutsCount: Object.keys($shortcutStore.shortcuts).length,
 			activeContext: $shortcutStore.activeContext,
-			isEnabled: $shortcutStore.isEnabled
+			isEnabled: $shortcutStore.isEnabled,
+			displayStoreAvailable: !!$displayStateStore?.displays
 		});
 
 		debugLog('📝 Phase 2: Registering default shortcuts with enhanced system');
@@ -293,20 +309,41 @@ function createActionForShortcut(id) {
 			const displayNumber = parseInt(id.replace('display.switch', ''));
 			action = () => {
 				debugLog('⚡ Executing display.switch action', { id, displayNumber });
-				const $displayStore = get(displayStore);
-				const displays = Array.from($displayStore.displays.values());
-				debugLog('🔍 Checking display availability', {
-					displayNumber,
-					totalDisplays: displays.length,
-					hasDisplay: !!displays[displayNumber - 1]
-				});
 
-				if (displays[displayNumber - 1]) {
-					const targetDisplayId = displays[displayNumber - 1].id;
-					debugLog('📡 Dispatching focusDisplay event', { targetDisplayId });
-					dispatchKeyboardEvent('focusDisplay', { displayId: targetDisplayId });
-				} else {
-					debugLog('⚠️ No display found for switch action', { displayNumber, availableDisplays: displays.length });
+				try {
+					// 🔧 CRITICAL FIX: Add proper error handling and fallbacks
+					const $displayStateStore = get(displayStateStore);
+
+					// Check if store is properly initialized and has displays
+					if (!$displayStateStore || !$displayStateStore.displays) {
+						debugLog('❌ Display state store not properly initialized', {
+							hasStore: !!$displayStateStore,
+							hasDisplays: !!$displayStateStore?.displays
+						});
+						return;
+					}
+
+					const displays = Array.from($displayStateStore.displays.values());
+					debugLog('🔍 Checking display availability', {
+						displayNumber,
+						totalDisplays: displays.length,
+						hasDisplay: !!displays[displayNumber - 1]
+					});
+
+					if (displays[displayNumber - 1]) {
+						const targetDisplayId = displays[displayNumber - 1].id;
+						debugLog('📡 Dispatching focusDisplay event', { targetDisplayId });
+						dispatchKeyboardEvent('focusDisplay', { displayId: targetDisplayId });
+					} else {
+						debugLog('⚠️ No display found for switch action', { displayNumber, availableDisplays: displays.length });
+					}
+				} catch (error) {
+					debugLog('❌ Error in display.switch action', {
+						id,
+						displayNumber,
+						error: error.message,
+						stack: error.stack
+					}, 'ERROR');
 				}
 			};
 			break;
@@ -540,13 +577,26 @@ function setupContextManagement() {
 
 	try {
 		debugLog('👂 Setting up display store subscription for context changes');
-		// Listen for context changes
+		// Listen for context changes - subscribe to both stores for complete context
 		displayStore.subscribe($displayStore => {
 			const newContext = determineActiveContext($displayStore);
-			debugLog('🎯 Context change detected', {
+			debugLog('🎯 Context change detected from main store', {
 				newContext,
-				focusedDisplayId: $displayStore.focusedDisplayId,
-				displayCount: $displayStore.displays?.size || 0
+				activePanelId: $displayStore.activePanelId,
+				contextMenuOpen: $displayStore.contextMenu?.open
+			});
+
+			setContext(newContext);
+			shortcutStore.update(state => ({ ...state, activeContext: newContext }));
+		});
+
+		// Also listen to displayStateStore for display focus changes
+		displayStateStore.subscribe($displayStateStore => {
+			const newContext = determineActiveContext($displayStateStore);
+			debugLog('🎯 Context change detected from display state store', {
+				newContext,
+				activeDisplayId: $displayStateStore.activeDisplayId,
+				displayCount: $displayStateStore.displays?.size || 0
 			});
 
 			setContext(newContext);
@@ -628,20 +678,22 @@ function determineActiveContext(displayState) {
 		return 'input';
 	}
 
-	// Check if we have a focused display
-	if (displayState.focusedDisplayId) {
+	// Check if we have a focused display from displayStateStore
+	const $displayStateStore = get(displayStateStore);
+	if ($displayStateStore.activeDisplayId) {
 		return 'display-focused';
 	}
 
-	// Check if symbol palette is visible
-	const symbolPalette = document.querySelector('[data-symbol-palette]');
-	if (symbolPalette && !symbolPalette.hidden) {
+	// Check if symbol palette is visible using store state
+	const currentPanels = get(panels);
+	const symbolPalettePanel = currentPanels.get('symbol-palette');
+	if (symbolPalettePanel && symbolPalettePanel.isVisible) {
 		return 'symbol-palette';
 	}
 
-	// Check if context menu is open
-	const contextMenu = document.querySelector('[data-context-menu]');
-	if (contextMenu && !contextMenu.hidden) {
+	// Check if context menu is open using store state
+	const contextMenuState = get(displayStore).contextMenu;
+	if (contextMenuState && contextMenuState.open) {
 		return 'context-menu';
 	}
 

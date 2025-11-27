@@ -1,6 +1,8 @@
 import { writable, get } from 'svelte/store';
 import { displayActions } from '../stores/displayStore.js';
 import { TickSchema, SymbolDataPackageSchema } from './schema.js';
+import { wsErrorHandler, createWebSocketConnection } from '../utils/websocketErrorHandler.js';
+import { withErrorBoundary, withAsyncErrorBoundary } from '../utils/errorBoundaryUtils.js';
 
 export const wsStatus = writable('disconnected');
 export const availableSymbols = writable([]);
@@ -69,66 +71,75 @@ let retryDelay = 1000; // Start with 1 second
 let retryTimeout = null;
 
 export function connect() {
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-        return;
-    }
+    return withAsyncErrorBoundary(async () => {
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+            return;
+        }
 
-    // Clear any existing retry timeout
-    if (retryTimeout) {
-        clearTimeout(retryTimeout);
-        retryTimeout = null;
-    }
+        // Clear any existing retry timeout
+        if (retryTimeout) {
+            clearTimeout(retryTimeout);
+            retryTimeout = null;
+        }
 
-    attemptConnection();
+        await attemptConnection();
+    }, null, 'WebSocketConnect')();
 }
 
-function attemptConnection() {
+async function attemptConnection() {
     // WebSocket connection initiated
     wsStatus.set('ws-connecting');
     console.log(`[wsClient] Connection attempt ${retryCount + 1}/${maxRetries} to ${WS_URL}`);
 
     try {
-        ws = new WebSocket(WS_URL);
-        ws.onopen = () => {
+        // Use error handler for connection
+        ws = await wsErrorHandler.connect(WS_URL);
+
+        // Set up event handlers with error boundaries
+        ws.onopen = withErrorBoundary(() => {
             console.log('[wsClient] WebSocket connected successfully');
             retryCount = 0; // Reset retry count on successful connection
             startConnectionMonitor();
-        };
-        ws.onmessage = (event) => {
-            const rawData = JSON.parse(event.data);
-            handleSocketMessage(rawData);
-        };
-        ws.onclose = (event) => {
+        }, null, 'WebSocketOpen');
+
+        ws.onmessage = withErrorBoundary((event) => {
+            wsErrorHandler.handleData(event.data, handleSocketMessage);
+        }, null, 'WebSocketMessage');
+
+        ws.onclose = withErrorBoundary((event) => {
             console.log(`[wsClient] WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
             stopConnectionMonitor();
             ws = null;
 
             if (get(wsStatus) !== 'error') {
                 wsStatus.set('disconnected');
-                // Schedule retry if not intentionally closed and under retry limit
-                if (event.code !== 1000 && retryCount < maxRetries) {
+                // Let the error handler manage reconnection
+                // Only schedule retry if error handler doesn't handle it
+                if (event.code !== 1000 && retryCount < maxRetries && wsErrorHandler.getStatus().state !== 'RECONNECTING') {
                     scheduleRetry();
                 }
             }
-        };
-        ws.onerror = (err) => {
+        }, null, 'WebSocketClose');
+
+        ws.onerror = withErrorBoundary((err) => {
             console.error('[wsClient] WebSocket Error:', err);
             stopConnectionMonitor();
             if (ws) ws.close(); // Ensure close is called on error
             wsStatus.set('error'); // Set status to error on connection failure
 
-            // Schedule retry if under retry limit
-            if (retryCount < maxRetries) {
+            // Let the error handler manage reconnection
+            if (retryCount < maxRetries && wsErrorHandler.getStatus().state !== 'RECONNECTING') {
                 scheduleRetry();
             }
-        };
+        }, null, 'WebSocketError');
+
     } catch (e) {
         console.error('[wsClient] Failed to create WebSocket:', e);
         ws = null;
         wsStatus.set('error'); // Set status to error on creation failure
 
-        // Schedule retry if under retry limit
-        if (retryCount < maxRetries) {
+        // Schedule retry if under retry limit and error handler isn't handling it
+        if (retryCount < maxRetries && wsErrorHandler.getStatus().state !== 'RECONNECTING') {
             scheduleRetry();
         }
     }

@@ -14,6 +14,16 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
       import symbolService from './services/symbolService.js';
   import { Environment, EnvironmentConfig, initializeEnvironment, getEnvironmentInfo } from './lib/utils/environmentUtils.js';
 
+  // Error Boundary Components
+  import ErrorBoundary from './components/shared/ErrorBoundary.svelte';
+  import TradingWorkflowErrorBoundary from './components/shared/TradingWorkflowErrorBoundary.svelte';
+  import UserErrorExperience from './components/shared/UserErrorExperience.svelte';
+  import { withErrorBoundary, withAsyncErrorBoundary } from './utils/errorBoundaryUtils.js';
+
+  // ✅ LAZY LOADING: Production build optimization for heavy components
+  import { initializeVisualizationPreloading } from './lib/viz/LazyVisualizationManager.js';
+  // import { preloadCriticalComponents } from './components/lazy/componentLoaders.js'; // Temporarily disabled due to Vite issues
+
   
   // 📝 Window Type Extension: contextMenuRef will be available globally
   
@@ -105,13 +115,6 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
     setTimeout(() => {
       if (symbolPaletteRef && symbolPaletteRef.focusSearch) {
         symbolPaletteRef.focusSearch();
-      } else {
-        // Fallback: find search input directly
-        const searchInput = document.querySelector('.search-input');
-        if (searchInput) {
-          searchInput.focus();
-          searchInput.select();
-        }
       }
     }, 600); // Increased from 300ms to 600ms
   }
@@ -135,6 +138,8 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
   
   // Initialize displays on mount with enhanced sequential initialization
   onMount(async () => {
+    console.log('[APP] Starting initialization with error boundary protection...');
+
     try {
       // ⌨️ KEYBOARD SHORTCUTS: Enhanced sequential initialization
       console.log('[APP] Starting enhanced keyboard system initialization...');
@@ -170,6 +175,21 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
         }
       } else {
         console.warn('[APP] Environment initialization failed:', envInit);
+      }
+
+      // 🚀 PRODUCTION OPTIMIZATION: Initialize lazy loading and preloading
+      if (!Environment.isDevelopment) {
+        console.log('[APP] Initializing production lazy loading...');
+
+        // Preload critical components after initial render
+        // setTimeout(() => {
+        //   preloadCriticalComponents().catch(error => {
+        //     console.warn('[APP] Critical component preloading failed:', error);
+        //   });
+        // }, 500); // Temporarily disabled due to Vite issues
+
+        // Initialize visualization preloading
+        initializeVisualizationPreloading();
       }
 
       // Initialize workspace from persisted data first
@@ -221,6 +241,8 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
         }
       } catch (fallbackError) {
         console.error('[APP] Fallback display creation also failed:', fallbackError);
+        // Emergency fallback - create minimal working state
+        console.warn('[APP] Emergency fallback activated - minimal functionality mode');
       }
     }
 
@@ -240,116 +262,150 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
 
     // REMOVED: KEYBOARD SHORTCUTS: Add event listeners for custom shortcut events - conflicting system
 // Keyboard shortcuts are now handled by the unified keyboardAction.js system
+  }));
 
-  });
 
-
-  // Handle workspace right-click
+  // Handle workspace right-click with error boundary
   function handleWorkspaceContextMenu(e) {
-    if (e.target === e.currentTarget) {
-      e.preventDefault();
-      
-      // Use unified context menu system
-      const context = {
-        type: 'workspace',
-        targetId: null,
-        targetType: 'workspace'
-      };
-      
-      displayActions.showContextMenu(e.clientX, e.clientY, null, 'workspace', context);
-    }
+    return withErrorBoundary(() => {
+      if (e.target === e.currentTarget) {
+        e.preventDefault();
+
+        // Use unified context menu system
+        const context = {
+          type: 'workspace',
+          targetId: null,
+          targetType: 'workspace'
+        };
+
+        displayActions.showContextMenu(e.clientX, e.clientY, null, 'workspace', context);
+      }
+    }, null, 'handleWorkspaceContextMenu')(e);
   }
 </script>
 
 
-<main use:keyboardAction>
-  <!-- Workspace Background -->
-  <div
-    class="workspace"
-    on:contextmenu={handleWorkspaceContextMenu}
-  >
-    <!-- 🌍 Global Environment Indicator -->
-    {#if showGlobalEnvironmentIndicator && environmentInfo}
-      <div class="global-environment-indicator" class:env-dev={Environment.isDevelopment} class:env-prod={Environment.isProduction}>
-        <div class="env-icon">
-          {Environment.isDevelopment ? '🔧' : '🚀'}
-        </div>
-        <div class="env-text">
-          <span class="env-mode">{Environment.current.toUpperCase()}</span>
-          {#if Environment.isDevelopment}
-            <span class="env-details">DEV MODE</span>
+<TradingWorkflowErrorBoundary criticalMode={true} workflowName="Main Application">
+  <main use:keyboardAction>
+    <!-- Workspace Background -->
+    <div
+      class="workspace"
+      on:contextmenu={handleWorkspaceContextMenu}
+    >
+      <!-- 🌍 Global Environment Indicator -->
+      {#if showGlobalEnvironmentIndicator && environmentInfo}
+        <div class="global-environment-indicator" class:env-dev={Environment.isDevelopment} class:env-prod={Environment.isProduction}>
+          <div class="env-icon">
+            {Environment.isDevelopment ? '🔧' : '🚀'}
+          </div>
+          <div class="env-text">
+            <span class="env-mode">{Environment.current.toUpperCase()}</span>
+            {#if Environment.isDevelopment}
+              <span class="env-details">DEV MODE</span>
+            {/if}
+          </div>
+          {#if Environment.isDevelopment && EnvironmentConfig.current.debugLogging}
+            <div class="env-debug-indicator" title="Debug Logging Enabled"></div>
           {/if}
         </div>
-        {#if Environment.isDevelopment && EnvironmentConfig.current.debugLogging}
-          <div class="env-debug-indicator" title="Debug Logging Enabled"></div>
-        {/if}
-      </div>
-    {/if}
-  </div>
+      {/if}
+    </div>
   
       <!-- Floating Icons (Layer 3) - DEFENSIVE: Only iterate if iconList exists -->
       {#if iconList?.length > 0}
-        {#each iconList as icon (icon.id)}
-        <FloatingIcon
-          id={icon.id}
-          type={icon.type}
-          position={icon.position}
-          config={icon.config}
-          title={icon.config?.title}
-          on:toggleExpansion={(e) => {
-            const { id, isExpanded } = e.detail;
-            if (isExpanded) {
-              displayActions.expandIcon(id);
-            } else {
-              displayActions.collapseIcon(id);
-            }
-          }}
-        >
-          {#if icon.type === 'status-icon'}
-            <StatusIcon />
-          {/if}
-        </FloatingIcon>
-      {/each}
+        <ErrorBoundary errorMessage="Failed to load floating icons" fallbackComponent={null}>
+          {#each iconList as icon (icon.id)}
+            <ErrorBoundary
+              errorMessage={`Failed to load icon: ${icon.type}`}
+              showRetry={true}
+            >
+              <FloatingIcon
+                id={icon.id}
+                type={icon.type}
+                position={icon.position}
+                config={icon.config}
+                title={icon.config?.title}
+                on:toggleExpansion={(e) => {
+                  const { id, isExpanded } = e.detail;
+                  if (isExpanded) {
+                    displayActions.expandIcon(id);
+                  } else {
+                    displayActions.collapseIcon(id);
+                  }
+                }}
+              >
+                {#if icon.type === 'status-icon'}
+                  <ErrorBoundary errorMessage="Status icon unavailable">
+                    <StatusIcon />
+                  </ErrorBoundary>
+                {/if}
+              </FloatingIcon>
+            </ErrorBoundary>
+          {/each}
+        </ErrorBoundary>
       {/if}
 
   <!-- Floating Displays (Layer 1) - DEFENSIVE: Only iterate if displayList exists -->
   {#if displayList?.length > 0}
-    {#each displayList as display (display.id)}
-    <FloatingDisplay 
-      id={display.id}
-      symbol={display.symbol}
-      position={display.position}
-    />
-    {/each}
+    <ErrorBoundary errorMessage="Failed to load trading displays" fallbackComponent={null}>
+      {#each displayList as display (display.id)}
+        <ErrorBoundary
+          errorMessage={`Failed to load display: ${display.symbol}`}
+          showRetry={true}
+        >
+          <FloatingDisplay
+            id={display.id}
+            symbol={display.symbol}
+            position={display.position}
+          />
+        </ErrorBoundary>
+      {/each}
+    </ErrorBoundary>
   {/if}
 
   <!-- Symbol Palette (Layer 2) - DEFENSIVE: Only iterate if panelList exists -->
   {#if panelList?.length > 0}
-    {#each panelList as panel (panel.id)}
-      {#if panel.id === 'symbol-palette'}
-        <SymbolPalette bind:this={symbolPaletteRef} />
-      {/if}
-    {/each}
+    <ErrorBoundary errorMessage="Failed to load panels" fallbackComponent={null}>
+      {#each panelList as panel (panel.id)}
+        {#if panel.id === 'symbol-palette'}
+          <ErrorBoundary errorMessage="Symbol palette unavailable" showRetry={true}>
+            <SymbolPalette bind:this={symbolPaletteRef} />
+          </ErrorBoundary>
+        {/if}
+      {/each}
+    </ErrorBoundary>
   {/if}
 
   <!-- Status Panel (Layer 2 - Expanded when icon is clicked) - DEFENSIVE: Only iterate if panelList exists -->
   {#if panelList?.length > 0}
-    {#each panelList as panel (panel.id)}
-    {#if panel.id === 'status-panel'}
-      <StatusPanel position={panel.position} config={panel.config} isFromIconExpansion={true} />
-    {/if}
-    {/each}
+    <ErrorBoundary errorMessage="Failed to load status panels" fallbackComponent={null}>
+      {#each panelList as panel (panel.id)}
+        {#if panel.id === 'status-panel'}
+          <ErrorBoundary errorMessage="Status panel unavailable" showRetry={true}>
+            <StatusPanel position={panel.position} config={panel.config} isFromIconExpansion={true} />
+          </ErrorBoundary>
+        {/if}
+      {/each}
+    </ErrorBoundary>
   {/if}
 
   <!-- Unified Context Menu (Layer 4) -->
-  <UnifiedContextMenu bind:this={contextMenuRef} />
+  <ErrorBoundary errorMessage="Context menu unavailable">
+    <UnifiedContextMenu bind:this={contextMenuRef} />
+  </ErrorBoundary>
 
   <!-- Keyboard Shortcut Help Overlay (Layer 5) -->
-  <ShortcutHelp />
+  <ErrorBoundary errorMessage="Keyboard help unavailable">
+    <ShortcutHelp />
+  </ErrorBoundary>
 
-  
+  <!-- User Error Experience (Global Error Notifications) -->
+  <ErrorBoundary errorMessage="Error notifications unavailable">
+    <UserErrorExperience />
+  </ErrorBoundary>
 
 </main>
+</TradingWorkflowErrorBoundary>
 
 <style>
   :global(body) {

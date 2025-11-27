@@ -123,19 +123,24 @@ export function drawDayRangeMeter(ctx, renderingContext, config, state, y) {
 }
 
 /**
- * Draw ADR Axis - Core meter element with crisp 1px rendering
+ * Draw ADR Axis - Core meter element with enhanced DPR-aware crisp rendering
  */
 function drawAdrAxis(ctx, contentArea, adrAxisX, state, priceToY) {
-  // Configure for crisp 1px lines
-  ctx.save();
-  ctx.translate(0.5, 0.5); // Sub-pixel alignment for crispness
+  // Get DPR information for crisp rendering (if available)
+  const dpr = ctx.getTransform ? ctx.getTransform().a || 1 : 1;
 
-  // Main ADR axis line
+  // Configure for DPR-aware crisp 1px lines
+  ctx.save();
+
+  // Apply sub-pixel translation for crisp rendering
+  ctx.translate(0.5 / dpr, 0.5 / dpr);
+
+  // Main ADR axis line with DPR-optimized width
   ctx.strokeStyle = '#4B5563'; // Neutral gray
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1 / dpr; // Scale line width for crisp rendering
   ctx.beginPath();
-  ctx.moveTo(adrAxisX, 0);
-  ctx.lineTo(adrAxisX, contentArea.height);
+  ctx.moveTo(Math.round(adrAxisX), 0);
+  ctx.lineTo(Math.round(adrAxisX), Math.round(contentArea.height));
   ctx.stroke();
 
   // 🔧 CRITICAL FIX: Use reactive coordinate transformation for center line
@@ -167,12 +172,13 @@ function drawAdrAxis(ctx, contentArea, adrAxisX, state, priceToY) {
   // Ensure center line is within reasonable bounds
   centerY = Math.max(-50, Math.min(contentArea.height + 50, centerY));
 
-  // Draw the center reference line with reactive positioning
+  // Draw the center reference line with reactive positioning and DPR optimization
   ctx.strokeStyle = '#6B7280'; // Lighter gray for center
-  ctx.setLineDash([2, 2]); // Dashed line for center reference
+  ctx.lineWidth = 1 / dpr; // Scale line width for crisp rendering
+  ctx.setLineDash([2 / dpr, 2 / dpr]); // Scale dash pattern for DPR
   ctx.beginPath();
-  ctx.moveTo(0, centerY);
-  ctx.lineTo(contentArea.width, centerY);
+  ctx.moveTo(0, Math.round(centerY));
+  ctx.lineTo(Math.round(contentArea.width), Math.round(centerY));
   ctx.stroke();
   ctx.setLineDash([]); // Reset dash pattern
 

@@ -8,6 +8,7 @@
     "dev:prod": "NODE_ENV=production vite --mode production",
     "build": "vite build",
     "build:prod": "NODE_ENV=production vite build --mode production",
+    "build:validate": "node scripts/build-production.js",
     "preview": "vite preview --mode production --port 4173",
     "preview:dev": "vite preview --mode development --port 5174",
     "lint": "eslint .",
@@ -24,7 +25,15 @@
     "test:all": "npm run test:unit && npm run test:e2e",
     "test:install": "playwright install chromium firefox webkit",
     "test:cleanup": "rm -rf test-results/",
-    "test:logs": "echo 'Use npm run test:browser-logs for native browser console output.'"
+    "test:logs": "echo 'Use npm run test:browser-logs for native browser console output.'",
+    "test:performance": "playwright test tests/performance/",
+    "test:performance:regression": "playwright test tests/performance/performance-regression-testing.spec.js",
+    "test:performance:benchmarking": "playwright test tests/performance/performance-benchmarking-system.spec.js",
+    "test:performance:cicd": "playwright test tests/performance/ci-cd-performance-monitoring.spec.js",
+    "test:performance:trading": "playwright test tests/performance/trading-workflow-performance.spec.js",
+    "test:performance:production": "playwright test tests/performance/production-environment-testing.spec.js",
+    "test:performance:master": "playwright test tests/performance/performance-test-runner.spec.js",
+    "test:performance:complete": "npm run test:performance:regression && npm run test:performance:benchmarking && npm run test:performance:cicd && npm run test:performance:trading && npm run test:performance:production && npm run test:performance:master"
   },
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
@@ -44,6 +53,7 @@
     "jsdom": "^27.2.0",
     "playwright": "^1.56.1",
     "prettier": "^3.1.1",
+    "terser": "^5.44.1",
     "vite": "^5.4.19",
     "vitest": "^1.0.0"
   }

@@ -1,15 +1,18 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { displayStore, displayActions, panels } from '../stores/displayStore.js';
-  
+
   // ✅ INTERACT.JS: Import interact.js for drag
   import interact from 'interactjs';
-  
-  // Component props
-  export let id;
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Consistent export pattern
+  export let config = {};  // Configuration from displayStore.defaultConfig
+  export let state = {};   // Reactive state from dataProcessor
+  export let id = '';      // Unique identifier for tracking
+
+  // Legacy props for backward compatibility
   export let type;
   export let position = { x: 50, y: 50 };
-  export let config = {};
   export let title = type; // Add title prop with fallback to type
   
   // Local state
@@ -62,9 +65,42 @@
     displayActions.showContextMenu(e.clientX, e.clientY, id, 'panel', context);
   }
   
-  // ✅ SIMPLE APPROACH: Direct interact.js integration
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Initialize component with proper setup
+  function initializeComponent() {
+    console.log(`[FLOATING_PANEL] Initializing panel ${id} of type ${type}`);
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Setup store subscriptions if needed
+  function setupStoreSubscriptions() {
+    // Panel-specific store subscriptions would go here if needed
+    // Currently using reactive store bindings ($panels)
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Performance monitoring integration
+  function startPerformanceMonitoring() {
+    // Panel-specific performance monitoring would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Cleanup component resources
+  function cleanupComponent() {
+    console.log(`[FLOATING_PANEL] Cleaning up panel ${id}`);
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Unsubscribe from stores
+  function unsubscribeStores() {
+    // Panel-specific store unsubscriptions would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Stop performance monitoring
+  function stopPerformanceMonitoring() {
+    // Panel-specific performance monitoring cleanup would go here if needed
+  }
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Mount lifecycle
   onMount(() => {
-    console.log(`[FLOATING_PANEL] Mounting panel ${id} of type ${type}`);
+    initializeComponent();
+    setupStoreSubscriptions();
+    startPerformanceMonitoring();
 
     // ✅ INTERACT.JS: Keep for drag and resize functionality only
     if (element) {
@@ -103,6 +139,13 @@
         interact(element).unset();
       }
     };
+  });
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Destroy lifecycle
+  onDestroy(() => {
+    cleanupComponent();
+    unsubscribeStores();
+    stopPerformanceMonitoring();
   });
   
   // Show/hide based on visibility

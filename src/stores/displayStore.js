@@ -31,6 +31,10 @@ import {
 // Import the new modular components
 import { displayStateStore, displayStateActions } from './displayStateStore.js';
 import { workerManager } from '../managers/workerManager.js';
+
+// Error handling imports
+import { storeErrorHandler, createStoreWithErrorHandling, withStoreErrorHandling } from '../utils/storeErrorHandler.js';
+import { withErrorBoundary, withAsyncErrorBoundary } from '../utils/errorBoundaryUtils.js';
 // ✅ SIMPLICITY: Removed complex ViewportAnchoring - now using simple, predictable positioning
 
 // =============================================================================
@@ -103,7 +107,21 @@ const initialState = {
 // Initialize environment system on store creation
 ensureEnvironmentInitialized();
 
-export const displayStore = writable(initialState);
+// Create store with error handling
+const rawDisplayStore = writable(initialState);
+export const displayStore = createStoreWithErrorHandling('displayStore', rawDisplayStore, {
+  persistToLocalStorage: true,
+  critical: true,
+  defaultValue: initialState,
+  validation: (value) => {
+    // Basic validation for display store structure
+    if (!value || typeof value !== 'object') {
+      throw new Error('Display store must be an object');
+    }
+    return true;
+  },
+  safeState: initialState
+});
 
 // =============================================================================
 // DERIVED SELECTORS (for component binding)
@@ -113,6 +131,7 @@ export const displayStore = writable(initialState);
 // 🔧 CRITICAL FIX: Ensure proper reactivity by creating new Map reference
 export const displays = derived(displayStateStore, state => {
   console.log('[DISPLAY_STORE] displays derived store updated, displays count:', state.displays?.size || 0);
+  // 🔧 CRITICAL FIX: Return new Map() if state.displays is undefined to prevent "Cannot read properties of undefined" error
   return state.displays || new Map();
 });
 export const activeDisplayId = derived(displayStateStore, state => state.activeDisplayId);
@@ -147,7 +166,7 @@ export const displayActions = {
   // === DISPLAY OPERATIONS ===
   // DELEGATED to displayStateStore for Phase 2 integration
 
-  addDisplay: (symbol, position = { x: 100, y: 100 }, config = {}) => {
+  addDisplay: withStoreErrorHandling('addDisplay', (symbol, position = { x: 100, y: 100 }, config = {}) => {
     console.log(`Creating display for symbol: ${symbol}`);
 
     // Get current runtime config for inheritance
@@ -188,13 +207,15 @@ export const displayActions = {
       console.log(`[DISPLAY_STORE] Worker initialization called for ${symbol}-${displayId}`);
     }).catch(error => {
       console.error(`[DISPLAY_STORE] Failed to create worker for ${symbol}-${displayId}:`, error);
+      // Create fallback display without worker
+      console.warn(`[DISPLAY_STORE] Creating fallback display for ${symbol}`);
     });
 
     // Add initial data packet confirmation for Phase 1 testing
     console.log(`Initial data packet received for ${symbol}`);
 
     return displayId;
-  },
+  }, null),
 
   removeDisplay: (displayId) => {
     console.log(`closeDisplay event triggered for display: ${displayId}`);

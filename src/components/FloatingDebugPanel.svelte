@@ -7,10 +7,15 @@
   import SectionHeader from './shared/SectionHeader.svelte';
   import { getZIndex } from '../constants/zIndex.js';
   import { createLogger } from '../utils/debugLogger.js';
-  
+
+  // ✅ STANDARDIZED COMPONENT LIFECYCLE: Consistent export pattern
+  export let config = {};  // Configuration from displayStore.defaultConfig
+  export let state = {};   // Reactive state from dataProcessor
+  export let id = '';      // Unique identifier for tracking
+
   const logger = createLogger('FloatingDebugPanel');
   const dispatch = createEventDispatcher();
-  
+
   // Component state
   let debugPosition = { x: 680, y: 200 }; // Middle right position
   let isMinimized = false;
@@ -18,6 +23,11 @@
   let available = [];
   let currentSymbolData = null;
   let interactWrapperRef;
+
+  // Store subscriptions for cleanup
+  let unsubscribeDisplays = null;
+  let unsubscribeSubscriptions = null;
+  let unsubscribeAvailable = null;
   
   // Subscribe to display store (active subscriptions)
   const unsubSymbolStore = subscriptions.subscribe(value => {
