@@ -20,13 +20,17 @@
     "logs": "./run.sh logs",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
+    "test:browser-logs": "playwright test tests/e2e/browser-logs.spec.js",
     "test:unified": "npm run test:e2e -- --reporter=list,./tests/reporters/unified-console-reporter.cjs",
     "test:all": "npm run test:unit && npm run test:e2e",
     "test:install": "playwright install chromium firefox webkit",
     "test:report": "playwright show-report test-results/report",
     "test:cleanup": "rm -rf test-results/ && rm -rf playwright-report/",
     "test:logs": "tail -f test-results/unified-console.log 2>/dev/null || echo 'No unified log file found. Run tests first to generate logs.'",
-    "test:summary": "cat test-results/final-summary.json 2>/dev/null || echo 'No summary found. Run tests first to generate summary.'"
+    "test:summary": "cat test-results/final-summary.json 2>/dev/null || echo 'No summary found. Run tests first to generate summary.'",
+    "browser:logs": "node browser-logs.cjs",
+    "browser:logs:follow": "node browser-logs.cjs --follow",
+    "browser:logs:timed": "node browser-logs.cjs --duration=60000"
   },
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",

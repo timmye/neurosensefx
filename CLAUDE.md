@@ -244,9 +244,35 @@ export const displayStore = writable({
 ```bash
 npm run test:unit         # Run unit tests (Vitest) - pure business logic
 npm run test:e2e          # Run end-to-end tests (Playwright) - real browser workflows
+npm run test:browser-logs # Run E2E tests and show ONLY browser console messages (LLM-optimized)
 npm run test:all          # Run both test suites
 npm run test:unified      # Run E2E with unified console visibility (LLM-optimized)
 ```
+
+### **Browser Log Visibility for LLM Developers**
+
+**Quick Access to Browser Console:**
+```bash
+npm run test:browser-logs  # Show all browser console messages
+npm run test:browser-logs | grep "❌"  # Show only errors
+npm run test:browser-logs | grep "REQUEST FAILED"  # Show network issues
+npm run test:browser-logs | grep "LOG:"  # Show application logs
+```
+
+**What Browser Logs Show:**
+- **✅ RESPONSE: 200** - Successful HTTP requests
+- **❌ REQUEST FAILED** - Network request failures
+- **❌ ERROR: [COMPONENT]** - JavaScript errors and initialization failures
+- **🌐 REQUEST** - All outgoing network requests
+- **⌨️ User interaction** - Keyboard/mouse events
+- **LOG:** - Application console.log messages
+
+**For LLM Development:**
+The `test:browser-logs` command provides direct visibility into browser JavaScript console output, making it easy to:
+- Identify initialization errors (keyboard, app startup failures)
+- Debug WebSocket connection issues
+- Monitor network request patterns
+- Trace application behavior during test execution
 
 **Unified Console System:**
 The `test:unified` command provides comprehensive LLM developer visibility through:
