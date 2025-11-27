@@ -36,8 +36,7 @@ module.exports = defineConfig({
 
   // Reporter to use
   reporter: [
-    ['list'],
-    ['html', { outputFolder: 'playwright-report' }]
+    ['list']
   ],
 
   // Web server configuration - start both frontend and backend services

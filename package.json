@@ -23,8 +23,7 @@
     "test:browser-logs": "playwright test tests/e2e/browser-logs.spec.js",
     "test:all": "npm run test:unit && npm run test:e2e",
     "test:install": "playwright install chromium firefox webkit",
-    "test:report": "playwright show-report test-results/report",
-    "test:cleanup": "rm -rf test-results/ && rm -rf playwright-report/",
+    "test:cleanup": "rm -rf test-results/",
     "test:logs": "echo 'Use npm run test:browser-logs for native browser console output.'"
   },
   "dependencies": {
