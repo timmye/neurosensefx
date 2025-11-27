@@ -4,8 +4,7 @@
   import { parameterGroups, getParameterMetadata } from './CanvasContextMenu/utils/parameterGroups.js';
   import { searchParameters } from './CanvasContextMenu/utils/searchUtils.js';
   import { highlightMatch } from '../utils/fuzzySearch.js';
-  // REMOVED: createShortcutHandler import - conflicting system
-// Keyboard shortcuts are now handled by the unified keyboardAction.js system
+  // Keyboard shortcuts are now handled by the unified keyboardAction.js system
   import { getZIndex } from '../constants/zIndex.js';
   import { clickOutside, windowResize, focusTrap } from '../../actions/eventHandling.js';
     
@@ -310,22 +309,7 @@
           class="search-input"
           bind:value={searchQuery}
           on:input={handleSearch}
-          on:keydown={(e) => {
-            if (e.key === 'ArrowDown') {
-              e.preventDefault();
-              navigateSearchResults('next');
-            } else if (e.key === 'ArrowUp') {
-              e.preventDefault();
-              navigateSearchResults('prev');
-            } else if (e.key === 'Enter') {
-              e.preventDefault();
-              selectHighlightedResult();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              clearSearch();
-            }
-          }}
-        />
+          />
         {#if searchQuery}
           <button class="search-clear" on:click={clearSearch}>×</button>
         {/if}

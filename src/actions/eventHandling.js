@@ -66,10 +66,8 @@ export function clickOutside(node, callback) {
   };
 }
 
-// REMOVED: keyboardShortcuts function - conflicting system
-// This functionality has been consolidated into the unified keyboardAction.js system
-// to prevent multiple competing keyboard event handlers that were causing
-// complete keyboard shortcut failure in the trading application.
+// Keyboard shortcuts functionality has been consolidated into the unified keyboardAction.js system
+// to prevent multiple competing keyboard event handlers that were causing failures.
 
 /**
  * Action for handling window resize events with debouncing
@@ -340,7 +338,6 @@ export function interactiveElement(node, config = {}) {
     actions.push(clickOutsideAction);
   }
 
-  // REMOVED: Setup keyboard shortcuts - conflicting system
   // Keyboard shortcuts are now handled by the unified keyboardAction.js system
   // to prevent multiple competing event handlers that were causing failures
 

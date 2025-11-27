@@ -129,8 +129,6 @@ export const shortcutConflicts = derived(
  */
 export async function initializeShortcuts() {
 	try {
-		console.log('[SHORTCUT_STORE] Initializing enhanced shortcut system with dual-layer event interception...');
-
 		// First initialize the core keyboard system with document backup
 		await initializeKeyboardSystem();
 
@@ -153,11 +151,8 @@ export async function initializeShortcuts() {
 
 		// Load user customizations
 		await loadUserShortcuts();
-
-		console.log('[SHORTCUT_STORE] Enhanced dual-layer shortcut system initialized successfully');
-		console.log('[SHORTCUT_STORE] Critical browser shortcuts protected: Ctrl+K, Ctrl+F, Ctrl+Shift+K');
 	} catch (error) {
-		console.error('[SHORTCUT_STORE] Initialization failed:', error);
+		console.error('Shortcut system initialization failed:', error);
 		throw error;
 	}
 }
@@ -345,7 +340,6 @@ function createActionForShortcut(id) {
 			};
 
 		default:
-			console.warn(`No action defined for shortcut: ${id}`);
 			return null;
 	}
 }
@@ -448,7 +442,7 @@ export function setShortcutContext(context) {
  * @deprecated Not needed with Svelte-first approach
  */
 export function cleanupContextManagement() {
-	console.warn('[SHORTCUT_STORE] cleanupContextManagement deprecated with Svelte-first approach');
+	// No longer needed with Svelte-first approach
 }
 
 /**
@@ -520,7 +514,7 @@ async function loadUserShortcuts() {
 			});
 		}
 	} catch (error) {
-		console.warn('Failed to load user shortcuts:', error);
+		// Silently continue with defaults if user shortcuts fail to load
 	}
 }
 
@@ -648,8 +642,4 @@ export function getShortcutsForContext(context) {
 		}));
 }
 
-// Auto-initialize when module is imported
-// REMOVED: Let App.svelte handle initialization to avoid conflicts
-// if (typeof window !== 'undefined') {
-// 	initializeShortcuts();
-// }
+// Initialization handled by App.svelte to avoid conflicts

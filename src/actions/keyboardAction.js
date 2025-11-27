@@ -12,22 +12,22 @@
 import { writable, derived } from 'svelte/store';
 
 // Export contexts for backward compatibility
-export const SHORTCUT_CONTEXTS = {
+export const SHORTCUT_CONTEXTS = Object.freeze({
 	GLOBAL: 'global',
 	SYMBOL_PALETTE: 'symbol-palette',
 	DISPLAY_FOCUSED: 'display-focused',
 	CONTEXT_MENU: 'context-menu',
 	INPUT: 'input'
-};
+});
 
 // Export categories for backward compatibility
-export const SHORTCUT_CATEGORIES = {
+export const SHORTCUT_CATEGORIES = Object.freeze({
 	NAVIGATION: 'navigation',
 	SYMBOL: 'symbol',
 	DISPLAY: 'display',
 	CONFIGURATION: 'configuration',
 	SYSTEM: 'system'
-};
+});
 
 // Internal reactive store for backward compatibility
 // Note: Main shortcutStore should be imported from shortcutStore.js
@@ -68,7 +68,7 @@ let isInitialized = false;
 
 // === DUAL-LAYER EVENT INTERCEPTION SYSTEM ===
 // Critical browser shortcuts that MUST be intercepted at document level
-const CRITICAL_BROWSER_SHORTCUTS = ['ctrl+k', 'ctrl+f', 'ctrl+shift+k'];
+const CRITICAL_BROWSER_SHORTCUTS = Object.freeze(['ctrl+k', 'ctrl+f', 'ctrl+shift+k']);
 
 // Document backup system state
 let documentBackupInstalled = false;
@@ -87,8 +87,7 @@ function handleDocumentBackup(event) {
 		event.preventDefault();
 		event.stopPropagation();
 
-		console.debug(`[KEYBOARD] Document backup intercepted: ${keyCombo}`);
-
+	
 		// Forward to main system for actual processing
 		// This maintains context and proper event flow
 		keyboardEventStore.set({
@@ -116,8 +115,7 @@ function installDocumentBackup() {
 	document.addEventListener('keydown', handleDocumentBackup, { capture: true });
 	documentBackupInstalled = true;
 
-	console.log('[KEYBOARD] Document backup installed for critical browser shortcuts:', CRITICAL_BROWSER_SHORTCUTS);
-}
+	}
 
 /**
  * Remove document backup listener (for cleanup)
@@ -126,8 +124,7 @@ function removeDocumentBackup() {
 	if (documentBackupInstalled) {
 		document.removeEventListener('keydown', handleDocumentBackup, { capture: true });
 		documentBackupInstalled = false;
-		console.log('[KEYBOARD] Document backup removed');
-	}
+		}
 }
 
 // Note: getKeyCombo and normalizeKeyCombo functions are exported below
@@ -177,11 +174,7 @@ export function dispatchKeyboardEvent(eventType, data = {}) {
 	// Update store - all subscribers will receive this immediately
 	keyboardEventStore.set(eventData);
 
-	// Log for debugging (development only)
-	if (typeof window !== 'undefined' && window.location?.hostname === 'localhost') {
-		console.debug(`[KEYBOARD_EVENT] ${eventType}:`, data);
 	}
-}
 
 /**
  * Initialize keyboard system with proper sequencing
@@ -194,8 +187,6 @@ export async function initializeKeyboardSystem() {
 
 	initializationPromise = (async () => {
 		try {
-			console.log('[KEYBOARD] Initializing enhanced keyboard system...');
-
 			// Phase 1: Setup core system
 			setupCoreSystem();
 
@@ -206,11 +197,10 @@ export async function initializeKeyboardSystem() {
 			await verifySystemReadiness();
 
 			isInitialized = true;
-			console.log('[KEYBOARD] Enhanced keyboard system initialized successfully');
 
 			return 'ready';
 		} catch (error) {
-			console.error('[KEYBOARD] Initialization failed:', error);
+			console.error('Keyboard system initialization failed:', error);
 			initializationPromise = null; // Reset to allow retry
 			throw error;
 		}
@@ -248,8 +238,7 @@ function setupEventCommunication() {
 	// Store-based events are inherently ready
 	// No additional setup needed for store subscribers
 
-	console.log('[KEYBOARD] Store-based event communication ready');
-}
+	}
 
 /**
  * Verify system is ready for operation
@@ -287,8 +276,7 @@ async function verifySystemReadiness() {
 	// Clear test event
 	keyboardEventStore.set(null);
 
-	console.log('[KEYBOARD] System verification completed');
-}
+	}
 
 /**
  * Register a keyboard shortcut (backward compatibility)
@@ -349,7 +337,6 @@ export function keyboardAction(node, config = {}) {
 		if (CRITICAL_BROWSER_SHORTCUTS.includes(keyCombo)) {
 			// Document backup already handled this, but we still need to process it
 			// through our main system to trigger the actual actions
-			console.debug(`[KEYBOARD] Main element processing critical shortcut: ${keyCombo}`);
 		}
 
 		// Ignore when typing in input fields unless context allows it
@@ -392,7 +379,8 @@ export function keyboardAction(node, config = {}) {
 						}
 					}));
 				} catch (error) {
-					console.error(`Error executing shortcut ${shortcut.id}:`, error);
+					// Ensure errors don't break the keyboard system
+					console.error(`Shortcut execution failed [${shortcut.id}]:`, error);
 				}
 
 				break; // Execute only the first matching shortcut
@@ -446,15 +434,16 @@ export function getKeyCombo(event) {
 }
 
 export function normalizeKeyCombo(keyCombo) {
+	if (!keyCombo || typeof keyCombo !== 'string') {
+		return '';
+	}
+
 	return keyCombo
 		.toLowerCase()
+		.trim()
 		.replace(/\s+/g, '')
-		.replace('ctrl', 'ctrl')
-		.replace('cmd', 'meta')
-		.replace('command', 'meta')
-		.replace('alt', 'alt')
-		.replace('shift', 'shift')
-		.replace('meta', 'meta');
+		.replace(/\bcmd\b|\bcommand\b/g, 'meta')
+		.replace(/\bcontrol\b/g, 'ctrl');
 }
 
 // Export shortcuts for backward compatibility
@@ -495,5 +484,4 @@ export function resetKeyboardSystem() {
 
 	keyboardEventStore.set(null);
 
-	console.log('[KEYBOARD] System reset to initial state');
-}
+	}

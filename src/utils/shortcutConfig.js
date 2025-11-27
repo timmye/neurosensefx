@@ -10,8 +10,9 @@ import { SHORTCUT_CONTEXTS, SHORTCUT_CATEGORIES } from '../actions/keyboardActio
 /**
  * Default shortcut definitions for NeuroSense FX
  * Organized by workflow priority and trader needs
+ * Frozen to prevent runtime modifications
  */
-export const DEFAULT_SHORTCUTS = {
+export const DEFAULT_SHORTCUTS = Object.freeze({
 	// === SYMBOL WORKFLOW (Phase 1 - Highest Priority) ===
 	'symbol.focusPalette': {
 		key: 'Ctrl+K',
@@ -352,19 +353,20 @@ export const DEFAULT_SHORTCUTS = {
 		priority: 4,
 		workflow: 'system',
 		implemented: true
-	},
+	}
 
-	};
+};
 
 /**
  * Workflow priorities for organizing shortcuts
+ * Frozen to prevent runtime modifications
  */
-export const WORKFLOW_PRIORITIES = {
+export const WORKFLOW_PRIORITIES = Object.freeze({
 	CORE: 1,        // Essential trading workflows
 	QUICK_ACTIONS: 2, // Common actions during trading
 	PROFESSIONAL: 3,  // Advanced features for power users
 	SYSTEM: 4        // System and help functions
-};
+});
 
 /**
  * Validate shortcut configuration
@@ -375,23 +377,41 @@ export function validateShortcutConfig(config) {
 	const errors = [];
 	const warnings = [];
 
+	if (!config || typeof config !== 'object') {
+		errors.push('Configuration must be an object');
+		return { errors, warnings };
+	}
+
 	Object.entries(config).forEach(([id, shortcut]) => {
+		// Validate shortcut ID
+		if (!id || typeof id !== 'string') {
+			errors.push('Invalid shortcut ID');
+			return;
+		}
+
+		// Validate shortcut object
+		if (!shortcut || typeof shortcut !== 'object') {
+			errors.push(`Shortcut ${id}: Must be an object`);
+			return;
+		}
+
 		// Required fields
-		if (!shortcut.key) {
-			errors.push(`Shortcut ${id}: Missing key combination`);
+		if (!shortcut.key || typeof shortcut.key !== 'string') {
+			errors.push(`Shortcut ${id}: Missing or invalid key combination`);
 		}
 
-		if (!shortcut.description) {
-			errors.push(`Shortcut ${id}: Missing description`);
+		if (!shortcut.description || typeof shortcut.description !== 'string') {
+			errors.push(`Shortcut ${id}: Missing or invalid description`);
 		}
 
+		// Optional fields with defaults
 		if (!shortcut.category) {
 			warnings.push(`Shortcut ${id}: Missing category, using 'general'`);
 			shortcut.category = 'general';
 		}
 
-		if (!shortcut.contexts || shortcut.contexts.length === 0) {
-			warnings.push(`Shortcut ${id}: No contexts specified, using global`);
+		if (!shortcut.contexts || !Array.isArray(shortcut.contexts) || shortcut.contexts.length === 0) {
+			warnings.push(`Shortcut ${id}: No valid contexts specified, using global`);
 			shortcut.contexts = [SHORTCUT_CONTEXTS.GLOBAL];
 		}
 
@@ -401,8 +421,22 @@ export function validateShortcutConfig(config) {
 		}
 
 		// Priority validation
-		if (shortcut.priority && (shortcut.priority < 1 || shortcut.priority > 10)) {
-			warnings.push(`Shortcut ${id}: Priority should be between 1 and 10`);
+		if (shortcut.priority !== undefined && (typeof shortcut.priority !== 'number' || shortcut.priority < 1 || shortcut.priority > 10)) {
+			warnings.push(`Shortcut ${id}: Priority should be a number between 1 and 10`);
+		}
+
+		// Validate contexts are valid
+		if (Array.isArray(shortcut.contexts)) {
+			shortcut.contexts.forEach(context => {
+				if (!Object.values(SHORTCUT_CONTEXTS).includes(context)) {
+					warnings.push(`Shortcut ${id}: Invalid context "${context}"`);
+				}
+			});
+		}
+
+		// Validate category is valid
+		if (shortcut.category && !Object.values(SHORTCUT_CATEGORIES).includes(shortcut.category)) {
+			warnings.push(`Shortcut ${id}: Unknown category "${shortcut.category}"`);
 		}
 	});
 
@@ -516,20 +550,48 @@ export function sortShortcutsByPriority(shortcuts) {
  * @returns {string} User-friendly display format
  */
 export function formatKeyForDisplay(keyCombo) {
+	if (!keyCombo || typeof keyCombo !== 'string') {
+		return '';
+	}
+
 	const parts = keyCombo.toLowerCase().split('+');
 	const displayParts = parts.map(part => {
 		switch (part) {
 			case 'ctrl': return 'Ctrl';
 			case 'alt': return 'Alt';
 			case 'shift': return 'Shift';
-			case 'meta': return 'Cmd';
+			case 'meta': return '⌘';
 			case 'space': return 'Space';
 			case 'escape': return 'Esc';
+			case 'tab': return 'Tab';
+			case 'enter': return 'Enter';
+			case 'backspace': return 'Backspace';
+			case 'delete': return 'Delete';
+			case 'home': return 'Home';
+			case 'end': return 'End';
+			case 'pageup': return 'Page Up';
+			case 'pagedown': return 'Page Down';
 			case 'arrowup': return '↑';
 			case 'arrowdown': return '↓';
 			case 'arrowleft': return '←';
 			case 'arrowright': return '→';
-			default: return part.toUpperCase();
+			case 'insert': return 'Insert';
+			case 'pause': return 'Pause';
+			case 'scrolllock': return 'Scroll Lock';
+			case 'numlock': return 'Num Lock';
+			case 'capslock': return 'Caps Lock';
+			// Function keys
+			case 'f1': case 'f2': case 'f3': case 'f4': case 'f5':
+			case 'f6': case 'f7': case 'f8': case 'f9': case 'f10':
+			case 'f11': case 'f12':
+				return part.toUpperCase();
+			default:
+				// Handle single letters and numbers
+				if (part.length === 1 && /[a-z0-9]/.test(part)) {
+					return part.toUpperCase();
+				}
+				// Handle other cases
+				return part.charAt(0).toUpperCase() + part.slice(1);
 		}
 	});
 
