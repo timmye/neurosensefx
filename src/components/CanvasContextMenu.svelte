@@ -9,6 +9,9 @@
   import { getZIndex } from '../constants/zIndex.js';
   import { clickOutside, windowResize, focusTrap } from '../../actions/eventHandling.js';
     
+  // Import unified keyboard system
+  import { keyboardAction, registerShortcut, setContext, SHORTCUT_CONTEXTS } from '../actions/keyboardAction.js';
+
   // Import tab components
   import QuickActionsTab from './CanvasContextMenu/tabs/QuickActionsTab.svelte';
   import PriceDisplayTab from './CanvasContextMenu/tabs/PriceDisplayTab.svelte';
@@ -249,7 +252,26 @@
       adjustPositionForViewport();
     }, 0);
   }
-  
+
+  // Register context menu shortcuts with unified system
+  onMount(() => {
+    // Set keyboard context to context-menu
+    setContext(SHORTCUT_CONTEXTS.CONTEXT_MENU);
+
+    // Register context menu shortcuts
+    Object.entries(contextMenuShortcuts).forEach(([key, action]) => {
+      registerShortcut(`context-${key}`, {
+        key,
+        action,
+        description: `Context menu: ${key}`,
+        category: 'context-menu',
+        contexts: [SHORTCUT_CONTEXTS.CONTEXT_MENU],
+        preventDefault: true,
+        stopPropagation: true
+      });
+    });
+  });
+
   // Context for child components
   setContext('canvasId', canvasId);
   setContext('config', config);
@@ -266,7 +288,7 @@
   aria-modal="true"
   aria-label="Canvas Controls"
   use:clickOutside={handleClickOutside}
-  use:keyboardShortcuts={contextMenuShortcuts}
+  use:keyboardAction
   use:focusTrap={true}
   use:windowResize={handleWindowResize}
 >

@@ -7,7 +7,7 @@
  * SUCCESS CRITERIA: All 5 test phases complete without critical failures
  */
 
-const { test, expect } = require('./fixtures/browser-console.js');
+import { test, expect } from '@playwright/test';
 
 test.describe('Primary Trader Workflow', () => {
   // Removed mode: 'serial' to allow all tests to run for comprehensive analysis

@@ -6,7 +6,7 @@
  */
 
 import { writable, derived, get } from 'svelte/store';
-import { keyboardAction, registerShortcut, setContext, setEnabled, keyboardActionStore, dispatchKeyboardEvent, initializeKeyboardSystem } from '../actions/keyboardAction.js';
+import { keyboardAction, registerShortcut, setContext, setEnabled, keyboardActionStore, dispatchKeyboardEvent, initializeKeyboardSystem, keyboardEventStore } from '../actions/keyboardAction.js';
 import DEFAULT_SHORTCUTS, {
 	validateShortcutConfig,
 	findShortcutConflicts,
@@ -125,18 +125,19 @@ export const shortcutConflicts = derived(
 
 /**
  * Initialize shortcut system with default shortcuts
- * Enhanced with proper initialization sequencing
+ * Enhanced with dual-layer event interception support
  */
 export async function initializeShortcuts() {
 	try {
-		console.log('[SHORTCUT_STORE] Initializing enhanced shortcut system...');
+		console.log('[SHORTCUT_STORE] Initializing enhanced shortcut system with dual-layer event interception...');
 
-		// First initialize the core keyboard system
+		// First initialize the core keyboard system with document backup
 		await initializeKeyboardSystem();
 
 		const $shortcutStore = get(shortcutStore);
 
-		// Register all default shortcuts with the new system
+		// Register all default shortcuts with the enhanced system
+		// These will now work with the dual-layer architecture
 		Object.entries(DEFAULT_SHORTCUTS).forEach(([id, config]) => {
 			const action = createActionForShortcut(id);
 			if (action) {
@@ -147,13 +148,14 @@ export async function initializeShortcuts() {
 			}
 		});
 
-		// Setup context management
+		// Setup context management with dual-layer support
 		setupContextManagement();
 
 		// Load user customizations
 		await loadUserShortcuts();
 
-		console.log('[SHORTCUT_STORE] Enhanced shortcut system initialized successfully');
+		console.log('[SHORTCUT_STORE] Enhanced dual-layer shortcut system initialized successfully');
+		console.log('[SHORTCUT_STORE] Critical browser shortcuts protected: Ctrl+K, Ctrl+F, Ctrl+Shift+K');
 	} catch (error) {
 		console.error('[SHORTCUT_STORE] Initialization failed:', error);
 		throw error;
@@ -355,7 +357,43 @@ function handleSetShortcutContext(event) {
 }
 
 /**
+ * Handle critical shortcut events from document backup system
+ * This processes Ctrl+K, Ctrl+F, Ctrl+Shift+K intercepted by document backup
+ */
+function handleCriticalShortcut(eventData) {
+	const keyCombo = eventData?.data?.keyCombo;
+	const event = eventData?.data?.event;
+
+	if (!keyCombo) {
+		return;
+	}
+
+	// CRITICAL FIX: Normalize keyCombo for comparison to handle case sensitivity
+	// The issue: DEFAULT_SHORTCUTS uses "Ctrl+K" (uppercase) but getKeyCombo() returns "ctrl+k" (lowercase)
+	const normalizedKeyCombo = keyCombo.toLowerCase();
+
+	// Find matching shortcut with case-insensitive comparison
+	const matchingShortcut = Object.values(DEFAULT_SHORTCUTS).find(shortcut =>
+		shortcut.key.toLowerCase() === normalizedKeyCombo
+	);
+
+	if (matchingShortcut) {
+		const shortcutId = Object.keys(DEFAULT_SHORTCUTS).find(id => DEFAULT_SHORTCUTS[id] === matchingShortcut);
+		const action = createActionForShortcut(shortcutId);
+
+		if (action) {
+			try {
+				action(event);
+			} catch (error) {
+				console.error(`Error executing critical shortcut ${keyCombo}:`, error);
+			}
+		}
+	}
+}
+
+/**
  * Setup context management based on current application state
+ * Enhanced with dual-layer event interception support
  */
 function setupContextManagement() {
 	// Listen for context changes
@@ -368,15 +406,27 @@ function setupContextManagement() {
 	// Create custom event store for context management (Svelte-first pattern)
 	const customEventStore = writable(null);
 
-	// Subscribe to custom events instead of manual addEventListener
+	// Subscribe to custom events and critical shortcuts from unified system
 	customEventStore.subscribe((eventData) => {
-		if (eventData && eventData.type === 'setShortcutContext') {
-			handleSetShortcutContext(eventData);
+		if (eventData) {
+			if (eventData.type === 'setShortcutContext') {
+				handleSetShortcutContext(eventData);
+			} else if (eventData.type === 'criticalShortcut') {
+				// Handle critical shortcuts intercepted by document backup
+				handleCriticalShortcut(eventData);
+			}
 		}
 	});
 
 	// Export for use in components
 	shortcutStore.setCustomEvent = customEventStore.set;
+
+	// Listen to keyboard event store for critical shortcuts
+	keyboardEventStore.subscribe((eventData) => {
+		if (eventData && eventData.type === 'criticalShortcut') {
+			handleCriticalShortcut(eventData);
+		}
+	});
 }
 
 /**

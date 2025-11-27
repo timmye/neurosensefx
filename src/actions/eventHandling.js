@@ -131,7 +131,7 @@ export function windowResize(node, callback, debounceMs = 100) {
 
 /**
  * Action for handling focus trap within a component
- * Essential for keyboard accessibility and modal dialogs
+ * Updated to work with unified keyboard system - no competing handlers
  *
  * @param {HTMLElement} node - The container element
  * @param {Object} options - Focus trap configuration
@@ -155,31 +155,9 @@ export function focusTrap(node, options = {}) {
     });
   };
 
-  const handleKeyDown = (event) => {
-    if (event.key === 'Tab') {
-      focusableElements = getFocusableElements();
-
-      if (focusableElements.length === 0) return;
-
-      const firstElement = focusableElements[0];
-      const lastElement = focusableElements[focusableElements.length - 1];
-
-      if (event.shiftKey) {
-        if (document.activeElement === firstElement) {
-          event.preventDefault();
-          lastElement.focus();
-        }
-      } else {
-        if (document.activeElement === lastElement) {
-          event.preventDefault();
-          firstElement.focus();
-        }
-      }
-    } else if (event.key === 'Escape' && escapeKey) {
-      event.preventDefault();
-      escapeKey();
-    }
-  };
+  // UNIFIED SYSTEM: Focus trap Tab navigation now handled by unified keyboard shortcuts
+  // This removes competing addEventListener('keydown') calls
+  // The keyboardAction system handles Tab trapping through registered actions
 
   // Set initial focus
   if (initialFocus) {
@@ -191,15 +169,53 @@ export function focusTrap(node, options = {}) {
     }
   }
 
-  // Add keyboard listener
-  node.addEventListener('keydown', handleKeyDown);
+  // Export focus trap functionality for unified keyboard system
+  node.focusTrap = {
+    getFocusableElements,
+    handleTabKey: (event) => {
+      focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) return false;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey) {
+        if (document.activeElement === firstElement) {
+          event.preventDefault();
+          lastElement.focus();
+          return true;
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          event.preventDefault();
+          firstElement.focus();
+          return true;
+        }
+      }
+      return false;
+    },
+    handleEscape: (event) => {
+      if (escapeKey) {
+        event.preventDefault();
+        escapeKey();
+        return true;
+      }
+      return false;
+    },
+    focusFirst: () => {
+      const firstFocusable = getFocusableElements()[0];
+      if (firstFocusable) {
+        firstFocusable.focus();
+      }
+    }
+  };
 
   return {
     update(newOptions = {}) {
       Object.assign(options, newOptions);
     },
     destroy() {
-      node.removeEventListener('keydown', handleKeyDown);
+      delete node.focusTrap;
 
       if (restoreFocus && previousActiveElement) {
         previousActiveElement.focus();
@@ -210,7 +226,7 @@ export function focusTrap(node, options = {}) {
 
 /**
  * Action for handling context menu triggers with keyboard support
- * Replaces manual contextmenu event listeners
+ * Updated to work with unified keyboard system - no competing handlers
  *
  * @param {HTMLElement} node - The trigger element
  * @param {Function} callback - Callback function when context menu should show
@@ -230,12 +246,18 @@ export function contextMenu(node, callback, options = {}) {
     callback(event);
   };
 
-  const handleKeyDown = (event) => {
-    if (event.key === keyboardTrigger) {
-      event.preventDefault();
-      // Create synthetic mouse event for consistency
+  // UNIFIED SYSTEM: Context menu keyboard triggers now handled by unified keyboard shortcuts
+  // This removes competing addEventListener('keydown') calls
+  // The keyboardAction system handles context menu triggers through registered actions
+
+  node.addEventListener('contextmenu', handleContextMenu);
+
+  // Export context menu functionality for unified keyboard system
+  node.contextMenu = {
+    trigger: (eventType = 'keyboard') => {
+      // Create synthetic event for consistency
       const syntheticEvent = {
-        type: 'keyboard',
+        type: eventType,
         clientX: node.offsetLeft + node.offsetWidth / 2,
         clientY: node.offsetTop + node.offsetHeight / 2,
         target: node,
@@ -243,11 +265,9 @@ export function contextMenu(node, callback, options = {}) {
         stopPropagation: () => {}
       };
       callback(syntheticEvent);
-    }
+    },
+    getKeyboardTrigger: () => keyboardTrigger
   };
-
-  node.addEventListener('contextmenu', handleContextMenu);
-  node.addEventListener('keydown', handleKeyDown);
 
   return {
     update(newCallback, newOptions = {}) {
@@ -256,7 +276,7 @@ export function contextMenu(node, callback, options = {}) {
     },
     destroy() {
       node.removeEventListener('contextmenu', handleContextMenu);
-      node.removeEventListener('keydown', handleKeyDown);
+      delete node.contextMenu;
     }
   };
 }

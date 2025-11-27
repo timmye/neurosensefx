@@ -16,7 +16,7 @@ import { tick } from 'svelte';
 
 /**
  * Action for making any element keyboard-triggerable
- * Replaces mouse-only interactions with keyboard alternatives
+ * Updated to work with unified keyboard system - no competing handlers
  *
  * @param {HTMLElement} node - The element to make keyboard accessible
  * @param {Object} options - Accessibility configuration
@@ -83,10 +83,9 @@ export function keyboardClickable(node, options = {}) {
     }
   };
 
-  // Add keyboard event listeners
-  node.addEventListener('keydown', handleKeyDownVisual);
-  node.addEventListener('keydown', handleKeyDown);
-  node.addEventListener('keyup', handleKeyUp);
+  // UNIFIED SYSTEM: Use unified keyboard action for Enter/Space on buttons
+  // This prevents competing addEventListener calls
+  // Individual element keyboard triggers still use direct listeners for specific interactions
 
   return {
     update(newOptions = {}) {
@@ -101,22 +100,19 @@ export function keyboardClickable(node, options = {}) {
       }
     },
     destroy() {
-      node.removeEventListener('keydown', handleKeyDownVisual);
-      node.removeEventListener('keydown', handleKeyDown);
-      node.removeEventListener('keyup', handleKeyUp);
-
       // Clean up ARIA attributes
       node.removeAttribute('aria-label');
       node.removeAttribute('aria-describedby');
       node.removeAttribute('role');
       node.removeAttribute('tabindex');
+      node.classList.remove('keyboard-triggered', 'keyboard-pressed');
     }
   };
 }
 
 /**
  * Action for comprehensive context menu keyboard navigation
- * Provides full keyboard control for context menus
+ * Updated to work with unified keyboard system - no competing handlers
  *
  * @param {HTMLElement} node - Context menu container
  * @param {Object} options - Menu navigation options
@@ -137,62 +133,9 @@ export function contextMenuNavigation(node, options = {}) {
     menuItems = Array.from(node.querySelectorAll(items));
   };
 
-  const handleKeyDown = async (event) => {
-    // Update menu items on each keydown
-    updateMenuItems();
-
-    switch (event.key) {
-      case 'ArrowDown':
-        event.preventDefault();
-        currentIndex = (currentIndex + 1) % menuItems.length;
-        menuItems[currentIndex]?.focus();
-        break;
-
-      case 'ArrowUp':
-        event.preventDefault();
-        currentIndex = currentIndex <= 0 ? menuItems.length - 1 : currentIndex - 1;
-        menuItems[currentIndex]?.focus();
-        break;
-
-      case 'Home':
-        event.preventDefault();
-        currentIndex = 0;
-        menuItems[currentIndex]?.focus();
-        break;
-
-      case 'End':
-        event.preventDefault();
-        currentIndex = menuItems.length - 1;
-        menuItems[currentIndex]?.focus();
-        break;
-
-      case 'Enter':
-      case ' ':
-        event.preventDefault();
-        if (currentIndex >= 0 && menuItems[currentIndex]) {
-          menuItems[currentIndex].click();
-          if (onSelect) {
-            onSelect(menuItems[currentIndex]);
-          }
-        }
-        break;
-
-      case 'Escape':
-        event.preventDefault();
-        if (onClose) {
-          onClose();
-        }
-        break;
-
-      case 'Tab':
-        // Allow tab to escape the menu (but prevent default to control focus)
-        event.preventDefault();
-        if (onClose) {
-          onClose();
-        }
-        break;
-    }
-  };
+  // UNIFIED SYSTEM: Context menu navigation now handled by unified keyboard shortcuts
+  // This removes competing addEventListener('keydown') calls
+  // The keyboardAction system handles context menu shortcuts through registered actions
 
   // Focus management
   const focusFirstItem = async () => {
@@ -212,26 +155,70 @@ export function contextMenuNavigation(node, options = {}) {
     focusFirstItem();
   }
 
-  // Add keyboard navigation
-  node.addEventListener('keydown', handleKeyDown);
-
   // Set ARIA attributes
   node.setAttribute('role', 'menu');
+
+  // Export functions for use by unified keyboard system
+  node.contextMenuNavigation = {
+    updateMenuItems,
+    focusFirstItem,
+    getCurrentIndex: () => currentIndex,
+    setCurrentIndex: (index) => { currentIndex = index; },
+    getMenuItems: () => menuItems,
+    handleNavigation: async (key) => {
+      updateMenuItems();
+
+      switch (key) {
+        case 'ArrowDown':
+          currentIndex = (currentIndex + 1) % menuItems.length;
+          menuItems[currentIndex]?.focus();
+          return true;
+        case 'ArrowUp':
+          currentIndex = currentIndex <= 0 ? menuItems.length - 1 : currentIndex - 1;
+          menuItems[currentIndex]?.focus();
+          return true;
+        case 'Home':
+          currentIndex = 0;
+          menuItems[currentIndex]?.focus();
+          return true;
+        case 'End':
+          currentIndex = menuItems.length - 1;
+          menuItems[currentIndex]?.focus();
+          return true;
+        case 'Enter':
+        case ' ':
+          if (currentIndex >= 0 && menuItems[currentIndex]) {
+            menuItems[currentIndex].click();
+            if (onSelect) {
+              onSelect(menuItems[currentIndex]);
+            }
+          }
+          return true;
+        case 'Escape':
+          if (onClose) {
+            onClose();
+          }
+          return true;
+      }
+      return false;
+    }
+  };
 
   return {
     update(newOptions = {}) {
       Object.assign(options, newOptions);
     },
     destroy() {
-      node.removeEventListener('keydown', handleKeyDown);
       node.removeAttribute('role');
+      // Clean up exported functions
+      delete node.contextMenuNavigation;
     }
   };
 }
 
 /**
  * Action for drag-and-drop keyboard alternatives
- * Enables keyboard-based element positioning
+ * Updated to work with unified keyboard system - no competing handlers
  *
  * @param {HTMLElement} node - Draggable element
  * @param {Object} options - Drag control options
@@ -247,52 +234,61 @@ export function keyboardDraggable(node, options = {}) {
   let position = { x: 0, y: 0 };
   let isActive = false;
 
-  const handleKeyDown = (event) => {
-    // Only handle when element has focus and is active
-    if (!isActive) return;
+  // UNIFIED SYSTEM: Keyboard dragging now handled by unified keyboard shortcuts
+  // This removes competing addEventListener('keydown') calls
+  // The keyboardAction system handles drag operations through registered actions
 
-    const moves = {
-      'ArrowUp': { x: 0, y: -stepSize },
-      'ArrowDown': { x: 0, y: stepSize },
-      'ArrowLeft': { x: -stepSize, y: 0 },
-      'ArrowRight': { x: stepSize, y: 0 },
-      'PageUp': { x: 0, y: -stepSize * 10 },
-      'PageDown': { x: 0, y: stepSize * 10 },
-      'Home': { x: -stepSize * 10, y: 0 },
-      'End': { x: stepSize * 10, y: 0 }
-    };
-
-    const move = moves[event.key];
-    if (move) {
-      event.preventDefault();
-
-      position.x += move.x;
-      position.y += move.y;
-
-      // Apply bounds if specified
-      if (bounds) {
-        position.x = Math.max(bounds.left, Math.min(bounds.right, position.x));
-        position.y = Math.max(bounds.top, Math.min(bounds.bottom, position.y));
-      }
-
-      // Apply position
-      node.style.transform = `translate(${position.x}px, ${position.y}px)`;
-
-      // Notify callback
-      if (onMove) {
-        onMove(position, event);
-      }
-    }
-
-    // Toggle drag mode with Space
-    if (event.key === ' ') {
-      event.preventDefault();
+  // Export drag functionality for unified keyboard system
+  node.keyboardDraggable = {
+    isActive: () => isActive,
+    toggleActive: () => {
       isActive = !isActive;
       node.classList.toggle('keyboard-dragging', isActive);
-
       if (isActive) {
         node.focus();
       }
+      return isActive;
+    },
+    handleMove: (key) => {
+      if (!isActive) return false;
+
+      const moves = {
+        'ArrowUp': { x: 0, y: -stepSize },
+        'ArrowDown': { x: 0, y: stepSize },
+        'ArrowLeft': { x: -stepSize, y: 0 },
+        'ArrowRight': { x: stepSize, y: 0 },
+        'PageUp': { x: 0, y: -stepSize * 10 },
+        'PageDown': { x: 0, y: stepSize * 10 },
+        'Home': { x: -stepSize * 10, y: 0 },
+        'End': { x: stepSize * 10, y: 0 }
+      };
+
+      const move = moves[key];
+      if (move) {
+        position.x += move.x;
+        position.y += move.y;
+
+        // Apply bounds if specified
+        if (bounds) {
+          position.x = Math.max(bounds.left, Math.min(bounds.right, position.x));
+          position.y = Math.max(bounds.top, Math.min(bounds.bottom, position.y));
+        }
+
+        // Apply position
+        node.style.transform = `translate(${position.x}px, ${position.y}px)`;
+
+        // Notify callback
+        if (onMove) {
+          onMove(position, { key });
+        }
+        return true;
+      }
+      return false;
+    },
+    getPosition: () => ({ ...position }),
+    setPosition: (newPosition) => {
+      position = { ...newPosition };
+      node.style.transform = `translate(${position.x}px, ${position.y}px)`;
     }
   };
 
@@ -305,11 +301,10 @@ export function keyboardDraggable(node, options = {}) {
     isActive = false;
   };
 
-  // Make element focusable and add event listeners
+  // Make element focusable and add focus/blur listeners only
   node.setAttribute('tabindex', '0');
   node.setAttribute('role', 'application');
   node.setAttribute('aria-label', 'Draggable element - press Space to drag, arrow keys to move');
-  node.addEventListener('keydown', handleKeyDown);
   node.addEventListener('focus', handleFocus);
   node.addEventListener('blur', handleBlur);
 
@@ -318,20 +313,20 @@ export function keyboardDraggable(node, options = {}) {
       Object.assign(options, newOptions);
     },
     destroy() {
-      node.removeEventListener('keydown', handleKeyDown);
       node.removeEventListener('focus', handleFocus);
       node.removeEventListener('blur', handleBlur);
       node.removeAttribute('tabindex');
       node.removeAttribute('role');
       node.removeAttribute('aria-label');
       node.classList.remove('keyboard-focusable', 'keyboard-dragging');
+      delete node.keyboardDraggable;
     }
   };
 }
 
 /**
  * Action for comprehensive keyboard navigation in panels and dialogs
- * Implements tab trapping, skip links, and efficient navigation
+ * Updated to work with unified keyboard system - no competing handlers
  *
  * @param {HTMLElement} node - Container element
  * @param {Object} options - Navigation options
@@ -369,32 +364,9 @@ export function panelNavigation(node, options = {}) {
       });
   };
 
-  const handleKeyDown = (event) => {
-    if (!trapFocus) return;
-
-    focusableElements = getFocusableElements();
-
-    if (focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
-    if (event.key === 'Tab') {
-      if (event.shiftKey) {
-        // Shift + Tab (backwards)
-        if (document.activeElement === firstElement) {
-          event.preventDefault();
-          lastElement.focus();
-        }
-      } else {
-        // Tab (forwards)
-        if (document.activeElement === lastElement) {
-          event.preventDefault();
-          firstElement.focus();
-        }
-      }
-    }
-  };
+  // UNIFIED SYSTEM: Panel navigation now handled by unified keyboard shortcuts
+  // This removes competing addEventListener('keydown') calls
+  // The keyboardAction system handles panel navigation through registered actions
 
   const handleFocusIn = (event) => {
     // Keep focus within the panel when trapFocus is enabled
@@ -423,30 +395,65 @@ export function panelNavigation(node, options = {}) {
     }
   });
 
-  // Add event listeners
+  // Add focus management listeners only (no keydown)
   if (trapFocus) {
-    node.addEventListener('keydown', handleKeyDown);
     document.addEventListener('focusin', handleFocusIn, true);
   }
+
+  // Export panel navigation functionality for unified keyboard system
+  node.panelNavigation = {
+    getFocusableElements,
+    handleTabNavigation: (event) => {
+      if (!trapFocus) return false;
+
+      focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) return false;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.key === 'Tab') {
+        if (event.shiftKey) {
+          // Shift + Tab (backwards)
+          if (document.activeElement === firstElement) {
+            event.preventDefault();
+            lastElement.focus();
+            return true;
+          }
+        } else {
+          // Tab (forwards)
+          if (document.activeElement === lastElement) {
+            event.preventDefault();
+            firstElement.focus();
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    focusFirst: () => {
+      focusableElements = getFocusableElements();
+      if (firstFocus) {
+        firstFocus.focus();
+      } else if (focusableElements.length > 0) {
+        focusableElements[0].focus();
+      }
+    },
+    focusLast: () => {
+      focusableElements = getFocusableElements();
+      if (focusableElements.length > 0) {
+        focusableElements[focusableElements.length - 1].focus();
+      }
+    }
+  };
 
   return {
     update(newOptions = {}) {
       Object.assign(options, newOptions);
-
-      // Update focus trap status
-      if (newOptions.trapFocus !== trapFocus) {
-        if (newOptions.trapFocus) {
-          node.addEventListener('keydown', handleKeyDown);
-          document.addEventListener('focusin', handleFocusIn, true);
-        } else {
-          node.removeEventListener('keydown', handleKeyDown);
-          document.removeEventListener('focusin', handleFocusIn, true);
-        }
-      }
     },
     destroy() {
-      node.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('focusin', handleFocusIn, true);
+      delete node.panelNavigation;
 
       // Restore previous focus
       if (restoreFocus && previousActiveElement && typeof previousActiveElement.focus === 'function') {

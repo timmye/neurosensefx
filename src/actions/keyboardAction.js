@@ -66,6 +66,70 @@ let isEnabled = true;
 let initializationPromise = null;
 let isInitialized = false;
 
+// === DUAL-LAYER EVENT INTERCEPTION SYSTEM ===
+// Critical browser shortcuts that MUST be intercepted at document level
+const CRITICAL_BROWSER_SHORTCUTS = ['ctrl+k', 'ctrl+f', 'ctrl+shift+k'];
+
+// Document backup system state
+let documentBackupInstalled = false;
+let mainElementInstance = null;
+
+/**
+ * Document-level backup handler for critical browser shortcuts ONLY
+ * This is our emergency override that prevents browser search hijacking
+ */
+function handleDocumentBackup(event) {
+	const keyCombo = getKeyCombo(event);
+
+	// ONLY handle critical browser shortcuts - minimal footprint
+	if (CRITICAL_BROWSER_SHORTCUTS.includes(keyCombo)) {
+		// CRITICAL: Stop browser native behavior immediately
+		event.preventDefault();
+		event.stopPropagation();
+
+		console.debug(`[KEYBOARD] Document backup intercepted: ${keyCombo}`);
+
+		// Forward to main system for actual processing
+		// This maintains context and proper event flow
+		keyboardEventStore.set({
+			type: 'critical-shortcut',
+			keyCombo,
+			event: { ...event }, // Clone event for safety
+			source: 'document-backup',
+			timestamp: Date.now()
+		});
+
+		// Dispatch to unified system for proper handling
+		dispatchKeyboardEvent('criticalShortcut', { keyCombo, event });
+	}
+}
+
+/**
+ * Install document-level backup listener
+ * Only installs once per application lifecycle
+ */
+function installDocumentBackup() {
+	if (documentBackupInstalled) {
+		return;
+	}
+
+	document.addEventListener('keydown', handleDocumentBackup, { capture: true });
+	documentBackupInstalled = true;
+
+	console.log('[KEYBOARD] Document backup installed for critical browser shortcuts:', CRITICAL_BROWSER_SHORTCUTS);
+}
+
+/**
+ * Remove document backup listener (for cleanup)
+ */
+function removeDocumentBackup() {
+	if (documentBackupInstalled) {
+		document.removeEventListener('keydown', handleDocumentBackup, { capture: true });
+		documentBackupInstalled = false;
+		console.log('[KEYBOARD] Document backup removed');
+	}
+}
+
 // Note: getKeyCombo and normalizeKeyCombo functions are exported below
 
 /**
@@ -172,6 +236,9 @@ function setupCoreSystem() {
 	}));
 
 	keyboardEventStore.set(null); // Clear any previous events
+
+	// CRITICAL: Install document-level backup for critical browser shortcuts
+	installDocumentBackup();
 }
 
 /**
@@ -227,10 +294,9 @@ async function verifySystemReadiness() {
  * Register a keyboard shortcut (backward compatibility)
  */
 export function registerShortcut(id, config) {
-	console.log('[KEYBOARD] Registering shortcut:', id, 'with key:', config.key);
 	const shortcut = {
 		id,
-		key: normalizeKeyCombo(config.key),
+		key: normalizeKeyCombo(config.key), // Normalize key for consistent comparison
 		action: config.action,
 		description: config.description || id,
 		category: config.category || 'general',
@@ -242,7 +308,6 @@ export function registerShortcut(id, config) {
 
 	shortcuts.set(id, shortcut);
 	updateStore();
-	console.log('[KEYBOARD] Shortcut registered. Total shortcuts:', shortcuts.size);
 
 	return () => {
 		shortcuts.delete(id);
@@ -268,20 +333,23 @@ export function setEnabled(enabled) {
 
 /**
  * Main Svelte action for keyboard handling
+ * Enhanced with dual-layer event interception coordination
  */
 export function keyboardAction(node, config = {}) {
+	// Track main element instance for coordination with document backup
+	mainElementInstance = node;
+
 	function handleKeyDown(event) {
 		if (!isEnabled) return;
 
-		// CRITICAL FIX: Immediate preventDefault for browser-native shortcuts
-		// This overrides browser search (Ctrl+F, Ctrl+K) before they execute
 		const keyCombo = getKeyCombo(event);
-		const criticalBrowserShortcuts = ['ctrl+f', 'ctrl+k', 'ctrl+shift+k'];
 
-		if (criticalBrowserShortcuts.includes(keyCombo)) {
-			event.preventDefault();
-			event.stopPropagation();
-			console.log('[KEYBOARD] Overriding browser shortcut:', keyCombo);
+		// Skip critical browser shortcuts - document backup handles them
+		// This prevents double-prevention and maintains proper event flow
+		if (CRITICAL_BROWSER_SHORTCUTS.includes(keyCombo)) {
+			// Document backup already handled this, but we still need to process it
+			// through our main system to trigger the actual actions
+			console.debug(`[KEYBOARD] Main element processing critical shortcut: ${keyCombo}`);
 		}
 
 		// Ignore when typing in input fields unless context allows it
@@ -293,16 +361,24 @@ export function keyboardAction(node, config = {}) {
 		);
 
 		if (isInputElement && activeContext !== 'input') return;
+
+		// CRITICAL FIX: Normalize keyCombo for comparison to handle case sensitivity
+		// The issue: shortcuts can be registered with "Ctrl+K" (uppercase) but getKeyCombo() returns "ctrl+k" (lowercase)
+		const normalizedKeyCombo = keyCombo.toLowerCase();
 		const triggeredShortcuts = Array.from(shortcuts.values())
-			.filter(shortcut => shortcut.key === keyCombo);
+			.filter(shortcut => shortcut.key.toLowerCase() === normalizedKeyCombo);
 
 		for (const shortcut of triggeredShortcuts) {
 			if (isShortcutActive(shortcut) && shortcut.condition()) {
-				if (shortcut.preventDefault) {
-					event.preventDefault();
-				}
-				if (shortcut.stopPropagation) {
-					event.stopPropagation();
+				// For critical shortcuts, document backup already prevented default
+				// For others, prevent default as needed
+				if (!CRITICAL_BROWSER_SHORTCUTS.includes(keyCombo)) {
+					if (shortcut.preventDefault) {
+						event.preventDefault();
+					}
+					if (shortcut.stopPropagation) {
+						event.stopPropagation();
+					}
 				}
 
 				try {
@@ -325,7 +401,7 @@ export function keyboardAction(node, config = {}) {
 	}
 
 	// Use Svelte's declarative event system with CAPTURE phase for priority
-	// This ensures our handlers run before browser defaults (fixes Ctrl+K browser search issue)
+	// Document backup runs first, then main element handler processes actions
 	node.addEventListener('keydown', handleKeyDown, { capture: true });
 
 	return {
@@ -333,7 +409,12 @@ export function keyboardAction(node, config = {}) {
 			// Handle configuration updates if needed
 		},
 		destroy() {
-			node.removeEventListener('keydown', handleKeyDown, { capture: true }); // Use same parameter format for removal
+			node.removeEventListener('keydown', handleKeyDown, { capture: true });
+
+			// Clear main element instance if this was the last one
+			if (mainElementInstance === node) {
+				mainElementInstance = null;
+			}
 		}
 	};
 }
@@ -398,6 +479,10 @@ export function resetKeyboardSystem() {
 	isEnabled = true;
 	isInitialized = false;
 	initializationPromise = null;
+	mainElementInstance = null;
+
+	// Remove document backup
+	removeDocumentBackup();
 
 	// Reset stores
 	keyboardActionStore.update(state => ({
