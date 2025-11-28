@@ -6,15 +6,175 @@
   import { writable } from 'svelte/store';
   import { markerStore } from '../stores/markerStore.js';
   import { displayContextEnhancer } from '../utils/visualizationLoggingUtils.js';
-        
-  // Import drawing functions
-  import { drawMarketProfile } from '../lib/viz/marketProfile.js';
-  import { drawDayRangeMeter } from '../lib/viz/dayRangeMeter.js';
-  import { drawPriceFloat } from '../lib/viz/priceFloat.js';
-  import { drawPriceDisplay } from '../lib/viz/priceDisplay.js';
-  import { drawVolatilityOrb } from '../lib/viz/volatilityOrb.js';
-  import { drawVolatilityMetric } from '../lib/viz/volatilityMetric.js';
-  import { drawPriceMarkers } from '../lib/viz/priceMarkers.js';
+
+  // 🔄 STATE CORRELATION TRACKING: Import state change correlation system
+  import {
+    createStateTracker,
+    createPipelineTracker,
+    createWorkerCommunicationAnalyzer,
+    createWebSocketFlowTracker,
+    getStateCorrelationOverview,
+    runStateCorrelationHealthCheck
+  } from '../utils/stateCorrelationTracker.js';
+
+  // 🎨 VISUALIZATION REACTIVITY MONITORING: Import visualization reactivity system
+  import {
+    createVisualizationReactivityMonitor,
+    getGlobalReactivityOverview,
+    runReactivityHealthCheck
+  } from '../utils/visualizationReactivityMonitor.js';
+
+  // 🔧 DEBUG CONFIGURATION: Import development-mode-only debug system
+  import {
+    isDebugMode,
+    getDebugConfig,
+    enableDebugCategory,
+    disableDebugCategory,
+    getDebugSummary
+  } from '../utils/debugConfig.js';
+
+  // 🎯 ENHANCED DIRECT IMPORT DEBUG: Initialize visualization debug system
+  let visualizationDebugInitialized = false;
+  let importStatus = new Map(); // Track import status for this display instance
+
+  // Store for visualization functions (will be populated by debug system)
+  let drawMarketProfile = null;
+  let drawDayRangeMeter = null;
+  let drawPriceFloat = null;
+  let drawPriceDisplay = null;
+  let drawVolatilityOrb = null;
+  let drawVolatilityMetric = null;
+  let drawPriceMarkers = null;
+
+  // 🔧 DEBUG SYSTEM INITIALIZER: Initialize comprehensive debug system
+  function initializeVisualizationDebugSystem() {
+    if (!isDebugMode()) return;
+
+    console.log('🔧 [DEBUG_INIT] Initializing comprehensive visualization debug system');
+
+    // Enable all debug categories for comprehensive visibility
+    enableDebugCategory('state');
+    enableDebugCategory('rendering');
+    enableDebugCategory('websocket');
+    enableDebugCategory('worker');
+    enableDebugCategory('performance');
+    enableDebugCategory('visualization');
+    enableDebugCategory('canvas');
+    enableDebugCategory('imports');
+
+    // Log debug system status
+    const debugSummary = getDebugSummary();
+    console.log('🔧 [DEBUG_INIT] Debug system initialized:', debugSummary);
+  }
+
+  // Visualization function loader with comprehensive debugging
+  async function initializeVisualizationImports() {
+    const displayId = id || 'unknown';
+    const importStartTime = performance.now();
+
+    console.log(`🎯 [VIZ_INIT:${displayId}] Starting enhanced visualization import system`);
+
+    try {
+      // Initialize debug system if not already done
+      if (!visualizationDebugInitialized) {
+        initializeVisualizationDebugSystem();
+        visualizationDebugInitialized = true;
+      }
+
+      // Define all visualizations to load with their import promises
+      const visualizationConfigs = [
+        {
+          name: 'drawMarketProfile',
+          importPromise: import('../lib/viz/marketProfile.js').then(module => module.drawMarketProfile)
+        },
+        {
+          name: 'drawDayRangeMeter',
+          importPromise: import('../lib/viz/dayRangeMeter.js').then(module => module.drawDayRangeMeter)
+        },
+        {
+          name: 'drawPriceFloat',
+          importPromise: import('../lib/viz/priceFloat.js').then(module => module.drawPriceFloat)
+        },
+        {
+          name: 'drawPriceDisplay',
+          importPromise: import('../lib/viz/priceDisplay.js').then(module => module.drawPriceDisplay)
+        },
+        {
+          name: 'drawVolatilityOrb',
+          importPromise: import('../lib/viz/volatilityOrb.js').then(module => module.drawVolatilityOrb)
+        },
+        {
+          name: 'drawVolatilityMetric',
+          importPromise: import('../lib/viz/volatilityMetric.js').then(module => module.drawVolatilityMetric)
+        },
+        {
+          name: 'drawPriceMarkers',
+          importPromise: import('../lib/viz/priceMarkers.js').then(module => module.drawPriceMarkers)
+        }
+      ];
+
+      // Load all visualizations with comprehensive debugging
+      const batchResult = await visualizationLoader.loadVisualizations(visualizationConfigs);
+
+      // Update local function references with successful imports
+      for (const [name] of visualizationConfigs) {
+        const vizFunction = visualizationRegistry.getVisualization(name);
+        if (vizFunction) {
+          switch (name) {
+            case 'drawMarketProfile':
+              drawMarketProfile = vizFunction;
+              break;
+            case 'drawDayRangeMeter':
+              drawDayRangeMeter = vizFunction;
+              break;
+            case 'drawPriceFloat':
+              drawPriceFloat = vizFunction;
+              break;
+            case 'drawPriceDisplay':
+              drawPriceDisplay = vizFunction;
+              break;
+            case 'drawVolatilityOrb':
+              drawVolatilityOrb = vizFunction;
+              break;
+            case 'drawVolatilityMetric':
+              drawVolatilityMetric = vizFunction;
+              break;
+            case 'drawPriceMarkers':
+              drawPriceMarkers = vizFunction;
+              break;
+          }
+          importStatus.set(name, 'success');
+        } else {
+          importStatus.set(name, 'failed');
+          console.warn(`⚠️ [VIZ_INIT:${displayId}] Visualization not available: ${name}`);
+        }
+      }
+
+      const totalImportTime = performance.now() - importStartTime;
+
+      console.log(`✅ [VIZ_INIT:${displayId}] Visualization import system initialization completed`, {
+        total: batchResult.total,
+        successful: batchResult.successful,
+        failed: batchResult.failed,
+        totalTime: `${totalImportTime.toFixed(2)}ms`,
+        batchTime: `${batchResult.totalTime.toFixed(2)}ms`,
+        localStatus: Object.fromEntries(importStatus)
+      });
+
+      // Log detailed status in development
+      if (process.env.NODE_ENV === 'development') {
+        setTimeout(() => {
+          console.group(`🔍 [VIZ_DEBUG:${displayId}] Final Visualization Status Report`);
+          visualizationRegistry.logDetailedStatus();
+          console.groupEnd();
+        }, 1000); // Delay to allow for async operations
+      }
+
+    } catch (error) {
+      console.error(`❌ [VIZ_INIT:${displayId}] Critical error in visualization import system:`, error);
+      throw error;
+    }
+  }
   
   
   // ✅ INTERACT.JS: Import interact.js for drag and resize
@@ -57,6 +217,13 @@
     logRenderScheduling,
     logVisualizationPerformance
   } from '../utils/displayCreationLogger.js';
+
+  // 🎯 ENHANCED DIRECT IMPORT DEBUG SYSTEM: Import comprehensive visualization debugging
+  import {
+    visualizationRegistry,
+    visualizationLoader,
+    debugUtils
+  } from '../utils/visualizationImportDebug.js';
 
   // ✅ COORDINATE VALIDATION: Import centralized YScale validation system
   import { CoordinateValidator } from '../utils/coordinateValidator.js';
@@ -152,11 +319,22 @@
   let canvas;
   let ctx;
 
-  // Canvas state tracking
+  // Canvas state tracking with enhanced monitoring
   let canvasReady = false;
   let canvasError = false;
   let canvasRetries = 0;
   const MAX_CANVAS_RETRIES = 3;
+
+  // 🎨 CANVAS STATE MONITORING: Enhanced canvas lifecycle tracking
+  let canvasStateHistory = [];
+  let canvasLastValidation = null;
+  let canvasPerformanceMetrics = {
+    initializationTime: 0,
+    renderCount: 0,
+    averageRenderTime: 0,
+    lastRenderTime: 0,
+    errors: []
+  };
 
   // Marker state
   let markers = [];
@@ -225,27 +403,93 @@
     displayCreationLogger = getDisplayCreationLogger(id, symbol);
   }
 
-  // 🔧 DEBUG: Log state changes and store content
-  $: {
-    const previousState = state; // Track state changes for debugging
-    if (state?.ready !== previousState?.ready) {
-      console.log(`[FLOATING_DISPLAY:${id}] State ready changed: ${previousState?.ready} → ${state?.ready}`, {
-        symbol,
-        hasState: !!state,
-        stateKeys: state ? Object.keys(state) : [],
-        ready: state?.ready,
-        canvasReady,
-        canvasError
-      });
-    }
+  // 🔄 STATE CORRELATION TRACKING: Initialize state correlation trackers when display and symbol are available
+  let stateTracker = null;
+  let pipelineTracker = null;
+  let workerAnalyzer = null;
+  let websocketFlowTracker = null;
+  let reactivityMonitor = null;
 
-    console.log(`[FLOATING_DISPLAY:${id}] Store lookup`, {
-      totalDisplays: $displays?.size || 0,
-      displayIds: Array.from($displays?.keys() || []),
-      foundDisplay: !!display,
-      displayKeys: display ? Object.keys(display) : [],
-      hasState: !!(display?.state)
-    });
+  $: if (id && symbol) {
+    stateTracker = createStateTracker(id, symbol);
+    pipelineTracker = createPipelineTracker(`${id}_${symbol}`);
+    workerAnalyzer = createWorkerCommunicationAnalyzer(id);
+    websocketFlowTracker = createWebSocketFlowTracker(id, symbol);
+    reactivityMonitor = createVisualizationReactivityMonitor(id, symbol);
+  }
+
+  // 🔄 STATE CORRELATION TRACKING: Comprehensive state change monitoring with correlation
+  let previousStateSnapshot = null;
+  let stateChangeCount = 0;
+  let lastWebSocketFlowId = null;
+  let lastParameterUpdateId = null;
+
+  $: {
+    // Track state changes and correlate with renders
+    if (stateTracker && state) {
+      // Detect potential WebSocket data updates (look for timestamp changes or price updates)
+      const hasNewWebSocketData = previousStateSnapshot && (
+        state.timestamp !== previousStateSnapshot.timestamp ||
+        state.lastUpdate !== previousStateSnapshot.lastUpdate ||
+        state.currentPrice !== previousStateSnapshot.currentPrice ||
+        state.bid !== previousStateSnapshot.bid ||
+        state.ask !== previousStateSnapshot.ask
+      );
+
+      let webSocketFlowId = null;
+      if (hasNewWebSocketData && websocketFlowTracker) {
+        // Start WebSocket flow tracking
+        webSocketFlowId = websocketFlowTracker.trackDataReception('market_data_update', {
+          timestamp: state.timestamp,
+          currentPrice: state.currentPrice,
+          bid: state.bid,
+          ask: state.ask
+        }, Date.now());
+
+        lastWebSocketFlowId = webSocketFlowId;
+        lastWebSocketTimestamp = Date.now();
+      }
+
+      // Track meaningful state changes
+      const stateChangeId = stateTracker.trackStateChange(state, {
+        canvasReady,
+        canvasError,
+        displaySize,
+        timestamp: Date.now(),
+        changeCount: ++stateChangeCount,
+        webSocketFlowId,
+        hasNewWebSocketData,
+        webSocketDataAge: lastWebSocketTimestamp ? Date.now() - lastWebSocketTimestamp : null
+      });
+
+      // Complete WebSocket flow if state update was successful
+      if (webSocketFlowId && websocketFlowTracker && stateChangeId) {
+        websocketFlowTracker.trackStateUpdate(webSocketFlowId, {
+          stateChangeId,
+          stateReady: state.ready,
+          stateKeys: Object.keys(state),
+          stateSize: JSON.stringify(state).length
+        });
+      }
+
+      // Store previous snapshot for next comparison
+      previousStateSnapshot = JSON.parse(JSON.stringify(state));
+
+      // Store lookup debugging
+      console.log(`[FLOATING_DISPLAY:${id}] Store lookup`, {
+        totalDisplays: $displays?.size || 0,
+        displayIds: Array.from($displays?.keys() || []),
+        foundDisplay: !!display,
+        displayKeys: display ? Object.keys(display) : [],
+        hasState: !!(display?.state),
+        stateChangeId,
+        webSocketFlowId,
+        hasNewWebSocketData
+      });
+    } else if (!stateTracker && id && symbol) {
+      // Initialize tracker if not available
+      console.warn(`[FLOATING_DISPLAY:${id}] State tracker not initialized, creating fallback`);
+    }
   }
 
   // ✅ ENHANCED LOGGING: Log position and size changes
@@ -375,6 +619,16 @@
 
   // Container-level event handlers (always work regardless of canvas state)
   function handleContainerClose() {
+    // 🔄 WORKER COMMUNICATION ANALYSIS: Track display removal request
+    if (workerAnalyzer) {
+      workerAnalyzer.trackOutgoingMessage('removeDisplay', {
+        displayId: id,
+        symbol: symbol || 'unknown',
+        source: 'user_interaction',
+        interactionType: 'close_button'
+      });
+    }
+
     displayActions.removeDisplay(id);
   }
 
@@ -435,8 +689,26 @@
       // Normal refresh behavior
       const refreshDisplay = $displays.get(id);
       if (refreshDisplay) {
+        // 🔄 WORKER COMMUNICATION ANALYSIS: Track subscription request
+        let subscriptionMessageId = null;
+        if (workerAnalyzer) {
+          subscriptionMessageId = workerAnalyzer.trackOutgoingMessage('subscribe', {
+            symbol: refreshDisplay.symbol,
+            displayId: id,
+            source: 'refresh_function'
+          });
+        }
+
         import('../data/wsClient.js').then(({ subscribe }) => {
           subscribe(refreshDisplay.symbol);
+
+          // Track successful subscription
+          if (workerAnalyzer && subscriptionMessageId) {
+            workerAnalyzer.trackIncomingMessage('subscription_confirmed', {
+              symbol: refreshDisplay.symbol,
+              displayId: id
+            }, subscriptionMessageId);
+          }
         });
       }
     }
@@ -704,6 +976,16 @@
     setupStoreSubscriptions();
     startPerformanceMonitoring();
 
+    // 🎯 ENHANCED DIRECT IMPORT DEBUG: Initialize visualization import system
+    console.log(`🎯 [VIZ_MOUNT:${id}] Initializing enhanced visualization import system`);
+    try {
+      await initializeVisualizationImports();
+      console.log(`✅ [VIZ_MOUNT:${id}] Visualization import system ready`);
+    } catch (error) {
+      console.error(`❌ [VIZ_MOUNT:${id}] Visualization import system failed:`, error);
+      // Continue with basic functionality even if visualization imports fail
+    }
+
     // ✅ MEMORY MANAGEMENT: Setup resource cleanup after initialization
     setupResourceCleanup();
 
@@ -802,6 +1084,15 @@
 
       // Click to activate
       interactable.on('tap', (event) => {
+        // 🔄 WORKER COMMUNICATION ANALYSIS: Track activation request
+        if (workerAnalyzer) {
+          workerAnalyzer.trackOutgoingMessage('setActiveDisplay', {
+            displayId: id,
+            source: 'user_interaction',
+            interactionType: 'tap'
+          });
+        }
+
         displayActions.setActiveDisplay(id);
       });
     }
@@ -914,97 +1205,527 @@
   // Canvas initialization is now handled directly in initializeCanvas() function
   // Config changes are handled by the main consolidated reactive statement above
   
-  // Canvas initialization function with retry logic and comprehensive logging
+  // 🎨 ENHANCED CANVAS INITIALIZATION: Comprehensive canvas setup with detailed logging
   function initializeCanvas() {
+    const operationId = `CANVAS_INIT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const initStartTime = getPerformanceTime();
+
+    console.log(`🎨 [${operationId}] Starting enhanced canvas initialization for display ${id}`, {
+      attempt: canvasRetries + 1,
+      maxAttempts: MAX_CANVAS_RETRIES,
+      timestamp: Date.now(),
+      hasCanvas: !!canvas,
+      hasElement: !!element,
+      canvasElementId: canvas?.id || 'no-id',
+      canvasClass: canvas?.className || 'no-class'
+    });
+
+    // Phase 1: Canvas Element Validation
     if (!canvas) {
-      console.error('[FLOATING_DISPLAY] Canvas element not available');
+      console.error(`❌ [${operationId}] Canvas element not available`, {
+        hasElement: !!element,
+        elementId: element?.id || 'no-id',
+        elementClass: element?.className || 'no-class',
+        canvasSelector: 'bind:this={canvas}'
+      });
       return;
     }
 
-    // Prevent concurrent initialization
+    // Phase 2: Concurrent Initialization Prevention
     if (canvasInitializing) {
-      console.warn('[FLOATING_DISPLAY] Canvas initialization already in progress, skipping duplicate call');
+      console.warn(`⚠️ [${operationId}] Canvas initialization already in progress, skipping duplicate call`, {
+        currentAttempt: canvasRetries,
+        operationInProgress: true
+      });
       return;
     }
 
     // Set initialization lock
     canvasInitializing = true;
+    console.log(`🔒 [${operationId}] Canvas initialization lock engaged`);
 
-    // ✅ MATHEMATICAL PRECISION VALIDATION: Start canvas initialization validation
-    console.log(`🎯 [PRECISION:${id}] Canvas initialization started - Attempt ${canvasRetries + 1}/${MAX_CANVAS_RETRIES}`);
+    // Phase 3: Canvas Element State Validation
+    const canvasElementValidation = validateCanvasElement(canvas, operationId);
+    if (!canvasElementValidation.isValid) {
+      console.error(`❌ [${operationId}] Canvas element validation failed`, canvasElementValidation.errors);
+      canvasInitializing = false;
+      return;
+    }
 
     canvasRetries++;
 
     try {
-      ctx = canvas.getContext('2d');
-      if (ctx) {
-        canvasReady = true;
-        canvasError = false;
-        canvasRetries = 0;
+      // Phase 4: Canvas Context Creation with Detailed Logging
+      console.log(`🎨 [${operationId}] Phase 4: Creating 2D rendering context`);
+      const contextCreationStartTime = getPerformanceTime();
 
-        dpr = window.devicePixelRatio || 1;
+      ctx = canvas.getContext('2d', {
+        alpha: false, // Performance optimization for opaque canvases
+        desynchronized: false, // Safety: avoid tearing on some displays
+        willReadFrequently: false // Performance optimization for drawing-only canvases
+      });
 
-        // 🔧 ZOOM AWARENESS: Initialize zoom detector - simplified with consolidated approach
-        cleanupZoomDetector = createZoomDetector((newDpr) => {
-          dpr = newDpr;
+      const contextCreationTime = getPerformanceTime() - contextCreationStartTime;
 
-          // ✅ PRECISION VALIDATION: Track DPR changes for canvas precision
-          console.log(`📏 [PRECISION:${id}] DPR change: ${dpr} → ${newDpr}`);
-
-          // ✅ CONSOLIDATED: Canvas dimension updates are now handled by the main reactive statement
-          // The reactive statement will automatically pick up the dpr change and update canvas
-          // This prevents race conditions and ensures consistent updates
-        });
-
-
-        // ✅ CONSOLIDATED INITIALIZATION: Canvas sizing is now handled by the main reactive statement
-        // No separate updateCanvasDimensions() call needed - prevents race conditions
-        console.log(`[FLOATING_DISPLAY] Canvas initialization completed - sizing handled by reactive statement`, {
-          id,
-          containerSize: config.containerSize || { width: 220, height: 120 }
-        });
-
-        // ✅ BROWSER EVIDENCE COLLECTION: Collect real browser measurements for canvas-container validation
-        if (evidenceCollector && element && canvas) {
-          try {
-            collectBrowserEvidence(id, element, canvas);
-          } catch (error) {
-            console.warn('[FLOATING_DISPLAY] Browser evidence collection failed:', error);
-          }
-        }
-
-        // ✅ MATHEMATICAL PRECISION VALIDATION: Validate canvas-container match exactly
-        if (precisionValidator && element && canvas) {
-          try {
-            validateCanvasContainerMatch(id, canvas, element, newContentArea);
-          } catch (error) {
-            console.warn('[FLOATING_DISPLAY] Canvas precision validation failed:', error);
-          }
-        }
-
-        // Release initialization lock on success
-        canvasInitializing = false;
-        console.log(`✅ [PRECISION:${id}] Canvas initialization completed successfully`);
-
-      } else {
-        throw new Error('Failed to get 2D context');
+      if (!ctx) {
+        throw new Error('Failed to get 2D context - getContext("2d") returned null');
       }
+
+      console.log(`✅ [${operationId}] Canvas 2D context created successfully`, {
+        creationTime: `${contextCreationTime.toFixed(2)}ms`,
+        contextType: typeof ctx,
+        contextId: ctx.constructor.name,
+        canvasElement: canvas.tagName,
+        canvasDimensions: { width: canvas.width, height: canvas.height }
+      });
+
+      // Phase 5: Canvas Context Configuration and Validation
+      console.log(`🎨 [${operationId}] Phase 5: Configuring canvas context`);
+      const contextConfigStartTime = getPerformanceTime();
+
+      const contextValidation = validateAndConfigureCanvasContext(ctx, canvas, operationId);
+      if (!contextValidation.isValid) {
+        throw new Error(`Canvas context configuration failed: ${contextValidation.errors.join(', ')}`);
+      }
+
+      const contextConfigTime = getPerformanceTime() - contextConfigStartTime;
+      console.log(`✅ [${operationId}] Canvas context configured successfully`, {
+        configTime: `${contextConfigTime.toFixed(2)}ms`,
+        configuration: contextValidation.configuration
+      });
+
+      // Phase 6: DPR Detection and Setup
+      console.log(`🎨 [${operationId}] Phase 6: Setting up DPR awareness`);
+      const dprSetupStartTime = getPerformanceTime();
+
+      dpr = window.devicePixelRatio || 1;
+      const browserDpr = window.devicePixelRatio;
+      const effectiveDpr = canvasSizingConfig?.dimensions?.dpr || dpr;
+
+      console.log(`📏 [${operationId}] DPR configuration established`, {
+        browserDpr,
+        effectiveDpr,
+        canvasConfigDpr: canvasSizingConfig?.dimensions?.dpr,
+        dprDifference: Math.abs(browserDpr - effectiveDpr)
+      });
+
+      // 🔧 ZOOM AWARENESS: Initialize zoom detector with enhanced logging
+      cleanupZoomDetector = createZoomDetector((newDpr) => {
+        const oldDpr = dpr;
+        dpr = newDpr;
+
+        console.log(`📏 [${operationId}] DPR change detected`, {
+          oldDpr,
+          newDpr,
+          change: (newDpr - oldDpr).toFixed(3),
+          percentChange: ((newDpr / oldDpr - 1) * 100).toFixed(1) + '%',
+          timestamp: Date.now(),
+          canvasDimensions: { width: canvas.width, height: canvas.height }
+        });
+      });
+
+      const dprSetupTime = getPerformanceTime() - dprSetupStartTime;
+      console.log(`✅ [${operationId}] DPR setup completed`, {
+        setupTime: `${dprSetupTime.toFixed(2)}ms`
+      });
+
+      // Phase 7: Canvas Sizing and Coordinate System Setup
+      console.log(`🎨 [${operationId}] Phase 7: Verifying canvas sizing and coordinate system`);
+      const sizingValidation = validateCanvasSizing(canvas, canvasSizingConfig, operationId);
+      if (!sizingValidation.isValid) {
+        console.warn(`⚠️ [${operationId}] Canvas sizing validation warnings`, sizingValidation.warnings);
+      }
+
+      // Phase 8: Canvas Drawing Capabilities Test
+      console.log(`🎨 [${operationId}] Phase 8: Testing canvas drawing capabilities`);
+      const drawingTestStartTime = getPerformanceTime();
+
+      const drawingCapabilities = testCanvasDrawingCapabilities(ctx, canvas, operationId);
+      if (!drawingCapabilities.canDraw) {
+        throw new Error(`Canvas drawing capabilities test failed: ${drawingCapabilities.errors.join(', ')}`);
+      }
+
+      const drawingTestTime = getPerformanceTime() - drawingTestStartTime;
+      console.log(`✅ [${operationId}] Canvas drawing capabilities verified`, {
+        testTime: `${drawingTestTime.toFixed(2)}ms`,
+        capabilities: drawingCapabilities.capabilities
+      });
+
+      // Phase 9: Final State Validation
+      console.log(`🎨 [${operationId}] Phase 9: Final canvas state validation`);
+      const finalValidation = validateFinalCanvasState(canvas, ctx, operationId);
+
+      if (!finalValidation.isValid) {
+        console.error(`❌ [${operationId}] Final canvas state validation failed`, finalValidation.errors);
+        throw new Error('Final canvas state validation failed');
+      }
+
+      // Success: Update component state
+      canvasReady = true;
+      canvasError = false;
+      canvasRetries = 0;
+
+      const totalInitTime = getPerformanceTime() - initStartTime;
+
+      // 🎨 CANVAS STATE MONITORING: Update canvas state tracking
+      updateCanvasState('initialization_completed', {
+        initTime: totalInitTime,
+        operationId,
+        phases: {
+          elementValidation: canvasElementValidation.isValid,
+          contextCreation: true,
+          contextConfiguration: contextValidation.isValid,
+          dprSetup: true,
+          sizingValidation: sizingValidation.isValid,
+          drawingTest: drawingCapabilities.canDraw,
+          finalValidation: finalValidation.isValid
+        }
+      });
+
+      console.log(`🎉 [${operationId}] Canvas initialization completed successfully`, {
+        totalTime: `${totalInitTime.toFixed(2)}ms`,
+        performanceTarget: totalInitTime <= 16.67 ? '60fps' : 'suboptimal',
+        canvasState: {
+          ready: canvasReady,
+          error: canvasError,
+          contextAvailable: !!ctx,
+          dprConfigured: !!dpr,
+          sizingValid: sizingValidation.isValid
+        },
+        phases: {
+          elementValidation: canvasElementValidation.isValid,
+          contextCreation: true,
+          contextConfiguration: contextValidation.isValid,
+          dprSetup: true,
+          sizingValidation: sizingValidation.isValid,
+          drawingTest: drawingCapabilities.canDraw,
+          finalValidation: finalValidation.isValid
+        }
+      });
+
+      // ✅ BROWSER EVIDENCE COLLECTION: Collect real browser measurements
+      if (evidenceCollector && element && canvas) {
+        try {
+          console.log(`🔍 [${operationId}] Collecting browser evidence`);
+          collectBrowserEvidence(id, element, canvas);
+        } catch (error) {
+          console.warn(`⚠️ [${operationId}] Browser evidence collection failed:`, error.message);
+        }
+      }
+
+      // ✅ MATHEMATICAL PRECISION VALIDATION: Validate canvas-container match
+      if (precisionValidator && element && canvas) {
+        try {
+          console.log(`🎯 [${operationId}] Running mathematical precision validation`);
+          const contentArea = {
+            width: Math.max(50, config?.containerSize?.width || 220),
+            height: Math.max(50, config?.containerSize?.height || 120)
+          };
+          validateCanvasContainerMatch(id, canvas, element, contentArea);
+        } catch (error) {
+          console.warn(`⚠️ [${operationId}] Canvas precision validation failed:`, error.message);
+        }
+      }
+
+      // 🎨 CANVAS HEALTH CHECK: Perform health check after successful initialization
+      const healthReport = performCanvasHealthCheck(operationId);
+      if (!healthReport.isHealthy) {
+        console.warn(`⚠️ [${operationId}] Canvas health issues detected after initialization`, healthReport.issues);
+      }
+
+      // Release initialization lock on success
+      canvasInitializing = false;
+      console.log(`🔓 [${operationId}] Canvas initialization lock released - SUCCESS`);
+
     } catch (error) {
+      // Error handling with detailed context
       canvasReady = false;
       canvasError = true;
       ctx = null;
-      console.error(`[FLOATING_DISPLAY] Canvas initialization failed (attempt ${canvasRetries}/${MAX_CANVAS_RETRIES}):`, error);
 
-      // ✅ PRECISION VALIDATION: Track canvas initialization failure
-      console.error(`❌ [PRECISION:${id}] Canvas initialization failed (attempt ${canvasRetries}/${MAX_CANVAS_RETRIES}):`, error.message);
+      const totalFailTime = getPerformanceTime() - initStartTime;
+
+      // 🎨 CANVAS STATE MONITORING: Track canvas initialization error
+      updateCanvasState('error', {
+        error: error.message,
+        operationId,
+        attempt: canvasRetries,
+        failTime: totalFailTime,
+        context: 'canvas_initialization'
+      });
+
+      console.error(`❌ [${operationId}] Canvas initialization failed`, {
+        error: error.message,
+        stack: error.stack,
+        attempt: `${canvasRetries}/${MAX_CANVAS_RETRIES}`,
+        failTime: `${totalFailTime.toFixed(2)}ms`,
+        canvasElement: !!canvas,
+        canvasDimensions: canvas ? { width: canvas.width, height: canvas.height } : null,
+        canvasContext: !!ctx,
+        lastOperation: operationId
+      });
+
+      // 🎨 CANVAS DEBUG SNAPSHOT: Capture snapshot on error
+      captureCanvasSnapshot(operationId, 'initialization_error');
 
       // Release initialization lock on error
       canvasInitializing = false;
+      console.log(`🔓 [${operationId}] Canvas initialization lock released - ERROR`);
 
       if (canvasRetries >= MAX_CANVAS_RETRIES) {
-        console.error(`[FLOATING_DISPLAY] Maximum canvas initialization retries exceeded`);
+        console.error(`🚨 [${operationId}] Maximum canvas initialization retries exceeded - giving up`);
+
+        // 🎨 CANVAS STATE MONITORING: Track critical failure
+        updateCanvasState('critical_failure', {
+          reason: 'max_retries_exceeded',
+          maxRetries: MAX_CANVAS_RETRIES,
+          operationId
+        });
       }
     }
+  }
+
+  // 🎨 CANVAS ELEMENT VALIDATION: Comprehensive canvas element health check
+  function validateCanvasElement(canvas, operationId) {
+    const validation = {
+      isValid: true,
+      errors: [],
+      warnings: []
+    };
+
+    console.log(`🔍 [${operationId}] Validating canvas element`);
+
+    // Check if canvas is actually an HTMLCanvasElement
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      validation.isValid = false;
+      validation.errors.push(`Canvas is not HTMLCanvasElement: ${typeof canvas}`);
+    }
+
+    // Check canvas properties
+    if (canvas) {
+      // Check canvas dimensions
+      if (typeof canvas.width !== 'number' || canvas.width <= 0) {
+        validation.isValid = false;
+        validation.errors.push(`Invalid canvas width: ${canvas.width}`);
+      }
+
+      if (typeof canvas.height !== 'number' || canvas.height <= 0) {
+        validation.isValid = false;
+        validation.errors.push(`Invalid canvas height: ${canvas.height}`);
+      }
+
+      // Check canvas CSS dimensions
+      const computedStyle = window.getComputedStyle(canvas);
+      const cssWidth = parseFloat(computedStyle.width);
+      const cssHeight = parseFloat(computedStyle.height);
+
+      if (cssWidth <= 0) {
+        validation.warnings.push(`Canvas CSS width is invalid: ${cssWidth}px`);
+      }
+
+      if (cssHeight <= 0) {
+        validation.warnings.push(`Canvas CSS height is invalid: ${cssHeight}px`);
+      }
+
+      console.log(`🔍 [${operationId}] Canvas element validation results`, {
+        isValid: validation.isValid,
+        canvasElement: canvas.tagName,
+        canvasDimensions: { width: canvas.width, height: canvas.height },
+        cssDimensions: { width: cssWidth, height: cssHeight },
+        errors: validation.errors.length,
+        warnings: validation.warnings.length
+      });
+    }
+
+    return validation;
+  }
+
+  // 🎨 CANVAS CONTEXT VALIDATION AND CONFIGURATION: Setup and validate 2D context
+  function validateAndConfigureCanvasContext(ctx, canvas, operationId) {
+    const validation = {
+      isValid: true,
+      errors: [],
+      configuration: {}
+    };
+
+    console.log(`🔍 [${operationId}] Validating and configuring canvas context`);
+
+    try {
+      // Validate context properties
+      if (!ctx) {
+        validation.isValid = false;
+        validation.errors.push('Context is null or undefined');
+        return validation;
+      }
+
+      // Test basic context capabilities
+      const contextType = typeof ctx;
+      if (contextType !== 'object') {
+        validation.isValid = false;
+        validation.errors.push(`Context is not object: ${contextType}`);
+        return validation;
+      }
+
+      // Configure context for optimal performance
+      ctx.imageSmoothingEnabled = false; // Crisp rendering for trading data
+      validation.configuration.imageSmoothingEnabled = false;
+
+      // Test text rendering capabilities
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      validation.configuration.textRendering = 'configured';
+
+      // Test fill style
+      ctx.fillStyle = '#111827';
+      validation.configuration.fillStyle = 'configured';
+
+      // Test clear rect
+      ctx.clearRect(0, 0, 1, 1);
+      validation.configuration.clearRect = 'functional';
+
+      console.log(`✅ [${operationId}] Canvas context validation and configuration successful`, {
+        configuration: validation.configuration,
+        contextType: ctx.constructor.name,
+        canvasId: canvas.id || 'no-id'
+      });
+
+    } catch (error) {
+      validation.isValid = false;
+      validation.errors.push(`Context configuration error: ${error.message}`);
+      console.error(`❌ [${operationId}] Canvas context configuration failed:`, error);
+    }
+
+    return validation;
+  }
+
+  // 🎨 CANVAS SIZING VALIDATION: Verify canvas dimensions and coordinate system
+  function validateCanvasSizing(canvas, canvasSizingConfig, operationId) {
+    const validation = {
+      isValid: true,
+      warnings: []
+    };
+
+    console.log(`🔍 [${operationId}] Validating canvas sizing`);
+
+    if (!canvas || !canvasSizingConfig) {
+      validation.warnings.push('Missing canvas or sizing config');
+      return validation;
+    }
+
+    const { dimensions } = canvasSizingConfig;
+    const actualCanvas = { width: canvas.width, height: canvas.height };
+    const expectedCanvas = dimensions.canvas;
+
+    // Check canvas dimensions match configuration
+    const widthMatch = Math.abs(actualCanvas.width - expectedCanvas.width) <= 1; // Allow 1px rounding
+    const heightMatch = Math.abs(actualCanvas.height - expectedCanvas.height) <= 1;
+
+    if (!widthMatch) {
+      validation.warnings.push(`Canvas width mismatch: actual=${actualCanvas.width}, expected=${expectedCanvas.width}`);
+    }
+
+    if (!heightMatch) {
+      validation.warnings.push(`Canvas height mismatch: actual=${actualCanvas.height}, expected=${expectedCanvas.height}`);
+    }
+
+    console.log(`🔍 [${operationId}] Canvas sizing validation results`, {
+      actualCanvas,
+      expectedCanvas,
+      widthMatch,
+      heightMatch,
+      dpr: dimensions.dpr,
+      cssDimensions: dimensions.css,
+      warnings: validation.warnings
+    });
+
+    validation.isValid = widthMatch && heightMatch;
+    return validation;
+  }
+
+  // 🎨 CANVAS DRAWING CAPABILITIES TEST: Verify canvas can draw basic shapes
+  function testCanvasDrawingCapabilities(ctx, canvas, operationId) {
+    const testResult = {
+      canDraw: true,
+      capabilities: {},
+      errors: []
+    };
+
+    console.log(`🎨 [${operationId}] Testing canvas drawing capabilities`);
+
+    try {
+      // Save original state
+      ctx.save();
+
+      // Test rectangle drawing
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 1, 1);
+      testResult.capabilities.fillRect = true;
+
+      // Test text drawing
+      ctx.font = '10px monospace';
+      ctx.fillStyle = '#000000';
+      ctx.fillText('test', 0, 0);
+      testResult.capabilities.fillText = true;
+
+      // Test line drawing
+      ctx.strokeStyle = '#000000';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(1, 1);
+      ctx.stroke();
+      testResult.capabilities.strokeLine = true;
+
+      // Test state restoration
+      ctx.restore();
+      testResult.capabilities.stateManagement = true;
+
+      console.log(`✅ [${operationId}] Canvas drawing capabilities verified`, testResult.capabilities);
+
+    } catch (error) {
+      testResult.canDraw = false;
+      testResult.errors.push(`Drawing test failed: ${error.message}`);
+      console.error(`❌ [${operationId}] Canvas drawing capabilities test failed:`, error);
+    }
+
+    return testResult;
+  }
+
+  // 🎨 FINAL CANVAS STATE VALIDATION: Comprehensive final state check
+  function validateFinalCanvasState(canvas, ctx, operationId) {
+    const validation = {
+      isValid: true,
+      errors: []
+    };
+
+    console.log(`🔍 [${operationId}] Performing final canvas state validation`);
+
+    // Validate canvas element
+    if (!canvas) {
+      validation.errors.push('Canvas element is null');
+    }
+
+    // Validate context
+    if (!ctx) {
+      validation.errors.push('Canvas context is null');
+    }
+
+    // Validate dimensions
+    if (canvas && (canvas.width <= 0 || canvas.height <= 0)) {
+      validation.errors.push(`Invalid canvas dimensions: ${canvas.width}x${canvas.height}`);
+    }
+
+    validation.isValid = validation.errors.length === 0;
+
+    console.log(`🔍 [${operationId}] Final canvas state validation`, {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      canvasElement: !!canvas,
+      canvasContext: !!ctx,
+      canvasDimensions: canvas ? { width: canvas.width, height: canvas.height } : null
+    });
+
+    return validation;
   }
 
     
@@ -1038,6 +1759,13 @@
 
   // Function to render symbol as canvas background (drawn before other visualizations)
   function renderSymbolBackground() {
+    // Calculate content area from container size (consistent with reactive statement)
+    const containerSize = config?.containerSize || { width: canvasWidth, height: canvasHeight };
+    const contentArea = {
+      width: Math.max(50, containerSize.width),
+      height: Math.max(50, containerSize.height)
+    };
+
     if (!ctx || !contentArea) return;
 
     // Save context state
@@ -1059,16 +1787,65 @@
   
 
 
+  // 🎨 ENHANCED RENDER PIPELINE: Comprehensive render function with detailed logging
   function render() {
-    if (!ctx || !state || !config || !canvas) {
+    const operationId = `RENDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const renderStartTime = getPerformanceTime();
+
+    // 🔄 PIPELINE PERFORMANCE TRACKING: Start render stage tracking
+    let renderPipelineStageId = null;
+    if (pipelineTracker) {
+      renderPipelineStageId = pipelineTracker.startStage('render_execution', {
+        operationId,
+        displayId: id,
+        symbol: symbol || 'unknown',
+        canvasReady,
+        stateReady: state?.ready
+      });
+    }
+
+    console.log(`🎨 [${operationId}] Starting enhanced render pipeline for display ${id}`, {
+      timestamp: Date.now(),
+      symbol: symbol || 'unknown',
+      hasContext: !!ctx,
+      hasState: !!state,
+      hasConfig: !!config,
+      hasCanvas: !!canvas,
+      canvasReady,
+      canvasError,
+      stateReady: state?.ready,
+      yScaleAvailable: !!yScale,
+      renderPipelineStageId
+    });
+
+    // Phase 1: Render Prerequisites Validation
+    const prerequisitesValidation = validateRenderPrerequisites(ctx, state, config, canvas, operationId);
+    if (!prerequisitesValidation.isValid) {
+      console.warn(`⚠️ [${operationId}] Render prerequisites not met`, {
+        reasons: prerequisitesValidation.errors,
+        critical: prerequisitesValidation.isCritical,
+        operationId,
+        timestamp: Date.now()
+      });
+
+      if (prerequisitesValidation.isCritical) {
+        console.error(`🚨 [${operationId}] Critical render prerequisites missing - aborting render`);
+        return;
+      }
+    }
+
+    // Phase 2: Canvas State Validation
+    const canvasStateValidation = validateCanvasState(ctx, canvas, operationId);
+    if (!canvasStateValidation.isValid) {
+      console.error(`❌ [${operationId}] Canvas state validation failed`, canvasStateValidation.errors);
       return;
     }
 
-    const startTime = getPerformanceTime();
+    // Phase 3: Create Rendering Context with Detailed Logging
+    console.log(`🎨 [${operationId}] Phase 3: Creating rendering context`);
+    const contextCreationStartTime = getPerformanceTime();
 
-    // 🔧 CLEAN FOUNDATION: Create rendering context (use consolidated contentArea calculation)
     const containerSize = config.containerSize || { width: canvasWidth, height: canvasHeight };
-    // ✅ CONSOLIDATED: Calculate contentArea consistently with reactive statement
     const contentArea = {
       width: Math.max(50, containerSize.width),   // ✅ FULL WIDTH (no padding)
       height: Math.max(50, containerSize.height) // ✅ FULL HEIGHT (no header, no padding)
@@ -1086,97 +1863,839 @@
       adrAxisXPosition: adrAxisX
     });
 
-    // ✅ PHASE 2 STANDARDIZATION: Apply DPR scaling per frame like Container.svelte
-    // Save context and apply DPR scaling for this render frame only
+    const contextCreationTime = getPerformanceTime() - contextCreationStartTime;
+    console.log(`✅ [${operationId}] Rendering context created`, {
+      creationTime: `${contextCreationTime.toFixed(2)}ms`,
+      contentArea,
+      adrAxisX,
+      containerSize,
+      renderingContextId: renderingContext.id || 'no-id'
+    });
+
+    // Phase 4: Canvas State Preparation with DPR Scaling
+    console.log(`🎨 [${operationId}] Phase 4: Preparing canvas state`);
+    const canvasPrepStartTime = getPerformanceTime();
+
     ctx.save();
 
     // Apply DPR scaling for this render cycle only
-    if (canvasSizingConfig && canvasSizingConfig.dimensions.dpr > 1) {
-      ctx.scale(canvasSizingConfig.dimensions.dpr, canvasSizingConfig.dimensions.dpr);
+    const appliedDpr = canvasSizingConfig && canvasSizingConfig.dimensions.dpr > 1
+      ? canvasSizingConfig.dimensions.dpr
+      : 1;
+
+    if (appliedDpr > 1) {
+      ctx.scale(appliedDpr, appliedDpr);
+      console.log(`📏 [${operationId}] DPR scaling applied`, {
+        dpr: appliedDpr,
+        scalingFactors: [appliedDpr, appliedDpr]
+      });
     }
 
-    // Clear canvas and set background
-    // 🔧 CRITICAL FIX: Clear using canvasSizingConfig like Container.svelte
+    // Phase 5: Canvas Clearing and Background Setup
+    console.log(`🎨 [${operationId}] Phase 5: Clearing canvas and setting background`);
+    const clearStartTime = getPerformanceTime();
+
     if (canvasSizingConfig) {
       const { canvasArea } = canvasSizingConfig.dimensions;
       // Since context is DPR-scaled, use full canvas dimensions (no division by DPR)
       ctx.clearRect(0, 0, canvasArea.width, canvasArea.height);
       ctx.fillStyle = '#111827';
       ctx.fillRect(0, 0, canvasArea.width, canvasArea.height);
+
+      console.log(`🎨 [${operationId}] Canvas cleared using sizing config`, {
+        canvasArea,
+        backgroundColor: '#111827'
+      });
     } else {
       // Fallback to canvas dimensions
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#111827';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      console.log(`⚠️ [${operationId}] Canvas cleared using fallback dimensions`, {
+        canvasDimensions: { width: canvas.width, height: canvas.height },
+        backgroundColor: '#111827',
+        warning: 'Using fallback - sizing config missing'
+      });
     }
 
-    // Draw symbol background first (behind all other visualizations)
+    const clearTime = getPerformanceTime() - clearStartTime;
+    console.log(`✅ [${operationId}] Canvas cleared and background set`, {
+      clearTime: `${clearTime.toFixed(2)}ms`
+    });
+
+    // Phase 6: Symbol Background Rendering
+    console.log(`🎨 [${operationId}] Phase 6: Rendering symbol background`);
+    const symbolBgStartTime = getPerformanceTime();
+
     renderSymbolBackground();
 
-    // Draw visualizations with performance tracking
+    const symbolBgTime = getPerformanceTime() - symbolBgStartTime;
+    console.log(`✅ [${operationId}] Symbol background rendered`, {
+      symbolBgTime: `${symbolBgTime.toFixed(2)}ms`,
+      symbol: symbol || 'none'
+    });
+
+    const canvasPrepTime = getPerformanceTime() - canvasPrepStartTime;
+    console.log(`✅ [${operationId}] Canvas preparation completed`, {
+      prepTime: `${canvasPrepTime.toFixed(2)}ms`,
+      dprApplied: appliedDpr,
+      phases: {
+        contextCreation: contextCreationTime,
+        clearOperation: clearTime,
+        symbolBackground: symbolBgTime
+      }
+    });
+
+    // Phase 7: Visualization Rendering with Comprehensive Error Handling
     if (state.visualLow && state.visualHigh && yScale) {
+      console.log(`🎨 [${operationId}] Phase 7: Starting visualization rendering`);
+
       try {
         // ✅ PRECISION VALIDATION: Track first render with mathematical precision validation
         if (!renderingContext.firstRenderLogged && precisionValidator) {
-          console.log(`🎯 [PRECISION:${id}] First render initiated for ${symbol}`);
+          console.log(`🎯 [${operationId}] First render detected - precision validation initiated`);
           renderingContext.firstRenderLogged = true;
         }
 
-        // Draw visualizations in correct order for layering with performance tracking
+        // 🎯 ENHANCED DIRECT IMPORT DEBUG: Draw visualizations with comprehensive error handling
         const visualizationStartTime = getPerformanceTime();
+        const visualizationResults = [];
 
-        drawVolatilityOrb(ctx, renderingContext, config, state, yScale);
-        logVisualizationPerformance(id, 'VolatilityOrb', visualizationStartTime, renderingContext, state);
+        // Render each visualization with detailed error tracking
+        const visualizations = [
+          { name: 'VolatilityOrb', func: drawVolatilityOrb, params: [ctx, renderingContext, config, state, yScale] },
+          { name: 'MarketProfile', func: drawMarketProfile, params: [ctx, renderingContext, config, state, yScale] },
+          { name: 'DayRangeMeter', func: drawDayRangeMeter, params: [ctx, renderingContext, config, state, yScale] },
+          { name: 'PriceFloat', func: drawPriceFloat, params: [ctx, renderingContext, config, state, yScale] },
+          { name: 'PriceDisplay', func: drawPriceDisplay, params: [ctx, renderingContext, config, state, yScale] },
+          { name: 'VolatilityMetric', func: drawVolatilityMetric, params: [ctx, renderingContext, config, state] },
+          { name: 'PriceMarkers', func: drawPriceMarkers, params: [ctx, renderingContext, config, state, yScale, markers] }
+        ];
 
-        drawMarketProfile(ctx, renderingContext, config, state, yScale);
-        logVisualizationPerformance(id, 'MarketProfile', visualizationStartTime, renderingContext, state);
+        console.log(`🎨 [${operationId}] Processing ${visualizations.length} visualizations`, {
+          availableFunctions: visualizations.filter(v => !!v.func).length,
+          importStatuses: visualizations.map(v => ({
+            name: v.name,
+            imported: importStatus.get(`draw${v.name}`) === 'success'
+          }))
+        });
 
-        drawDayRangeMeter(ctx, renderingContext, config, state, yScale);
-        logVisualizationPerformance(id, 'DayRangeMeter', visualizationStartTime, renderingContext, state);
+        for (let vizIndex = 0; vizIndex < visualizations.length; vizIndex++) {
+          const viz = visualizations[vizIndex];
+          const vizOperationId = `${operationId}_VIZ_${vizIndex}_${viz.name}`;
+          const vizStartTime = getPerformanceTime();
+          let vizResult = {
+            success: false,
+            error: null,
+            executionTime: 0,
+            name: viz.name
+          };
 
-        drawPriceFloat(ctx, renderingContext, config, state, yScale);
-        logVisualizationPerformance(id, 'PriceFloat', visualizationStartTime, renderingContext, state);
+          console.log(`🎨 [${vizOperationId}] Starting visualization ${viz.name}`, {
+            index: vizIndex,
+            totalVisualizations: visualizations.length,
+            hasFunction: !!viz.func,
+            functionType: viz.func ? typeof viz.func : 'null',
+            parameters: viz.params.length,
+            importStatus: importStatus.get(`draw${viz.name}`)
+          });
 
-        drawPriceDisplay(ctx, renderingContext, config, state, yScale);
-        logVisualizationPerformance(id, 'PriceDisplay', visualizationStartTime, renderingContext, state);
+          try {
+            // 🎨 VISUALIZATION PREREQUISITES: Validate visualization prerequisites
+            if (!viz.func) {
+              throw new Error(`Visualization function not loaded: ${viz.name}`);
+            }
 
-        drawVolatilityMetric(ctx, renderingContext, config, state);
-        logVisualizationPerformance(id, 'VolatilityMetric', visualizationStartTime, renderingContext, state);
+            if (typeof viz.func !== 'function') {
+              throw new Error(`Visualization is not a function: ${viz.name} (${typeof viz.func})`);
+            }
 
-        drawPriceMarkers(ctx, renderingContext, config, state, yScale, markers);
-        logVisualizationPerformance(id, 'PriceMarkers', visualizationStartTime, renderingContext, state);
+            // Check import status
+            const importStatusValue = importStatus.get(`draw${viz.name}`);
+            if (importStatusValue !== 'success') {
+              throw new Error(`Visualization not successfully imported: ${viz.name} (status: ${importStatusValue})`);
+            }
 
-        // Log total render time
+            // 🎨 PRE-CALL VALIDATION: Validate canvas context before visualization
+            const contextCheck = validateCanvasContextForVisualization(ctx, vizOperationId);
+            if (!contextCheck.isValid) {
+              throw new Error(`Canvas context validation failed: ${contextCheck.errors.join(', ')}`);
+            }
+
+            // 🎨 VISUALIZATION EXECUTION: Call visualization with detailed error context
+            console.log(`🎨 [${vizOperationId}] Executing visualization ${viz.name}`);
+            viz.func(...viz.params);
+
+            vizResult.success = true;
+            vizResult.executionTime = getPerformanceTime() - vizStartTime;
+
+            // ✅ SUCCESS: Log successful visualization render
+            console.log(`✅ [${vizOperationId}] ${viz.name} rendered successfully`, {
+              executionTime: `${vizResult.executionTime.toFixed(2)}ms`,
+              parameters: viz.params.length,
+              symbol: symbol,
+              canvasState: {
+                transform: ctx.getTransform ? ctx.getTransform().toString() : 'unavailable',
+                fillStyle: ctx.fillStyle,
+                font: ctx.font
+              }
+            });
+
+          } catch (error) {
+            vizResult.error = error.message;
+            vizResult.executionTime = getPerformanceTime() - vizStartTime;
+
+            // ❌ ERROR: Log detailed failure information
+            console.error(`❌ [${vizOperationId}] ${viz.name} render failed`, {
+              error: error.message,
+              stack: error.stack,
+              executionTime: `${vizResult.executionTime.toFixed(2)}ms`,
+              hasFunction: !!viz.func,
+              functionType: viz.func ? typeof viz.func : 'null',
+              importStatus: importStatus.get(`draw${viz.name}`),
+              parameters: viz.params.length,
+              symbol: symbol,
+              canvasState: {
+                hasContext: !!ctx,
+                contextType: ctx ? ctx.constructor.name : 'none'
+              }
+            });
+
+            // 🚨 CRITICAL: Hard failure for missing visualization functions in development
+            if (process.env.NODE_ENV === 'development' && !viz.func) {
+              console.error(`🚨 [${vizOperationId}] CRITICAL: Missing visualization function ${viz.name} - this should never happen in development`);
+              throw new Error(`Critical: Missing visualization function ${viz.name} - this should never happen in development`);
+            }
+          }
+
+          visualizationResults.push(vizResult);
+
+          // Log performance metrics with detailed context
+          try {
+            logVisualizationPerformance(id, viz.name, vizStartTime, renderingContext, state);
+            console.log(`📊 [${vizOperationId}] Performance metrics logged for ${viz.name}`);
+          } catch (logError) {
+            console.warn(`⚠️ [${vizOperationId}] Performance logging failed for ${viz.name}:`, logError.message);
+          }
+        }
+
+        // 📊 VISUALIZATION SUMMARY: Comprehensive performance analysis
         const totalRenderTime = getPerformanceTime() - visualizationStartTime;
+        const successfulVisualizations = visualizationResults.filter(r => r.success).length;
+        const failedVisualizations = visualizationResults.filter(r => !r.success).length;
         const meets60fps = totalRenderTime <= 16.67;
 
+        console.log(`📊 [${operationId}] Visualization rendering completed`, {
+          summary: {
+            total: visualizationResults.length,
+            successful: successfulVisualizations,
+            failed: failedVisualizations,
+            successRate: `${((successfulVisualizations / visualizationResults.length) * 100).toFixed(1)}%`
+          },
+          performance: {
+            totalTime: `${totalRenderTime.toFixed(2)}ms`,
+            averageVizTime: `${(totalRenderTime / visualizationResults.length).toFixed(2)}ms`,
+            meets60fps,
+            targetTime: '16.67ms'
+          },
+          context: {
+            symbol,
+            displayId: id,
+            operationId,
+            contentArea,
+            dpr: appliedDpr
+          },
+          details: visualizationResults.map(r => ({
+            name: r.name,
+            success: r.success,
+            time: `${r.executionTime.toFixed(2)}ms`,
+            error: r.error
+          }))
+        });
+
         if (!meets60fps) {
-          console.warn(`⚠️ [DISPLAY:${id}] Total render time ${totalRenderTime.toFixed(2)}ms exceeds 60fps target`);
+          console.warn(`⚠️ [${operationId}] Performance warning: Total render time ${totalRenderTime.toFixed(2)}ms exceeds 60fps target`, {
+            overrun: `${(totalRenderTime - 16.67).toFixed(2)}ms`,
+            percentOverTarget: `${((totalRenderTime / 16.67 - 1) * 100).toFixed(1)}%`
+          });
         }
+
+        if (failedVisualizations > 0) {
+          console.error(`❌ [${operationId}] ${failedVisualizations} visualizations failed to render`);
+          if (process.env.NODE_ENV === 'development') {
+            console.group(`🔍 [${operationId}] Failed Visualization Details`);
+            visualizationResults.filter(r => !r.success).forEach(r => {
+              console.error(`${r.name}: ${r.error}`);
+            });
+            console.groupEnd();
+          }
+        }
+
+        // Log render trigger analysis
+        console.log(`🔍 [${operationId}] Render trigger analysis`, {
+          stateUpdate: state?.ready,
+          configChange: !!config,
+          yScaleChange: !!yScale,
+          canvasReady,
+          lastWebSocketTimestamp: lastWebSocketTimestamp ? Date.now() - lastWebSocketTimestamp : null
+        });
 
       } catch (error) {
         // ✅ PRECISION VALIDATION: Track render errors
-        console.error(`❌ [PRECISION:${id}] Render error for ${symbol}:`, {
+        console.error(`❌ [${operationId}] Critical render error for ${symbol}`, {
           error: error.message,
+          stack: error.stack,
           hasCanvas: !!ctx,
           hasRenderingContext: !!renderingContext,
-          hasYScale: !!yScale
+          hasYScale: !!yScale,
+          hasState: !!state,
+          hasConfig: !!config,
+          canvasReady,
+          stateReady: state?.ready
         });
 
         console.error(`[RENDER] Error in visualization functions:`, error);
       }
+    } else {
+      console.log(`🎨 [${operationId}] Skipping visualization rendering`, {
+        reason: 'Prerequisites not met',
+        hasVisualLow: !!state?.visualLow,
+        hasVisualHigh: !!state?.visualHigh,
+        hasYScale: !!yScale,
+        stateReady: state?.ready
+      });
     }
 
-    // ✅ PHASE 2 STANDARDIZATION: Restore context to prevent cumulative transformations like Container.svelte
+    // Phase 8: Canvas State Cleanup
+    console.log(`🎨 [${operationId}] Phase 8: Cleaning up canvas state`);
+    const cleanupStartTime = getPerformanceTime();
+
     ctx.restore();
 
     // 🔧 CRITICAL FIX: Explicit reset to identity matrix to prevent drift
-    // This ensures complete transform reset even if restore() is incomplete
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    const cleanupTime = getPerformanceTime() - cleanupStartTime;
+
+    // Final render completion logging
+    const totalRenderTime = getPerformanceTime() - renderStartTime;
+    const meetsPerformanceTarget = totalRenderTime <= 16.67;
+
+    // 🎨 CANVAS STATE MONITORING: Track render completion
+    updateCanvasState('render_completed', {
+      renderTime: totalRenderTime,
+      operationId,
+      meetsPerformanceTarget,
+      phases: {
+        contextCreation: contextCreationTime,
+        canvasPreparation: canvasPrepTime,
+        cleanup: cleanupTime
+      }
+    });
+
+    console.log(`🎉 [${operationId}] Render pipeline completed`, {
+      totalTime: `${totalRenderTime.toFixed(2)}ms`,
+      performanceTarget: meetsPerformanceTarget ? '60fps' : 'suboptimal',
+      phases: {
+        prerequisites: 'validated',
+        canvasState: 'validated',
+        contextCreation: `${contextCreationTime.toFixed(2)}ms`,
+        canvasPreparation: `${canvasPrepTime.toFixed(2)}ms`,
+        visualizations: state?.visualLow && state?.visualHigh && yScale ? 'executed' : 'skipped',
+        cleanup: `${cleanupTime.toFixed(2)}ms`
+      },
+      finalState: {
+        canvasReady,
+        contextRestored: true,
+        transformReset: true
+      },
+      success: true
+    });
+
+    // 🎨 PERFORMANCE MONITORING: Check for performance issues
+    if (!meetsPerformanceTarget) {
+      const performanceIssue = {
+        overrun: totalRenderTime - 16.67,
+        percentOver: ((totalRenderTime / 16.67 - 1) * 100),
+        recommendations: totalRenderTime > 33.34 ?
+          ['Consider optimizing visualizations', 'Check for memory leaks', 'Reduce visualization complexity'] :
+          ['Minor optimization needed']
+      };
+
+      console.warn(`⚠️ [${operationId}] Performance target missed: ${totalRenderTime.toFixed(2)}ms > 16.67ms`, performanceIssue);
+
+      // 🎨 CANVAS STATE MONITORING: Track performance issues
+      updateCanvasState('performance_issue', {
+        renderTime: totalRenderTime,
+        overrun: performanceIssue.overrun,
+        percentOver: performanceIssue.percentOver,
+        operationId
+      });
+
+      // 🎨 CANVAS DEBUG SNAPSHOT: Capture snapshot on performance issues
+      if (totalRenderTime > 50) { // Serious performance degradation
+        captureCanvasSnapshot(operationId, 'performance_degradation');
+      }
+    }
+
+    // 🎨 HEALTH MONITORING: Periodic health check (every 10 renders)
+    if (canvasPerformanceMetrics.renderCount > 0 && canvasPerformanceMetrics.renderCount % 10 === 0) {
+      console.log(`🏥 [${operationId}] Periodic health check triggered (render count: ${canvasPerformanceMetrics.renderCount})`);
+      performCanvasHealthCheck(operationId);
+    }
+
+    // 🔄 PIPELINE PERFORMANCE TRACKING: Complete render stage tracking
+    if (pipelineTracker && renderPipelineStageId) {
+      const renderDuration = pipelineTracker.completeStage(renderPipelineStageId, {
+        totalTime: totalRenderTime,
+        meetsPerformanceTarget,
+        operationId,
+        visualizationsExecuted: state?.visualLow && state?.visualHigh && yScale
+      });
+    }
+
+    // 🌐 WEBSOCKET FLOW TRACKING: Complete WebSocket flow when visual update is done
+    if (lastWebSocketFlowId && websocketFlowTracker) {
+      const flowResult = websocketFlowTracker.trackVisualUpdate(lastWebSocketFlowId, {
+        renderOperationId: operationId,
+        totalRenderTime,
+        meetsPerformanceTarget,
+        visualizationsExecuted: state?.visualLow && state?.visualHigh && yScale,
+        symbol: symbol || 'unknown'
+      });
+
+      // Reset the last WebSocket flow ID to prevent duplicate completions
+      lastWebSocketFlowId = null;
+    }
+
+    // 🎨 REACTIVITY MONITORING: Complete reactivity cycle
+    if (lastParameterUpdateId && reactivityMonitor) {
+      // Track visualization response
+      if (state?.visualLow && state?.visualHigh && yScale) {
+        reactivityMonitor.trackVisualizationResponse(lastParameterUpdateId, {
+          visualizationsExecuted: true,
+          renderOperationId: operationId,
+          totalRenderTime,
+          symbol: symbol || 'unknown'
+        });
+      }
+
+      // Complete visual update tracking
+      const reactivityResult = reactivityMonitor.trackVisualUpdateComplete(lastParameterUpdateId, {
+        renderOperationId: operationId,
+        totalRenderTime,
+        meetsPerformanceTarget,
+        visualizationsExecuted: state?.visualLow && state?.visualHigh && yScale,
+        symbol: symbol || 'unknown'
+      });
+
+      // Reset the last parameter update ID to prevent duplicate completions
+      lastParameterUpdateId = null;
+    }
+  }
+
+  // 🎨 RENDER PREREQUISITES VALIDATION: Check all render prerequisites
+  function validateRenderPrerequisites(ctx, state, config, canvas, operationId) {
+    const validation = {
+      isValid: true,
+      isCritical: false,
+      errors: []
+    };
+
+    console.log(`🔍 [${operationId}] Validating render prerequisites`);
+
+    // Check for critical components
+    if (!ctx) {
+      validation.errors.push('Canvas context is null');
+      validation.isCritical = true;
+    }
+
+    if (!canvas) {
+      validation.errors.push('Canvas element is null');
+      validation.isCritical = true;
+    }
+
+    if (!config) {
+      validation.errors.push('Config is null');
+      validation.isCritical = true;
+    }
+
+    // Check for state issues (non-critical for initial renders)
+    if (!state) {
+      validation.errors.push('State is null (may be loading)');
+      validation.isCritical = false; // Allow render to proceed for loading states
+    }
+
+    console.log(`🔍 [${operationId}] Render prerequisites validation`, {
+      isValid: validation.isValid,
+      isCritical: validation.isCritical,
+      errorCount: validation.errors.length,
+      errors: validation.errors
+    });
+
+    return validation;
+  }
+
+  // 🎨 CANVAS STATE VALIDATION: Comprehensive canvas state check
+  function validateCanvasState(ctx, canvas, operationId) {
+    const validation = {
+      isValid: true,
+      errors: []
+    };
+
+    console.log(`🔍 [${operationId}] Validating canvas state`);
+
+    try {
+      if (!ctx) {
+        validation.errors.push('Canvas context is null');
+      } else {
+        // Test basic canvas operations
+        ctx.save();
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, 1, 1);
+        ctx.restore();
+
+        console.log(`🔍 [${operationId}] Canvas context test passed`);
+      }
+
+      if (!canvas) {
+        validation.errors.push('Canvas element is null');
+      } else {
+        // Check canvas dimensions
+        if (canvas.width <= 0 || canvas.height <= 0) {
+          validation.errors.push(`Invalid canvas dimensions: ${canvas.width}x${canvas.height}`);
+        }
+
+        console.log(`🔍 [${operationId}] Canvas element validation passed`, {
+          dimensions: `${canvas.width}x${canvas.height}`,
+          tagName: canvas.tagName
+        });
+      }
+
+    } catch (error) {
+      validation.errors.push(`Canvas state test failed: ${error.message}`);
+      console.error(`❌ [${operationId}] Canvas state validation error:`, error);
+    }
+
+    validation.isValid = validation.errors.length === 0;
+
+    console.log(`🔍 [${operationId}] Canvas state validation completed`, {
+      isValid: validation.isValid,
+      errorCount: validation.errors.length,
+      errors: validation.errors
+    });
+
+    return validation;
+  }
+
+  // 🎨 CANVAS CONTEXT VALIDATION FOR VISUALIZATION: Pre-visualization context check
+  function validateCanvasContextForVisualization(ctx, operationId) {
+    const validation = {
+      isValid: true,
+      errors: []
+    };
+
+    try {
+      if (!ctx) {
+        validation.errors.push('Context is null');
+        return validation;
+      }
+
+      // Test fill style
+      const originalFillStyle = ctx.fillStyle;
+      ctx.fillStyle = '#000000';
+      if (ctx.fillStyle !== '#000000') {
+        validation.errors.push('Fill style cannot be set');
+      }
+      ctx.fillStyle = originalFillStyle;
+
+      // Test font
+      const originalFont = ctx.font;
+      ctx.font = '12px monospace';
+      if (ctx.font !== '12px monospace') {
+        validation.errors.push('Font cannot be set');
+      }
+      ctx.font = originalFont;
+
+    } catch (error) {
+      validation.errors.push(`Context validation error: ${error.message}`);
+    }
+
+    validation.isValid = validation.errors.length === 0;
+    return validation;
+  }
+
+  // 🎨 CANVAS STATE MONITORING: Comprehensive canvas lifecycle tracking
+  function updateCanvasState(event, data = {}) {
+    const timestamp = Date.now();
+    const stateEntry = {
+      timestamp,
+      event,
+      data,
+      canvasReady,
+      canvasError,
+      canvasRetries,
+      hasContext: !!ctx,
+      hasCanvas: !!canvas
+    };
+
+    // Add to history (keep last 50 entries)
+    canvasStateHistory.push(stateEntry);
+    if (canvasStateHistory.length > 50) {
+      canvasStateHistory = canvasStateHistory.slice(-50);
+    }
+
+    console.log(`📊 [CANVAS_STATE:${id}] ${event}`, {
+      timestamp,
+      stateEntry,
+      historyLength: canvasStateHistory.length,
+      performanceMetrics: { ...canvasPerformanceMetrics }
+    });
+
+    // Update performance metrics
+    if (event === 'render_completed' && data.renderTime) {
+      canvasPerformanceMetrics.renderCount++;
+      canvasPerformanceMetrics.lastRenderTime = data.renderTime;
+
+      const totalRenderTime = canvasPerformanceMetrics.averageRenderTime * (canvasPerformanceMetrics.renderCount - 1) + data.renderTime;
+      canvasPerformanceMetrics.averageRenderTime = totalRenderTime / canvasPerformanceMetrics.renderCount;
+    }
+
+    if (event === 'initialization_completed' && data.initTime) {
+      canvasPerformanceMetrics.initializationTime = data.initTime;
+    }
+
+    if (event === 'error') {
+      canvasPerformanceMetrics.errors.push({
+        timestamp,
+        error: data.error,
+        context: data.context
+      });
+
+      // Keep only last 20 errors
+      if (canvasPerformanceMetrics.errors.length > 20) {
+        canvasPerformanceMetrics.errors = canvasPerformanceMetrics.errors.slice(-20);
+      }
+    }
+  }
+
+  // 🎨 CANVAS HEALTH CHECK: Comprehensive canvas health monitoring
+  function performCanvasHealthCheck(operationId) {
+    console.log(`🏥 [${operationId}] Performing comprehensive canvas health check`);
+    const healthCheckStartTime = getPerformanceTime();
+
+    const healthReport = {
+      isHealthy: true,
+      issues: [],
+      warnings: [],
+      metrics: {
+        stateHistory: canvasStateHistory.length,
+        errorCount: canvasPerformanceMetrics.errors.length,
+        renderCount: canvasPerformanceMetrics.renderCount,
+        averageRenderTime: canvasPerformanceMetrics.averageRenderTime,
+        initializationTime: canvasPerformanceMetrics.initializationTime
+      }
+    };
+
+    // Check canvas element health
+    if (!canvas) {
+      healthReport.isHealthy = false;
+      healthReport.issues.push('Canvas element is null');
+    } else {
+      if (canvas.width <= 0 || canvas.height <= 0) {
+        healthReport.isHealthy = false;
+        healthReport.issues.push(`Invalid canvas dimensions: ${canvas.width}x${canvas.height}`);
+      }
+
+      // Check for canvas memory leaks (basic check)
+      const imageData = ctx?.getImageData(0, 0, 1, 1);
+      if (!imageData) {
+        healthReport.warnings.push('Cannot read canvas pixel data - potential context issue');
+      }
+    }
+
+    // Check context health
+    if (!ctx) {
+      healthReport.isHealthy = false;
+      healthReport.issues.push('Canvas context is null');
+    } else {
+      // Test basic context operations
+      try {
+        const testState = ctx.save();
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, 1, 1);
+        ctx.restore();
+      } catch (error) {
+        healthReport.isHealthy = false;
+        healthReport.issues.push(`Canvas context operation failed: ${error.message}`);
+      }
+    }
+
+    // Check performance health
+    if (canvasPerformanceMetrics.renderCount > 0) {
+      const fpsTarget = 16.67; // 60fps target
+      const currentFps = canvasPerformanceMetrics.averageRenderTime;
+
+      if (currentFps > fpsTarget * 2) { // More than 2x slower than 60fps
+        healthReport.warnings.push(`Performance degradation: ${(currentFps / fpsTarget).toFixed(1)}x slower than 60fps target`);
+      }
+    }
+
+    // Check error rate
+    if (canvasPerformanceMetrics.errors.length > 5) {
+      healthReport.warnings.push(`High error rate: ${canvasPerformanceMetrics.errors.length} errors recorded`);
+    }
+
+    // Check initialization health
+    if (canvasRetries >= MAX_CANVAS_RETRIES) {
+      healthReport.isHealthy = false;
+      healthReport.issues.push(`Maximum initialization retries exceeded: ${canvasRetries}/${MAX_CANVAS_RETRIES}`);
+    }
+
+    const healthCheckTime = getPerformanceTime() - healthCheckStartTime;
+
+    console.log(`🏥 [${operationId}] Canvas health check completed`, {
+      isHealthy: healthReport.isHealthy,
+      checkTime: `${healthCheckTime.toFixed(2)}ms`,
+      issues: healthReport.issues.length,
+      warnings: healthReport.warnings.length,
+      metrics: healthReport.metrics
+    });
+
+    if (!healthReport.isHealthy) {
+      console.error(`🚨 [${operationId}] Canvas health issues detected:`, healthReport.issues);
+    }
+
+    if (healthReport.warnings.length > 0) {
+      console.warn(`⚠️ [${operationId}] Canvas health warnings:`, healthReport.warnings);
+    }
+
+    return healthReport;
+  }
+
+  // 🎨 CANVAS DEBUG SNAPSHOT: Capture current canvas state for debugging
+  function captureCanvasSnapshot(operationId, reason = 'manual') {
+    console.log(`📸 [${operationId}] Capturing canvas snapshot`, { reason });
+
+    const snapshot = {
+      timestamp: Date.now(),
+      reason,
+      state: {
+        canvasReady,
+        canvasError,
+        canvasRetries,
+        hasContext: !!ctx,
+        hasCanvas: !!canvas,
+        stateReady: state?.ready
+      },
+      canvas: canvas ? {
+        width: canvas.width,
+        height: canvas.height,
+        tagName: canvas.tagName,
+        className: canvas.className,
+        id: canvas.id
+      } : null,
+      context: ctx ? {
+        fillStyle: ctx.fillStyle,
+        font: ctx.font,
+        textAlign: ctx.textAlign,
+        textBaseline: ctx.textBaseline,
+        imageSmoothingEnabled: ctx.imageSmoothingEnabled,
+        transform: ctx.getTransform ? ctx.getTransform().toString() : 'unavailable'
+      } : null,
+      performance: { ...canvasPerformanceMetrics },
+      stateHistory: canvasStateHistory.slice(-10), // Last 10 entries
+      contentArea: config?.containerSize ? {
+        width: Math.max(50, config.containerSize.width),
+        height: Math.max(50, config.containerSize.height)
+      } : null
+    };
+
+    console.log(`📸 [${operationId}] Canvas snapshot captured`, snapshot);
+    updateCanvasState('snapshot_captured', { reason, snapshot });
+
+    return snapshot;
   }
   
-  // ✅ ULTRA-MINIMAL: Simple render trigger with deduplication
-  $: renderTrigger: if (state && config && yScale) {
+  // ✅ ENHANCED CANVAS INITIALIZATION TRIGGER: Initialize canvas when ready with comprehensive logging
+  $: canvasInitTrigger: if (canvas && !canvasReady && !canvasInitializing && state?.ready) {
+    console.log(`🎨 [CANVAS_TRIGGER:${id}] Canvas initialization triggered`, {
+      hasCanvas: !!canvas,
+      canvasReady,
+      canvasInitializing,
+      canvasRetries,
+      stateReady: state?.ready,
+      symbol,
+      timestamp: Date.now()
+    });
+
+    // Add small delay to ensure DOM is fully ready
+    setTimeout(() => {
+      if (canvas && !canvasReady && !canvasInitializing) {
+        initializeCanvas();
+      }
+    }, 0);
+  }
+
+  // ✅ ENHANCED RENDER TRIGGER: State correlation and reactivity monitoring
+  $: renderTrigger: if (state && config && yScale && canvasReady) {
+    // 🎨 REACTIVITY MONITORING: Track parameter changes before render
+    let parameterUpdateId = null;
+    if (reactivityMonitor) {
+      parameterUpdateId = reactivityMonitor.trackParameterUpdate({
+        state,
+        config,
+        yScale,
+        canvasReady,
+        symbol
+      }, {
+        trigger: 'svelte_reactive_statement',
+        stateReady: state?.ready,
+        hasNewWebSocketData: state?.timestamp !== previousStateSnapshot?.timestamp
+      });
+      lastParameterUpdateId = parameterUpdateId;
+    }
+
+    // Correlate this render trigger with recent state changes
+    let renderTriggerId = null;
+    if (stateTracker) {
+      renderTriggerId = stateTracker.correlateRenderTrigger({
+        renderType: 'reactive_update',
+        triggerSource: 'svelte_reactive_statement',
+        hasState: !!state,
+        hasConfig: !!config,
+        hasYScale: !!yScale,
+        canvasReady,
+        stateReady: state?.ready,
+        symbol,
+        lastWebSocketTimestamp: lastWebSocketTimestamp ? Date.now() - lastWebSocketTimestamp : null,
+        timestamp: performance.now()
+      });
+    }
+
+    // 🎨 REACTIVITY MONITORING: Track render trigger
+    if (reactivityMonitor && parameterUpdateId) {
+      reactivityMonitor.trackRenderTrigger(parameterUpdateId, {
+        renderTriggerId,
+        stateReady: state?.ready,
+        canvasReady,
+        symbol,
+        timestamp: performance.now()
+      });
+    }
+
+    console.log(`🎨 [RENDER_TRIGGER:${id}] Render triggered`, {
+      hasState: !!state,
+      hasConfig: !!config,
+      hasYScale: !!yScale,
+      canvasReady,
+      stateReady: state?.ready,
+      symbol,
+      renderTriggerId,
+      parameterUpdateId,
+      lastWebSocketTimestamp: lastWebSocketTimestamp ? Date.now() - lastWebSocketTimestamp : null
+    });
     scheduleRender();
   }
   
@@ -1318,6 +2837,30 @@
     // Reset component state
     canvasReady = false;
     canvasError = false;
+  }
+
+  // 🎨 GLOBAL CANVAS DEBUGGING: Expose canvas debugging functions for development
+  if (process.env.NODE_ENV === 'development') {
+    // Make canvas monitoring available globally for debugging
+    window[`canvasDebug_${id}`] = {
+      getStateHistory: () => [...canvasStateHistory],
+      getPerformanceMetrics: () => ({ ...canvasPerformanceMetrics }),
+      captureSnapshot: (reason) => captureCanvasSnapshot(`DEBUG_${Date.now()}`, reason || 'manual_debug'),
+      performHealthCheck: () => performCanvasHealthCheck(`DEBUG_${Date.now()}`),
+      getCanvasState: () => ({
+        canvasReady,
+        canvasError,
+        canvasRetries,
+        hasContext: !!ctx,
+        hasCanvas: !!canvas,
+        stateReady: state?.ready
+      })
+    };
+
+    console.log(`🔧 [DEBUG:${id}] Canvas debugging interface exposed`, {
+      globalKey: `canvasDebug_${id}`,
+      availableMethods: ['getStateHistory', 'getPerformanceMetrics', 'captureSnapshot', 'performHealthCheck', 'getCanvasState']
+    });
   }
 </script>
 

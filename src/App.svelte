@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { displayStore, displayActions, displays, icons, panels, defaultConfig, contextMenu } from './stores/displayStore.js';
+  import { displays as stateDisplays, displayStateStore } from './stores/displayStateStore.js';
   import { shortcutStore, initializeShortcuts } from './stores/shortcutStore.js';
 import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardAction.js';
   import { subscribe, unsubscribe } from './data/wsClient.js';
@@ -20,9 +21,9 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
   import UserErrorExperience from './components/shared/UserErrorExperience.svelte';
   import { withErrorBoundary, withAsyncErrorBoundary } from './utils/errorBoundaryUtils.js';
 
-  // ✅ LAZY LOADING: Production build optimization for heavy components
-  import { initializeVisualizationPreloading } from './lib/viz/LazyVisualizationManager.js';
-  // import { preloadCriticalComponents } from './components/lazy/componentLoaders.js'; // Temporarily disabled due to Vite issues
+  // REMOVED: Lazy loading system - architectural cleanup for "Simple, Performant, Maintainable"
+  // import { initializeVisualizationPreloading } from './lib/viz/LazyVisualizationManager.js';
+  // import { preloadCriticalComponents } from './components/lazy/componentLoaders.js'; // Removed entire lazy loading system
 
   
   // 📝 Window Type Extension: contextMenuRef will be available globally
@@ -31,13 +32,13 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
   // DEFENSIVE: Add initialization guard to prevent race conditions
   let storesInitialized = false;
 
-  $: if ($displays && $icons && $panels && !storesInitialized) {
+  $: if ($stateDisplays && $icons && $panels && !storesInitialized) {
     storesInitialized = true;
   }
 
-  // CRITICAL FIX: Add deduplication to prevent duplicate component creation causing two canvases
-  $: displayList = storesInitialized && $displays ?
-    Array.from($displays.values())
+  // CRITICAL FIX: Use direct store from displayStateStore for better reactivity
+  $: displayList = storesInitialized && $stateDisplays ?
+    Array.from($stateDisplays.values())
       .filter((display, index, array) =>
         // Remove duplicates by display.id - maintain first occurrence
         array.findIndex(d => d.id === display.id) === index
@@ -49,9 +50,9 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
   // DEFENSIVE: Only log when stores are properly initialized
   $: if (storesInitialized) {
     console.log('[APP] Display list update:', {
-      displaysCount: $displays?.size || 0,
+      displaysCount: $stateDisplays?.size || 0,
       displayListCount: displayList?.length || 0,
-      displayIds: Array.from($displays?.keys() || []),
+      displayIds: Array.from($stateDisplays?.keys() || []),
       displays: displayList?.map?.(d => ({
         id: d.id,
         symbol: d.symbol,
@@ -77,7 +78,7 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
 
   // DEFENSIVE: Store initialization health check
   function validateStoreInitialization() {
-    if (!$displays || !$icons || !$panels) {
+    if (!$stateDisplays || !$icons || !$panels) {
       console.warn('[APP] Store initialization incomplete - some stores are undefined');
       return false;
     }
@@ -177,19 +178,11 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
         console.warn('[APP] Environment initialization failed:', envInit);
       }
 
-      // 🚀 PRODUCTION OPTIMIZATION: Initialize lazy loading and preloading
+      // REMOVED: Lazy loading system - architectural cleanup for "Simple, Performant, Maintainable"
       if (!Environment.isDevelopment) {
-        console.log('[APP] Initializing production lazy loading...');
-
-        // Preload critical components after initial render
-        // setTimeout(() => {
-        //   preloadCriticalComponents().catch(error => {
-        //     console.warn('[APP] Critical component preloading failed:', error);
-        //   });
-        // }, 500); // Temporarily disabled due to Vite issues
-
-        // Initialize visualization preloading
-        initializeVisualizationPreloading();
+        console.log('[APP] Production mode - direct loading for optimal performance');
+        // Note: Removed lazy loading system to eliminate architectural debt
+        // Visualizations now load directly for better reliability and debugging
       }
 
       // Initialize workspace from persisted data first
