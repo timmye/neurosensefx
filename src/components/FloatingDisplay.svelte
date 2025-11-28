@@ -181,6 +181,18 @@
   let previousPosition = { x: 100, y: 100 };
   let dragStartTime = null;
   let resizeStartTime = null;
+
+  // 🔧 PERFORMANCE FIX: RequestAnimationFrame throttling variables
+  let movementRafId = null;
+  let resizeRafId = null;
+  let pendingMovement = null;
+  let pendingResize = null;
+
+  // 🔧 PERFORMANCE FIX: Rate limiting to prevent RAF callback accumulation
+  let lastMovementTime = 0;
+  let lastResizeTime = 0;
+  const MIN_MOVEMENT_INTERVAL = 8; // ~120fps max update rate
+  const MIN_RESIZE_INTERVAL = 16; // ~60fps max update rate
   let lastWebSocketTimestamp = null;
 
   
@@ -481,6 +493,118 @@
     globalMemoryTracker.recordUsage();
   }
 
+  // 🔧 PERFORMANCE FIX: Throttled movement update with requestAnimationFrame and rate limiting
+  function scheduleMovementUpdate(movementData) {
+    const now = getPerformanceTime();
+
+    // 🔧 PERFORMANCE FIX: Rate limiting to prevent callback accumulation
+    if (now - lastMovementTime < MIN_MOVEMENT_INTERVAL) {
+      // Too soon, just update pending data but don't schedule new RAF
+      pendingMovement = movementData;
+      return;
+    }
+
+    // Cancel any pending update
+    if (movementRafId) {
+      cancelAnimationFrame(movementRafId);
+    }
+
+    // Store the latest movement data
+    pendingMovement = movementData;
+    lastMovementTime = now;
+
+    movementRafId = requestAnimationFrame(() => {
+      if (pendingMovement) {
+        const { newPosition, dragStartTime } = pendingMovement;
+
+        // CRITICAL FIX: Calculate previousPosition atomically within RAF callback
+        // This prevents race conditions where previousPosition becomes stale
+        const atomicPreviousPosition = { ...previousPosition };
+
+        // Batch expensive operations
+        try {
+          const movementContext = {
+            trigger: 'user_drag',
+            duration: dragStartTime ? getPerformanceTime() - dragStartTime : 0,
+            smooth: false
+          };
+
+          logContainerMovement(id, atomicPreviousPosition, newPosition, movementContext);
+          displayActions.moveDisplay(id, newPosition);
+
+          // CRITICAL FIX: Update previousPosition atomically after successful processing
+          previousPosition = { ...newPosition };
+        } catch (error) {
+          console.warn('[FLOATING_DISPLAY] Failed to process movement:', error);
+        }
+
+        pendingMovement = null;
+      }
+      movementRafId = null;
+    });
+  }
+
+  // 🔧 PERFORMANCE FIX: Throttled resize update with requestAnimationFrame and rate limiting
+  function scheduleResizeUpdate(resizeData) {
+    const now = getPerformanceTime();
+
+    // 🔧 PERFORMANCE FIX: Rate limiting to prevent callback accumulation
+    if (now - lastResizeTime < MIN_RESIZE_INTERVAL) {
+      // Too soon, just update pending data but don't schedule new RAF
+      pendingResize = resizeData;
+      return;
+    }
+
+    pendingResize = resizeData;
+    lastResizeTime = now;
+
+    if (resizeRafId) {
+      cancelAnimationFrame(resizeRafId);
+    }
+
+    resizeRafId = requestAnimationFrame(() => {
+      if (pendingResize) {
+        const { element, event, previousDimensions, resizeStartTime } = pendingResize;
+
+        // Batch all DOM operations to prevent layout thrashing
+        // Write all styles first
+        element.style.width = event.rect.width + 'px';
+        element.style.height = event.rect.height + 'px';
+
+        // Force layout only once
+        const newPosition = {
+          x: event.rect.left,
+          y: event.rect.top
+        };
+
+        const newSize = {
+          width: event.rect.width,
+          height: event.rect.height
+        };
+
+        // Update state in batch
+        displayActions.resizeDisplay(id, newSize);
+        displayActions.moveDisplay(id, newPosition);
+
+        // Log performance metrics
+        try {
+          const resizeContext = {
+            trigger: 'user_resize',
+            duration: resizeStartTime ? getPerformanceTime() - resizeStartTime : 0,
+            smooth: false
+          };
+
+          logContainerResize(id, previousDimensions, newSize, resizeContext);
+        } catch (error) {
+          console.warn('[FLOATING_DISPLAY] Failed to log resize:', error);
+        }
+
+        pendingResize = null;
+      }
+      resizeRafId = null;
+    });
+  }
+
   // ✅ STANDARDIZED COMPONENT LIFECYCLE: Cleanup component resources
   function cleanupComponent() {
     console.log(`[FLOATING_DISPLAY:${id}] Cleaning up component`);
@@ -610,22 +734,12 @@
               y: event.rect.top
             };
 
-            // ✅ ENHANCED LOGGING: Log container movement event
-            try {
-              const movementContext = {
-                trigger: 'user_drag',
-                duration: dragStartTime ? getPerformanceTime() - dragStartTime : 0,
-                smooth: false
-              };
-
-              logContainerMovement(id, previousPosition, newPosition, movementContext);
-              previousPosition = newPosition;
-            } catch (error) {
-              // Silently handle logging errors to prevent breaking drag functionality
-              console.warn('[FLOATING_DISPLAY] Failed to log movement event:', error);
-            }
-
-            displayActions.moveDisplay(id, newPosition);
+            // 🔧 PERFORMANCE FIX: Use throttled movement update
+            // CRITICAL FIX: previousPosition is now handled atomically within RAF callback
+            scheduleMovementUpdate({
+              newPosition,
+              dragStartTime
+            });
           },
           onend: () => {
             // ✅ GRID FEEDBACK: Notify workspace grid of drag end
@@ -655,45 +769,16 @@
             resizeStartTime = getPerformanceTime();
           },
           onmove: (event) => {
-            // ✅ GRID SNAPPING: Update element style for visual feedback
-            element.style.width = event.rect.width + 'px';
-            element.style.height = event.rect.height + 'px';
+            // 🔧 PERFORMANCE FIX: Use throttled resize update to prevent layout thrashing
+            scheduleResizeUpdate({
+              element,
+              event,
+              previousDimensions,
+              resizeStartTime
+            });
 
-            const newPosition = {
-              x: event.rect.left,
-              y: event.rect.top
-            };
-            const newSize = {
-              width: event.rect.width,
-              height: event.rect.height
-            };
-
-            // 🔧 CRITICAL FIX: Trigger immediate canvas resize update
-            const containerSize = {
-              width: event.rect.width,
-              height: event.rect.height
-            };
-
-            // Config update is now handled by unified resizeDisplay function
-
-            // ✅ ENHANCED LOGGING: Log container resize event
-            try {
-              const currentDimensions = { width: event.rect.width, height: event.rect.height };
-              const resizeContext = {
-                trigger: 'user_drag',
-                duration: resizeStartTime ? getPerformanceTime() - resizeStartTime : 0,
-                animated: false
-              };
-
-              logContainerResize(id, previousDimensions, currentDimensions, resizeContext);
-              previousDimensions = currentDimensions;
-            } catch (error) {
-              // Silently handle logging errors to prevent breaking resize functionality
-              console.warn('[FLOATING_DISPLAY] Failed to log resize event:', error);
-            }
-
-            displayActions.moveDisplay(id, newPosition);
-            displayActions.resizeDisplay(id, event.rect.width, event.rect.height, { updateConfig: false });
+            // Update previous dimensions for next frame
+            previousDimensions = { width: event.rect.width, height: event.rect.height };
           },
           onend: (event) => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize end
@@ -1101,6 +1186,20 @@
     const destructionStartTime = performance.now();
 
     try {
+      // 🔧 PERFORMANCE FIX: Cancel pending requestAnimationFrame callbacks
+      if (movementRafId) {
+        cancelAnimationFrame(movementRafId);
+        movementRafId = null;
+      }
+      if (resizeRafId) {
+        cancelAnimationFrame(resizeRafId);
+        resizeRafId = null;
+      }
+
+      // Clear pending operations
+      pendingMovement = null;
+      pendingResize = null;
+
       // ✅ MEMORY MANAGEMENT: Execute comprehensive cleanup using cleanup manager
       if (cleanupManager) {
         const cleanupResults = await cleanupManager.destroy();

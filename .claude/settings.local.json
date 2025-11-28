@@ -31,7 +31,11 @@
       "Bash(npx eslint --no-eslintrc --parser-options=ecmaVersion:2020,sourceType:module src/components/FloatingDisplay.svelte:*)",
       "Bash(npx vitest run:*)",
       "Bash(lsattr:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(lsof:*)",
+      "Bash(npm run test:browser-logs:*)",
+      "Bash(npm run status:*)",
+      "Bash(npm ls:*)"
     ],
     "deny": [],
     "ask": []

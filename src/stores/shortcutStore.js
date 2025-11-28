@@ -314,11 +314,21 @@ function createActionForShortcut(id) {
 					// 🔧 CRITICAL FIX: Add proper error handling and fallbacks
 					const $displayStateStore = get(displayStateStore);
 
+					
 					// Check if store is properly initialized and has displays
 					if (!$displayStateStore || !$displayStateStore.displays) {
 						debugLog('❌ Display state store not properly initialized', {
 							hasStore: !!$displayStateStore,
 							hasDisplays: !!$displayStateStore?.displays
+						});
+						return;
+					}
+
+					// Additional safety check: ensure displays is a Map
+					if (!($displayStateStore.displays instanceof Map)) {
+						debugLog('❌ Display state store.displays is not a Map', {
+							displaysType: typeof $displayStateStore.displays,
+							displaysValue: $displayStateStore.displays
 						});
 						return;
 					}

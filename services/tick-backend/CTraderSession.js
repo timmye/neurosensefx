@@ -74,17 +74,32 @@ class CTraderSession extends EventEmitter {
                     timestamp: timestamp,
                 };
             }
-            else if (event.bid != null) {
+            else if (event.bid != null && event.ask != null) {
+                // 🔧 CRITICAL FIX: Require BOTH bid AND ask to be valid to create a tick
+                // This prevents artificial ticks where ask=fallback=bid when ask is null
                 const bidRaw = Number(event.bid);
-                const askRaw = (event.ask != null) ? Number(event.ask) : bidRaw;
+                const askRaw = Number(event.ask);
                 const timestamp = event.timestamp ? Number(event.timestamp) : Date.now();
 
-                tickData = {
-                    symbol: symbolName,
-                    bid: this.calculatePrice(bidRaw, symbolInfo.digits),
-                    ask: this.calculatePrice(askRaw, symbolInfo.digits),
-                    timestamp: timestamp,
-                };
+                // Additional validation to ensure both values are valid numbers and realistic for FX
+                if (isFinite(bidRaw) && isFinite(askRaw) && bidRaw > 0 && askRaw > 0) {
+                    const bidPrice = this.calculatePrice(bidRaw, symbolInfo.digits);
+                    const askPrice = this.calculatePrice(askRaw, symbolInfo.digits);
+
+                    // Ensure ask > bid for valid FX market data
+                    if (askPrice > bidPrice) {
+                        tickData = {
+                            symbol: symbolName,
+                            bid: bidPrice,
+                            ask: askPrice,
+                            timestamp: timestamp,
+                        };
+                    } else {
+                        console.log(`[DEBUG_TRACE | CTraderSession] Skipping tick - ask (${askPrice}) <= bid (${bidPrice})`);
+                    }
+                } else {
+                    console.log(`[DEBUG_TRACE | CTraderSession] Skipping tick - invalid numeric values: bid=${bidRaw}, ask=${askRaw}`);
+                }
             }
 
             if (tickData) {

@@ -133,6 +133,11 @@
 
   // ✅ CRITICAL FIX: Helper function to ensure unique keys for shortcuts
   function getSafeShortcutKey(shortcut, index, category = '') {
+    // Defensive check for undefined shortcuts
+    if (!shortcut) {
+      return `undefined-shortcut-${category || 'unknown'}-${index}-${Math.random().toString(36).substr(2, 6)}`;
+    }
+
     if (shortcut.id && shortcut.id !== undefined) {
       return shortcut.id;
     }

@@ -70,7 +70,7 @@ let maxRetries = 5;
 let retryDelay = 1000; // Start with 1 second
 let retryTimeout = null;
 
-export function connect() {
+export async function connect() {
     return withAsyncErrorBoundary(async () => {
         if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
             return;
@@ -83,7 +83,7 @@ export function connect() {
         }
 
         await attemptConnection();
-    }, null, 'WebSocketConnect')();
+    }, null, 'WebSocketConnect');
 }
 
 async function attemptConnection() {

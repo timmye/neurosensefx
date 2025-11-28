@@ -262,7 +262,7 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
 
     // REMOVED: KEYBOARD SHORTCUTS: Add event listeners for custom shortcut events - conflicting system
     // Keyboard shortcuts are now handled by the unified keyboardAction.js system
-
+  });
 
   // Handle workspace right-click with error boundary
   function handleWorkspaceContextMenu(e) {
