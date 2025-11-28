@@ -261,8 +261,7 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
     }, 1000); // Increase delay to ensure components are fully mounted
 
     // REMOVED: KEYBOARD SHORTCUTS: Add event listeners for custom shortcut events - conflicting system
-// Keyboard shortcuts are now handled by the unified keyboardAction.js system
-  }));
+    // Keyboard shortcuts are now handled by the unified keyboardAction.js system
 
 
   // Handle workspace right-click with error boundary
@@ -280,7 +279,7 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
 
         displayActions.showContextMenu(e.clientX, e.clientY, null, 'workspace', context);
       }
-    }, null, 'handleWorkspaceContextMenu')(e);
+    }, null, 'handleWorkspaceContextMenu');
   }
 </script>
 

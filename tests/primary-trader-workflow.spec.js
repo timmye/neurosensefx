@@ -13,7 +13,7 @@
  * SUCCESS CRITERIA: All test phases complete with proper keyboard system integration
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, BrowserConsoleHelpers } from './fixtures/enhanced-browser-console.js';
 
 test.describe('Primary Trader Workflow', () => {
   // Removed mode: 'serial' to allow all tests to run for comprehensive analysis

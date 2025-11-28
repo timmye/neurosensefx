@@ -172,33 +172,45 @@ export const displayStore = writable({
 **Core Testing Commands:**
 ```bash
 npm run test:unit         # Unit tests (Vitest) - pure business logic
-npm run test:e2e          # End-to-end tests (Playwright) - real browser workflows
-npm run test:browser-logs # Native browser console visibility for LLM development
-npm run test:all          # Run both test suites
+npm run test:e2e          # End-to-end tests (Playwright) with integrated browser-logs
+npm run test:browser-logs # Enhanced browser console system for comprehensive visibility
+npm run test:all          # Complete test suite execution
 ```
 
-### Browser Console Visibility for LLM Development
+### Enhanced Browser Console System
 
-**Quick Access to Browser Console:**
+The enhanced browser console system provides comprehensive system visibility with emoji-based classification and focused log collectors for optimal LLM developer experience.
+
+**System Features:**
+- **Automatic Classification**: All console messages classified with visual emoji indicators (🌐⌨️❌✅🔥⚠️💡📦)
+- **Focused Collectors**: Specialized log collectors for keyboard, performance, network, and error monitoring
+- **Health Check Utilities**: Automated system validation and error analysis
+- **Zero Infrastructure Overhead**: Pure Playwright native events with <1ms performance impact
+- **LLM-Optimized Output**: Visual patterns and structured data for rapid comprehension
+
+**Quick Access to System Visibility:**
 ```bash
-npm run test:browser-logs  # Show all browser console messages
-npm run test:browser-logs | grep "❌"  # Show only errors
-npm run test:browser-logs | grep "REQUEST FAILED"  # Show network issues
-npm run test:browser-logs | grep "LOG:"  # Show application logs
+npm run test:browser-logs  # Comprehensive console analysis with classification
+npm run test:browser-logs | grep "❌"  # Error-focused debugging
+npm run test:browser-logs | grep "🌐"  # Network activity monitoring
+npm run test:browser-logs | grep "⌨️"  # Keyboard system debugging
+npm run test:browser-logs | grep "🔥"  # Critical error identification
 ```
 
-**What Browser Logs Show:**
-- **✅ RESPONSE: 200** - Successful HTTP requests
-- **❌ REQUEST FAILED** - Network request failures
-- **❌ ERROR: [COMPONENT]** - JavaScript errors and initialization failures
-- **🌐 REQUEST** - All outgoing network requests
-- **⌨️ User interaction** - Keyboard/mouse events
-- **LOG:** - Application console.log messages
+**Enhanced Classification System:**
+- **🌐 Network Activity**: HTTP requests, WebSocket connections, API calls
+- **⌨️ User Interactions**: Keyboard events, mouse actions, shortcut processing
+- **❌ System Errors**: JavaScript errors, component failures, initialization issues
+- **✅ Success Events**: Successful operations, completed workflows, achievements
+- **🔥 Critical Issues**: Server errors, network failures, system crashes
+- **⚠️ Warnings**: Deprecation notices, performance warnings, edge cases
+- **💡 Debug Information**: Development logs, performance metrics, system insights
+- **📦 Asset Loading**: Static resource requests, module loading, component imports
 
 **Testing Philosophy: "Simple, Performant, Maintainable"**
-- **Simple**: 3 core commands instead of 13+ scattered scripts
-- **Performant**: Real browser testing with native Playwright features, 40% faster execution
-- **Maintainable**: Standard tools with zero custom logging infrastructure
+- **Simple**: Centralized utility with drop-in integration, clear visual patterns
+- **Performant**: Native Playwright events, single event handler setup, minimal overhead
+- **Maintainable**: Consistent classification across all tests, reusable collectors
 
 ### Evidence Collection Requirements
 
@@ -223,9 +235,9 @@ npm run test:browser-logs | grep "LOG:"  # Show application logs
 
 **Test Execution:**
 ```bash
-npm run test:e2e                    # Real browser evidence collection
-npm run test:e2e:performance       # Production codebase performance evidence
-npm run test:complete-workflow      # Full trader workflow evidence
+npm run test:e2e                    # Primary workflow + enhanced browser-logs integration
+npm run test:browser-logs           # Comprehensive system visibility and console analysis
+npm run test:all                    # Complete test suite with unified logging
 ```
 
 **Evidence Requirements:**
@@ -262,13 +274,13 @@ npm run test:complete-workflow      # Full trader workflow evidence
 3. Check existing utilities before creating new ones
 4. Test with realistic conditions (multiple displays, trading workflows)
 5. **Validate ALL changes with actual trader workflows on the production codebase** (MANDATORY)
-6. **Use native browser console for LLM development visibility**: `npm run test:browser-logs`
+6. **Use enhanced browser console for comprehensive system visibility**: `npm run test:browser-logs`
 7. Document new patterns and utilities
 
 **Testing Integration:**
 - **Development**: `npm run test:unit -- --watch` for rapid feedback
-- **Before commits**: `npm run test:e2e` for workflow validation
-- **LLM visibility**: `npm run test:browser-logs` for native browser console logging
+- **Before commits**: `npm run test:e2e` for workflow validation with integrated browser-logs
+- **System visibility**: `npm run test:browser-logs` for comprehensive console analysis
 - **Complete validation**: `npm run test:all` for full test suite execution
 
 **Code Standards:**

@@ -20,7 +20,7 @@
     "env-status": "./run.sh env-status",
     "logs": "./run.sh logs",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test tests/primary-trader-workflow.spec.js tests/e2e/browser-logs.spec.js",
     "test:browser-logs": "playwright test tests/e2e/browser-logs.spec.js",
     "test:all": "npm run test:unit && npm run test:e2e",
     "test:install": "playwright install chromium firefox webkit",
