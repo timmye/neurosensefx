@@ -424,8 +424,27 @@ async function clearWorkspace(page) {
 
       // Clear any stored display data
       if (window.displayStore) {
-        window.displayStore.displays.clear();
-        window.displayStore.activeDisplays = [];
+        // Clear displays using the new displayStateStore structure
+        if (window.displayStateStore && window.displayStateStore.update) {
+          window.displayStateStore.update(state => ({
+            ...state,
+            displays: new Map(),
+            activeDisplayId: null
+          }));
+        }
+        // Reset active displays array - check if the property exists before trying to set
+        try {
+          const currentStore = window.displayStore ? window.displayStore.value || window.displayStore : null;
+          if (currentStore && currentStore.activeDisplays !== undefined) {
+            window.displayStore.update(store => ({
+              ...store,
+              activeDisplays: []
+            }));
+          }
+        } catch (e) {
+          // Safe fallback - continue without clearing store data
+          console.log('Could not clear displayStore data, continuing...');
+        }
       }
     });
 

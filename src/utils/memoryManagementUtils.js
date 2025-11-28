@@ -34,25 +34,7 @@ export class ResourceCleanupManager {
 
       console.log(`[MEMORY_MANAGER:${this.componentId}] Initialized for ${this.componentType}`);
 
-      // Wrap critical methods with error boundaries
-      this.registerResource = withErrorBoundary(
-        this.registerResource.bind(this),
-        () => null,
-        'ResourceCleanupManager.registerResource'
-      );
-
-      this.cleanup = withErrorBoundary(
-        this.cleanup.bind(this),
-        () => ({ success: false, resourcesCleaned: 0, errors: [] }),
-        'ResourceCleanupManager.cleanup'
-      );
-
-      this.destroy = withErrorBoundary(
-        this.destroy.bind(this),
-        () => ({ success: false, resourcesDestroyed: 0 }),
-        'ResourceCleanupManager.destroy'
-      );
-
+      
     } catch (error) {
       memorySafeErrorHandler('ResourceCleanupManager.constructor', error);
 
@@ -303,6 +285,11 @@ export class ResourceCleanupManager {
    * @returns {Object} Cleanup summary with timing and success metrics
    */
   cleanupAllResources() {
+    // Safety check for initialization state
+    if (this.isDestroyed || !this.resources) {
+      return { totalResources: 0, cleanedResources: 0, failedCleanups: 0, cleanupResults: [], totalTime: 0 };
+    }
+
     const startTime = performance.now();
     const resources = Array.from(this.resources.entries());
     const results = {

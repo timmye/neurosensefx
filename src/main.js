@@ -1,6 +1,7 @@
 import App from './App.svelte';
 import { initializeWsClient } from './data/wsClient.js';
 import { displayStore, displayActions } from './stores/displayStore.js';
+import { displayStateStore } from './stores/displayStateStore.js';
 
 // ✅ LAZY LOADING: Lazy load memory management in production
 let initializeMemoryTracking, globalMemoryTracker;
@@ -42,6 +43,7 @@ if (__DEV__ && initializeMemoryTracking) {
 // ✅ EXPOSE: Make store and actions globally available for components
 window.displayStore = displayStore;
 window.displayActions = displayActions;
+window.displayStateStore = displayStateStore;
 
 // ✅ EXPOSE: Make memory tracker available in development
 if (__DEV__ && globalMemoryTracker) {

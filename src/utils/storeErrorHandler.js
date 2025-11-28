@@ -101,7 +101,7 @@ export class StoreErrorHandler {
       this.loadPersistedState(name);
     }
 
-    console.log(`[STORE_ERROR_HANDLER] Registered store: ${name}`);
+    console.log(`[STORE_REGISTRY] Registered store: ${name}`);
     return store;
   }
 

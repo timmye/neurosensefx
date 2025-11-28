@@ -101,7 +101,7 @@ export class WebSocketErrorHandler {
           const connectionTime = performance.now() - connectionStartTime;
           this._updateReconnectMetrics(connectionTime);
 
-          console.log(`[WS_ERROR_HANDLER] Connected successfully in ${connectionTime.toFixed(2)}ms`);
+          console.log(`[WS_CONNECTION] Connected successfully in ${connectionTime.toFixed(2)}ms`);
           resolve(ws);
         };
 

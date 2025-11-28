@@ -1,0 +1,1014 @@
+# Shadow Implementation Plan: NeuroSense FX Simplification
+
+## Executive Summary
+
+**Strategy**: Build the simple version in complete isolation (`src-simple/`) while keeping existing code (`src/`) as read-only reference. Use a feature router for gradual migration and validation.
+
+**Timeline**: 4 development sessions + 1 integration session = 5 total sessions
+
+**Success**: Three MUST HAVEs working in ~400 lines, validated against existing system, ready for production switch.
+
+---
+
+## Repository Structure
+
+```
+neurosense-fx/
+├── src/                          # EXISTING - Keep as read-only reference
+│   ├── components/
+│   │   └── FloatingDisplay.svelte  (26,520 lines)
+│   ├── stores/
+│   │   ├── displayStore.js         (1,167 lines)
+│   │   └── displayStateStore.js    (799 lines)
+│   ├── utils/                      (85+ files)
+│   └── lib/viz/                    (Complex visualization engines)
+│
+├── src-simple/                   # NEW - Build simple version here
+│   ├── README.md                   (Implementation guide)
+│   ├── stores/
+│   │   └── workspace.js            (TARGET: 150 lines)
+│   ├── components/
+│   │   ├── Workspace.svelte        (TARGET: 80 lines)
+│   │   └── FloatingDisplay.svelte  (TARGET: 100 lines)
+│   └── lib/
+│       └── visualizers.js          (TARGET: 60 lines)
+│
+├── src-migration/                # NEW - Integration layer
+│   ├── README.md                   (Migration guide)
+│   ├── FeatureRouter.svelte        (Routes old/new based on flag)
+│   └── FeatureFlags.js             (Configuration)
+│
+└── docs/
+    └── crystal-clarity/          # NEW - Documentation
+        ├── decisions.md            (Architecture decision log)
+        ├── feature-parity.md       (What must survive)
+        └── migration-plan.md       (Rollout strategy)
+```
+
+---
+
+## Phase 0: Setup (Before Claude Code Sessions)
+
+### Create Directory Structure
+
+```bash
+# Create new directories
+mkdir -p src-simple/stores
+mkdir -p src-simple/components
+mkdir -p src-simple/lib
+mkdir -p src-migration
+mkdir -p docs/crystal-clarity
+
+# Create README files
+touch src-simple/README.md
+touch src-migration/README.md
+touch docs/crystal-clarity/decisions.md
+touch docs/crystal-clarity/feature-parity.md
+touch docs/crystal-clarity/migration-plan.md
+```
+
+### Create src-simple/README.md
+
+```markdown
+# Simple Implementation
+
+This directory contains the crystal-clear implementation of NeuroSense FX's three MUST HAVEs.
+
+## Principles
+
+1. **Simple**: Each file does ONE thing
+2. **Performant**: Sub-100ms interaction latency
+3. **Maintainable**: Readable in under 1 hour
+
+## Line Count Targets (HARD LIMITS)
+
+- `stores/workspace.js`: 150 lines MAX
+- `components/Workspace.svelte`: 80 lines MAX
+- `components/FloatingDisplay.svelte`: 100 lines MAX
+- `lib/visualizers.js`: 60 lines MAX
+
+**Total Target**: 390 lines for all three MUST HAVEs
+
+## The Three MUST HAVEs
+
+### MUST HAVE 1: Establish Floating Interface Workspace
+- Draggable workspace container
+- Position persistence via localStorage
+- Basic z-index management
+
+### MUST HAVE 2: Create Interactive Floating Element
+- Individual draggable displays
+- Basic resize capability
+- Focus management
+
+### MUST HAVE 3: Show Live Visualizations Inside
+- Canvas rendering with DPR awareness
+- WebSocket real-time data integration
+- Day Range Meter visualization
+
+## Rules for Implementation
+
+### ALLOWED:
+- Framework documentation (Svelte, interact.js, Canvas API)
+- Reading src/ ONLY for data shapes and types
+- Using Plan 1 code examples as starting templates
+
+### FORBIDDEN:
+- Copying implementation patterns from src/
+- Building abstractions or utility layers
+- Adding validation, monitoring, or performance infrastructure
+- "Improving" existing complex patterns
+
+## Framework Usage
+
+**Svelte Stores**: Single source of truth
+- Use writable() for workspace state
+- No derived stores unless absolutely necessary
+- No complex synchronization logic
+
+**interact.js**: Direct usage
+- draggable() for movement
+- resizable() for sizing
+- No custom wrappers or abstractions
+
+**Canvas Rendering**: DPR-aware basics
+- Standard Canvas 2D API
+- Device pixel ratio handling
+- No custom rendering engines
+
+**WebSocket**: Direct data flow
+- Subscribe to symbol data
+- Render on data receive
+- No worker processing initially
+```
+
+### Create src-migration/README.md
+
+```markdown
+# Migration Layer
+
+This directory contains the integration layer for gradually migrating from the complex implementation to the simple implementation.
+
+## Purpose
+
+- Test simple implementation alongside existing system
+- Validate feature parity
+- Enable gradual rollout with instant rollback
+
+## Strategy
+
+1. Feature flags control which implementation renders
+2. Both implementations can run simultaneously
+3. Compare behavior side-by-side
+4. Switch production traffic gradually
+
+## Files
+
+- `FeatureFlags.js`: Configuration for feature toggles
+- `FeatureRouter.svelte`: Routes to old/new implementation
+```
+
+### Create docs/crystal-clarity/feature-parity.md
+
+```markdown
+# Feature Parity Checklist
+
+## MUST SURVIVE
+
+### Core Interactions
+- [ ] Drag floating displays
+- [ ] Displays persist position on refresh
+- [ ] Multiple displays can be open simultaneously
+- [ ] Click to focus/bring to front
+- [ ] Real-time price updates render smoothly
+
+### Keyboard Shortcuts
+- [ ] Shortcut to open new display
+- [ ] Shortcut to close focused display
+- [ ] Shortcuts documented and working
+
+### Data Flow
+- [ ] WebSocket connects to data source
+- [ ] Symbol data routes to correct display
+- [ ] Data updates trigger canvas re-render
+- [ ] Connection loss handled gracefully
+
+### Visual Quality
+- [ ] DPR-aware rendering (crisp on Retina)
+- [ ] Day Range Meter renders correctly
+- [ ] Price labels readable
+- [ ] Visual feedback on interaction
+
+## CAN BE SIMPLIFIED
+
+### Advanced Positioning
+- Grid snapping (start without, add if needed)
+- Collision detection (start without)
+- Smart positioning (start without)
+
+### Performance Infrastructure
+- Performance monitoring (remove entirely)
+- Memory tracking (remove entirely)
+- Debug logging (remove entirely)
+
+### Complex Validation
+- Coordinate validation (simplify to bounds check)
+- State validation (remove entirely)
+- Schema validation (remove entirely)
+
+## ACCEPTABLE REGRESSIONS
+
+### During Initial Implementation
+- Fewer visualization types (start with Day Range Meter only)
+- No advanced layout features
+- Simplified error messages
+- No performance analytics
+```
+
+---
+
+## Claude Code Session Guide
+
+### Session 1: Foundation Audit & Setup (1-2 hours)
+
+**Objective**: Understand technical foundation without implementation bias
+
+**Instructions for Claude Code:**
+
+```markdown
+# Session 1: Foundation Audit
+
+## Context
+NeuroSense FX has over-implemented complexity (30,000+ lines) obscuring solid technical foundations. We're building a simple implementation in isolation.
+
+## Task
+Analyze ONLY framework setup files to understand our technical capabilities. DO NOT look at src/ implementation files yet.
+
+## Files to Analyze
+1. `package.json` - What frameworks are installed?
+2. `vite.config.js` - What's the build configuration?
+3. `svelte.config.js` - What Svelte features are available?
+4. Any TypeScript/ESLint configs
+
+## Deliverable
+Create: `docs/crystal-clarity/foundations.md`
+
+Document:
+- Available frameworks and versions
+- Configured build tools
+- Development environment setup
+- Framework capabilities we can leverage
+
+## Constraints
+- DO NOT open any files in src/ directory
+- Focus on "what's available" not "how it's currently used"
+- Keep document under 200 lines
+```
+
+**Expected Output**: Foundation capabilities document showing Svelte 4.x, interact.js, Canvas API, WebSocket availability.
+
+---
+
+### Session 2: MUST HAVE 1 - Workspace (2 hours)
+
+**Objective**: Create workspace management in ~150 lines
+
+**Instructions for Claude Code:**
+
+```markdown
+# Session 2: Workspace Store Implementation
+
+## Context
+Building the simplest possible workspace management for floating displays.
+
+## Task
+Create `src-simple/stores/workspace.js` (TARGET: 150 lines MAX)
+
+## Requirements
+
+### State Management
+```javascript
+{
+  displays: Map<id, {
+    id: string,
+    symbol: string,
+    position: { x: number, y: number },
+    size: { width: number, height: number },
+    zIndex: number,
+    created: timestamp
+  }>,
+  nextZIndex: number,
+  config: {
+    defaultSize: { width: 220, height: 120 },
+    defaultPosition: { x: 100, y: 100 }
+  }
+}
+```
+
+### Actions Needed
+- `addDisplay(symbol, position?)` - Create new display
+- `removeDisplay(id)` - Remove display
+- `updatePosition(id, position)` - Move display
+- `updateSize(id, size)` - Resize display
+- `bringToFront(id)` - Update z-index
+- `loadFromStorage()` - Restore from localStorage
+- `saveToStorage()` - Persist to localStorage
+
+### Constraints
+- Use Svelte's `writable()` store
+- Serialize to localStorage as JSON
+- No validation beyond basic type checks
+- No complex synchronization logic
+- No error recovery systems
+
+### Reference Allowed
+- Reading `src/stores/displayStore.js` ONLY for data shape
+- DO NOT copy implementation patterns
+
+### Code Structure
+```javascript
+import { writable } from 'svelte/store';
+
+// Initial state
+const initialState = { /* ... */ };
+
+// Create store
+export const workspace = writable(initialState);
+
+// Actions
+export const workspaceActions = {
+  addDisplay: (symbol, position) => {
+    workspace.update(state => {
+      // Implementation: ~10 lines
+    });
+  },
+  // Other actions...
+};
+
+// Persistence
+export const persistence = {
+  load: () => { /* ~15 lines */ },
+  save: () => { /* ~10 lines */ }
+};
+```
+
+## Deliverable
+Complete `src-simple/stores/workspace.js` under 150 lines
+
+## Success Criteria
+- [ ] Creates displays with unique IDs
+- [ ] Persists to localStorage
+- [ ] Restores from localStorage
+- [ ] Updates z-index on focus
+- [ ] All actions under 15 lines each
+```
+
+**Expected Output**: Working workspace store, ~120-150 lines, fully functional.
+
+---
+
+### Session 3: MUST HAVE 2 - Interactive Elements (2 hours)
+
+**Objective**: Create draggable displays in ~100 lines
+
+**Instructions for Claude Code:**
+
+```markdown
+# Session 3: Floating Display Component
+
+## Context
+Building the simplest interactive floating element using our workspace store.
+
+## Task
+Create `src-simple/components/FloatingDisplay.svelte` (TARGET: 100 lines MAX)
+
+## Requirements
+
+### Props
+```javascript
+export let display; // From workspace store
+```
+
+### Interactions
+- Draggable via interact.js
+- Click to focus (bring to front)
+- Close button
+- Updates workspace store on interaction
+
+### Visual Structure
+```svelte
+<div class="floating-display" data-display-id={display.id}>
+  <div class="header">
+    <span class="symbol">{display.symbol}</span>
+    <button class="close" on:click={handleClose}>×</button>
+  </div>
+  <canvas bind:this={canvas} />
+</div>
+```
+
+### interact.js Setup
+```javascript
+import interact from 'interactjs';
+
+interact(element)
+  .draggable({
+    listeners: {
+      move: (event) => {
+        // Update position in store: ~5 lines
+      }
+    }
+  })
+  .on('tap', () => {
+    // Bring to front: ~3 lines
+  });
+```
+
+### Constraints
+- No custom drag logic, use interact.js directly
+- No performance monitoring
+- No validation beyond bounds checking
+- Position stored in workspace store immediately
+- Canvas setup only (rendering in next session)
+
+### Reference Allowed
+- interact.js documentation
+- Reading `src/components/FloatingDisplay.svelte` for event types ONLY
+- DO NOT copy validation, monitoring, or complex patterns
+
+## Deliverable
+Complete `src-simple/components/FloatingDisplay.svelte` under 100 lines
+
+## Success Criteria
+- [ ] Renders at position from store
+- [ ] Draggable with smooth motion
+- [ ] Updates store on drag end
+- [ ] Click brings to front
+- [ ] Close button removes from store
+- [ ] Canvas element ready for rendering
+```
+
+**Expected Output**: Interactive display component, ~80-100 lines, smooth dragging.
+
+---
+
+### Session 4: MUST HAVE 3 - Visualizations (2 hours)
+
+**Objective**: Create canvas renderer + WebSocket integration in ~100 lines total
+
+**Instructions for Claude Code:**
+
+```markdown
+# Session 4: Live Visualizations
+
+## Context
+Building the simplest canvas rendering with real-time data updates.
+
+## Task Part A
+Create `src-simple/lib/visualizers.js` (TARGET: 60 lines MAX)
+
+### Day Range Meter Renderer
+```javascript
+/**
+ * Renders a simple day range meter visualization
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Object} data - { symbol, high, low, current, open }
+ * @param {Object} size - { width, height }
+ */
+export function renderDayRange(ctx, data, size) {
+  // 1. Clear canvas: ~2 lines
+  // 2. Calculate positions: ~5 lines
+  // 3. Draw range bar: ~5 lines
+  // 4. Draw current price marker: ~5 lines
+  // 5. Draw labels: ~10 lines
+}
+
+/**
+ * Setup canvas with DPR awareness
+ * @param {HTMLCanvasElement} canvas
+ */
+export function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return ctx;
+}
+```
+
+### Constraints
+- Canvas 2D API only
+- No custom rendering engines
+- No animation systems
+- Simple, readable drawing code
+- DPR handling for crisp rendering
+
+## Task Part B
+Update `src-simple/components/FloatingDisplay.svelte` (ADD: ~40 lines)
+
+### Add WebSocket Integration
+```javascript
+import { onMount } from 'svelte';
+import { renderDayRange, setupCanvas } from '../lib/visualizers.js';
+
+let canvas;
+let ctx;
+let unsubscribe;
+
+onMount(() => {
+  // Setup canvas: ~5 lines
+  ctx = setupCanvas(canvas);
+  
+  // Subscribe to WebSocket data: ~10 lines
+  const ws = new WebSocket('ws://localhost:8080');
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ action: 'subscribe', symbol: display.symbol }));
+  };
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    renderDayRange(ctx, data, display.size);
+  };
+  
+  // Cleanup: ~5 lines
+  return () => {
+    ws.close();
+    interact(element).unset();
+  };
+});
+```
+
+### Constraints
+- Direct WebSocket connection (no workers initially)
+- Render on data receive (no batching)
+- No complex error handling
+- No reconnection logic initially
+
+### Reference Allowed
+- Canvas API documentation
+- WebSocket API documentation
+- Reading `src/lib/viz/dayRangeMeter.js` for visualization STRUCTURE only
+- Reading WebSocket setup from existing code for connection details
+
+## Deliverables
+1. `src-simple/lib/visualizers.js` - Under 60 lines
+2. Updated `src-simple/components/FloatingDisplay.svelte` - Now ~120 lines total
+
+## Success Criteria
+- [ ] Canvas renders crisp on all displays (DPR handled)
+- [ ] WebSocket connects and receives data
+- [ ] Day Range Meter updates in real-time
+- [ ] Price updates visible within 100ms
+- [ ] Multiple displays can render simultaneously
+```
+
+**Expected Output**: Complete visualization system, all three MUST HAVEs working.
+
+---
+
+### Session 5: Integration & Validation (2 hours)
+
+**Objective**: Create migration layer and validate against existing system
+
+**Instructions for Claude Code:**
+
+```markdown
+# Session 5: Integration Layer
+
+## Context
+We've built the simple implementation. Now we need to validate it works correctly and create a migration path.
+
+## Task Part A
+Create `src-migration/FeatureFlags.js` (TARGET: 30 lines)
+
+```javascript
+/**
+ * Feature flags for gradual migration
+ */
+export const flags = {
+  // Set to true to use simple implementation
+  useSimpleWorkspace: false,
+  useSimpleDisplays: false,
+  useSimpleVisualizations: false,
+  
+  // Helper to check if all simple features enabled
+  get allSimpleFeaturesEnabled() {
+    return this.useSimpleWorkspace && 
+           this.useSimpleDisplays && 
+           this.useSimpleVisualizations;
+  }
+};
+
+// Load from localStorage for easy testing
+if (typeof localStorage !== 'undefined') {
+  const stored = localStorage.getItem('featureFlags');
+  if (stored) {
+    Object.assign(flags, JSON.parse(stored));
+  }
+}
+```
+
+## Task Part B
+Create `src-migration/FeatureRouter.svelte` (TARGET: 50 lines)
+
+```svelte
+<script>
+  import { flags } from './FeatureFlags.js';
+  
+  // Old implementation
+  import OldWorkspace from '../src/components/Workspace.svelte';
+  import OldFloatingDisplay from '../src/components/FloatingDisplay.svelte';
+  
+  // New implementation
+  import NewWorkspace from '../src-simple/components/Workspace.svelte';
+  import NewFloatingDisplay from '../src-simple/components/FloatingDisplay.svelte';
+  
+  // Determine which implementation to use
+  $: WorkspaceComponent = flags.useSimpleWorkspace ? NewWorkspace : OldWorkspace;
+  $: DisplayComponent = flags.useSimpleDisplays ? NewFloatingDisplay : OldFloatingDisplay;
+</script>
+
+<svelte:component this={WorkspaceComponent}>
+  {#each displays as display}
+    <svelte:component this={DisplayComponent} {display} />
+  {/each}
+</svelte:component>
+
+<!-- Debug panel -->
+<div class="feature-flags-debug">
+  <label>
+    <input type="checkbox" bind:checked={flags.useSimpleWorkspace} />
+    Simple Workspace
+  </label>
+  <label>
+    <input type="checkbox" bind:checked={flags.useSimpleDisplays} />
+    Simple Displays
+  </label>
+  <label>
+    <input type="checkbox" bind:checked={flags.useSimpleVisualizations} />
+    Simple Visualizations
+  </label>
+</div>
+```
+
+## Task Part C
+Create `src-simple/components/Workspace.svelte` (TARGET: 80 lines)
+
+```svelte
+<script>
+  import { workspace, workspaceActions, persistence } from '../stores/workspace.js';
+  import FloatingDisplay from './FloatingDisplay.svelte';
+  import { onMount } from 'svelte';
+  
+  onMount(() => {
+    persistence.load();
+  });
+  
+  // Keyboard shortcuts
+  function handleKeydown(event) {
+    if (event.ctrlKey && event.key === 'n') {
+      const symbol = prompt('Enter symbol:');
+      if (symbol) workspaceActions.addDisplay(symbol);
+    }
+  }
+</script>
+
+<svelte:window on:keydown={handleKeydown} />
+
+<div class="workspace">
+  {#each Array.from($workspace.displays.values()) as display (display.id)}
+    <FloatingDisplay {display} />
+  {/each}
+</div>
+
+<style>
+  .workspace {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+</style>
+```
+
+## Task Part D: Validation Testing
+
+Create test checklist and validate both implementations:
+
+1. **Feature Parity Test**
+   - Run old implementation, test all features
+   - Run new implementation, test same features
+   - Document any differences in `docs/crystal-clarity/parity-results.md`
+
+2. **Performance Comparison**
+   - Measure interaction latency (old vs new)
+   - Measure memory usage with 20 displays
+   - Document in `docs/crystal-clarity/performance-results.md`
+
+3. **Side-by-Side Test**
+   - Enable feature flags to show both simultaneously
+   - Verify identical behavior
+   - Test switching between implementations
+
+## Deliverables
+1. `src-migration/FeatureFlags.js` - ~30 lines
+2. `src-migration/FeatureRouter.svelte` - ~50 lines
+3. `src-simple/components/Workspace.svelte` - ~80 lines
+4. `docs/crystal-clarity/parity-results.md` - Test results
+5. `docs/crystal-clarity/performance-results.md` - Performance comparison
+
+## Success Criteria
+- [ ] Can toggle between old/new with feature flags
+- [ ] Both implementations work correctly
+- [ ] New implementation matches old behavior
+- [ ] New implementation meets performance targets
+- [ ] All three MUST HAVEs validated
+```
+
+**Expected Output**: Complete migration layer, validated simple implementation ready for production.
+
+---
+
+## Implementation Constraints (For Every Session)
+
+### Global Rules for Claude Code
+
+```markdown
+## MANDATORY CONSTRAINTS
+
+### Line Count Limits (HARD)
+- workspace.js: 150 lines MAX
+- Workspace.svelte: 80 lines MAX
+- FloatingDisplay.svelte: 120 lines MAX (after viz integration)
+- visualizers.js: 60 lines MAX
+- Total: 410 lines MAX
+
+If approaching limit, STOP and refactor before continuing.
+
+### Code Style Requirements
+- Each function: 15 lines MAX
+- Each component: Single responsibility
+- No abstractions unless absolutely necessary
+- Comments only for complex logic
+- Prefer framework defaults over custom solutions
+
+### Forbidden Patterns
+❌ DO NOT copy validation logic from src/
+❌ DO NOT add performance monitoring
+❌ DO NOT create utility layers
+❌ DO NOT build custom abstractions
+❌ DO NOT add error recovery systems
+❌ DO NOT implement features beyond three MUST HAVEs
+
+### Allowed Reference Usage
+✅ Read src/ for data shapes and types
+✅ Check src/ for WebSocket connection details
+✅ Verify event names and structure
+✅ Understand integration points
+
+But NEVER copy implementation patterns.
+
+### When Stuck
+1. Check framework documentation first
+2. Ask if this feature is a MUST HAVE
+3. Consider if simpler approach exists
+4. Review line count targets
+5. Ask human before adding complexity
+```
+
+---
+
+## Session Checklist
+
+### Before Each Session
+
+- [ ] Review session objectives
+- [ ] Check line count targets
+- [ ] Have framework documentation ready
+- [ ] Clear about what's MUST HAVE vs nice-to-have
+
+### During Session
+
+- [ ] Follow instructions exactly
+- [ ] Check line counts frequently
+- [ ] Test incrementally
+- [ ] Document decisions in real-time
+
+### After Each Session
+
+- [ ] Verify deliverables complete
+- [ ] Test functionality works
+- [ ] Check against success criteria
+- [ ] Update feature parity checklist
+- [ ] Commit with clear message
+
+---
+
+## Decision Log Template
+
+For each architectural decision, document in `docs/crystal-clarity/decisions.md`:
+
+```markdown
+## Decision: [Title]
+**Date**: YYYY-MM-DD
+**Session**: N
+**Status**: Accepted | Rejected | Superseded
+
+### Context
+Why did this decision point arise?
+
+### Options Considered
+1. Option A: ...
+2. Option B: ...
+
+### Decision
+We chose Option X because...
+
+### Consequences
+- Positive: ...
+- Negative: ...
+- Mitigations: ...
+```
+
+---
+
+## Migration Rollout Strategy
+
+After all sessions complete, follow this rollout:
+
+### Phase 1: Internal Testing (Week 1)
+- Enable feature flags for development team
+- Run both implementations side-by-side
+- Identify and fix any parity issues
+- Performance validation
+
+### Phase 2: Canary Release (Week 2)
+- 10% of users get simple implementation
+- Monitor error rates and performance
+- Gather user feedback
+- Roll back if issues found
+
+### Phase 3: Graduated Rollout (Week 3-4)
+- 25% → 50% → 75% → 100%
+- Monitor at each stage
+- Document any issues
+- Keep rollback capability
+
+### Phase 4: Cleanup (Week 5)
+- Remove old implementation from src/
+- Remove feature flags
+- Update documentation
+- Archive complex code for reference
+
+---
+
+## Success Metrics
+
+### Code Simplicity
+- ✅ Total lines: <500 (vs 30,000+ current)
+- ✅ Files: 4 core files (vs 141 current)
+- ✅ Readable in: <1 hour (vs days current)
+
+### Performance
+- ✅ Interaction latency: <100ms
+- ✅ Rendering: 60fps maintained
+- ✅ Memory: <10MB for 20 displays
+
+### Functionality
+- ✅ All three MUST HAVEs working
+- ✅ Feature parity with essentials
+- ✅ Real-time data flowing
+- ✅ Keyboard shortcuts functional
+
+### Team Velocity
+- ✅ New features: <1 day vs <1 week
+- ✅ Bug fixes: <1 hour vs <1 day
+- ✅ Onboarding: <1 day vs <1 week
+
+---
+
+## Rollback Plan
+
+If simple implementation has critical issues:
+
+1. **Immediate Rollback**
+   ```javascript
+   // In src-migration/FeatureFlags.js
+   flags.useSimpleWorkspace = false;
+   flags.useSimpleDisplays = false;
+   flags.useSimpleVisualizations = false;
+   ```
+
+2. **Git Rollback**
+   ```bash
+   git checkout main
+   git branch -D crystal-clarity
+   ```
+
+3. **Document Issues**
+   - What broke?
+   - Why did it break?
+   - What was missed in validation?
+   - Update feature parity checklist
+
+4. **Iterate and Retry**
+   - Fix identified issues
+   - Re-run validation
+   - Attempt migration again
+
+---
+
+## Final Validation Checklist
+
+Before declaring crystal clarity achieved:
+
+### Functionality
+- [ ] Create floating display via keyboard shortcut
+- [ ] Drag display smoothly across workspace
+- [ ] Display persists position on page refresh
+- [ ] Real-time price updates render <100ms
+- [ ] Multiple displays work simultaneously
+- [ ] Focus management works correctly
+- [ ] Close button removes display
+- [ ] Canvas rendering is crisp (DPR handled)
+
+### Code Quality
+- [ ] All files under line count targets
+- [ ] No forbidden patterns present
+- [ ] Framework usage follows best practices
+- [ ] Code is readable and understandable
+- [ ] No over-engineering or abstraction layers
+
+### Performance
+- [ ] Interaction latency measured <100ms
+- [ ] 60fps maintained during dragging
+- [ ] Memory usage acceptable
+- [ ] WebSocket data flow efficient
+
+### Documentation
+- [ ] All decisions logged
+- [ ] Feature parity documented
+- [ ] Migration plan complete
+- [ ] Architecture diagrams created
+
+---
+
+## Claude Code Final Prompt Template
+
+```markdown
+# Crystal Clarity Achievement Summary
+
+We have completed the shadow implementation of NeuroSense FX.
+
+## What We Built
+
+1. **src-simple/stores/workspace.js** (X lines)
+   - Single source of truth for workspace state
+   - Persistence via localStorage
+   - Simple CRUD operations
+
+2. **src-simple/components/Workspace.svelte** (X lines)
+   - Container for floating displays
+   - Keyboard shortcuts
+   - Simple layout management
+
+3. **src-simple/components/FloatingDisplay.svelte** (X lines)
+   - Interactive draggable element
+   - Canvas rendering integration
+   - WebSocket data flow
+
+4. **src-simple/lib/visualizers.js** (X lines)
+   - DPR-aware canvas setup
+   - Day Range Meter renderer
+   - Simple, readable drawing code
+
+Total: X lines (vs 30,000+ original)
+
+## Validation Results
+
+[Summary of testing, performance metrics, feature parity]
+
+## Recommendation
+
+[Ready for migration | Needs additional work on X | Rollback recommended because Y]
+
+## Next Steps
+
+1. [Action item 1]
+2. [Action item 2]
+3. [Action item 3]
+```
+
+---
+
+## You're Ready
+
+With this plan, you have everything needed to work with Claude Code systematically. Each session has:
+
+- Clear objectives
+- Specific deliverables
+- Line count targets
+- Constraints and rules
+- Success criteria
+- Validation steps
+
+Execute sessions in order, validate after each, and you'll achieve crystal clarity in 5 focused sessions.

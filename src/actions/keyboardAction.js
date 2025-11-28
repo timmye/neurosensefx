@@ -10,25 +10,10 @@
  */
 
 import { writable, derived } from 'svelte/store';
+import { debug, DebugCategories, DebugLevels } from '../utils/debugConfig.js';
 
-// === COMPREHENSIVE DEBUG LOGGING SYSTEM ===
-/**
- * Debug logging helper for keyboard system
- * Provides consistent format and easy filtering for debugging keyboard issues
- */
-function debugLog(message, data = null, level = 'INFO') {
-	const timestamp = new Date().toISOString();
-	const prefix = `[KEYBOARD-DEBUG] [${level}] ${timestamp}`;
-
-	if (data) {
-		console.log(`${prefix} ${message}`, data);
-	} else {
-		console.log(`${prefix} ${message}`);
-	}
-}
-
-// Log module import immediately
-debugLog('🔧 keyboardAction.js module loading', { timestamp: Date.now() });
+// Only log module loading at detailed trace level
+debug.trace(DebugCategories.INTERACTION, 'keyboardAction.js module loading', { timestamp: Date.now() });
 
 // Export contexts for backward compatibility
 export const SHORTCUT_CONTEXTS = Object.freeze({
@@ -39,7 +24,7 @@ export const SHORTCUT_CONTEXTS = Object.freeze({
 	INPUT: 'input'
 });
 
-debugLog('📋 SHORTCUT_CONTEXTS defined', { contexts: Object.values(SHORTCUT_CONTEXTS) });
+debug.trace(DebugCategories.INTERACTION, 'SHORTCUT_CONTEXTS defined', { contexts: Object.values(SHORTCUT_CONTEXTS) });
 
 // Export categories for backward compatibility
 export const SHORTCUT_CATEGORIES = Object.freeze({
@@ -50,7 +35,7 @@ export const SHORTCUT_CATEGORIES = Object.freeze({
 	SYSTEM: 'system'
 });
 
-debugLog('📂 SHORTCUT_CATEGORIES defined', { categories: Object.values(SHORTCUT_CATEGORIES) });
+debug.trace(DebugCategories.INTERACTION, 'SHORTCUT_CATEGORIES defined', { categories: Object.values(SHORTCUT_CATEGORIES) });
 
 // Internal reactive store for backward compatibility
 // Note: Main shortcutStore should be imported from shortcutStore.js
@@ -61,7 +46,7 @@ export const keyboardActionStore = writable({
 	lastTriggered: null
 });
 
-debugLog('🗄️ keyboardActionStore initialized', { initialState: { shortcuts: {}, activeContext: 'global', isEnabled: true } });
+debug.trace(DebugCategories.INTERACTION, 'keyboardActionStore initialized', { initialState: { shortcuts: {}, activeContext: 'global', isEnabled: true } });
 
 // === STORE-BASED EVENT SYSTEM ===
 // Replaces CustomEvents with guaranteed listener availability
@@ -72,7 +57,7 @@ debugLog('🗄️ keyboardActionStore initialized', { initialState: { shortcuts:
  */
 export const keyboardEventStore = writable(null);
 
-debugLog('📡 keyboardEventStore initialized for centralized event handling');
+debug.trace(DebugCategories.INTERACTION, 'keyboardEventStore initialized for centralized event handling');
 
 /**
  * Derived store for event history (useful for debugging)
@@ -82,14 +67,14 @@ export const eventHistory = derived(keyboardEventStore, ($keyboardEventStore) =>
 	return $keyboardEventStore ? [$keyboardEventStore] : [];
 });
 
-debugLog('📊 eventHistory derived store created');
+debug.trace(DebugCategories.INTERACTION, 'eventHistory derived store created');
 
 // Active shortcuts registry
 const shortcuts = new Map();
 let activeContext = 'global';
 let isEnabled = true;
 
-debugLog('🗂️ Core system state initialized', { shortcutsCount: 0, activeContext, isEnabled });
+debug.trace(DebugCategories.INTERACTION, 'Core system state initialized', { shortcutsCount: 0, activeContext, isEnabled });
 
 /**
  * System initialization state tracking
@@ -97,45 +82,45 @@ debugLog('🗂️ Core system state initialized', { shortcutsCount: 0, activeCon
 let initializationPromise = null;
 let isInitialized = false;
 
-debugLog('🚀 Initialization tracking variables created', { isInitialized, hasPromise: false });
+debug.trace(DebugCategories.INTERACTION, 'Initialization tracking variables created', { isInitialized, hasPromise: false });
 
 // === DUAL-LAYER EVENT INTERCEPTION SYSTEM ===
 // Critical browser shortcuts that MUST be intercepted at document level
 const CRITICAL_BROWSER_SHORTCUTS = Object.freeze(['ctrl+k', 'ctrl+f', 'ctrl+shift+k']);
 
-debugLog('🛡️ Critical browser shortcuts defined', { shortcuts: CRITICAL_BROWSER_SHORTCUTS });
+debug.debug(DebugCategories.INTERACTION, '🛡️ Critical browser shortcuts defined', { shortcuts: CRITICAL_BROWSER_SHORTCUTS });
 
 // Document backup system state
 let documentBackupInstalled = false;
 let mainElementInstance = null;
 
-debugLog('🔧 Document backup system state initialized', { documentBackupInstalled, hasMainElement: false });
+debug.debug(DebugCategories.INTERACTION, '🔧 Document backup system state initialized', { documentBackupInstalled, hasMainElement: false });
 
 /**
  * Document-level backup handler for critical browser shortcuts ONLY
  * This is our emergency override that prevents browser search hijacking
  */
 function handleDocumentBackup(event) {
-	debugLog('🛡️ Document backup handler triggered', { key: event.key, code: event.code, ctrlKey: event.ctrlKey, shiftKey: event.shiftKey, altKey: event.altKey, metaKey: event.metaKey });
+	debug.debug(DebugCategories.INTERACTION, '🛡️ Document backup handler triggered', { key: event.key, code: event.code, ctrlKey: event.ctrlKey, shiftKey: event.shiftKey, altKey: event.altKey, metaKey: event.metaKey });
 
 	const keyCombo = getKeyCombo(event);
-	debugLog('🔑 Key combo calculated', { keyCombo, originalKey: event.key });
+	debug.debug(DebugCategories.INTERACTION, '🔑 Key combo calculated', { keyCombo, originalKey: event.key });
 
 	// CRITICAL: Ignore empty key combos (modifier keys only)
 	if (!keyCombo) {
-		debugLog('🚫 Empty key combo ignored', { originalKey: event.key, reason: 'Modifier key events should not be processed' });
+		debug.debug(DebugCategories.INTERACTION, '🚫 Empty key combo ignored', { originalKey: event.key, reason: 'Modifier key events should not be processed' });
 		return;
 	}
 
 	// ONLY handle critical browser shortcuts - minimal footprint
 	if (CRITICAL_BROWSER_SHORTCUTS.includes(keyCombo)) {
-		debugLog('⚡ Critical shortcut intercepted by document backup', { keyCombo, action: 'PREVENTING DEFAULT BEHAVIOR' });
+		debug.debug(DebugCategories.INTERACTION, '⚡ Critical shortcut intercepted by document backup', { keyCombo, action: 'PREVENTING DEFAULT BEHAVIOR' });
 
 		// CRITICAL: Stop browser native behavior immediately
 		event.preventDefault();
 		event.stopPropagation();
 
-		debugLog('📡 Forwarding to main system for processing', { keyCombo, source: 'document-backup' });
+		debug.debug(DebugCategories.INTERACTION, '📡 Forwarding to main system for processing', { keyCombo, source: 'document-backup' });
 
 		// Forward to main system for actual processing
 		// This maintains context and proper event flow
@@ -150,7 +135,7 @@ function handleDocumentBackup(event) {
 		// Dispatch to unified system for proper handling
 		dispatchKeyboardEvent('criticalShortcut', { keyCombo, event });
 	} else {
-		debugLog('↩️ Non-critical shortcut ignored by document backup', { keyCombo });
+		debug.debug(DebugCategories.INTERACTION, '↩️ Non-critical shortcut ignored by document backup', { keyCombo });
 	}
 }
 
@@ -159,21 +144,21 @@ function handleDocumentBackup(event) {
  * Only installs once per application lifecycle
  */
 function installDocumentBackup() {
-	debugLog('🔧 installDocumentBackup() called', { documentBackupInstalled });
+	debug.debug(DebugCategories.INTERACTION, '🔧 installDocumentBackup() called', { documentBackupInstalled });
 
 	if (documentBackupInstalled) {
-		debugLog('⚠️ Document backup already installed, skipping', { documentBackupInstalled });
+		debug.warn(DebugCategories.INTERACTION, 'Document backup already installed, skipping', { documentBackupInstalled });
 		return;
 	}
 
-	debugLog('📡 Installing document-level backup listener', { phase: 'capture', shortcuts: CRITICAL_BROWSER_SHORTCUTS });
+	debug.debug(DebugCategories.INTERACTION, '📡 Installing document-level backup listener', { phase: 'capture', shortcuts: CRITICAL_BROWSER_SHORTCUTS });
 
 	try {
 		document.addEventListener('keydown', handleDocumentBackup, { capture: true });
 		documentBackupInstalled = true;
-		debugLog('✅ Document backup listener installed successfully', { documentBackupInstalled });
+		debug.debug(DebugCategories.INTERACTION, '✅ Document backup listener installed successfully', { documentBackupInstalled });
 	} catch (error) {
-		debugLog('❌ Failed to install document backup listener', { error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to install document backup listener', { error: error.message });
 	}
 }
 
@@ -181,22 +166,22 @@ function installDocumentBackup() {
  * Remove document backup listener (for cleanup)
  */
 function removeDocumentBackup() {
-	debugLog('🗑️ removeDocumentBackup() called', { documentBackupInstalled });
+	debug.debug(DebugCategories.INTERACTION, '🗑️ removeDocumentBackup() called', { documentBackupInstalled });
 
 	if (documentBackupInstalled) {
 		try {
 			document.removeEventListener('keydown', handleDocumentBackup, { capture: true });
 			documentBackupInstalled = false;
-			debugLog('✅ Document backup listener removed successfully', { documentBackupInstalled });
+			debug.debug(DebugCategories.INTERACTION, '✅ Document backup listener removed successfully', { documentBackupInstalled });
 		} catch (error) {
-			debugLog('❌ Failed to remove document backup listener', { error: error.message }, 'ERROR');
+			debug.error(DebugCategories.INTERACTION, 'Failed to remove document backup listener', { error: error.message });
 		}
 	} else {
-		debugLog('⚠️ Document backup not installed, nothing to remove', { documentBackupInstalled });
+		debug.warn(DebugCategories.INTERACTION, 'Document backup not installed, nothing to remove', { documentBackupInstalled });
 	}
 }
 
-debugLog('🔧 Document backup management functions defined');
+debug.debug(DebugCategories.INTERACTION, '🔧 Document backup management functions defined');
 
 // Note: getKeyCombo and normalizeKeyCombo functions are exported below
 
@@ -207,12 +192,7 @@ function isShortcutActive(shortcut) {
 	const isActive = shortcut.contexts.includes('global') ||
 					 shortcut.contexts.includes(activeContext);
 
-	debugLog('🔍 Checking shortcut activity', {
-		shortcutId: shortcut.id || 'unknown',
-		shortcutContexts: shortcut.contexts,
-		activeContext,
-		isActive
-	});
+	debug.debug(DebugCategories.INTERACTION, 'Checking shortcut activity', { id: shortcut.id, key: shortcut.key, contexts: shortcut.contexts });
 
 	return isActive;
 }
@@ -221,7 +201,7 @@ function isShortcutActive(shortcut) {
  * Update reactive store with current state
  */
 function updateStore() {
-	debugLog('📝 updateStore() called', { shortcutsCount: shortcuts.size, activeContext, isEnabled });
+	debug.debug(DebugCategories.INTERACTION, '📝 updateStore() called', { shortcutsCount: shortcuts.size, activeContext, isEnabled });
 
 	try {
 		const shortcutsObj = {};
@@ -234,12 +214,7 @@ function updateStore() {
 			};
 		});
 
-		debugLog('💾 Updating keyboardActionStore with current state', {
-			totalShortcuts: shortcuts.size,
-			shortcutsList: Object.keys(shortcutsObj),
-			activeContext,
-			isEnabled
-		});
+		debug.debug(DebugCategories.INTERACTION, 'Updating keyboardActionStore with current state', { shortcutsCount: shortcuts.size, activeContext, isEnabled });
 
 		keyboardActionStore.update(state => ({
 			...state,
@@ -248,9 +223,9 @@ function updateStore() {
 			isEnabled
 		}));
 
-		debugLog('✅ keyboardActionStore updated successfully');
+		debug.debug(DebugCategories.INTERACTION, '✅ keyboardActionStore updated successfully');
 	} catch (error) {
-		debugLog('❌ Failed to update keyboardActionStore', { error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to update keyboardActionStore', { error: error.message });
 	}
 }
 
@@ -259,7 +234,7 @@ function updateStore() {
  * Guaranteed listener availability - no race conditions
  */
 export function dispatchKeyboardEvent(eventType, data = {}) {
-	debugLog('📡 dispatchKeyboardEvent() called', { eventType, dataKeys: Object.keys(data) });
+	debug.debug(DebugCategories.INTERACTION, '📡 dispatchKeyboardEvent() called', { eventType, dataKeys: Object.keys(data) });
 
 	try {
 		const eventData = {
@@ -269,19 +244,14 @@ export function dispatchKeyboardEvent(eventType, data = {}) {
 			source: 'keyboardAction'
 		};
 
-		debugLog('📤 Dispatching keyboard event', {
-			type: eventType,
-			timestamp: eventData.timestamp,
-			source: eventData.source,
-			data: eventData.data
-		});
+		debug.debug(DebugCategories.INTERACTION, 'Dispatching keyboard event', { eventType, dataKeys: Object.keys(data) });
 
 		// Update store - all subscribers will receive this immediately
 		keyboardEventStore.set(eventData);
 
-		debugLog('✅ Keyboard event dispatched successfully', { eventType });
+		debug.debug(DebugCategories.INTERACTION, '✅ Keyboard event dispatched successfully', { eventType });
 	} catch (error) {
-		debugLog('❌ Failed to dispatch keyboard event', { eventType, error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to dispatch keyboard event', { eventType, error: error.message });
 	}
 }
 
@@ -290,38 +260,38 @@ export function dispatchKeyboardEvent(eventType, data = {}) {
  * Guarantees initialization order to prevent race conditions
  */
 export async function initializeKeyboardSystem() {
-	debugLog('🚀 initializeKeyboardSystem() called', { isInitialized, hasPromise: !!initializationPromise });
+	debug.debug(DebugCategories.INTERACTION, '🚀 initializeKeyboardSystem() called', { isInitialized, hasPromise: !!initializationPromise });
 
 	if (initializationPromise) {
-		debugLog('⏳ Initialization already in progress, returning existing promise');
+		debug.debug(DebugCategories.INTERACTION, '⏳ Initialization already in progress, returning existing promise');
 		return initializationPromise;
 	}
 
-	debugLog('🔄 Starting keyboard system initialization');
+	debug.debug(DebugCategories.INTERACTION, '🔄 Starting keyboard system initialization');
 
 	initializationPromise = (async () => {
 		try {
-			debugLog('📋 Phase 1: Setting up core system');
+			debug.debug(DebugCategories.INTERACTION, '📋 Phase 1: Setting up core system');
 			// Phase 1: Setup core system
 			setupCoreSystem();
 
-			debugLog('📡 Phase 2: Setting up event communication');
+			debug.debug(DebugCategories.INTERACTION, '📡 Phase 2: Setting up event communication');
 			// Phase 2: Setup event communication
 			setupEventCommunication();
 
-			debugLog('✅ Phase 3: Verifying system readiness');
+			debug.debug(DebugCategories.INTERACTION, '✅ Phase 3: Verifying system readiness');
 			// Phase 3: Verify system readiness
 			await verifySystemReadiness();
 
 			isInitialized = true;
-			debugLog('🎉 Keyboard system initialization completed successfully', { isInitialized });
+			debug.debug(DebugCategories.INTERACTION, '🎉 Keyboard system initialization completed successfully', { isInitialized });
 
 			return 'ready';
 		} catch (error) {
-			debugLog('❌ Keyboard system initialization failed', {
+			debug.error(DebugCategories.INTERACTION, 'Keyboard system initialization failed', {
 				error: error.message,
 				stack: error.stack
-			}, 'ERROR');
+			});
 
 			initializationPromise = null; // Reset to allow retry
 			throw error;
@@ -335,14 +305,14 @@ export async function initializeKeyboardSystem() {
  * Setup core keyboard system components
  */
 function setupCoreSystem() {
-	debugLog('🔧 setupCoreSystem() starting');
+	debug.debug(DebugCategories.INTERACTION, '🔧 setupCoreSystem() starting');
 
 	try {
 		// Ensure initial state is properly set
 		activeContext = 'global';
 		isEnabled = true;
 
-		debugLog('📊 Setting initial core state', { activeContext, isEnabled });
+		debug.debug(DebugCategories.INTERACTION, '📊 Setting initial core state', { activeContext, isEnabled });
 
 		// Initialize stores with proper state
 		const newState = {
@@ -352,19 +322,19 @@ function setupCoreSystem() {
 			lastTriggered: null
 		};
 
-		debugLog('💾 Updating keyboardActionStore with initial state', newState);
+		debug.debug(DebugCategories.INTERACTION, 'Updating keyboardActionStore with initial state', newState);
 		keyboardActionStore.set(newState);
 
-		debugLog('🧹 Clearing keyboardEventStore');
+		debug.debug(DebugCategories.INTERACTION, '🧹 Clearing keyboardEventStore');
 		keyboardEventStore.set(null); // Clear any previous events
 
 		// CRITICAL: Install document-level backup for critical browser shortcuts
-		debugLog('🛡️ Installing document-level backup for critical shortcuts');
+		debug.debug(DebugCategories.INTERACTION, '🛡️ Installing document-level backup for critical shortcuts');
 		installDocumentBackup();
 
-		debugLog('✅ Core system setup completed successfully');
+		debug.debug(DebugCategories.INTERACTION, '✅ Core system setup completed successfully');
 	} catch (error) {
-		debugLog('❌ Core system setup failed', { error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Core system setup failed', { error: error.message });
 		throw error;
 	}
 }
@@ -373,14 +343,14 @@ function setupCoreSystem() {
  * Setup event communication system
  */
 function setupEventCommunication() {
-	debugLog('📡 setupEventCommunication() starting');
+	debug.debug(DebugCategories.INTERACTION, '📡 setupEventCommunication() starting');
 
 	try {
 		// Store-based events are inherently ready
 		// No additional setup needed for store subscribers
-		debugLog('✅ Store-based event communication ready (no additional setup needed)');
+		debug.debug(DebugCategories.INTERACTION, '✅ Store-based event communication ready (no additional setup needed)');
 	} catch (error) {
-		debugLog('❌ Event communication setup failed', { error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Event communication setup failed', { error: error.message });
 		throw error;
 	}
 }
@@ -389,7 +359,7 @@ function setupEventCommunication() {
  * Verify system is ready for operation
  */
 async function verifySystemReadiness() {
-	debugLog('🔍 verifySystemReadiness() starting');
+	debug.debug(DebugCategories.INTERACTION, '🔍 verifySystemReadiness() starting');
 
 	try {
 		// Verify stores are responsive
@@ -399,16 +369,16 @@ async function verifySystemReadiness() {
 			timestamp: Date.now()
 		};
 
-		debugLog('🧪 Testing store dispatch with test event', testEvent);
+		debug.debug(DebugCategories.INTERACTION, 'Testing store dispatch with test event', testEvent);
 
 		// Test store dispatch
 		keyboardEventStore.set(testEvent);
 
-		debugLog('⏳ Waiting for state propagation...');
+		debug.debug(DebugCategories.INTERACTION, '⏳ Waiting for state propagation...');
 		// Small delay to ensure state propagation
 		await new Promise(resolve => setTimeout(resolve, 10));
 
-		debugLog('🔍 Verifying test event can be read back');
+		debug.debug(DebugCategories.INTERACTION, '🔍 Verifying test event can be read back');
 
 		// Verify we can read back the test event
 		const currentEvent = new Promise(resolve => {
@@ -422,23 +392,19 @@ async function verifySystemReadiness() {
 		});
 
 		const eventResult = await currentEvent;
-		debugLog('📊 Test event verification result', {
-			receivedType: eventResult?.type,
-			expectedType: 'system-test',
-			eventMatches: eventResult?.type === 'system-test'
-		});
+		debug.debug(DebugCategories.INTERACTION, 'Test event verification result', { eventFound: !!eventResult, expectedType: 'system-test', eventMatches: eventResult?.type === 'system-test' });
 
 		if (eventResult?.type !== 'system-test') {
 			throw new Error('Store-based event system not responding correctly');
 		}
 
-		debugLog('🧹 Clearing test event');
+		debug.debug(DebugCategories.INTERACTION, '🧹 Clearing test event');
 		// Clear test event
 		keyboardEventStore.set(null);
 
-		debugLog('✅ System readiness verification completed successfully');
+		debug.debug(DebugCategories.INTERACTION, '✅ System readiness verification completed successfully');
 	} catch (error) {
-		debugLog('❌ System readiness verification failed', { error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'System readiness verification failed', { error: error.message });
 		throw error;
 	}
 }
@@ -447,14 +413,11 @@ async function verifySystemReadiness() {
  * Register a keyboard shortcut (backward compatibility)
  */
 export function registerShortcut(id, config) {
-	debugLog('📝 registerShortcut() called', { id, configKeys: Object.keys(config) });
+	debug.debug(DebugCategories.INTERACTION, '📝 registerShortcut() called', { id, configKeys: Object.keys(config) });
 
 	try {
 		const normalizedKey = normalizeKeyCombo(config.key);
-		debugLog('🔑 Key normalized for registration', {
-			originalKey: config.key,
-			normalizedKey
-		});
+		debug.debug(DebugCategories.INTERACTION, 'Key normalized for registration', { originalKey: config.key, normalizedKey });
 
 		const shortcut = {
 			id,
@@ -468,30 +431,23 @@ export function registerShortcut(id, config) {
 			stopPropagation: config.stopPropagation !== false
 		};
 
-		debugLog('📋 Creating shortcut object', {
-			id,
-			key: shortcut.key,
-			description: shortcut.description,
-			category: shortcut.category,
-			contexts: shortcut.contexts,
-			hasAction: !!shortcut.action
-		});
+		debug.debug(DebugCategories.INTERACTION, 'Creating shortcut object', { id, key: shortcut.key, description: shortcut.description, category: shortcut.category, contexts: shortcut.contexts, hasAction: !!shortcut.action });
 
 		shortcuts.set(id, shortcut);
-		debugLog('💾 Shortcut registered in memory', { totalShortcuts: shortcuts.size });
+		debug.debug(DebugCategories.INTERACTION, '💾 Shortcut registered in memory', { totalShortcuts: shortcuts.size });
 
 		updateStore();
 
-		debugLog('✅ Shortcut registration completed', { id, key: shortcut.key });
+		debug.debug(DebugCategories.INTERACTION, '✅ Shortcut registration completed', { id, key: shortcut.key });
 
 		return () => {
-			debugLog('🗑️ Unregistering shortcut', { id });
+			debug.debug(DebugCategories.INTERACTION, '🗑️ Unregistering shortcut', { id });
 			shortcuts.delete(id);
 			updateStore();
-			debugLog('✅ Shortcut unregistered', { id, remainingShortcuts: shortcuts.size });
+			debug.debug(DebugCategories.INTERACTION, '✅ Shortcut unregistered', { id, remainingShortcuts: shortcuts.size });
 		};
 	} catch (error) {
-		debugLog('❌ Failed to register shortcut', { id, error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to register shortcut', { id, error: error.message });
 		throw error;
 	}
 }
@@ -500,15 +456,15 @@ export function registerShortcut(id, config) {
  * Set active context for shortcuts
  */
 export function setContext(context) {
-	debugLog('🎯 setContext() called', { newContext: context, previousContext: activeContext });
+	debug.debug(DebugCategories.INTERACTION, '🎯 setContext() called', { newContext: context, previousContext: activeContext });
 
 	try {
 		activeContext = context;
 		keyboardActionStore.update(state => ({ ...state, activeContext: context }));
 
-		debugLog('✅ Active context updated successfully', { activeContext: context });
+		debug.debug(DebugCategories.INTERACTION, '✅ Active context updated successfully', { activeContext: context });
 	} catch (error) {
-		debugLog('❌ Failed to set context', { context, error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to set context', { context, error: error.message });
 		throw error;
 	}
 }
@@ -517,15 +473,15 @@ export function setContext(context) {
  * Enable/disable keyboard shortcuts
  */
 export function setEnabled(enabled) {
-	debugLog('🔛 setEnabled() called', { enabled, previousState: isEnabled });
+	debug.debug(DebugCategories.INTERACTION, '🔛 setEnabled() called', { enabled, previousState: isEnabled });
 
 	try {
 		isEnabled = enabled;
 		keyboardActionStore.update(state => ({ ...state, isEnabled: enabled }));
 
-		debugLog('✅ Keyboard system enabled/disabled successfully', { isEnabled: enabled });
+		debug.debug(DebugCategories.INTERACTION, '✅ Keyboard system enabled/disabled successfully', { isEnabled: enabled });
 	} catch (error) {
-		debugLog('❌ Failed to set enabled state', { enabled, error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to set enabled state', { enabled, error: error.message });
 		throw error;
 	}
 }
@@ -535,49 +491,34 @@ export function setEnabled(enabled) {
  * Enhanced with dual-layer event interception coordination
  */
 export function keyboardAction(node, config = {}) {
-	debugLog('🎯 keyboardAction() Svelte action initialized', {
-		nodeTagName: node.tagName,
-		nodeId: node.id,
-		nodeClass: node.className,
-		configKeys: Object.keys(config)
-	});
+	debug.info(DebugCategories.INTERACTION, 'keyboardAction() Svelte action initialized', { nodeId: node.id, nodeClass: node.className, configKeys: Object.keys(config) });
 
 	try {
 		// Track main element instance for coordination with document backup
 		mainElementInstance = node;
-		debugLog('📍 Main element instance tracked', { nodeTagName: node.tagName });
+		debug.debug(DebugCategories.INTERACTION, '📍 Main element instance tracked', { nodeTagName: node.tagName });
 
 		function handleKeyDown(event) {
-			debugLog('⌨️ KeyDown event captured', {
-				key: event.key,
-				code: event.code,
-				ctrlKey: event.ctrlKey,
-				shiftKey: event.shiftKey,
-				altKey: event.altKey,
-				metaKey: event.metaKey,
-				isEnabled,
-				activeContext,
-				targetTagName: event.target.tagName
-			});
+			debug.trace(DebugCategories.INTERACTION, 'KeyDown event captured', {});
 
 			if (!isEnabled) {
-				debugLog('🚫 Keyboard system disabled, ignoring event');
+				debug.debug(DebugCategories.INTERACTION, '🚫 Keyboard system disabled, ignoring event');
 				return;
 			}
 
 			const keyCombo = getKeyCombo(event);
-			debugLog('🔑 Key combo calculated', { keyCombo });
+			debug.debug(DebugCategories.INTERACTION, '🔑 Key combo calculated', { keyCombo });
 
 			// CRITICAL: Ignore empty key combos (modifier keys only)
 			if (!keyCombo) {
-				debugLog('🚫 Empty key combo ignored in main handler', { originalKey: event.key, reason: 'Modifier key events should not be processed' });
+				debug.debug(DebugCategories.INTERACTION, '🚫 Empty key combo ignored in main handler', { originalKey: event.key, reason: 'Modifier key events should not be processed' });
 				return;
 			}
 
 			// Skip critical browser shortcuts - document backup handles them
 			// This prevents double-prevention and maintains proper event flow
 			if (CRITICAL_BROWSER_SHORTCUTS.includes(keyCombo)) {
-				debugLog('⚡ Critical shortcut detected, skipping main processing (document backup handles it)', { keyCombo });
+				debug.debug(DebugCategories.INTERACTION, '⚡ Critical shortcut detected, skipping main processing (document backup handles it)', { keyCombo });
 				// Document backup already handled this, but we still need to process it
 				// through our main system to trigger the actual actions
 			}
@@ -590,75 +531,53 @@ export function keyboardAction(node, config = {}) {
 				activeElement.contentEditable === 'true'
 			);
 
-			debugLog('🔍 Input field check', {
-				activeElementTagName: activeElement?.tagName,
-				isInputElement,
-				activeContext,
-				shouldIgnore: isInputElement && activeContext !== 'input'
-			});
+			debug.debug(DebugCategories.INTERACTION, 'Input field check', { activeElementTagName: activeElement?.tagName, isInputElement, activeContext, shouldIgnore: isInputElement && activeContext !== 'input' });
 
 			if (isInputElement && activeContext !== 'input') {
-				debugLog('🚫 Ignoring keyboard event in input field');
+				debug.debug(DebugCategories.INTERACTION, '🚫 Ignoring keyboard event in input field');
 				return;
 			}
 
 			// CRITICAL FIX: Normalize keyCombo for comparison to handle case sensitivity
 			// The issue: shortcuts can be registered with "Ctrl+K" (uppercase) but getKeyCombo() returns "ctrl+k" (lowercase)
 			const normalizedKeyCombo = keyCombo.toLowerCase();
-			debugLog('🔍 Searching for matching shortcuts', {
-				normalizedKeyCombo,
-				totalShortcuts: shortcuts.size,
-				registeredKeys: Array.from(shortcuts.values()).map(s => s.key)
-			});
+			debug.debug(DebugCategories.INTERACTION, 'Searching for matching shortcuts', { normalizedKeyCombo, totalShortcuts: shortcuts.size });
 
 			const triggeredShortcuts = Array.from(shortcuts.values())
 				.filter(shortcut => shortcut.key.toLowerCase() === normalizedKeyCombo);
 
-			debugLog('🎯 Found matching shortcuts', {
-				matchedCount: triggeredShortcuts.length,
-				matchedIds: triggeredShortcuts.map(s => s.id)
-			});
+			debug.debug(DebugCategories.INTERACTION, 'Found matching shortcuts', { count: triggeredShortcuts.length, shortcuts: triggeredShortcuts.map(s => s.id) });
 
 			for (const shortcut of triggeredShortcuts) {
-				debugLog('🔍 Evaluating shortcut', {
-					id: shortcut.id,
-					key: shortcut.key,
-					contexts: shortcut.contexts,
-					hasCondition: !!shortcut.condition
-				});
+				debug.debug(DebugCategories.INTERACTION, 'Evaluating shortcut', {});
 
 				const isActive = isShortcutActive(shortcut);
 				const conditionMet = shortcut.condition();
 
-				debugLog('🔍 Shortcut evaluation result', {
-					id: shortcut.id,
-					isActive,
-					conditionMet,
-					shouldExecute: isActive && conditionMet
-				});
+				debug.debug(DebugCategories.INTERACTION, 'Shortcut evaluation result', {});
 
 				if (isActive && conditionMet) {
-					debugLog('⚡ Executing shortcut action', { id: shortcut.id, description: shortcut.description });
+					debug.debug(DebugCategories.INTERACTION, '⚡ Executing shortcut action', { id: shortcut.id, description: shortcut.description });
 
 					// For critical shortcuts, document backup already prevented default
 					// For others, prevent default as needed
 					if (!CRITICAL_BROWSER_SHORTCUTS.includes(keyCombo)) {
 						if (shortcut.preventDefault) {
 							event.preventDefault();
-							debugLog('🛑 Event default prevented');
+							debug.debug(DebugCategories.INTERACTION, '🛑 Event default prevented');
 						}
 						if (shortcut.stopPropagation) {
 							event.stopPropagation();
-							debugLog('🛑 Event propagation stopped');
+							debug.debug(DebugCategories.INTERACTION, '🛑 Event propagation stopped');
 						}
 					} else {
-						debugLog('⚡ Critical shortcut - document backup already prevented default');
+						debug.debug(DebugCategories.INTERACTION, '⚡ Critical shortcut - document backup already prevented default');
 					}
 
 					try {
-						debugLog('🚀 Calling shortcut action', { id: shortcut.id });
+						debug.debug(DebugCategories.INTERACTION, '🚀 Calling shortcut action', { id: shortcut.id });
 						shortcut.action(event);
-						debugLog('✅ Shortcut action completed successfully', { id: shortcut.id });
+						debug.debug(DebugCategories.INTERACTION, '✅ Shortcut action completed successfully', { id: shortcut.id });
 
 						const triggerInfo = {
 							id: shortcut.id,
@@ -671,13 +590,13 @@ export function keyboardAction(node, config = {}) {
 							lastTriggered: triggerInfo
 						}));
 
-						debugLog('💾 Updated last triggered shortcut', triggerInfo);
+						debug.info(DebugCategories.INTERACTION, 'Updated last triggered shortcut', triggerInfo);
 					} catch (error) {
-						debugLog('❌ Shortcut execution failed', {
+						debug.error(DebugCategories.INTERACTION, 'Shortcut execution failed', {
 							id: shortcut.id,
 							error: error.message,
 							stack: error.stack
-						}, 'ERROR');
+						});
 
 						// Ensure errors don't break the keyboard system
 						console.error(`Shortcut execution failed [${shortcut.id}]:`, error);
@@ -688,35 +607,35 @@ export function keyboardAction(node, config = {}) {
 			}
 
 			if (triggeredShortcuts.length === 0) {
-				debugLog('🔍 No shortcuts matched for key combo', { normalizedKeyCombo });
+				debug.debug(DebugCategories.INTERACTION, '🔍 No shortcuts matched for key combo', { normalizedKeyCombo });
 			}
 		}
 
-		debugLog('📡 Adding keydown event listener to main element', { phase: 'capture' });
+		debug.debug(DebugCategories.INTERACTION, '📡 Adding keydown event listener to main element', { phase: 'capture' });
 		// Use Svelte's declarative event system with CAPTURE phase for priority
 		// Document backup runs first, then main element handler processes actions
 		node.addEventListener('keydown', handleKeyDown, { capture: true });
 
 		return {
 			update(newConfig) {
-				debugLog('🔄 keyboardAction() update called', { newConfigKeys: Object.keys(newConfig) });
+				debug.debug(DebugCategories.INTERACTION, '🔄 keyboardAction() update called', { newConfigKeys: Object.keys(newConfig) });
 				// Handle configuration updates if needed
 			},
 			destroy() {
-				debugLog('🗑️ keyboardAction() destroy called', { nodeTagName: node.tagName });
+				debug.debug(DebugCategories.INTERACTION, '🗑️ keyboardAction() destroy called', { nodeTagName: node.tagName });
 				node.removeEventListener('keydown', handleKeyDown, { capture: true });
 
 				// Clear main element instance if this was the last one
 				if (mainElementInstance === node) {
 					mainElementInstance = null;
-					debugLog('📍 Main element instance cleared');
+					debug.debug(DebugCategories.INTERACTION, '📍 Main element instance cleared');
 				}
 
-				debugLog('✅ keyboardAction cleanup completed');
+				debug.debug(DebugCategories.INTERACTION, '✅ keyboardAction cleanup completed');
 			}
 		};
 	} catch (error) {
-		debugLog('❌ Failed to initialize keyboard action', { error: error.message, nodeTagName: node.tagName }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to initialize keyboard action', { error: error.message, nodeTagName: node.tagName });
 		throw error;
 	}
 }
@@ -731,18 +650,11 @@ function isModifierKey(key) {
 
 // Export the remaining functions for backward compatibility
 export function getKeyCombo(event) {
-	debugLog('🔑 getKeyCombo() called', {
-		key: event.key,
-		code: event.code,
-		ctrlKey: event.ctrlKey,
-		metaKey: event.metaKey,
-		altKey: event.altKey,
-		shiftKey: event.shiftKey
-	});
+	debug.debug(DebugCategories.INTERACTION, 'getKeyCombo() called', { key: event.key, code: event.code, ctrlKey: event.ctrlKey, metaKey: event.metaKey, altKey: event.altKey, shiftKey: event.shiftKey });
 
 	// CRITICAL: Filter out modifier key events
 	if (isModifierKey(event.key)) {
-		debugLog('🚫 Modifier key event ignored', { key: event.key, reason: 'Modifier keys should not be processed as shortcuts' });
+		debug.debug(DebugCategories.INTERACTION, '🚫 Modifier key event ignored', { key: event.key, reason: 'Modifier keys should not be processed as shortcuts' });
 		return '';
 	}
 
@@ -771,21 +683,21 @@ export function getKeyCombo(event) {
 		parts.push(mainKey);
 
 		const result = parts.join('+');
-		debugLog('✅ Key combo calculated', { modifiers: parts.slice(0, -1), mainKey, result });
+		debug.debug(DebugCategories.INTERACTION, '✅ Key combo calculated', { modifiers: parts.slice(0, -1), mainKey, result });
 
 		return result;
 	} catch (error) {
-		debugLog('❌ Failed to calculate key combo', { error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to calculate key combo', { error: error.message });
 		return '';
 	}
 }
 
 export function normalizeKeyCombo(keyCombo) {
-	debugLog('🔧 normalizeKeyCombo() called', { keyCombo, type: typeof keyCombo });
+	debug.debug(DebugCategories.INTERACTION, '🔧 normalizeKeyCombo() called', { keyCombo, type: typeof keyCombo });
 
 	try {
 		if (!keyCombo || typeof keyCombo !== 'string') {
-			debugLog('⚠️ Invalid key combo provided, returning empty string', { keyCombo });
+			debug.warn(DebugCategories.INTERACTION, 'Invalid key combo provided, returning empty string', { keyCombo });
 			return '';
 		}
 
@@ -796,11 +708,11 @@ export function normalizeKeyCombo(keyCombo) {
 			.replace(/\bcmd\b|\bcommand\b/g, 'meta')
 			.replace(/\bcontrol\b/g, 'ctrl');
 
-		debugLog('✅ Key combo normalized', { original: keyCombo, normalized: result });
+		debug.debug(DebugCategories.INTERACTION, '✅ Key combo normalized', { original: keyCombo, normalized: result });
 
 		return result;
 	} catch (error) {
-		debugLog('❌ Failed to normalize key combo', { keyCombo, error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to normalize key combo', { keyCombo, error: error.message });
 		return '';
 	}
 }
@@ -822,7 +734,7 @@ export function getInitializationStatus() {
 		hasMainElement: !!mainElementInstance
 	};
 
-	debugLog('📊 getInitializationStatus() called', status);
+	debug.debug(DebugCategories.INTERACTION, 'getInitializationStatus() called', status);
 
 	return status;
 }
@@ -831,7 +743,7 @@ export function getInitializationStatus() {
  * Reset system (for testing/debugging)
  */
 export function resetKeyboardSystem() {
-	debugLog('🔄 resetKeyboardSystem() called', {
+	debug.info(DebugCategories.INTERACTION, 'resetKeyboardSystem() called', {
 		shortcutsCount: shortcuts.size,
 		activeContext,
 		isEnabled,
@@ -847,12 +759,12 @@ export function resetKeyboardSystem() {
 		initializationPromise = null;
 		mainElementInstance = null;
 
-		debugLog('🧹 Core state variables reset');
+		debug.debug(DebugCategories.INTERACTION, '🧹 Core state variables reset');
 
 		// Remove document backup
 		removeDocumentBackup();
 
-		debugLog('💾 Resetting keyboardActionStore');
+		debug.debug(DebugCategories.INTERACTION, '💾 Resetting keyboardActionStore');
 		// Reset stores
 		keyboardActionStore.update(state => ({
 			...state,
@@ -862,25 +774,24 @@ export function resetKeyboardSystem() {
 			lastTriggered: null
 		}));
 
-		debugLog('🧹 Clearing keyboardEventStore');
+		debug.debug(DebugCategories.INTERACTION, '🧹 Clearing keyboardEventStore');
 		keyboardEventStore.set(null);
 
-		debugLog('✅ Keyboard system reset completed successfully');
+		debug.debug(DebugCategories.INTERACTION, '✅ Keyboard system reset completed successfully');
 	} catch (error) {
-		debugLog('❌ Failed to reset keyboard system', { error: error.message }, 'ERROR');
+		debug.error(DebugCategories.INTERACTION, 'Failed to reset keyboard system', { error: error.message });
 		throw error;
 	}
 }
 
 // Final module completion log
-debugLog('✅ keyboardAction.js module fully loaded and ready', {
+debug.info(DebugCategories.INTERACTION, 'keyboardAction.js module fully loaded and ready', {
 	exportedFunctions: [
 		'SHORTCUT_CONTEXTS',
 		'SHORTCUT_CATEGORIES',
 		'keyboardActionStore',
 		'keyboardEventStore',
 		'eventHistory',
-		'dispatchKeyboardEvent',
 		'initializeKeyboardSystem',
 		'registerShortcut',
 		'setContext',
@@ -890,6 +801,7 @@ debugLog('✅ keyboardAction.js module fully loaded and ready', {
 		'normalizeKeyCombo',
 		'registeredShortcuts',
 		'getInitializationStatus',
-		'resetKeyboardSystem'
+		'resetKeyboardSystem',
+		'dispatchKeyboardEvent'
 	]
 });

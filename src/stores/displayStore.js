@@ -300,7 +300,7 @@ export const displayActions = {
 
       // Update containerSize in config for consistency (unless explicitly disabled)
       if (options.updateConfig !== false) {
-        updateDisplayConfig('containerSize', { width, height });
+        displayStore.updateDisplayConfig('containerSize', { width, height });
       }
     } else {
       console.warn(`[DISPLAY_STORE] 🎯 PHASE 3 FIX: Resize failed for display: ${displayId}`);

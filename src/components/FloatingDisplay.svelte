@@ -225,11 +225,12 @@
   // Display properties reactive updates
   $: displayPosition = display?.position || position;
   $: config = display?.config || {};
-  $: state = display?.state || {};
+  $: state = display?.state || { ready: false, error: null, data: null };
   $: isActive = display?.isActive || false;
   $: zIndex = display?.zIndex || 1;
   $: displaySize = display?.size || { width: 220, height: 120 };
 
+  
   // ✅ PRECISION VALIDATION: Initialize validators when display and symbol are available
   $: if (id && symbol) {
     precisionValidator = getPrecisionValidator(id, symbol);
@@ -257,15 +258,29 @@
   // ✅ CONSOLIDATED REACTIVE STATEMENT: Following Container.svelte working pattern
   // Single consolidated reactive statement for all canvas operations to prevent race conditions
   $: if (canvas && config && !canvasInitializing) {
-    // 1. Container layer - physical dimensions
-    const containerSize = config.containerSize || { width: 220, height: 120 };
+    // 1. Container layer - use actual DOM measurements for precision
+    const actualContainer = canvas.parentElement;
+    const actualContainerSize = actualContainer ? {
+      width: actualContainer.clientWidth,
+      height: actualContainer.clientHeight
+    } : (config.containerSize || { width: 220, height: 120 });
 
-    // 2. Content area - FULL CONTAINER for headerless design (matches Container.svelte)
+    // 2. Content area - account for border-box sizing using actual measurements
+    // DEBUGGER: Border adjustment for precision matching
+    const borderAdjustment = 4; // 2px border on each side
     const contentArea = {
-      width: Math.max(50, containerSize.width),   // ✅ FULL WIDTH (no padding)
-      height: Math.max(50, containerSize.height) // ✅ FULL HEIGHT (no header, no padding)
+      width: Math.max(46, actualContainerSize.width - borderAdjustment),   // Minus 4px for borders
+      height: Math.max(46, actualContainerSize.height - borderAdjustment)  // Minus 4px for borders
     };
 
+    console.log(`[DEBUGGER:FloatingDisplay:actualContainer] Using actual DOM container measurements:`, {
+      actualContainerSize,
+      configContainerSize: config.containerSize || { width: 220, height: 120 },
+      contentArea,
+      borderAdjustment
+    });
+
+    
     // 🔧 CRITICAL FIX: Sync coordinate store with contentArea for proper scaling
     if (coordinateActions && coordinateActions.updateBoundsFromContentArea) {
       coordinateActions.updateBoundsFromContentArea(contentArea);
@@ -288,8 +303,8 @@
       }
     }
 
-    // 3. Create unified canvas sizing configuration with padding=0 for headerless design
-    canvasSizingConfig = createCanvasSizingConfig(containerSize, config, {
+    // 3. Create unified canvas sizing configuration with actual container measurements
+    canvasSizingConfig = createCanvasSizingConfig(actualContainerSize, config, {
       padding: 0,           // ✅ NO PADDING in headerless design
       respectDpr: true      // ✅ DPR-aware crisp rendering
     });
@@ -299,9 +314,26 @@
     canvas.width = canvasDims.width;
     canvas.height = canvasDims.height;
 
-    // 🔧 CRITICAL FIX: Set CSS dimensions to match container exactly
-    canvas.style.width = canvasDims.cssWidth + 'px';
-    canvas.style.height = canvasDims.cssHeight + 'px';
+    // 🔧 CRITICAL FIX: Ensure canvas CSS exactly matches container for precision validation
+    const domContainer = canvas.parentElement;
+    if (domContainer) {
+      // Use requestAnimationFrame to ensure DOM measurements are updated
+      requestAnimationFrame(() => {
+        const actualWidth = domContainer.clientWidth;
+        const actualHeight = domContainer.clientHeight;
+
+        // Set canvas CSS to exactly match container
+        canvas.style.width = actualWidth + 'px';
+        canvas.style.height = actualHeight + 'px';
+
+        // Force layout recalculation to ensure precision validator sees correct values
+        canvas.getBoundingClientRect();
+      });
+    } else {
+      // Fallback to calculated dimensions if container not available
+      canvas.style.width = canvasDims.cssWidth + 'px';
+      canvas.style.height = canvasDims.cssHeight + 'px';
+    }
 
     // ✅ PHASE 2 STANDARDIZATION: Remove manual DPR scaling - handled per-frame in draw function like Container.svelte
     // This ensures consistent DPR handling between Container.svelte and FloatingDisplay.svelte
@@ -555,14 +587,14 @@
 
     resizeRafId = requestAnimationFrame(() => {
       if (pendingResize) {
-        const { element, event, previousDimensions, resizeStartTime } = pendingResize;
+        const { element, event, resizeStartTime } = pendingResize;
 
         // Batch all DOM operations to prevent layout thrashing
         // Write all styles first
         element.style.width = event.rect.width + 'px';
         element.style.height = event.rect.height + 'px';
 
-        // Force layout only once
+        // FIXED: Follow existing drag pattern - use event.rect directly
         const newPosition = {
           x: event.rect.left,
           y: event.rect.top
@@ -573,7 +605,7 @@
           height: event.rect.height
         };
 
-        // Update state in batch
+        // Update state in batch (same pattern as drag)
         displayActions.resizeDisplay(id, newSize);
         displayActions.moveDisplay(id, newPosition);
 
@@ -695,7 +727,7 @@
     setupStoreSubscriptions();
     startPerformanceMonitoring();
 
-    
+
     // ✅ MEMORY MANAGEMENT: Setup resource cleanup after initialization
     setupResourceCleanup();
 
@@ -765,12 +797,8 @@
             scheduleResizeUpdate({
               element,
               event,
-              previousDimensions,
               resizeStartTime
             });
-
-            // Update previous dimensions for next frame
-            previousDimensions = { width: event.rect.width, height: event.rect.height };
           },
           onend: (event) => {
             // ✅ GRID FEEDBACK: Notify workspace grid of resize end
@@ -1118,9 +1146,11 @@
       if (precisionValidator && element && canvas) {
         try {
           console.log(`🎯 [${operationId}] Running mathematical precision validation`);
+          // DEBUGGER: Account for border-box in precision validation
+          const borderAdjustment = 4; // 2px border on each side
           const contentArea = {
-            width: Math.max(50, config?.containerSize?.width || 220),
-            height: Math.max(50, config?.containerSize?.height || 120)
+            width: Math.max(46, (config?.containerSize?.width || 220) - borderAdjustment),
+            height: Math.max(46, (config?.containerSize?.height || 120) - borderAdjustment)
           };
           validateCanvasContainerMatch(id, canvas, element, contentArea);
         } catch (error) {
@@ -1488,13 +1518,13 @@
   
 
 
-  // 🎨 ENHANCED RENDER PIPELINE: Comprehensive render function with detailed logging
+  // 🎨 ENHANCED RENDER PIPELINE: Comprehensive render function with detailed logging and VISUAL VERIFICATION TEST
   function render() {
     const operationId = `RENDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const renderStartTime = getPerformanceTime();
 
-    
-    console.log(`🎨 [${operationId}] Starting render pipeline for display ${id}`, {
+
+    console.log(`🎨 [${operationId}] Starting VISUAL VERIFICATION TEST render pipeline for display ${id}`, {
       timestamp: Date.now(),
       symbol: symbol || 'unknown',
       hasContext: !!ctx,
@@ -1523,12 +1553,41 @@
       }
     }
 
-    // Phase 2: Canvas State Validation
+    // Phase 2: Canvas State Validation with ENHANCED VERIFICATION
     const canvasStateValidation = validateCanvasState(ctx, canvas, operationId);
     if (!canvasStateValidation.isValid) {
       console.error(`❌ [${operationId}] Canvas state validation failed`, canvasStateValidation.errors);
       return;
     }
+
+    // 🚨 VISUAL VERIFICATION TEST: CANVAS STATE ANALYSIS
+    console.log(`🔍 [${operationId}] ENHANCED CANVAS STATE VERIFICATION`, {
+      canvasElement: !!canvas,
+      canvasDimensions: canvas ? { width: canvas.width, height: canvas.height } : 'null',
+      canvasCSS: canvas ? {
+        width: canvas.style.width,
+        height: canvas.style.height,
+        display: canvas.style.display,
+        position: canvas.style.position,
+        top: canvas.style.top,
+        left: canvas.style.left
+      } : 'null',
+      contextState: ctx ? {
+        fillStyle: ctx.fillStyle,
+        strokeStyle: ctx.strokeStyle,
+        globalAlpha: ctx.globalAlpha,
+        globalCompositeOperation: ctx.globalCompositeOperation,
+        font: ctx.font,
+        textAlign: ctx.textAlign,
+        textBaseline: ctx.textBaseline,
+        transform: ctx.getTransform ? ctx.getTransform().toString() : 'unavailable'
+      } : 'null',
+      containerSize: config?.containerSize,
+      contentArea: {
+        width: Math.max(50, config?.containerSize?.width || 220),
+        height: Math.max(50, config?.containerSize?.height || 120)
+      }
+    });
 
     // Phase 3: Create Rendering Context with Detailed Logging
     console.log(`🎨 [${operationId}] Phase 3: Creating rendering context`);
@@ -1588,22 +1647,26 @@
       const { canvasArea } = canvasSizingConfig.dimensions;
       // Since context is DPR-scaled, use full canvas dimensions (no division by DPR)
       ctx.clearRect(0, 0, canvasArea.width, canvasArea.height);
-      ctx.fillStyle = '#111827';
+      // FIX: Restore canvas background fill to make visualizations visible
+      // Canvas needs background color for visualizations to be properly displayed
+      ctx.fillStyle = '#111827'; // Match CSS background color
       ctx.fillRect(0, 0, canvasArea.width, canvasArea.height);
 
-      console.log(`🎨 [${operationId}] Canvas cleared using sizing config`, {
+      console.log(`🎨 [${operationId}] Canvas cleared and background filled using sizing config`, {
         canvasArea,
-        backgroundColor: '#111827'
+        backgroundColor: '#111827 (dark background for visualization visibility)'
       });
     } else {
       // Fallback to canvas dimensions
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#111827';
+      // FIX: Restore canvas background fill to make visualizations visible
+      // Canvas needs background color for visualizations to be properly displayed
+      ctx.fillStyle = '#111827'; // Match CSS background color
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      console.log(`⚠️ [${operationId}] Canvas cleared using fallback dimensions`, {
+      console.log(`⚠️ [${operationId}] Canvas cleared and background filled using fallback dimensions`, {
         canvasDimensions: { width: canvas.width, height: canvas.height },
-        backgroundColor: '#111827',
+        backgroundColor: '#111827 (dark background for visualization visibility)',
         warning: 'Using fallback - sizing config missing'
       });
     }
@@ -1612,6 +1675,96 @@
     console.log(`✅ [${operationId}] Canvas cleared and background set`, {
       clearTime: `${clearTime.toFixed(2)}ms`
     });
+
+    // 🚨 VISUAL VERIFICATION TEST: FORCED VISIBLE SHAPES - PHASE 1
+    console.log(`🚨 [${operationId}] VISUAL VERIFICATION TEST: Drawing guaranteed visible test shapes`);
+    const testShapesStartTime = getPerformanceTime();
+
+    try {
+      // Save current state
+      ctx.save();
+
+      // Reset context to known good state for test shapes
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#FF0000'; // Bright red
+      ctx.strokeStyle = '#00FF00'; // Bright green
+      ctx.lineWidth = 3;
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Test Shape 1: Bright red rectangle covering entire content area
+      ctx.fillStyle = '#FF0000';
+      ctx.fillRect(0, 0, contentArea.width, contentArea.height);
+      console.log(`🚨 [${operationId}] Test Shape 1: Red rectangle drawn`, {
+        dimensions: `${contentArea.width}x${contentArea.height}`,
+        color: '#FF0000'
+      });
+
+      // Test Shape 2: Green circle in center
+      ctx.fillStyle = '#00FF00';
+      ctx.beginPath();
+      ctx.arc(contentArea.width / 2, contentArea.height / 2, 30, 0, Math.PI * 2);
+      ctx.fill();
+      console.log(`🚨 [${operationId}] Test Shape 2: Green circle drawn`, {
+        center: [contentArea.width / 2, contentArea.height / 2],
+        radius: 30,
+        color: '#00FF00'
+      });
+
+      // Test Shape 3: White text
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 20px Arial';
+      ctx.fillText('VISUAL TEST', contentArea.width / 2, contentArea.height / 2);
+      console.log(`🚨 [${operationId}] Test Shape 3: White text drawn`, {
+        text: 'VISUAL TEST',
+        position: [contentArea.width / 2, contentArea.height / 2],
+        color: '#FFFFFF'
+      });
+
+      // Test Shape 4: Blue border
+      ctx.strokeStyle = '#0000FF';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(5, 5, contentArea.width - 10, contentArea.height - 10);
+      console.log(`🚨 [${operationId}] Test Shape 4: Blue border drawn`, {
+        dimensions: `${contentArea.width - 10}x${contentArea.height - 10}`,
+        lineWidth: 5,
+        color: '#0000FF'
+      });
+
+      // Test Shape 5: Yellow corners
+      ctx.fillStyle = '#FFFF00';
+      const cornerSize = 10;
+      // Top-left
+      ctx.fillRect(0, 0, cornerSize, cornerSize);
+      // Top-right
+      ctx.fillRect(contentArea.width - cornerSize, 0, cornerSize, cornerSize);
+      // Bottom-left
+      ctx.fillRect(0, contentArea.height - cornerSize, cornerSize, cornerSize);
+      // Bottom-right
+      ctx.fillRect(contentArea.width - cornerSize, contentArea.height - cornerSize, cornerSize, cornerSize);
+      console.log(`🚨 [${operationId}] Test Shape 5: Yellow corners drawn`, {
+        cornerSize,
+        color: '#FFFF00'
+      });
+
+      // Restore context state
+      ctx.restore();
+
+      const testShapesTime = getPerformanceTime() - testShapesStartTime;
+      console.log(`✅ [${operationId}] VISUAL VERIFICATION TEST: Test shapes drawn successfully`, {
+        testShapesTime: `${testShapesTime.toFixed(2)}ms`,
+        shapesDrawn: 5,
+        visibility: 'GUARANTEED - should be visible regardless of data'
+      });
+
+    } catch (error) {
+      console.error(`❌ [${operationId}] VISUAL VERIFICATION TEST: Failed to draw test shapes`, {
+        error: error.message,
+        stack: error.stack
+      });
+    }
 
     // Phase 6: Symbol Background Rendering
     console.log(`🎨 [${operationId}] Phase 6: Rendering symbol background`);
@@ -1632,11 +1785,38 @@
       phases: {
         contextCreation: contextCreationTime,
         clearOperation: clearTime,
+        testShapes: getPerformanceTime() - testShapesStartTime,
         symbolBackground: symbolBgTime
       }
     });
 
-    // Phase 7: Visualization Rendering with Comprehensive Error Handling
+    // 🚨 VISUAL VERIFICATION TEST: DATA FLOW ANALYSIS
+    console.log(`🔍 [${operationId}] VISUAL VERIFICATION TEST: Analyzing data flow to visualizations`, {
+      stateAvailable: !!state,
+      stateKeys: state ? Object.keys(state) : [],
+      stateReady: state?.ready,
+      hasMarketData: {
+        currentPrice: !!state?.currentPrice,
+        midPrice: !!state?.midPrice,
+        visualLow: !!state?.visualLow,
+        visualHigh: !!state?.visualHigh,
+        volatility: !!state?.volatility,
+        direction: !!state?.direction
+      },
+      yScaleAvailable: !!yScale,
+      yScaleFunctional: yScale ? typeof yScale === 'function' : false,
+      marketDataValues: {
+        currentPrice: state?.currentPrice,
+        midPrice: state?.midPrice,
+        visualLow: state?.visualLow,
+        visualHigh: state?.visualHigh,
+        volatility: state?.volatility,
+        direction: state?.direction,
+        ready: state?.ready
+      }
+    });
+
+    // Phase 7: Visualization Rendering with Comprehensive Error Handling and VISUAL VERIFICATION TEST
     if (state.visualLow && state.visualHigh && yScale) {
       console.log(`🎨 [${operationId}] Phase 7: Starting visualization rendering`);
 
@@ -1646,6 +1826,16 @@
           console.log(`🎯 [${operationId}] First render detected - precision validation initiated`);
           renderingContext.firstRenderLogged = true;
         }
+
+        // 🚨 VISUAL VERIFICATION TEST: VISUAL REGRESSION COMPARISON
+        console.log(`🚨 [${operationId}] VISUAL VERIFICATION TEST: Comparing actual visualizations vs test shapes`);
+        const actualVisualizationStartTime = getPerformanceTime();
+
+        // Save canvas state with test shapes for comparison
+        ctx.save();
+
+        // 🚨 SUB-TEST: Draw actual visualizations OVER test shapes to see which wins
+        console.log(`🚨 [${operationId}] VISUAL VERIFICATION TEST: Drawing actual visualizations over test shapes`);
 
         // 🎯 ENHANCED DIRECT IMPORT DEBUG: Draw visualizations with comprehensive error handling
         const visualizationStartTime = getPerformanceTime();
@@ -1837,6 +2027,28 @@
         hasYScale: !!yScale,
         stateReady: state?.ready
       });
+
+      // 🚨 VISUAL VERIFICATION TEST: FINAL VERIFICATION - Test shapes should still be visible
+      console.log(`🚨 [${operationId}] VISUAL VERIFICATION TEST: FINAL VERIFICATION`, {
+        status: 'Test shapes should be visible regardless of market data',
+        expectedBehavior: 'Bright red background with green circle and white "VISUAL TEST" text',
+        troubleshooting: {
+          ifStillBlack: [
+            'Canvas drawing operations may be failing',
+            'Context might be corrupted or invisible',
+            'Canvas could be positioned outside viewport',
+            'CSS issues might be hiding the canvas',
+            'Browser rendering pipeline issues'
+          ],
+          checkBrowser: [
+            'Open browser developer tools',
+            'Inspect canvas element and its computed styles',
+            'Check if canvas dimensions are valid',
+            'Verify canvas is within viewport bounds',
+            'Look for CSS transform issues'
+          ]
+        }
+      });
     }
 
     // Phase 8: Canvas State Cleanup
@@ -1866,7 +2078,7 @@
       }
     });
 
-    console.log(`🎉 [${operationId}] Render pipeline completed`, {
+    console.log(`🎉 [${operationId}] VISUAL VERIFICATION TEST: Render pipeline completed`, {
       totalTime: `${totalRenderTime.toFixed(2)}ms`,
       performanceTarget: meetsPerformanceTarget ? '60fps' : 'suboptimal',
       phases: {
@@ -1874,6 +2086,7 @@
         canvasState: 'validated',
         contextCreation: `${contextCreationTime.toFixed(2)}ms`,
         canvasPreparation: `${canvasPrepTime.toFixed(2)}ms`,
+        testShapes: 'DRAWN - should be visible',
         visualizations: state?.visualLow && state?.visualHigh && yScale ? 'executed' : 'skipped',
         cleanup: `${cleanupTime.toFixed(2)}ms`
       },
@@ -1881,6 +2094,22 @@
         canvasReady,
         contextRestored: true,
         transformReset: true
+      },
+      visualVerificationTest: {
+        status: 'COMPLETED',
+        expectedResult: 'Bright red canvas with green circle, white text, blue border, yellow corners',
+        ifNotVisible: [
+          'Canvas context may be corrupted',
+          'Drawing operations failing silently',
+          'CSS positioning issues',
+          'Browser rendering pipeline problems'
+        ],
+        nextSteps: [
+          'Check browser developer tools console for errors',
+          'Inspect canvas element in DOM',
+          'Verify canvas computed styles',
+          'Test with forced refresh (Ctrl+Shift+W on display, then recreate)'
+        ]
       },
       success: true
     });
@@ -2534,18 +2763,16 @@
   /* Full canvas fills entire container area (headerless design) */
   .full-canvas {
     display: block;
-    /* 🔧 CRITICAL ALIGNMENT FIX: Position to account for container border (2px offset) */
+    /* DEBUGGER: Simplified canvas positioning - fill available content area exactly */
     position: absolute;
-    top: -2px;  /* Offset by border width to align with container edge */
-    left: -2px; /* Offset by border width to align with container edge */
-    /* 🔧 CRITICAL ALIGNMENT FIX: Include border in dimensions for perfect alignment */
-    width: calc(100% + 4px);  /* Add 2px border on each side */
-    height: calc(100% + 4px); /* Add 2px border on each side */
-    /* 🔧 CRITICAL ALIGNMENT FIX: Remove ALL margins, borders, and offsets that cause positioning drift */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     margin: 0px;
     padding: 0px;
     border: none;
-    border-radius: 6px; /* Match container border radius exactly */
+    border-radius: 4px; /* Account for container border radius */
     /* cursor removed - let interact.js control resize cursors */
     /* FIXED: Removed pointer-events: none - was breaking keyboard shortcuts after canvas creation */
 
