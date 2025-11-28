@@ -7,175 +7,16 @@
   import { markerStore } from '../stores/markerStore.js';
   import { displayContextEnhancer } from '../utils/visualizationLoggingUtils.js';
 
-  // 🔄 STATE CORRELATION TRACKING: Import state change correlation system
-  import {
-    createStateTracker,
-    createPipelineTracker,
-    createWorkerCommunicationAnalyzer,
-    createWebSocketFlowTracker,
-    getStateCorrelationOverview,
-    runStateCorrelationHealthCheck
-  } from '../utils/stateCorrelationTracker.js';
+  // 🔄 STATIC IMPORTS: Import visualization functions directly to eliminate race conditions
+  import { drawMarketProfile } from '../lib/viz/marketProfile.js';
+  import { drawDayRangeMeter } from '../lib/viz/dayRangeMeter.js';
+  import { drawPriceFloat } from '../lib/viz/priceFloat.js';
+  import { drawPriceDisplay } from '../lib/viz/priceDisplay.js';
+  import { drawVolatilityOrb } from '../lib/viz/volatilityOrb.js';
+  import { drawVolatilityMetric } from '../lib/viz/volatilityMetric.js';
+  import { drawPriceMarkers } from '../lib/viz/priceMarkers.js';
 
-  // 🎨 VISUALIZATION REACTIVITY MONITORING: Import visualization reactivity system
-  import {
-    createVisualizationReactivityMonitor,
-    getGlobalReactivityOverview,
-    runReactivityHealthCheck
-  } from '../utils/visualizationReactivityMonitor.js';
-
-  // 🔧 DEBUG CONFIGURATION: Import development-mode-only debug system
-  import {
-    isDebugMode,
-    getDebugConfig,
-    enableDebugCategory,
-    disableDebugCategory,
-    getDebugSummary
-  } from '../utils/debugConfig.js';
-
-  // 🎯 ENHANCED DIRECT IMPORT DEBUG: Initialize visualization debug system
-  let visualizationDebugInitialized = false;
-  let importStatus = new Map(); // Track import status for this display instance
-
-  // Store for visualization functions (will be populated by debug system)
-  let drawMarketProfile = null;
-  let drawDayRangeMeter = null;
-  let drawPriceFloat = null;
-  let drawPriceDisplay = null;
-  let drawVolatilityOrb = null;
-  let drawVolatilityMetric = null;
-  let drawPriceMarkers = null;
-
-  // 🔧 DEBUG SYSTEM INITIALIZER: Initialize comprehensive debug system
-  function initializeVisualizationDebugSystem() {
-    if (!isDebugMode()) return;
-
-    console.log('🔧 [DEBUG_INIT] Initializing comprehensive visualization debug system');
-
-    // Enable all debug categories for comprehensive visibility
-    enableDebugCategory('state');
-    enableDebugCategory('rendering');
-    enableDebugCategory('websocket');
-    enableDebugCategory('worker');
-    enableDebugCategory('performance');
-    enableDebugCategory('visualization');
-    enableDebugCategory('canvas');
-    enableDebugCategory('imports');
-
-    // Log debug system status
-    const debugSummary = getDebugSummary();
-    console.log('🔧 [DEBUG_INIT] Debug system initialized:', debugSummary);
-  }
-
-  // Visualization function loader with comprehensive debugging
-  async function initializeVisualizationImports() {
-    const displayId = id || 'unknown';
-    const importStartTime = performance.now();
-
-    console.log(`🎯 [VIZ_INIT:${displayId}] Starting enhanced visualization import system`);
-
-    try {
-      // Initialize debug system if not already done
-      if (!visualizationDebugInitialized) {
-        initializeVisualizationDebugSystem();
-        visualizationDebugInitialized = true;
-      }
-
-      // Define all visualizations to load with their import promises
-      const visualizationConfigs = [
-        {
-          name: 'drawMarketProfile',
-          importPromise: import('../lib/viz/marketProfile.js').then(module => module.drawMarketProfile)
-        },
-        {
-          name: 'drawDayRangeMeter',
-          importPromise: import('../lib/viz/dayRangeMeter.js').then(module => module.drawDayRangeMeter)
-        },
-        {
-          name: 'drawPriceFloat',
-          importPromise: import('../lib/viz/priceFloat.js').then(module => module.drawPriceFloat)
-        },
-        {
-          name: 'drawPriceDisplay',
-          importPromise: import('../lib/viz/priceDisplay.js').then(module => module.drawPriceDisplay)
-        },
-        {
-          name: 'drawVolatilityOrb',
-          importPromise: import('../lib/viz/volatilityOrb.js').then(module => module.drawVolatilityOrb)
-        },
-        {
-          name: 'drawVolatilityMetric',
-          importPromise: import('../lib/viz/volatilityMetric.js').then(module => module.drawVolatilityMetric)
-        },
-        {
-          name: 'drawPriceMarkers',
-          importPromise: import('../lib/viz/priceMarkers.js').then(module => module.drawPriceMarkers)
-        }
-      ];
-
-      // Load all visualizations with comprehensive debugging
-      const batchResult = await visualizationLoader.loadVisualizations(visualizationConfigs);
-
-      // Update local function references with successful imports
-      for (const [name] of visualizationConfigs) {
-        const vizFunction = visualizationRegistry.getVisualization(name);
-        if (vizFunction) {
-          switch (name) {
-            case 'drawMarketProfile':
-              drawMarketProfile = vizFunction;
-              break;
-            case 'drawDayRangeMeter':
-              drawDayRangeMeter = vizFunction;
-              break;
-            case 'drawPriceFloat':
-              drawPriceFloat = vizFunction;
-              break;
-            case 'drawPriceDisplay':
-              drawPriceDisplay = vizFunction;
-              break;
-            case 'drawVolatilityOrb':
-              drawVolatilityOrb = vizFunction;
-              break;
-            case 'drawVolatilityMetric':
-              drawVolatilityMetric = vizFunction;
-              break;
-            case 'drawPriceMarkers':
-              drawPriceMarkers = vizFunction;
-              break;
-          }
-          importStatus.set(name, 'success');
-        } else {
-          importStatus.set(name, 'failed');
-          console.warn(`⚠️ [VIZ_INIT:${displayId}] Visualization not available: ${name}`);
-        }
-      }
-
-      const totalImportTime = performance.now() - importStartTime;
-
-      console.log(`✅ [VIZ_INIT:${displayId}] Visualization import system initialization completed`, {
-        total: batchResult.total,
-        successful: batchResult.successful,
-        failed: batchResult.failed,
-        totalTime: `${totalImportTime.toFixed(2)}ms`,
-        batchTime: `${batchResult.totalTime.toFixed(2)}ms`,
-        localStatus: Object.fromEntries(importStatus)
-      });
-
-      // Log detailed status in development
-      if (process.env.NODE_ENV === 'development') {
-        setTimeout(() => {
-          console.group(`🔍 [VIZ_DEBUG:${displayId}] Final Visualization Status Report`);
-          visualizationRegistry.logDetailedStatus();
-          console.groupEnd();
-        }, 1000); // Delay to allow for async operations
-      }
-
-    } catch (error) {
-      console.error(`❌ [VIZ_INIT:${displayId}] Critical error in visualization import system:`, error);
-      throw error;
-    }
-  }
-  
+    
   
   // ✅ INTERACT.JS: Import interact.js for drag and resize
   import interact from 'interactjs';
@@ -218,13 +59,7 @@
     logVisualizationPerformance
   } from '../utils/displayCreationLogger.js';
 
-  // 🎯 ENHANCED DIRECT IMPORT DEBUG SYSTEM: Import comprehensive visualization debugging
-  import {
-    visualizationRegistry,
-    visualizationLoader,
-    debugUtils
-  } from '../utils/visualizationImportDebug.js';
-
+  
   // ✅ COORDINATE VALIDATION: Import centralized YScale validation system
   import { CoordinateValidator } from '../utils/coordinateValidator.js';
 
@@ -371,7 +206,6 @@
   let lastResizeTime = 0;
   const MIN_MOVEMENT_INTERVAL = 8; // ~120fps max update rate
   const MIN_RESIZE_INTERVAL = 16; // ~60fps max update rate
-  let lastWebSocketTimestamp = null;
 
   
   // ✅ COORDINATE SYSTEM: Reactive coordinate system info for performance
@@ -403,95 +237,8 @@
     displayCreationLogger = getDisplayCreationLogger(id, symbol);
   }
 
-  // 🔄 STATE CORRELATION TRACKING: Initialize state correlation trackers when display and symbol are available
-  let stateTracker = null;
-  let pipelineTracker = null;
-  let workerAnalyzer = null;
-  let websocketFlowTracker = null;
-  let reactivityMonitor = null;
-
-  $: if (id && symbol) {
-    stateTracker = createStateTracker(id, symbol);
-    pipelineTracker = createPipelineTracker(`${id}_${symbol}`);
-    workerAnalyzer = createWorkerCommunicationAnalyzer(id);
-    websocketFlowTracker = createWebSocketFlowTracker(id, symbol);
-    reactivityMonitor = createVisualizationReactivityMonitor(id, symbol);
-  }
-
-  // 🔄 STATE CORRELATION TRACKING: Comprehensive state change monitoring with correlation
-  let previousStateSnapshot = null;
-  let stateChangeCount = 0;
-  let lastWebSocketFlowId = null;
-  let lastParameterUpdateId = null;
-
-  $: {
-    // Track state changes and correlate with renders
-    if (stateTracker && state) {
-      // Detect potential WebSocket data updates (look for timestamp changes or price updates)
-      const hasNewWebSocketData = previousStateSnapshot && (
-        state.timestamp !== previousStateSnapshot.timestamp ||
-        state.lastUpdate !== previousStateSnapshot.lastUpdate ||
-        state.currentPrice !== previousStateSnapshot.currentPrice ||
-        state.bid !== previousStateSnapshot.bid ||
-        state.ask !== previousStateSnapshot.ask
-      );
-
-      let webSocketFlowId = null;
-      if (hasNewWebSocketData && websocketFlowTracker) {
-        // Start WebSocket flow tracking
-        webSocketFlowId = websocketFlowTracker.trackDataReception('market_data_update', {
-          timestamp: state.timestamp,
-          currentPrice: state.currentPrice,
-          bid: state.bid,
-          ask: state.ask
-        }, Date.now());
-
-        lastWebSocketFlowId = webSocketFlowId;
-        lastWebSocketTimestamp = Date.now();
-      }
-
-      // Track meaningful state changes
-      const stateChangeId = stateTracker.trackStateChange(state, {
-        canvasReady,
-        canvasError,
-        displaySize,
-        timestamp: Date.now(),
-        changeCount: ++stateChangeCount,
-        webSocketFlowId,
-        hasNewWebSocketData,
-        webSocketDataAge: lastWebSocketTimestamp ? Date.now() - lastWebSocketTimestamp : null
-      });
-
-      // Complete WebSocket flow if state update was successful
-      if (webSocketFlowId && websocketFlowTracker && stateChangeId) {
-        websocketFlowTracker.trackStateUpdate(webSocketFlowId, {
-          stateChangeId,
-          stateReady: state.ready,
-          stateKeys: Object.keys(state),
-          stateSize: JSON.stringify(state).length
-        });
-      }
-
-      // Store previous snapshot for next comparison
-      previousStateSnapshot = JSON.parse(JSON.stringify(state));
-
-      // Store lookup debugging
-      console.log(`[FLOATING_DISPLAY:${id}] Store lookup`, {
-        totalDisplays: $displays?.size || 0,
-        displayIds: Array.from($displays?.keys() || []),
-        foundDisplay: !!display,
-        displayKeys: display ? Object.keys(display) : [],
-        hasState: !!(display?.state),
-        stateChangeId,
-        webSocketFlowId,
-        hasNewWebSocketData
-      });
-    } else if (!stateTracker && id && symbol) {
-      // Initialize tracker if not available
-      console.warn(`[FLOATING_DISPLAY:${id}] State tracker not initialized, creating fallback`);
-    }
-  }
-
+  
+  
   // ✅ ENHANCED LOGGING: Log position and size changes
   $: logPositionAndSizeChanges();
   
@@ -619,16 +366,6 @@
 
   // Container-level event handlers (always work regardless of canvas state)
   function handleContainerClose() {
-    // 🔄 WORKER COMMUNICATION ANALYSIS: Track display removal request
-    if (workerAnalyzer) {
-      workerAnalyzer.trackOutgoingMessage('removeDisplay', {
-        displayId: id,
-        symbol: symbol || 'unknown',
-        source: 'user_interaction',
-        interactionType: 'close_button'
-      });
-    }
-
     displayActions.removeDisplay(id);
   }
 
@@ -689,26 +426,8 @@
       // Normal refresh behavior
       const refreshDisplay = $displays.get(id);
       if (refreshDisplay) {
-        // 🔄 WORKER COMMUNICATION ANALYSIS: Track subscription request
-        let subscriptionMessageId = null;
-        if (workerAnalyzer) {
-          subscriptionMessageId = workerAnalyzer.trackOutgoingMessage('subscribe', {
-            symbol: refreshDisplay.symbol,
-            displayId: id,
-            source: 'refresh_function'
-          });
-        }
-
         import('../data/wsClient.js').then(({ subscribe }) => {
           subscribe(refreshDisplay.symbol);
-
-          // Track successful subscription
-          if (workerAnalyzer && subscriptionMessageId) {
-            workerAnalyzer.trackIncomingMessage('subscription_confirmed', {
-              symbol: refreshDisplay.symbol,
-              displayId: id
-            }, subscriptionMessageId);
-          }
         });
       }
     }
@@ -976,16 +695,7 @@
     setupStoreSubscriptions();
     startPerformanceMonitoring();
 
-    // 🎯 ENHANCED DIRECT IMPORT DEBUG: Initialize visualization import system
-    console.log(`🎯 [VIZ_MOUNT:${id}] Initializing enhanced visualization import system`);
-    try {
-      await initializeVisualizationImports();
-      console.log(`✅ [VIZ_MOUNT:${id}] Visualization import system ready`);
-    } catch (error) {
-      console.error(`❌ [VIZ_MOUNT:${id}] Visualization import system failed:`, error);
-      // Continue with basic functionality even if visualization imports fail
-    }
-
+    
     // ✅ MEMORY MANAGEMENT: Setup resource cleanup after initialization
     setupResourceCleanup();
 
@@ -1084,15 +794,6 @@
 
       // Click to activate
       interactable.on('tap', (event) => {
-        // 🔄 WORKER COMMUNICATION ANALYSIS: Track activation request
-        if (workerAnalyzer) {
-          workerAnalyzer.trackOutgoingMessage('setActiveDisplay', {
-            displayId: id,
-            source: 'user_interaction',
-            interactionType: 'tap'
-          });
-        }
-
         displayActions.setActiveDisplay(id);
       });
     }
@@ -1792,19 +1493,8 @@
     const operationId = `RENDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const renderStartTime = getPerformanceTime();
 
-    // 🔄 PIPELINE PERFORMANCE TRACKING: Start render stage tracking
-    let renderPipelineStageId = null;
-    if (pipelineTracker) {
-      renderPipelineStageId = pipelineTracker.startStage('render_execution', {
-        operationId,
-        displayId: id,
-        symbol: symbol || 'unknown',
-        canvasReady,
-        stateReady: state?.ready
-      });
-    }
-
-    console.log(`🎨 [${operationId}] Starting enhanced render pipeline for display ${id}`, {
+    
+    console.log(`🎨 [${operationId}] Starting render pipeline for display ${id}`, {
       timestamp: Date.now(),
       symbol: symbol || 'unknown',
       hasContext: !!ctx,
@@ -1814,8 +1504,7 @@
       canvasReady,
       canvasError,
       stateReady: state?.ready,
-      yScaleAvailable: !!yScale,
-      renderPipelineStageId
+      yScaleAvailable: !!yScale
     });
 
     // Phase 1: Render Prerequisites Validation
@@ -1974,11 +1663,7 @@
         ];
 
         console.log(`🎨 [${operationId}] Processing ${visualizations.length} visualizations`, {
-          availableFunctions: visualizations.filter(v => !!v.func).length,
-          importStatuses: visualizations.map(v => ({
-            name: v.name,
-            imported: importStatus.get(`draw${v.name}`) === 'success'
-          }))
+          availableFunctions: visualizations.filter(v => !!v.func).length
         });
 
         for (let vizIndex = 0; vizIndex < visualizations.length; vizIndex++) {
@@ -1997,24 +1682,13 @@
             totalVisualizations: visualizations.length,
             hasFunction: !!viz.func,
             functionType: viz.func ? typeof viz.func : 'null',
-            parameters: viz.params.length,
-            importStatus: importStatus.get(`draw${viz.name}`)
+            parameters: viz.params.length
           });
 
           try {
-            // 🎨 VISUALIZATION PREREQUISITES: Validate visualization prerequisites
-            if (!viz.func) {
-              throw new Error(`Visualization function not loaded: ${viz.name}`);
-            }
-
+            // 🎨 VISUALIZATION PREREQUISITES: Static imports guarantee functions are available
             if (typeof viz.func !== 'function') {
               throw new Error(`Visualization is not a function: ${viz.name} (${typeof viz.func})`);
-            }
-
-            // Check import status
-            const importStatusValue = importStatus.get(`draw${viz.name}`);
-            if (importStatusValue !== 'success') {
-              throw new Error(`Visualization not successfully imported: ${viz.name} (status: ${importStatusValue})`);
             }
 
             // 🎨 PRE-CALL VALIDATION: Validate canvas context before visualization
@@ -2053,7 +1727,6 @@
               executionTime: `${vizResult.executionTime.toFixed(2)}ms`,
               hasFunction: !!viz.func,
               functionType: viz.func ? typeof viz.func : 'null',
-              importStatus: importStatus.get(`draw${viz.name}`),
               parameters: viz.params.length,
               symbol: symbol,
               canvasState: {
@@ -2062,10 +1735,10 @@
               }
             });
 
-            // 🚨 CRITICAL: Hard failure for missing visualization functions in development
-            if (process.env.NODE_ENV === 'development' && !viz.func) {
-              console.error(`🚨 [${vizOperationId}] CRITICAL: Missing visualization function ${viz.name} - this should never happen in development`);
-              throw new Error(`Critical: Missing visualization function ${viz.name} - this should never happen in development`);
+            // 🚨 CRITICAL: Static imports should never fail - this indicates import issues
+            if (process.env.NODE_ENV === 'development') {
+              console.error(`🚨 [${vizOperationId}] CRITICAL: Static import failed for ${viz.name} - check import path and exports`);
+              throw new Error(`Critical: Static import failed for ${viz.name} - check import path and exports`);
             }
           }
 
@@ -2137,8 +1810,7 @@
           stateUpdate: state?.ready,
           configChange: !!config,
           yScaleChange: !!yScale,
-          canvasReady,
-          lastWebSocketTimestamp: lastWebSocketTimestamp ? Date.now() - lastWebSocketTimestamp : null
+          canvasReady
         });
 
       } catch (error) {
@@ -2243,55 +1915,6 @@
     if (canvasPerformanceMetrics.renderCount > 0 && canvasPerformanceMetrics.renderCount % 10 === 0) {
       console.log(`🏥 [${operationId}] Periodic health check triggered (render count: ${canvasPerformanceMetrics.renderCount})`);
       performCanvasHealthCheck(operationId);
-    }
-
-    // 🔄 PIPELINE PERFORMANCE TRACKING: Complete render stage tracking
-    if (pipelineTracker && renderPipelineStageId) {
-      const renderDuration = pipelineTracker.completeStage(renderPipelineStageId, {
-        totalTime: totalRenderTime,
-        meetsPerformanceTarget,
-        operationId,
-        visualizationsExecuted: state?.visualLow && state?.visualHigh && yScale
-      });
-    }
-
-    // 🌐 WEBSOCKET FLOW TRACKING: Complete WebSocket flow when visual update is done
-    if (lastWebSocketFlowId && websocketFlowTracker) {
-      const flowResult = websocketFlowTracker.trackVisualUpdate(lastWebSocketFlowId, {
-        renderOperationId: operationId,
-        totalRenderTime,
-        meetsPerformanceTarget,
-        visualizationsExecuted: state?.visualLow && state?.visualHigh && yScale,
-        symbol: symbol || 'unknown'
-      });
-
-      // Reset the last WebSocket flow ID to prevent duplicate completions
-      lastWebSocketFlowId = null;
-    }
-
-    // 🎨 REACTIVITY MONITORING: Complete reactivity cycle
-    if (lastParameterUpdateId && reactivityMonitor) {
-      // Track visualization response
-      if (state?.visualLow && state?.visualHigh && yScale) {
-        reactivityMonitor.trackVisualizationResponse(lastParameterUpdateId, {
-          visualizationsExecuted: true,
-          renderOperationId: operationId,
-          totalRenderTime,
-          symbol: symbol || 'unknown'
-        });
-      }
-
-      // Complete visual update tracking
-      const reactivityResult = reactivityMonitor.trackVisualUpdateComplete(lastParameterUpdateId, {
-        renderOperationId: operationId,
-        totalRenderTime,
-        meetsPerformanceTarget,
-        visualizationsExecuted: state?.visualLow && state?.visualHigh && yScale,
-        symbol: symbol || 'unknown'
-      });
-
-      // Reset the last parameter update ID to prevent duplicate completions
-      lastParameterUpdateId = null;
     }
   }
 
@@ -2638,64 +2261,8 @@
     }, 0);
   }
 
-  // ✅ ENHANCED RENDER TRIGGER: State correlation and reactivity monitoring
+  // ✅ RENDER TRIGGER: Simple reactive render trigger
   $: renderTrigger: if (state && config && yScale && canvasReady) {
-    // 🎨 REACTIVITY MONITORING: Track parameter changes before render
-    let parameterUpdateId = null;
-    if (reactivityMonitor) {
-      parameterUpdateId = reactivityMonitor.trackParameterUpdate({
-        state,
-        config,
-        yScale,
-        canvasReady,
-        symbol
-      }, {
-        trigger: 'svelte_reactive_statement',
-        stateReady: state?.ready,
-        hasNewWebSocketData: state?.timestamp !== previousStateSnapshot?.timestamp
-      });
-      lastParameterUpdateId = parameterUpdateId;
-    }
-
-    // Correlate this render trigger with recent state changes
-    let renderTriggerId = null;
-    if (stateTracker) {
-      renderTriggerId = stateTracker.correlateRenderTrigger({
-        renderType: 'reactive_update',
-        triggerSource: 'svelte_reactive_statement',
-        hasState: !!state,
-        hasConfig: !!config,
-        hasYScale: !!yScale,
-        canvasReady,
-        stateReady: state?.ready,
-        symbol,
-        lastWebSocketTimestamp: lastWebSocketTimestamp ? Date.now() - lastWebSocketTimestamp : null,
-        timestamp: performance.now()
-      });
-    }
-
-    // 🎨 REACTIVITY MONITORING: Track render trigger
-    if (reactivityMonitor && parameterUpdateId) {
-      reactivityMonitor.trackRenderTrigger(parameterUpdateId, {
-        renderTriggerId,
-        stateReady: state?.ready,
-        canvasReady,
-        symbol,
-        timestamp: performance.now()
-      });
-    }
-
-    console.log(`🎨 [RENDER_TRIGGER:${id}] Render triggered`, {
-      hasState: !!state,
-      hasConfig: !!config,
-      hasYScale: !!yScale,
-      canvasReady,
-      stateReady: state?.ready,
-      symbol,
-      renderTriggerId,
-      parameterUpdateId,
-      lastWebSocketTimestamp: lastWebSocketTimestamp ? Date.now() - lastWebSocketTimestamp : null
-    });
     scheduleRender();
   }
   
@@ -2945,8 +2512,9 @@
     /* 🔧 CRITICAL FIX: Changed overflow from hidden to visible to prevent canvas clipping */
     overflow: visible;
     box-sizing: border-box; /* CRITICAL FIX: Include border in width/height calculations */
-    /* 🔧 CRITICAL FIX: Add padding to account for border and ensure canvas fits perfectly */
-    padding: 2px;
+    /* 🔧 CRITICAL ALIGNMENT FIX: Remove ALL padding and margins to achieve zero offset */
+    padding: 0px;
+    margin: 0px;
   }
 
   .enhanced-floating:hover {
@@ -2966,18 +2534,25 @@
   /* Full canvas fills entire container area (headerless design) */
   .full-canvas {
     display: block;
-    /* 🔧 PHASE 1B FIX: Remove CSS constraints that prevent horizontal scaling visibility */
-    width: 100%; /* Use full container width - no fixed reduction */
-    height: 100%; /* Use full container height - no fixed reduction */
-    margin: 2px; /* Center within padding */
-    border-radius: 4px; /* Match container border radius */
+    /* 🔧 CRITICAL ALIGNMENT FIX: Position to account for container border (2px offset) */
+    position: absolute;
+    top: -2px;  /* Offset by border width to align with container edge */
+    left: -2px; /* Offset by border width to align with container edge */
+    /* 🔧 CRITICAL ALIGNMENT FIX: Include border in dimensions for perfect alignment */
+    width: calc(100% + 4px);  /* Add 2px border on each side */
+    height: calc(100% + 4px); /* Add 2px border on each side */
+    /* 🔧 CRITICAL ALIGNMENT FIX: Remove ALL margins, borders, and offsets that cause positioning drift */
+    margin: 0px;
+    padding: 0px;
+    border: none;
+    border-radius: 6px; /* Match container border radius exactly */
     /* cursor removed - let interact.js control resize cursors */
     /* FIXED: Removed pointer-events: none - was breaking keyboard shortcuts after canvas creation */
 
     /* ✅ PERFORMANCE: Hardware acceleration for smooth rendering */
     transform: translateZ(0); /* Force hardware acceleration */
-    /* 🔧 PHASE 1B FIX: Allow expansion beyond container for horizontal scaling visibility */
-    overflow: visible;
+    /* 🔧 CRITICAL ALIGNMENT FIX: No overflow to maintain strict boundaries */
+    overflow: hidden;
   }
 
   .loading {
@@ -2985,10 +2560,20 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    /* 🔧 CRITICAL ALIGNMENT FIX: Position to account for container border (2px offset) */
+    position: absolute;
+    top: -2px;  /* Offset by border width to align with container edge */
+    left: -2px; /* Offset by border width to align with container edge */
+    /* 🔧 CRITICAL ALIGNMENT FIX: Include border in dimensions for perfect alignment */
+    width: calc(100% + 4px);  /* Add 2px border on each side */
+    height: calc(100% + 4px); /* Add 2px border on each side */
+    margin: 0px;
+    padding: 0px;
     color: #6b7280;
     gap: 8px;
     background: #111827;
+    /* 🔧 CRITICAL ALIGNMENT FIX: Match container border radius exactly */
+    border-radius: 6px;
   }
 
   .loading-spinner {
