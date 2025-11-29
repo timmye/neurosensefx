@@ -29,6 +29,8 @@
 - Easy to modify and extend
 
 ---
+## must read the readme ##
+src-simple/README.md
 
 ## The Architecture: Shadow Implementation
 

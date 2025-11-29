@@ -68,3 +68,40 @@ This directory contains the crystal-clear implementation of NeuroSense FX's thre
 - Subscribe to symbol data
 - Render on data receive
 - No worker processing initially
+## Development
+
+**Start (Recommended for Shadow Implementation):**
+```bash
+
+Development Environment:
+    - Start: ./run.sh dev (starts backend + original frontend)
+    - Then: cd src-simple && npm run dev (starts simple frontend)
+    - Stop: ./run.sh stop
+# Original: http://localhost:5174 (30,000+ lines)
+# Simple:   http://localhost:5175 (~400 lines)
+# Backend:  ws://localhost:8080 (shared)
+# Stop: ./run.sh stop
+```
+
+**Simple Only FRONT END ONLY:**
+```bash
+cd src-simple && ./start.sh
+# Access: http://localhost:5175
+```
+
+**URL Testing:**
+- `?impl=both` - Side-by-side comparison
+- `?impl=new` - Simple implementation only
+- `?impl=old` - Original implementation
+
+## Usage Instructions
+
+**Creating Displays:**
+- Press **Alt+A** to create a new trading display
+- Enter a currency symbol (e.g., EUR/USD, GBP/USD)
+- Display appears as a draggable floating window
+
+**Interactive Features:**
+- Drag displays by their headers to reposition
+- Click the × button to close displays
+- Displays automatically persist between sessions

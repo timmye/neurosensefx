@@ -87,8 +87,13 @@ const actions = {
 const persistence = {
   loadFromStorage: () => {
     try {
+      if (typeof localStorage === 'undefined') {
+        return;
+      }
       const stored = localStorage.getItem('workspace-state');
-      if (!stored) return;
+      if (!stored) {
+        return;
+      }
 
       const data = JSON.parse(stored);
       workspaceStore.update(state => ({
@@ -108,7 +113,9 @@ const persistence = {
           displays: Array.from(state.displays.entries()),
           nextZIndex: state.nextZIndex
         };
-        localStorage.setItem('workspace-state', JSON.stringify(data));
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('workspace-state', JSON.stringify(data));
+        }
       });
     } catch (error) {
       console.warn('Failed to save workspace to storage:', error);

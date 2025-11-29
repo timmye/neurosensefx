@@ -2,4 +2,15 @@
   import Workspace from './components/Workspace.svelte';
 </script>
 
-<Workspace />
+<main>
+  <Workspace />
+</main>
+
+<style>
+  main {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #1a0a1a;
+  }
+</style>

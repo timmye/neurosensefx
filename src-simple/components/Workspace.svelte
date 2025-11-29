@@ -8,10 +8,11 @@
     workspacePersistence.saveToStorage();
   });
 
+  
   function handleKeydown(event) {
-    if (event.ctrlKey && event.key === 'n') {
+    if (event.altKey && event.key === 'a') {
       event.preventDefault();
-      const symbol = prompt('Enter symbol:');
+      const symbol = prompt('Enter symbol (e.g., EURUSD, XAUUSD, BTCUSD):');
       if (symbol) {
         workspaceActions.addDisplay(symbol);
       }
@@ -32,5 +33,7 @@
     position: fixed;
     inset: 0;
     overflow: hidden;
+    background: rgb(80, 20, 120);
+    background: linear-gradient(135deg, rgb(80, 20, 120) 0%, rgb(60, 15, 90) 100%);
   }
 </style>
