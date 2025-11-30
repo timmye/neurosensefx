@@ -6,6 +6,33 @@
   onMount(() => {
     workspacePersistence.loadFromStorage();
     workspacePersistence.saveToStorage();
+
+    // Auto-create a test display for debugging if none exist
+    workspaceStore.update(state => {
+      if (state.displays.size === 0) {
+        console.log('[SYSTEM] No displays found, creating default EURUSD display for testing');
+        const symbol = 'EURUSD';
+        const id = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const display = {
+          id,
+          symbol,
+          position: { x: 150, y: 150 },
+          size: { width: 300, height: 180 },
+          zIndex: state.nextZIndex,
+          created: Date.now()
+        };
+
+        const newDisplays = new Map(state.displays);
+        newDisplays.set(id, display);
+
+        return {
+          ...state,
+          displays: newDisplays,
+          nextZIndex: state.nextZIndex + 1
+        };
+      }
+      return state;
+    });
   });
 
   
@@ -14,7 +41,10 @@
       event.preventDefault();
       const symbol = prompt('Enter symbol (e.g., EURUSD, XAUUSD, BTCUSD):');
       if (symbol) {
-        workspaceActions.addDisplay(symbol);
+        // Normalize symbol to uppercase for backend compatibility
+        const normalizedSymbol = symbol.replace('/', '').trim().toUpperCase();
+        console.log('[SYSTEM] Adding display for symbol:', normalizedSymbol);
+        workspaceActions.addDisplay(normalizedSymbol);
       }
     }
   }
