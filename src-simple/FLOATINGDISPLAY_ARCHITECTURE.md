@@ -55,6 +55,7 @@ src-simple/
 3. **DisplayCanvas.svelte** ✅ Canvas setup, DPR rendering, visualization logic
 4. **ConnectionManager** ✅ WebSocket connection management (separate module)
 5. **displayDataProcessor** ✅ Data transformation and processing (separate module)
+6. **Workspace.svelte** ✅ Framework-First keyboard events (30 lines, direct Svelte events)
 
 ---
 
@@ -344,7 +345,7 @@ src-simple/
 | **Data Processing** | ✅ Complete | Separate displayDataProcessor module with error handling |
 | **Error Handling** | ✅ Complete | Comprehensive error states and user feedback |
 | **Status Display** | ✅ Complete | Visual connection status indicators |
-| **Keyboard Navigation** | ✅ Complete | Full accessibility support |
+| **Keyboard Navigation** | ✅ Complete | Framework-First direct Svelte events (30 lines) |
 | **Resize Handling** | ✅ Complete | Minimum size constraints and reactive canvas updates |
 | **Focus Management** | ✅ Complete | Visual feedback and ARIA labels |
 
