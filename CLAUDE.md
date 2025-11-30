@@ -308,3 +308,4 @@ npm run test:all                    # Complete test suite with unified logging
 ---
 
 **NeuroSense FX** - Financial trading visualization platform focused on effective market data presentation.
+- /clear
