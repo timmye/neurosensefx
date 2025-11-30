@@ -1,6 +1,8 @@
 // Simple day range meter canvas visualizers - DPR-aware crisp rendering
 // Based on DESIGN_dayRangeMeter specification
 
+import { register } from './visualizationRegistry.js';
+
 export function setupCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1, rect = canvas.getBoundingClientRect();
   canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
@@ -9,14 +11,37 @@ export function setupCanvas(canvas) {
   return ctx;
 }
 
+export function renderStatusMessage(ctx, message, s) {
+  const { width, height } = s;
+
+  // Clear the entire canvas context
+  ctx.clearRect(0, 0, width, height);
+
+  // Status message display (no error prefix for normal states)
+  ctx.fillStyle = '#F59E0B'; // Amber/orange for status messages
+  ctx.font = '12px monospace'; // Monospace for precise formatting
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Show status message without SYSTEM ERROR prefix
+  ctx.fillText(message, width / 2, height / 2);
+
+  // Add timestamp for debugging
+  ctx.fillStyle = '#6B7280'; // Gray for timestamp
+  ctx.font = '10px monospace';
+  ctx.fillText(`[${new Date().toISOString()}]`, width / 2, height / 2 + 20);
+
+  console.log('[STATUS] Canvas display:', message, 'with canvas size:', `${width}x${height}`);
+}
+
 export function renderErrorMessage(ctx, message, s) {
   const { width, height } = s;
 
   // Clear the entire canvas context
   ctx.clearRect(0, 0, width, height);
 
-  // System error display for full transparency
-  ctx.fillStyle = '#EF4444';
+  // System error display for actual errors only
+  ctx.fillStyle = '#EF4444'; // Red for errors
   ctx.font = '12px monospace'; // Monospace for precise error formatting
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -30,7 +55,7 @@ export function renderErrorMessage(ctx, message, s) {
   ctx.font = '10px monospace';
   ctx.fillText(`[${new Date().toISOString()}]`, width / 2, height / 2 + 20);
 
-  console.log('[SYSTEM ERROR] Canvas display:', displayMessage, 'with canvas size:', { width, height });
+  console.log('[SYSTEM ERROR] Canvas display:', displayMessage, 'with canvas size:', `${width}x${height}`);
 }
 
 export function renderDayRange(ctx, d, s) {
@@ -210,3 +235,6 @@ export function renderDayRange(ctx, d, s) {
 function isValidNumber(value) {
   return typeof value === 'number' && isFinite(value) && !isNaN(value);
 }
+
+// Self-register dayRange visualization with the registry
+register('dayRange', renderDayRange);

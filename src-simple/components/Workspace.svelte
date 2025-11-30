@@ -1,7 +1,8 @@
 <script>
   import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';
   import FloatingDisplay from './FloatingDisplay.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import keyboardManager from '../lib/keyboardNavigation.js';
 
   onMount(() => {
     workspacePersistence.loadFromStorage();
@@ -33,24 +34,15 @@
       }
       return state;
     });
+
+    console.log('[WORKSPACE] Keyboard navigation system integrated');
   });
 
-  
-  function handleKeydown(event) {
-    if (event.altKey && event.key === 'a') {
-      event.preventDefault();
-      const symbol = prompt('Enter symbol (e.g., EURUSD, XAUUSD, BTCUSD):');
-      if (symbol) {
-        // Normalize symbol to uppercase for backend compatibility
-        const normalizedSymbol = symbol.replace('/', '').trim().toUpperCase();
-        console.log('[SYSTEM] Adding display for symbol:', normalizedSymbol);
-        workspaceActions.addDisplay(normalizedSymbol);
-      }
-    }
-  }
+  onDestroy(() => {
+    // Keyboard manager cleanup handled internally
+    console.log('[WORKSPACE] Workspace cleaned up');
+  });
 </script>
-
-<svelte:window on:keydown={handleKeydown} />
 
 <div class="workspace">
   {#each Array.from($workspaceStore.displays.values()) as display (display.id)}

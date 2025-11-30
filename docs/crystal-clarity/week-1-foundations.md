@@ -340,42 +340,7 @@ scheduleReconnect() {
 ```
 
 ### Subscription Management
-```javascript
-subscribe(symbol, callback) {
-  this.subscriptions.set(symbol, callback);
-
-  if (this.ws?.readyState === WebSocket.OPEN) {
-    this.ws.send(JSON.stringify({
-      type: 'subscribe',
-      symbol: symbol
-    }));
-  }
-}
-
-unsubscribe(symbol) {
-  this.subscriptions.delete(symbol);
-  // Send unsubscribe message if connected
-}
-
-resubscribeAll() {
-  for (const [symbol, callback] of this.subscriptions) {
-    this.subscribe(symbol, callback);
-  }
-}
-```
-
-### Message Handling
-```javascript
-onmessage(event) {
-  try {
-    const data = JSON.parse(event.data);
-    const callback = this.subscriptions.get(data.symbol);
-    if (callback) callback(data);
-  } catch (error) {
-    console.error('Message parse error:', error);
-  }
-}
-```
+/workspaces/neurosensefx/services/tick-backend/docs/PROTOCOL_SPECIFICATION.md
 
 ### Constraints
 - Use only native WebSocket API
@@ -401,7 +366,33 @@ Complete `src-simple/lib/connectionManager.js` under 90 lines
 ```
 
 **Expected Output**: Robust WebSocket system with automatic reconnection and clear status indication.
+---
+### Session 3.1 :  Refined Component Structure
+src-simple/FLOATINGDISPLAY_ARCHITECTURE.md
 
+### **Refined Data Flow (Focused Components)**
+```
+Wrc-simple/
+└── components/
+    └── displays/
+        ├── FloatingDisplay.svelte      (80 lines)
+        │   ├── Component orchestration
+        │   ├── interact.js drag/resize
+        │   ├── WebSocket subscription
+        │   └── Event coordination
+        │
+        ├── DisplayHeader.svelte        (40 lines)
+        │   ├── Symbol display
+        │   ├── Close button
+        │   ├── Connection status indicator
+        │   └── Focus handling
+        │
+        └── DisplayCanvas.svelte        (60 lines)
+            ├── Canvas setup (DPR)
+            ├── Visualization rendering
+            ├── Data processing
+            └── Resize handling
+```
 ---
 
 ### Session 4: Configuration Inheritance (2 hours)

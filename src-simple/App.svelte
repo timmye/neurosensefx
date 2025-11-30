@@ -1,5 +1,6 @@
 <script>
   import Workspace from './components/Workspace.svelte';
+  import './lib/visualizers.js'; // Ensure visualizations are registered
 </script>
 
 <main>

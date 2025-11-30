@@ -258,9 +258,8 @@ Workspace → FloatingDisplay → {DayRangeMeter | MarketProfile | VolatilityOrb
 ```javascript
 // Add to Workspace.svelte without modifying existing functionality
 const keyboardShortcuts = {
-  'Ctrl+K': () => showSymbolSearch(),
-  'Ctrl+W': () => workspaceActions.removeDisplay(activeDisplayId),
-  'Ctrl+Tab': () => cycleDisplays(),
+  'Alt+A': () => showSymbolSearch(),
+
   'Escape': () => clearActiveState()
 };
 ```
