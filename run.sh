@@ -40,6 +40,7 @@ DIM=$'\033[2m'
 # Service configuration - Environment-aware ports
 DEFAULT_DEV_BACKEND_PORT=8080
 DEFAULT_DEV_FRONTEND_PORT=5174
+DEFAULT_DEV_SIMPLE_PORT=5175
 DEFAULT_PROD_BACKEND_PORT=8081
 DEFAULT_PROD_FRONTEND_PORT=4173
 
@@ -819,6 +820,20 @@ stop() {
     pkill -f "neurosensefx_dev" 2>/dev/null || true
     pkill -f "neurosensefx_prod" 2>/dev/null || true
 
+    # Kill PIDs from parallel mode if they exist
+    if [ -f .backend.pid ]; then
+        kill -9 $(cat .backend.pid) 2>/dev/null || true
+        rm -f .backend.pid
+    fi
+    if [ -f .frontend.pid ]; then
+        kill -9 $(cat .frontend.pid) 2>/dev/null || true
+        rm -f .frontend.pid
+    fi
+    if [ -f .frontend-simple.pid ]; then
+        kill -9 $(cat .frontend-simple.pid) 2>/dev/null || true
+        rm -f .frontend-simple.pid
+    fi
+
     # Update environment status
     update_environment_status "backend_running" "false"
     update_environment_status "frontend_running" "false"
@@ -1055,6 +1070,75 @@ check_running_services() {
         return 1  # Conflict detected
     else
         return 0  # No conflicts
+    fi
+}
+
+# Parallel development mode - runs both frontends for side-by-side comparison
+dev-parallel() {
+    log_info "🚀 Starting Parallel Development Environment..."
+    log_info "   Backend: http://localhost:8080"
+    log_info "   Original Frontend: http://localhost:5174"
+    log_info "   Simple Frontend: http://localhost:5175"
+    log_info ""
+
+    # Kill any existing processes on our ports
+    log_info "🧹 Cleaning up existing processes..."
+    for port in 8080 5174 5175; do
+        if lsof -i :$port 2>/dev/null | grep -q "LISTEN"; then
+            lsof -ti:$port | xargs kill -9 2>/dev/null || true
+            sleep 0.5
+        fi
+    done
+
+    # Start backend
+    log_info "🔧 Starting backend..."
+    cd services/tick-backend
+    npm run dev > ../../backend.log 2>&1 &
+    BACKEND_PID=$!
+    cd ../..
+
+    # Wait for backend to be ready
+    sleep 2
+
+    # Start original frontend
+    log_info "🎨 Starting original frontend..."
+    npm run dev > frontend.log 2>&1 &
+    FRONTEND_PID=$!
+
+    # Wait a bit then start simple frontend
+    sleep 3
+
+    log_info "✨ Starting simple frontend..."
+    cd src-simple
+    npm run dev > ../frontend-simple.log 2>&1 &
+    SIMPLE_PID=$!
+    cd ..
+
+    # Save PIDs for cleanup
+    echo "$BACKEND_PID" > .backend.pid
+    echo "$FRONTEND_PID" > .frontend.pid
+    echo "$SIMPLE_PID" > .frontend-simple.pid
+
+    sleep 2
+
+    echo ""
+    log_success "✅ Parallel Development Environment Ready!"
+    echo ""
+    echo "${GREEN}🌐 Original Frontend:${NC} http://localhost:5174"
+    echo "${GREEN}🌐 Simple Frontend:${NC} http://localhost:5175"
+    echo "${GREEN}🔧 Backend:${NC} ws://localhost:8080"
+    echo ""
+    echo "🔥 Hot reload enabled on both frontends"
+    echo "📝 Logs: backend.log, frontend.log, frontend-simple.log"
+    echo "🛑 Stop with: ./run.sh stop"
+    echo ""
+
+    # Optional: open browsers
+    if command -v xdg-open > /dev/null 2>&1; then
+        log_info "Opening browsers..."
+        sleep 1
+        xdg-open "http://localhost:5174" &
+        xdg-open "http://localhost:5175" &
     fi
 }
 
@@ -1714,6 +1798,7 @@ usage() {
 
     echo "${BOLD}EXAMPLES:${NC}"
     echo "  ./run.sh dev                           # Start development"
+    echo "  ./run.sh dev-parallel                  # Start BOTH frontends for comparison"
     echo "  ./run.sh start                         # Start production services"
     echo "  ./run.sh status                        # Check service health"
     echo "  ./run.sh logs backend                  # View backend logs"
@@ -1746,6 +1831,9 @@ case "${1:-}" in
     # Core service commands
     "dev")
         dev "${2:-true}"  # Pass auto-browser flag
+        ;;
+    "dev-parallel")
+        dev-parallel
         ;;
     "start")
         start "${2:-}" "${3:-}"  # Pass command line arguments

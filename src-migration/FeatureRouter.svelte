@@ -1,82 +1,57 @@
 <script>
   import FeatureFlags from './FeatureFlags.js';
   import { onMount } from 'svelte';
-
-  // Old implementation imports
   import OldWorkspace from '../src/components/Workspace.svelte';
-  import OldFloatingDisplay from '../src/components/FloatingDisplay.svelte';
-
-  // New implementation imports
   import NewWorkspace from '../src-simple/components/Workspace.svelte';
-  import NewFloatingDisplay from '../src-simple/components/FloatingDisplay.svelte';
 
-  // Dynamic component selection
-  $: WorkspaceComponent = FeatureFlags.useNewWorkspace ? NewWorkspace : OldWorkspace;
-  $: DisplayComponent = FeatureFlags.useNewDisplays ? NewFloatingDisplay : OldFloatingDisplay;
+  let flags = FeatureFlags.load();
 
-  // Display data from appropriate store
-  let displays = [];
+  $: WorkspaceComponent = flags.useSimpleWorkspace ? NewWorkspace : OldWorkspace;
 
   onMount(() => {
-    // Initialize displays based on active implementation
-    const unsubscribe = FeatureFlags.subscribe(() => {
-      // Re-render when flags change
+    const unsubscribe = FeatureFlags.subscribe(newFlags => {
+      flags = newFlags;
     });
     return unsubscribe;
   });
 
   function handleFlagChange(flag, value) {
-    FeatureFlags.update(flags => ({ ...flags, [flag]: value }));
+    FeatureFlags.updateFlag(flag, value);
   }
 </script>
 
-<!-- Dynamic workspace component -->
-<svelte:component this={WorkspaceComponent}>
-  {#each displays as display}
-    <svelte:component this={DisplayComponent} {display} />
-  {/each}
-</svelte:component>
+<svelte:component this={WorkspaceComponent} />
 
-<!-- Debug panel for flag toggling -->
-<div class="feature-flags-debug">
+<div class="debug">
   <h4>Feature Flags</h4>
   <label>
     <input
       type="checkbox"
-      checked={$FeatureFlags.useNewWorkspace}
-      on:change={(e) => handleFlagChange('useNewWorkspace', e.target.checked)}
+      checked={flags.useSimpleWorkspace}
+      on:change={(e) => handleFlagChange('useSimpleWorkspace', e.target.checked)}
     />
-    New Workspace
+    Simple Workspace
   </label>
   <label>
     <input
       type="checkbox"
-      checked={$FeatureFlags.useNewDisplays}
-      on:change={(e) => handleFlagChange('useNewDisplays', e.target.checked)}
+      checked={flags.useSimpleDisplays}
+      on:change={(e) => handleFlagChange('useSimpleDisplays', e.target.checked)}
     />
-    New Displays
+    Simple Displays
+  </label>
+  <label>
+    <input
+      type="checkbox"
+      checked={flags.useSimpleVisualizations}
+      on:change={(e) => handleFlagChange('useSimpleVisualizations', e.target.checked)}
+    />
+    Simple Visualizations
   </label>
 </div>
 
 <style>
-  .feature-flags-debug {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 10px;
-    border-radius: 4px;
-    font-size: 12px;
-    z-index: 10000;
-  }
-
-  .feature-flags-debug label {
-    display: block;
-    margin: 5px 0;
-  }
-
-  .feature-flags-debug h4 {
-    margin: 0 0 8px 0;
-  }
+  .debug{position:fixed;top:10px;right:10px;background:rgba(0,0,0,.8);color:#fff;padding:10px;border-radius:4px;font-size:12px;z-index:10000}
+  .debug label{display:block;margin:5px 0}
+  .debug h4{margin:0 0 8px}
 </style>

@@ -15,6 +15,9 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
       import symbolService from './services/symbolService.js';
   import { Environment, EnvironmentConfig, initializeEnvironment, getEnvironmentInfo } from './lib/utils/environmentUtils.js';
 
+  // Session 5 Integration Test
+  import FeatureFlags from './lib/FeatureFlags.js';
+
   // Error Boundary Components
   import ErrorBoundary from './components/shared/ErrorBoundary.svelte';
   import TradingWorkflowErrorBoundary from './components/shared/TradingWorkflowErrorBoundary.svelte';
@@ -159,6 +162,10 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
       if (envInit.success) {
         environmentInitialized = true;
         environmentInfo = getEnvironmentInfo();
+
+        // Session 5 Integration Test - Initialize feature flags
+        console.log('[APP] Initializing Session 5 FeatureFlags...');
+        FeatureFlags.load();
         showGlobalEnvironmentIndicator = EnvironmentConfig.current.showEnvironmentIndicator;
 
         console.log('[APP] Environment initialized successfully:', {
@@ -396,6 +403,37 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
     <UserErrorExperience />
   </ErrorBoundary>
 
+  <!-- Session 5 Integration Test Debug Panel -->
+  {#if Environment.isDevelopment}
+    <div class="feature-debug-panel">
+      <h4>Feature Flags (Session 5 Integration Test)</h4>
+      <label>
+        <input
+          type="checkbox"
+          checked={$FeatureFlags.useSimpleWorkspace}
+          on:change={(e) => FeatureFlags.updateFlag('useSimpleWorkspace', e.target.checked)}
+        />
+        Simple Workspace
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={$FeatureFlags.useSimpleDisplays}
+          on:change={(e) => FeatureFlags.updateFlag('useSimpleDisplays', e.target.checked)}
+        />
+        Simple Displays
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={$FeatureFlags.useSimpleVisualizations}
+          on:change={(e) => FeatureFlags.updateFlag('useSimpleVisualizations', e.target.checked)}
+        />
+        Simple Visualizations
+      </label>
+    </div>
+  {/if}
+
 </main>
 </TradingWorkflowErrorBoundary>
 
@@ -563,5 +601,44 @@ import { keyboardAction, initializeKeyboardSystem } from './actions/keyboardActi
       border-color: #0891b2;
       color: #0891b2;
     }
+  }
+
+  /* Session 5 Integration Debug Panel */
+  .feature-debug-panel {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 10000;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .feature-debug-panel h4 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #60a5fa;
+  }
+
+  .feature-debug-panel label {
+    display: block;
+    margin: 5px 0;
+    font-size: 11px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+
+  .feature-debug-panel label:hover {
+    color: #60a5fa;
+  }
+
+  .feature-debug-panel input[type="checkbox"] {
+    margin-right: 6px;
+    transform: scale(0.9);
   }
 </style>

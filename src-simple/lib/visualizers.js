@@ -1,4 +1,5 @@
 // Simple day range meter canvas visualizers - DPR-aware crisp rendering
+// Based on DESIGN_dayRangeMeter specification
 
 export function setupCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1, rect = canvas.getBoundingClientRect();
@@ -8,54 +9,204 @@ export function setupCanvas(canvas) {
   return ctx;
 }
 
-export function renderDayRange(ctx, d, s) {
-  const { width, height } = s, padding = 50, axisX = width / 3;
+export function renderErrorMessage(ctx, message, s) {
+  const { width, height } = s;
+
+  // Clear the entire canvas context
   ctx.clearRect(0, 0, width, height);
 
+  // System error display for full transparency
+  ctx.fillStyle = '#EF4444';
+  ctx.font = '12px monospace'; // Monospace for precise error formatting
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Show full system error message for debugging
+  const displayMessage = `SYSTEM ERROR: ${message}`;
+  ctx.fillText(displayMessage, width / 2, height / 2);
+
+  // Add timestamp for debugging
+  ctx.fillStyle = '#F59E0B';
+  ctx.font = '10px monospace';
+  ctx.fillText(`[${new Date().toISOString()}]`, width / 2, height / 2 + 20);
+
+  console.log('[SYSTEM ERROR] Canvas display:', displayMessage, 'with canvas size:', { width, height });
+}
+
+export function renderDayRange(ctx, d, s) {
+  const { width, height } = s;
+  const padding = 50;
+  const adrAxisX = width / 3; // Configurable ADR axis position
+
+  console.log('[DEBUG] renderDayRange called with:', { width, height, data: d });
+
+  ctx.clearRect(0, 0, width, height);
+
+  // Data validation with full system error transparency
+  if (!d) {
+    renderErrorMessage(ctx, 'DATA_VALIDATION_ERROR: data object is null or undefined', s);
+    return;
+  }
+  if (!isValidNumber(d.current)) {
+    renderErrorMessage(ctx, `DATA_VALIDATION_ERROR: current field invalid (received: ${d.current}, type: ${typeof d.current})`, s);
+    return;
+  }
+  if (!isValidNumber(d.adrHigh)) {
+    renderErrorMessage(ctx, `DATA_VALIDATION_ERROR: adrHigh field invalid (received: ${d.adrHigh}, type: ${typeof d.adrHigh})`, s);
+    return;
+  }
+  if (!isValidNumber(d.adrLow)) {
+    renderErrorMessage(ctx, `DATA_VALIDATION_ERROR: adrLow field invalid (received: ${d.adrLow}, type: ${typeof d.adrLow})`, s);
+    return;
+  }
+
+  // Log successful data validation
+  console.log('[DATA_VALIDATION] PASSED:', {
+    symbol: d.symbol,
+    current: d.current,
+    adrHigh: d.adrHigh,
+    adrLow: d.adrLow,
+    hasHigh: !!d.high,
+    hasLow: !!d.low,
+    hasOpen: !!d.open
+  });
+
+  // ADR calculation and coordinate system
   const adrValue = d.adrHigh - d.adrLow || 0.001;
-  const min = d.adrLow - (adrValue * 0.1), max = d.adrHigh + (adrValue * 0.1), range = max - min || 0.001;
+  const midPrice = d.open || d.current; // Daily open as reference
+  const min = d.adrLow - (adrValue * 0.1);
+  const max = d.adrHigh + (adrValue * 0.1);
+  const range = max - min || 0.001;
+
+  // Y-coordinate conversion based on price
   const y = (price) => padding + ((max - price) / range) * (height - padding * 2);
 
-  // ADR axis
-  ctx.strokeStyle = '#4B5563'; ctx.lineWidth = 1; ctx.setLineDash([]);
-  ctx.beginPath(); ctx.moveTo(axisX, padding); ctx.lineTo(axisX, height - padding); ctx.stroke();
+  // === LAYER 1: BACKGROUND ===
+  // Canvas cleared above
 
-  // Center reference line
-  ctx.strokeStyle = '#6B7280'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
-  const openY = y(d.open || d.current);
-  ctx.beginPath(); ctx.moveTo(0, openY); ctx.lineTo(width, openY); ctx.stroke(); ctx.setLineDash([]);
+  // === LAYER 2: STRUCTURE ===
+
+  // ADR axis (primary vertical line)
+  ctx.strokeStyle = '#4B5563';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(adrAxisX, padding);
+  ctx.lineTo(adrAxisX, height - padding);
+  ctx.stroke();
+
+  // Center reference line at daily open price
+  ctx.strokeStyle = '#6B7280';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 2]);
+  const openY = y(midPrice);
+  ctx.beginPath();
+  ctx.moveTo(0, openY);
+  ctx.lineTo(width, openY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // === LAYER 3: DATA ELEMENTS ===
 
   // ADR range background
   ctx.fillStyle = 'rgba(224, 224, 224, 0.3)';
-  ctx.fillRect(axisX - 20, y(d.adrHigh), 40, y(d.adrLow) - y(d.adrHigh));
+  ctx.fillRect(adrAxisX - 20, y(d.adrHigh), 40, y(d.adrLow) - y(d.adrHigh));
 
-  // Today's range
-  ctx.fillStyle = '#4a90e2';
-  ctx.fillRect(axisX - 15, y(d.high), 30, y(d.low) - y(d.high));
+  // Today's session range
+  if (isValidNumber(d.high) && isValidNumber(d.low)) {
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'; // Blue for session range
+    ctx.fillRect(adrAxisX - 15, y(d.high), 30, y(d.low) - y(d.high));
+  }
 
-  // Current price line
-  ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(axisX - 25, y(d.current)); ctx.lineTo(axisX + 25, y(d.current)); ctx.stroke();
+  // === LAYER 4: INFORMATION LAYER ===
 
-  // Text labels
-  ctx.font = '11px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  // Typography setup
+  ctx.textBaseline = 'middle';
 
+  // Current ADR percentage display
+  const currentAdrPct = ((d.current - midPrice) / adrValue * 100).toFixed(1);
+  ctx.fillStyle = 'rgba(59, 130, 246, 0.9)';
+  ctx.fillRect(width/2 - 60, 10, 120, 25);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '12px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`ADR: ${currentAdrPct > 0 ? '+' : ''}${currentAdrPct}%`, width/2, 22);
+
+  // === LAYER 5: PRICE MARKERS ===
+
+  // Daily Open Marker (left side, gray)
   ctx.fillStyle = '#9CA3AF';
-  ctx.fillText(`+100% ADR`, axisX + 35, y(d.adrHigh)); ctx.fillText(`${d.adrHigh.toFixed(5)}`, axisX + 90, y(d.adrHigh));
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('O', adrAxisX - 35, openY);
+  ctx.fillText(`${midPrice.toFixed(5)}`, adrAxisX - 25, openY);
 
-  const highPct = ((d.high - (d.open || d.current)) / adrValue * 100).toFixed(0);
-  ctx.fillStyle = '#4a90e2';
-  ctx.fillText(`H ${highPct > 0 ? '+' : ''}${highPct}%`, axisX + 35, y(d.high));
-  ctx.fillText(`${d.high.toFixed(5)}`, axisX + 90, y(d.high));
+  // Session High/Low Markers (left side, amber)
+  if (isValidNumber(d.high) && isValidNumber(d.low)) {
+    const highPct = ((d.high - midPrice) / adrValue * 100).toFixed(0);
+    const lowPct = ((d.low - midPrice) / adrValue * 100).toFixed(0);
 
-  ctx.fillStyle = '#ff6b6b';
-  ctx.fillText(`NOW`, axisX + 35, y(d.current)); ctx.fillText(`${d.current.toFixed(5)}`, axisX + 90, y(d.current));
+    ctx.fillStyle = '#F59E0B'; // Amber
 
-  const lowPct = ((d.low - (d.open || d.current)) / adrValue * 100).toFixed(0);
-  ctx.fillStyle = '#4a90e2';
-  ctx.fillText(`L ${lowPct > 0 ? '+' : ''}${lowPct}%`, axisX + 35, y(d.low));
-  ctx.fillText(`${d.low.toFixed(5)}`, axisX + 90, y(d.low));
+    // High marker
+    ctx.font = '10px monospace';
+    ctx.fillText('H', adrAxisX - 35, y(d.high));
+    ctx.fillText(`${d.high.toFixed(5)}`, adrAxisX - 25, y(d.high));
 
-  ctx.fillStyle = '#9CA3AF';
-  ctx.fillText(`-100% ADR`, axisX + 35, y(d.adrLow)); ctx.fillText(`${d.adrLow.toFixed(5)}`, axisX + 90, y(d.adrLow));
+    // Low marker
+    ctx.fillText('L', adrAxisX - 35, y(d.low));
+    ctx.fillText(`${d.low.toFixed(5)}`, adrAxisX - 25, y(d.low));
+  }
+
+  // Current Price Marker (right side, green, emphasized)
+  ctx.strokeStyle = '#10B981'; // Green
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(adrAxisX - 25, y(d.current));
+  ctx.lineTo(adrAxisX + 25, y(d.current));
+  ctx.stroke();
+
+  ctx.fillStyle = '#10B981';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('C', adrAxisX + 35, y(d.current));
+  ctx.fillText(`${d.current.toFixed(5)}`, adrAxisX + 45, y(d.current));
+
+  // Static percentage markers (30%, 50%, 75%, 100%)
+  const staticMarkers = [0.3, 0.5, 0.75, 1.0];
+  ctx.strokeStyle = '#6B7280';
+  ctx.fillStyle = '#6B7280';
+  ctx.font = '9px sans-serif';
+
+  staticMarkers.forEach(pct => {
+    const markerY = y(midPrice + (adrValue * pct));
+    if (markerY > padding && markerY < height - padding) {
+      // Marker line
+      ctx.beginPath();
+      ctx.moveTo(adrAxisX - 4, markerY);
+      ctx.lineTo(adrAxisX + 4, markerY);
+      ctx.stroke();
+
+      // Percentage label
+      ctx.textAlign = 'right';
+      ctx.fillText(`${pct > 1 ? '+100' : `${pct * 100}%`}`, adrAxisX - 8, markerY);
+    }
+
+    // Negative percentages
+    const negMarkerY = y(midPrice - (adrValue * pct));
+    if (negMarkerY > padding && negMarkerY < height - padding) {
+      ctx.beginPath();
+      ctx.moveTo(adrAxisX - 4, negMarkerY);
+      ctx.lineTo(adrAxisX + 4, negMarkerY);
+      ctx.stroke();
+
+      ctx.textAlign = 'right';
+      ctx.fillText(`-${pct * 100}%`, adrAxisX - 8, negMarkerY);
+    }
+  });
+}
+
+// Utility function for number validation
+function isValidNumber(value) {
+  return typeof value === 'number' && isFinite(value) && !isNaN(value);
 }

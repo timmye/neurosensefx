@@ -55,13 +55,21 @@ class WebSocketServer {
     async handleMessage(ws, message) {
         try {
             const data = JSON.parse(message);
+            console.log(`[DEBUG] WebSocketServer received message: ${JSON.stringify(data)}`);
             if (data.symbol) {
                 console.log(`[SYMBOL_TRACE | WebSocketServer] Received initial request from client for symbol: ${data.symbol}`);
+            } else if (data.symbols) {
+                console.log(`[SYMBOL_TRACE | WebSocketServer] Received subscribe request for symbols: ${data.symbols.join(', ')}`);
             }
 
             switch (data.type) {
                 case 'get_symbol_data_package':
-                    await this.handleSubscribe(ws, data.symbol, data.adrLookbackDays);
+                case 'subscribe':
+                    if (data.type === 'subscribe' && data.symbols) {
+                        await this.handleSubscribe(ws, data.symbols[0], 14); // Use first symbol, default 14 days
+                    } else {
+                        await this.handleSubscribe(ws, data.symbol, data.adrLookbackDays);
+                    }
                     break;
                 case 'unsubscribe':
                     if (data.symbols) this.handleUnsubscribe(ws, data.symbols);
@@ -81,10 +89,10 @@ class WebSocketServer {
         }
         try {
             const dataPackage = await this.cTraderSession.getSymbolDataPackage(symbolName, adrLookbackDays);
-            
+
             console.log(`[E2E_TRACE | WebSocketServer] Sending package with ${dataPackage.initialMarketProfile.length} profile entries.`);
-            
-            this.sendToClient(ws, { 
+
+            this.sendToClient(ws, {
                 type: 'symbolDataPackage',
                 symbol: dataPackage.symbol,
                 digits: dataPackage.digits,

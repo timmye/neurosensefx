@@ -1,9 +1,21 @@
-# WebSocket API Documentation for cTrader Tick Streamer
+# ⚠️ DEPRECATED - LEGACY DOCUMENTATION
 
-## Overview
-This document describes the WebSocket API provided by the backend service for real-time cTrader tick data. This API is designed for simplicity and performance, allowing frontend applications to easily subscribe to and receive live price updates.
+## Status: OUTDATED
 
-**WebSocket Endpoint:** `ws://localhost:8080` (The port is dynamically assigned by IDX via `process.env.PORT` and typically proxied by the frontend development server).
+**This documentation is deprecated and no longer reflects the current implementation.**
+
+### Current Source of Truth
+📍 **See**: `WebSocket_API.md` for the current, accurate protocol specification
+
+### Why This Document is Deprecated
+- Contains outdated message types that are not implemented
+- Documents connection flow that differs from actual implementation
+- Missing critical message types that are actually implemented
+- Data structures and field names are incorrect
+
+---
+
+# LEGACY CONTENT (Do Not Use for Development)
 
 ## Connection Flow
 
