@@ -2,397 +2,269 @@
 
 ## 🎯 You Are Here: src-simple/
 
-This is the **simple implementation** of NeuroSense FX - achieving functionality through clarity and simplicity, not complexity.
+Building the simple, maintainable NeuroSense FX trading interface.
 
 ---
 
-## ⚠️ Critical Rules
+## ⚠️ Three Critical Documents
 
-### Work ONLY in src-simple/
-```
-✅ ALLOWED:
-- Modify files in src-simple/
-- Create new files in src-simple/
-- Read CONTRACT.md
+# MUST READ these BEFORE every session:
 
-❌ FORBIDDEN:
-- Modify anything in src/ (legacy)
-- Import from src/ (use framework features instead)
-- Copy patterns from src/ (over-engineered)
-```
+1. **CONTRACT.md** - Rules and line limits
+2. **ARCHITECTURE.md** - Which framework does what
 
-### Always Read CONTRACT.md First
-Before every task: `Read src-simple/CONTRACT.md`
-
-# Tiered Line Count Limits
-
-### Tier 1: Core (Ultra-Strict)
-- stores/*.js: 150 lines MAX
-- components/Workspace.svelte: 120 lines MAX
-- components/displays/FloatingDisplay.svelte: 120 lines MAX
-
-### Tier 2: Visualizations (Strict)
-- lib/visualizations/*.js: 200 lines MAX per visualization
-- Rationale: Traders need complete, functional visualizations
-- Trade-off: Accept larger files for visual completeness
-
-### Tier 3: Performance & Errors (Strict)
-- lib/performance/*.js: 150 lines MAX
-- lib/errors/*.js: 150 lines MAX
-- Rationale: Critical infrastructure needs space
-
-### Tier 4: Utilities (Guideline)
-- lib/*/shared/*.js: 150 lines SUGGESTED
-- Can exceed if justified (document rationale)
-**If approaching limit → refactor to simplify**
 
 ---
 
-## 🏗️ Architecture Philosophy
+## 🚀 Quick Start
 
-### Three MUST HAVEs
-The foundation of this implementation:
+### Run the Simple Frontend
+```bash
+# From project root (not /src-simple)
+./run.sh backend 
+./run.sh dev-simple
 
-1. **Floating interface workspace**
-   - Objective: Enable users to organize their trading space
-   - Approach: Draggable containers, position persistence, z-index management
+# Opens:
+# - Backend: ws://localhost:8080
+# - Frontend: http://localhost:5175
+```
 
-2. **Interactive floating elements**
-   - Objective: Provide direct manipulation of displays
-   - Approach: interact.js for drag, focus management, basic resize
+### Check What's Running
 
-3. **Live visualizations**
-   - Objective: Show real-time market data visually
-   - Approach: Canvas rendering (DPR-aware), WebSocket data, Day Range Meter
+```bash
+# From project root (not /src-simple)
+./run.sh status    # See running services
+./run.sh stop      # Stop everything
+```
 
-### File Structure
+### Test the Three MUST HAVEs
+1. Open http://localhost:5175
+2. Press `Alt+A` → Display appears?
+3. Drag display → Smooth motion?
+4. Canvas updates → Real-time data?
+
+## Testing
+
+### Crystal Clarity Frontend Testing
+
+# Enhanced Console Monitoring (MANDATORY)
+npm run test:console             # Comprehensive console logging analysis
+npm run test:console:headed      # Console monitoring with visible browser
+npm run test:console:ui          # Interactive console debugging with UI
+
+```
+
+### Enhanced Console Monitoring System
+The enhanced console monitoring provides comprehensive system visibility with emoji-based classification:
+
+**Features:**
+- 🌐 **Network Activity**: HTTP requests, WebSocket connections, API calls
+- ⌨️ **User Interactions**: Keyboard events, mouse actions, shortcut processing
+- ❌ **System Errors**: JavaScript errors, component failures, initialization issues
+- ✅ **Success Events**: Successful operations, completed workflows
+- 🔥 **Critical Issues**: Server errors, network failures, system crashes
+- ⚠️ **Warnings**: Deprecation notices, performance warnings
+- 💡 **Debug Information**: Development logs, performance metrics
+- 📦 **Asset Loading**: Static resource requests, module loading
+
+**Quick Console Debugging:**
+```bash
+npm run test:console              # Full console analysis with classification
+npm run test:console:headed       # See browser activity in real-time
+npm run test:console:ui           # Interactive debugging interface
+```
+
+### Testing Philosophy
+- **All testing happens within the live frontend** at http://localhost:5175
+- **Playwright automated tests**: `npm test` (uses separate config)
+- **No external test interfaces** - test the actual application directly
+- **Real browser evidence required** - no mocks or simulations
+- **Improve existing tests** rather than creating new ones
+- **Enhanced console visibility**: Zero-overhead monitoring for rapid debugging
+
+### Test Configuration
+- **Config File**: `src-simple/playwright.config.cjs`
+- **Test Directory**: `src-simple/tests/` (create as needed)
+- **Target URL**: http://localhost:5175 (Crystal Clarity frontend)
+- **Auto-start**: Tests automatically start dev server on port 5175
+---
+
+## 📏 Line Count Limits
+
+| Tier | File Type | Max Lines |
+|------|-----------|-----------|
+| **Core** | stores/*.js | 150 |
+| **Core** | components/Workspace.svelte | 120 |
+| **Core** | components/displays/FloatingDisplay.svelte | 120 |
+| **Viz** | lib/visualizations/*.js | 200 |
+| **Infra** | lib/performance/*.js, lib/errors/*.js | 150 |
+| **Utils** | lib/*/shared/*.js | 150 (guideline) |
+
+**Check before committing:**
+```bash
+wc -l stores/*.js components/**/*.svelte lib/**/*.js
+```
+
+---
+
+## 🏗️ File Structure
+
 ```
 src-simple/
-├── claude.md                    ← You are here
-├── CONTRACT.md                  ← Rules (read first!)
 ├── stores/
-│   └── workspace.js            (~150 lines) - Single store
+│   └── workspace.js              (Single store - all state)
+│
 ├── components/
-│   ├── Workspace.svelte        (~80 lines) - Container
-│   └── FloatingDisplay.svelte  (~120 lines) - Display element
+│   ├── Workspace.svelte          (Container)
+│   └── displays/
+│       ├── FloatingDisplay.svelte (Display wrapper)
+│       ├── DisplayHeader.svelte   (Controls)
+│       └── DisplayCanvas.svelte   (Canvas element)
+│
 └── lib/
-    └── visualizers.js          (~60 lines) - All charts
-
-Target: ~400 lines total
+    ├── visualizations/
+    │   ├── dayRangeMeter.js      (Implemented ✓)
+    │   ├── marketProfile.js      (Next)
+    │   └── shared/
+    │       ├── canvas.js         (DPR, setup)
+    │       └── geometry.js       (Drawing helpers)
+    │
+    ├── data/
+    │   └── websocket.js          (Real-time connection)
+    │
+    ├── navigation/
+    │   └── keyboard.js           (Shortcuts)
+    │
+    └── persistence/
+        └── workspace.js          (Save/load)
 ```
 
-### Tech Stack
-- **Svelte 4.x**: Reactive components
-- **interact.js**: Drag and drop
-- **Canvas 2D API**: Rendering (DPR-aware)
-- **WebSocket**: Real-time data
-- **localStorage**: State persistence
+---
+
+## 🎯 Framework Usage (Quick Reference)
+
+**Full details in ARCHITECTURE.md** - Read it first.
+
+| Need | Use | Never |
+|------|-----|-------|
+| UI/State | Svelte | Redux, MobX |
+| Drag/Drop | interact.js | Manual mousedown/move |
+| Rendering | Canvas 2D API | Chart.js, D3 |
+| Real-time | WebSocket API | Socket.io, polling |
+| Persistence | localStorage | IndexedDB |
+| Build | Vite | Webpack |
 
 ---
 
-## 🔧 Working Process
+## 📋 Development Checklist
 
-### Starting a Session
+### Before Starting
+- [ ] Read CONTRACT.md
+- [ ] Read ARCHITECTURE.md
+- [ ] Understand user need
+- [ ] Check line counts
 
-1. **Read CONTRACT.md**
-   ```bash
-   cat src-simple/CONTRACT.md
-   ```
+### While Coding
+- [ ] Using framework features?
+- [ ] Functions under 15 lines?
+- [ ] Single responsibility?
+- [ ] Checking limits frequently?
 
-2. **Understand your objective**
-   - What user need are you addressing?
-   - Is this a MUST HAVE or NICE TO HAVE?
-   - What's the simplest implementation?
-
-3. **Check current line counts**
-   ```bash
-   wc -l stores/*.js components/*.svelte lib/*.js
-   ```
-
-4. **Acknowledge understanding**
-   ```
-   I acknowledge:
-   - Working in src-simple/ only
-   - Read CONTRACT.md
-   - Objective: [what I'm building]
-   - Approach: [how I'll build it simply]
-   - Line budget: [X lines available]
-   ```
-
-### Development Process
-
-**Before adding code:**
-- Will this exceed line limits?
-- Does the framework already provide this?
-- Can I achieve this in <15 lines?
-- Is there a simpler approach?
-
-**While coding:**
-- Check line counts frequently
-- Prefer framework defaults
-- Keep functions under 15 lines
-- One responsibility per file
-
-**After implementing:**
-- Verify line counts under limits
-- Test the three MUST HAVEs still work
-- Commit with clear message
-
-### Testing Process
-
-**Functional validation:**
-```bash
-npm run dev
-
-# Verify three MUST HAVEs:
-1. Workspace appears and is interactive
-2. Elements can be dragged and positioned
-3. Visualizations render with live data
-```
-
-**Performance validation:**
-- Interaction latency <100ms
-- Rendering at 60fps
-- Memory usage reasonable
+### Before Committing
+- [ ] Line counts under limits?
+- [ ] Three MUST HAVEs still work?
+- [ ] Clear commit message?
 
 ---
 
-## 📚 Core Principles
+## 🚫 Never Do This
 
-### Simple, Performant, Maintainable
-
-**Simple**
-- Minimum code to achieve objective
-- Framework defaults over custom solutions
-- Readable by any developer in <15 minutes
-
-**Performant**
-- Sub-100ms interaction latency
-- 60fps rendering maintained
-- Efficient use of framework primitives
-
-**Maintainable**
-- Single responsibility per file
-- Clear naming and structure
-- No abstractions unless necessary
-
-### Decision Framework
-
-Before implementing anything:
-
-1. **What user need does this address?**
-   - Clear objective required
-   - Must support MUST HAVEs
-
-2. **Does the framework provide this?**
-   - Check Svelte docs
-   - Check interact.js docs
-   - Check Canvas API docs
-
-3. **What's the simplest implementation?**
-   - Can it be <15 lines?
-   - Single function?
-   - Direct and clear?
-
-4. **Line count impact?**
-   - Check current count
-   - Will addition exceed limit?
-   - If yes → refactor first
-
----
-
-## 🚫 Anti-Patterns to Avoid
-
-### ❌ Copying Complexity from src/
 ```javascript
-// DON'T:
-import { ComplexValidator } from '../src/utils/validation.js';
+// ❌ Import from legacy code
+import { anything } from '../src/...'
 
-// DO:
-function isValidPosition(pos) {
-  return pos.x >= 0 && pos.y >= 0; // Simple bounds check
-}
+// ❌ Build what frameworks provide
+function customDragLogic() { /* ... */ }
+
+// ❌ Multiple stores
+export const displayStore = writable({});
+export const symbolStore = writable({});
+
+// ❌ Abstractions
+class AbstractFactory { /* ... */ }
+
+// ❌ Copy complex patterns from src/
 ```
 
-### ❌ Over-Engineering
-```javascript
-// DON'T:
-class DisplayManager {
-  constructor() {
-    this.observers = [];
-    this.queue = [];
-    this.cache = new Map();
-  }
-  // ...100 more lines
-}
+---
 
-// DO:
-function addDisplay(symbol, position) {
+## ✅ Always Do This
+
+```javascript
+// ✅ Use framework directly
+import interact from 'interactjs';
+interact(element).draggable({ /* ... */ });
+
+// ✅ Single store
+import { workspace } from '../stores/workspace.js';
+workspace.update(state => { /* ... */ });
+
+// ✅ Simple, direct code
+function addDisplay(symbol) {
+  const id = crypto.randomUUID();
   workspace.update(state => {
-    state.displays.set(id, { id, symbol, position });
+    state.displays.set(id, { id, symbol });
     return state;
   });
 }
 ```
 
-### ❌ Premature Optimization
-```javascript
-// DON'T:
-const memoizedCalculation = useMemo(() => 
-  expensiveCalc(data), [data]); // Not needed yet
+---
 
-// DO:
-const result = calculateValue(data); // Simple, direct
-// Optimize only when proven necessary
-```
+## 🎯 Feature Priorities
 
-### ❌ Abstractions Without Need
-```javascript
-// DON'T:
-function createFactory() {
-  return {
-    create: (type) => factories[type](),
-    // Abstract complexity
-  };
-}
+### Implemented ✓
+- Floating workspace
+- Interactive displays
+- Day Range Meter visualization
+- WebSocket real-time data
+- Position persistence
 
-// DO:
-function createDisplay(symbol) {
-  return { id: crypto.randomUUID(), symbol };
-}
-```
+### Next (Phase 2 - Core MUST HAVEs)
+- Symbol management
+- Error handling
+- Keyboard shortcuts
+- Context menu
+
+### Future (Phase 3 - Visualizations)
+- Market Profile
+- Price Float
+- Volatility Orb
+- [8 more visualizations]
 
 ---
 
-## 🎯 Feature Categorization
+## 💡 Core Philosophy
 
-### MUST HAVE
-**Definition**: Cannot function without this
-**Test**: Would users refuse to use the app without it?
-**Approach**: Implement with absolute simplicity
+**Simple**: Minimum code, framework defaults, readable in 15 minutes
 
-### NICE TO HAVE
-**Definition**: Enhances core functionality
-**Test**: Would power users miss this?
-**Approach**: Implement when MUST HAVEs are solid, keep simple
+**Performant**: <100ms latency, 60fps rendering, efficient primitives
 
-### COULD HAVE
-**Definition**: Optional enhancement
-**Test**: Is this rarely used or experimental?
-**Approach**: Defer until core and supportive features complete
+**Maintainable**: Single responsibility, clear naming, no abstractions
+
+**Framework First**: Never rebuild what Svelte, interact.js, Canvas provide
 
 ---
 
-## 🔄 Expansion Process
+## 📞 When Stuck
 
-### When Adding New Features
+1. Is this a MUST HAVE? (If no, stop)
+2. Does framework provide this? (Check ARCHITECTURE.md)
+3. What's the simplest way? (Functions <15 lines)
+4. Will I exceed limits? (Check line counts)
 
-1. **Categorize first**
-   - Is this MUST HAVE, NICE TO HAVE, or COULD HAVE?
-   - Document rationale
-
-2. **Design simply**
-   - How would framework handle this?
-   - What's the minimal implementation?
-   - Estimate line count
-
-3. **Implement incrementally**
-   - Build smallest working version
-   - Test thoroughly
-   - Refine if needed (not over-engineer)
-
-4. **Validate principles**
-   - Still simple?
-   - Still performant?
-   - Still maintainable?
-
-### Feature Documentation
-
-When adding features, document:
-```markdown
-## [Feature Name]
-
-**Category**: [MUST HAVE / NICE TO HAVE / COULD HAVE]
-
-**User Objective**: [What user needs to accomplish]
-
-**Implementation Approach**: [How we achieve it simply]
-
-**Line Count**: [X lines]
-
-**Trade-offs**: [Decisions made for simplicity]
-```
+If still stuck: Re-read CONTRACT.md decision framework.
 
 ---
 
-## 🧭 Navigation
-
-### Key Files
-
-- **CONTRACT.md**: Hard rules and constraints
-- **claude.md**: Context and processes (this file)
-- **stores/workspace.js**: Single source of truth
-- **components/Workspace.svelte**: Container component
-- **components/FloatingDisplay.svelte**: Display element
-- **lib/visualizers.js**: Visualization engine
-
-### Documentation
-
-- **Feature analysis**: `docs/crystal-clarity/feature-*.md`
-- **Implementation docs**: `docs/crystal-clarity/`
-- **Architecture decisions**: Documented in code comments or feature docs
-
----
-
-## 💡 Philosophy
-
-### Crystal Clarity
-Every line of code should be obvious in purpose and implementation. If it requires explanation, it's too complex.
-
-### Framework First
-Svelte, interact.js, and Canvas API provide robust primitives. Use them directly rather than building abstractions.
-
-### User-Focused
-Every feature exists to serve a user need. If the user benefit isn't clear, the feature shouldn't exist.
-
-### Simplicity Scales
-Simple code is easier to:
-- Understand (onboarding)
-- Modify (maintenance)
-- Test (quality)
-- Extend (growth)
-
-### Trust the Process
-The three MUST HAVEs prove this approach works. Continue applying the same rigorous thinking to each addition.
-
----
-
-## 📖 Quick Reference
-
-### Before Every Session
-1. Read CONTRACT.md
-2. Understand objective
-3. Check line counts
-4. Acknowledge understanding
-
-### During Development
-1. Question complexity
-2. Use framework features
-3. Keep functions small
-4. Check limits frequently
-
-### After Implementation
-1. Verify line counts
-2. Test three MUST HAVEs
-3. Document decisions
-4. Commit clearly
-
-### When Stuck
-1. Re-read objective
-2. Check framework docs
-3. Ask: "What's simpler?"
-4. Review CONTRACT.md
-
----
-
-**Remember**: This implementation succeeds through clarity and simplicity, not cleverness or complexity. Every addition should make the codebase easier to understand, not harder.
+**That's it. Keep it simple. Use frameworks. Ship features.**

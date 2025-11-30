@@ -4,6 +4,9 @@
 
 **READ THIS BEFORE EVERY TASK. ACKNOWLEDGE UNDERSTANDING BEFORE PROCEEDING.**
 
+**ALL ACTIVITES MUST BE DONE IN /src-simple**
+**DO NOT OPERATE IN ROOT DIR - SHADOW SIMPLE FRONT END IMPLEMENTATION in /src-simple**
+**ROOT IS EXISTING FRONT AND BACK END AND NOT TO BE TOUCHED**
 ---
 
 ## Core Principles
@@ -37,14 +40,42 @@ src-simple/README.md
 ### What This Means
 
 ```
-src-simple/          ← Work ONLY here
+src-simple/
 ├── stores/
-│   └── workspace.js        
+│   └── workspace.js              → Svelte writable store
+│
 ├── components/
-│   ├── Workspace.svelte    
-│   └── FloatingDisplay.svelte 
-└── lib/
-    └── visualizers.js      
+│   ├── Workspace.svelte          → Svelte component
+│   │                               + Keyboard events
+│   └── displays/
+│       ├── FloatingDisplay.svelte → Svelte component
+│       │                            + interact.js drag/resize
+│       │                            + Canvas rendering
+│       │                            + WebSocket subscription
+│       ├── DisplayHeader.svelte   → Svelte component
+│       └── DisplayCanvas.svelte   → Svelte component
+│                                    + Canvas 2D rendering
+│
+├── lib/
+│   ├── visualizations/
+│   │   ├── dayRangeMeter.js      → Canvas 2D API
+│   │   ├── marketProfile.js      → Canvas 2D API
+│   │   └── shared/
+│   │       ├── canvas.js         → Canvas setup utilities
+│   │       └── geometry.js       → Canvas drawing helpers
+│   │
+│   ├── data/
+│   │   └── websocket.js          → WebSocket API
+│   │
+│   ├── navigation/
+│   │   └── keyboard.js           → Browser keyboard events
+│   │                               + Svelte store updates
+│   │
+│   └── persistence/
+│       └── workspace.js          → localStorage API
+│                                   + JSON serialization
+│
+└── vite.config.js                → Vite configuration
 
 src/                 ← Read-only reference (30,000+ lines)
 └── [complex implementation - DO NOT MODIFY]

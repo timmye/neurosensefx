@@ -74,25 +74,44 @@ This directory contains the crystal-clear implementation of NeuroSense FX's thre
 ```bash
 
 Development Environment:
-    - Start: ./run.sh dev (starts backend + original frontend)
-    - Then: cd src-simple && npm run dev (starts simple frontend)
-    - Stop: ./run.sh stop
-# Original: http://localhost:5174 (30,000+ lines)
-# Simple:   http://localhost:5175 (~400 lines)
-# Backend:  ws://localhost:8080 (shared)
+```bash
+# From project root (not /src-simple)
+./run.sh backend 
+./run.sh dev-simple
+
+# Opens:
+# - Backend: ws://localhost:8080
+# - Frontend: http://localhost:5175 (Simple front end)
 # Stop: ./run.sh stop
 ```
 
-**Simple Only FRONT END ONLY:**
+### Crystal Clarity Frontend Testing
 ```bash
-cd src-simple && ./start.sh
-# Access: http://localhost:5175
+# Enhanced Console Monitoring
+npm run test:console             # Comprehensive console logging analysis
+npm run test:console:headed      # Console monitoring with visible browser
+npm run test:console:ui          # Interactive console debugging with UI
 ```
 
-**URL Testing:**
-- `?impl=both` - Side-by-side comparison
-- `?impl=new` - Simple implementation only
-- `?impl=old` - Original implementation
+### Enhanced Console Monitoring System
+The enhanced console monitoring provides comprehensive system visibility with emoji-based classification:
+
+**Features:**
+- 🌐 **Network Activity**: HTTP requests, WebSocket connections, API calls
+- ⌨️ **User Interactions**: Keyboard events, mouse actions, shortcut processing
+- ❌ **System Errors**: JavaScript errors, component failures, initialization issues
+- ✅ **Success Events**: Successful operations, completed workflows
+- 🔥 **Critical Issues**: Server errors, network failures, system crashes
+- ⚠️ **Warnings**: Deprecation notices, performance warnings
+- 💡 **Debug Information**: Development logs, performance metrics
+- 📦 **Asset Loading**: Static resource requests, module loading
+
+**Quick Console Debugging:**
+```bash
+npm run test:console              # Full console analysis with classification
+npm run test:console:headed       # See browser activity in real-time
+npm run test:console:ui           # Interactive debugging interface
+```
 
 ## Usage Instructions
 

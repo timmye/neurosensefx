@@ -2,7 +2,41 @@
   import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';
   import FloatingDisplay from './FloatingDisplay.svelte';
   import { onMount, onDestroy } from 'svelte';
-  import keyboardManager from '../lib/keyboardNavigation.js';
+
+  let escPressCount = 0;
+  let escTimer = null;
+
+  function handleKeydown(event) {
+    // Alt+A: Create display
+    if (event.altKey && event.key === 'a') {
+      event.preventDefault();
+      const symbol = prompt('Enter symbol:');
+      if (symbol) workspaceActions.addDisplay(symbol.replace('/', '').trim().toUpperCase());
+      return;
+    }
+
+    // ESC: Progressive escape pattern
+    if (event.key === 'Escape') {
+      event.preventDefault();
+
+      // Reset timer for progressive pattern
+      clearTimeout(escTimer);
+      escTimer = setTimeout(() => { escPressCount = 0; }, 1000);
+      escPressCount++;
+
+      if (escPressCount === 1) {
+        // First ESC: Close overlays/modals
+        document.querySelectorAll('.modal, .overlay, .dropdown').forEach(el => {
+          el.close ? el.close() : el.remove();
+        });
+      } else if (escPressCount === 2) {
+        // Second ESC: Clear display focus
+        document.querySelectorAll('.focused').forEach(el =>
+          el.classList.remove('focused'));
+        escPressCount = 0;
+      }
+    }
+  }
 
   onMount(() => {
     workspacePersistence.loadFromStorage();
@@ -35,16 +69,16 @@
       return state;
     });
 
-    console.log('[WORKSPACE] Keyboard navigation system integrated');
+    console.log('[WORKSPACE] Framework-First keyboard handling ready');
   });
 
   onDestroy(() => {
-    // Keyboard manager cleanup handled internally
+    clearTimeout(escTimer);
     console.log('[WORKSPACE] Workspace cleaned up');
   });
 </script>
 
-<div class="workspace">
+<div class="workspace" on:keydown={handleKeydown} tabindex="0">
   {#each Array.from($workspaceStore.displays.values()) as display (display.id)}
     <FloatingDisplay {display} />
   {/each}

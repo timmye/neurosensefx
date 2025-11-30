@@ -1,21 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NeuroSense FX - Simple Implementation</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📈</text></svg>">
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-      background: #1a0a1a;
-      color: #fff;
-    }
-  </style>
-</head>
-<body>
-  <script type="module" src="/main.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeuroSense FX - Week 1 Implementation Test</title>
+  </head>
+  <body>
+    <div id="app">
+      <h1>NeuroSense FX - Week 1 Implementation</h1>
+      <p>Testing Visualization Registry and Connection Manager</p>
+
+      <div id="test-results" style="margin: 20px 0; padding: 10px; border: 1px solid #ccc;">
+        <h2>Test Results</h2>
+        <div id="registry-test">
+          <h3>Visualization Registry Test</h3>
+          <button onclick="testRegistry()">Test Registry</button>
+          <div id="registry-output"></div>
+        </div>
+
+        <div id="connection-test">
+          <h3>Connection Manager Test</h3>
+          <button onclick="testConnection()">Test Connection</button>
+          <div id="connection-output"></div>
+        </div>
+
+        <div id="e2e-test">
+          <h3>End-to-End Test</h3>
+          <button onclick="testE2E()">Test Complete Workflow</button>
+          <div id="e2e-output"></div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/main.js"></script>
+  </body>
 </html>
