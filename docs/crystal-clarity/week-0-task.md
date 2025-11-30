@@ -52,7 +52,13 @@
 - Added interact.js resizable with visual handles and canvas re-rendering
 - Enhanced Day Range Meter with ADR percentages, color zones, and proper layout 
 
-
+### Issue 6: [Front end not using corect communication methods back end]
+- Severity: BLOCKING
+- Impact: cannot proceed. Simple front end must be visible with all 3 MANDATORY showing.
+- Next task affected: YES
+- Status:  RESOLVED
+- Logs/Behavior: - "SYSTEM ERROR: No data reaching display"
+Fix: Back end documentation had complete information, code was using incorrect methods.
 
 ---
 

@@ -37,14 +37,14 @@ src-simple/README.md
 ### What This Means
 
 ```
-src-simple/          ← Work ONLY here (390 lines total)
+src-simple/          ← Work ONLY here
 ├── stores/
-│   └── workspace.js        (150 lines MAX)
+│   └── workspace.js        
 ├── components/
-│   ├── Workspace.svelte    (80 lines MAX)
-│   └── FloatingDisplay.svelte (120 lines MAX)
+│   ├── Workspace.svelte    
+│   └── FloatingDisplay.svelte 
 └── lib/
-    └── visualizers.js      (60 lines MAX)
+    └── visualizers.js      
 
 src/                 ← Read-only reference (30,000+ lines)
 └── [complex implementation - DO NOT MODIFY]
@@ -69,16 +69,34 @@ src-migration/       ← Integration layer only
 
 ---
 
-## Hard Limits (Non-Negotiable)
+## Tiered Line Count Limits
 
-### Line Count Limits
-| File | Maximum Lines |
-|------|---------------|
-| workspace.js | 150 |
-| Workspace.svelte | 80 |
-| FloatingDisplay.svelte | 120 |
-| visualizers.js | 60 |
-| **TOTAL** | **410** |
+### Tier 1: Core (Ultra-Strict)
+- stores/*.js: 150 lines MAX
+- components/Workspace.svelte: 120 lines MAX
+- components/displays/FloatingDisplay.svelte: 120 lines MAX
+
+### Tier 2: Visualizations (Strict)
+- lib/visualizations/*.js: 200 lines MAX per visualization
+- Rationale: Traders need complete, functional visualizations
+- Trade-off: Accept larger files for visual completeness
+
+### Tier 3: Performance & Errors (Strict)
+- lib/performance/*.js: 150 lines MAX
+- lib/errors/*.js: 150 lines MAX
+- Rationale: Critical infrastructure needs space
+
+### Tier 4: Utilities (Guideline)
+- lib/*/shared/*.js: 150 lines SUGGESTED
+- Can exceed if justified (document rationale)
+
+## When to Split Files
+
+Split ANY file that:
+- Exceeds its tier limit
+- Does more than one thing
+- Is hard to understand in 5 minutes
+- Has multiple developers confused
 
 **If you're about to exceed a limit:**
 1. STOP immediately
