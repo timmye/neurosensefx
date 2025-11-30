@@ -1073,17 +1073,17 @@ check_running_services() {
     fi
 }
 
-# Parallel development mode - runs both frontends for side-by-side comparison
-dev-parallel() {
-    log_info "🚀 Starting Parallel Development Environment..."
+
+# Crystal Clarity development mode - backend + simple frontend only
+dev-simple() {
+    log_info "🚀 Starting Crystal Clarity Development Environment..."
     log_info "   Backend: http://localhost:8080"
-    log_info "   Original Frontend: http://localhost:5174"
     log_info "   Simple Frontend: http://localhost:5175"
     log_info ""
 
     # Kill any existing processes on our ports
     log_info "🧹 Cleaning up existing processes..."
-    for port in 8080 5174 5175; do
+    for port in 8080 5175; do
         if lsof -i :$port 2>/dev/null | grep -q "LISTEN"; then
             lsof -ti:$port | xargs kill -9 2>/dev/null || true
             sleep 0.5
@@ -1100,14 +1100,7 @@ dev-parallel() {
     # Wait for backend to be ready
     sleep 2
 
-    # Start original frontend
-    log_info "🎨 Starting original frontend..."
-    npm run dev > frontend.log 2>&1 &
-    FRONTEND_PID=$!
-
-    # Wait a bit then start simple frontend
-    sleep 3
-
+    # Start simple frontend
     log_info "✨ Starting simple frontend..."
     cd src-simple
     npm run dev > ../frontend-simple.log 2>&1 &
@@ -1116,30 +1109,64 @@ dev-parallel() {
 
     # Save PIDs for cleanup
     echo "$BACKEND_PID" > .backend.pid
-    echo "$FRONTEND_PID" > .frontend.pid
     echo "$SIMPLE_PID" > .frontend-simple.pid
 
     sleep 2
 
     echo ""
-    log_success "✅ Parallel Development Environment Ready!"
+    log_success "✅ Crystal Clarity Development Environment Ready!"
     echo ""
-    echo "${GREEN}🌐 Original Frontend:${NC} http://localhost:5174"
     echo "${GREEN}🌐 Simple Frontend:${NC} http://localhost:5175"
     echo "${GREEN}🔧 Backend:${NC} ws://localhost:8080"
     echo ""
-    echo "🔥 Hot reload enabled on both frontends"
-    echo "📝 Logs: backend.log, frontend.log, frontend-simple.log"
+    echo "🔥 Hot reload enabled"
+    echo "📝 Logs: backend.log, frontend-simple.log"
     echo "🛑 Stop with: ./run.sh stop"
     echo ""
 
-    # Optional: open browsers
+    # Optional: open browser
     if command -v xdg-open > /dev/null 2>&1; then
-        log_info "Opening browsers..."
+        log_info "Opening browser..."
         sleep 1
-        xdg-open "http://localhost:5174" &
         xdg-open "http://localhost:5175" &
     fi
+}
+
+# Backend-only mode - starts just the WebSocket server
+backend() {
+    log_info "🔧 Starting Backend-only Mode..."
+    log_info "   Backend: http://localhost:8080"
+    log_info ""
+
+    # Kill any existing processes on backend port
+    log_info "🧹 Cleaning up existing backend process..."
+    if lsof -i :8080 2>/dev/null | grep -q "LISTEN"; then
+        lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+        sleep 0.5
+    fi
+
+    # Start backend
+    log_info "🚀 Starting WebSocket backend server..."
+    cd services/tick-backend
+    npm run dev > ../../backend.log 2>&1 &
+    BACKEND_PID=$!
+    cd ../..
+
+    # Save PID for cleanup
+    echo "$BACKEND_PID" > .backend.pid
+
+    sleep 2
+
+    echo ""
+    log_success "✅ Backend Server Ready!"
+    echo ""
+    echo "${GREEN}🔧 Backend WebSocket:${NC} ws://localhost:8080"
+    echo ""
+    echo "📝 Logs: backend.log"
+    echo "🛑 Stop with: ./run.sh stop"
+    echo ""
+    echo "💡 Use './run.sh dev' or './run.sh dev-simple' to start frontends"
+    echo ""
 }
 
 # Enhanced development mode with environment awareness
@@ -1767,7 +1794,9 @@ usage() {
     echo ""
 
     echo "${BOLD}CORE COMMANDS:${NC}"
-    echo "  ${GREEN}dev${NC}        Start development with hot reload (foreground)"
+    echo "  ${GREEN}dev${NC}        Start development with original frontend (foreground)"
+    echo "  ${GREEN}dev-simple${NC} Start Crystal Clarity development (simple frontend)"
+    echo "  ${GREEN}backend${NC}    Start backend WebSocket server only"
     echo "  ${GREEN}start${NC}      Start all services in background (production mode)"
     echo "  ${RED}stop${NC}         Stop all services immediately"
     echo "  ${YELLOW}restart${NC}    Restart all services"
@@ -1797,8 +1826,9 @@ usage() {
     echo ""
 
     echo "${BOLD}EXAMPLES:${NC}"
-    echo "  ./run.sh dev                           # Start development"
-    echo "  ./run.sh dev-parallel                  # Start BOTH frontends for comparison"
+    echo "  ./run.sh dev                           # Start development (original frontend)"
+    echo "  ./run.sh dev-simple                    # Start Crystal Clarity development"
+    echo "  ./run.sh backend                       # Start backend WebSocket server only"
     echo "  ./run.sh start                         # Start production services"
     echo "  ./run.sh status                        # Check service health"
     echo "  ./run.sh logs backend                  # View backend logs"
@@ -1832,8 +1862,11 @@ case "${1:-}" in
     "dev")
         dev "${2:-true}"  # Pass auto-browser flag
         ;;
-    "dev-parallel")
-        dev-parallel
+    "dev-simple")
+        dev-simple
+        ;;
+    "backend")
+        backend
         ;;
     "start")
         start "${2:-}" "${3:-}"  # Pass command line arguments
