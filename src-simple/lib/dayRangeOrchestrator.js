@@ -1,7 +1,7 @@
 // Day Range Meter Orchestrator - Crystal Clarity Compliant
 // Framework-first: Main day range rendering coordination
 
-import { setupCanvas, renderAdrAxis, renderCenterLine, renderBoundaryLines } from './dayRangeCore.js';
+import { renderAdrAxis, renderCenterLine, renderAdrBoundaryLines } from './dayRangeCore.js';
 import { validateMarketData, createDayRangeConfig, createPriceScale, renderBackground, createMappedData } from './dayRangeRenderingUtils.js';
 import { calculateAdaptiveScale, calculateDayRangePercentage } from './dayRangeCalculations.js';
 import { renderCurrentPrice, renderOpenPrice, renderHighLowMarkers } from './priceMarkerRenderer.js';
@@ -9,6 +9,8 @@ import { renderPercentageMarkers } from './percentageMarkerRenderer.js';
 
 export function renderDayRange(ctx, d, s, getConfig) {
   const { width, height } = s;
+
+  // The context is already DPR-scaled, so use logical dimensions
   ctx.clearRect(0, 0, width, height);
 
   if (!validateMarketData(d, ctx, s)) return;
@@ -16,22 +18,27 @@ export function renderDayRange(ctx, d, s, getConfig) {
   const config = createDayRangeConfig(s, width, height, getConfig);
   const adaptiveScale = calculateAdaptiveScale(d, config);
   const priceScale = createPriceScale(config, adaptiveScale, height);
-  const enhancedCtx = setupCanvas(s.canvas || ctx.canvas);
 
-  renderBackground(enhancedCtx, width, height);
-  renderStructuralElements(enhancedCtx, config, width, height, priceScale, d);
-  renderPriceElements(enhancedCtx, config, priceScale, d);
-  renderPercentageElements(enhancedCtx, config, d, adaptiveScale, height);
+  renderBackground(ctx, width, height);
+  renderStructuralElements(ctx, config, width, height, priceScale, d, adaptiveScale);
+  renderPriceElements(ctx, config, priceScale, d);
+  renderPercentageElements(ctx, config, d, adaptiveScale, height);
   logProgressiveInfo(d, adaptiveScale);
 }
 
-function renderStructuralElements(ctx, config, width, height, priceScale, d) {
+function renderStructuralElements(ctx, config, width, height, priceScale, d, adaptiveScale) {
   const midPrice = d.open || d.current;
-  renderAdrAxis(ctx, config, height, config.positioning.padding);
+  const adrValue = d.adrHigh - d.adrLow;
+
+  renderAdrAxis(ctx, config, height, 5); // Use minimal padding
   renderCenterLine(ctx, config, width, priceScale(midPrice));
 
   if (config.features.boundaryLines) {
-    renderBoundaryLines(ctx, config, width, height, config.positioning.padding);
+    // Render ASYMMETRIC ADR boundary lines
+    renderAdrBoundaryLines(ctx, config, width, height, priceScale, {
+      midPrice,
+      adrValue
+    }, adaptiveScale);
   }
 }
 

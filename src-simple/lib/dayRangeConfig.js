@@ -26,15 +26,15 @@ export const defaultConfig = {
   // Positioning
   positioning: {
     adrAxisX: null, // Will calculate as width/3 if null
-    padding: 50,
+    padding: 10, // Reduced from 50 to minimize black borders
     labelOffset: 12
   },
 
   // Features
   features: {
     percentageMarkers: {
-      static: true,
-      dynamic: true,
+      static: true, // Show ADR percentage markers (50%, 75%, etc.)
+      dynamic: true, // Show day range percentage
       adaptiveScaling: true // Enable auto scaling for ADR 50%+ visibility
     },
     boundaryLines: true,

@@ -5,64 +5,82 @@ import { setupTextRendering, renderPixelPerfectLine } from './dayRangeCore.js';
 import { calculateMaxAdrPercentage, calculateDayRangePercentage, getYCoordinate } from './dayRangeCalculations.js';
 
 // Main percentage markers orchestrator
-export function renderPercentageMarkers(ctx, config, d, range, height, padding) {
+export function renderPercentageMarkers(ctx, config, d, adaptiveScale, height, padding) {
   ctx.save();
   setupTextRendering(ctx, config.fonts.percentageLabels, 'middle', 'right');
   ctx.fillStyle = config.colors.percentageLabels;
 
-  renderStaticMarkers(ctx, config, d, range, height, padding);
-  renderDynamicMarkers(ctx, config, d, range, height, padding);
+  renderStaticMarkers(ctx, config, d, adaptiveScale, height, padding);
+  renderDynamicMarkers(ctx, config, d, adaptiveScale, height, padding);
 
   ctx.restore();
 }
 
 // Render static percentage markers with progressive disclosure
-function renderStaticMarkers(ctx, config, d, range, height, padding) {
+function renderStaticMarkers(ctx, config, d, adaptiveScale, height, padding) {
   if (!config.features.percentageMarkers.static) return;
 
-  const state = createMarkerState(d);
-  const maxAdrPercentage = calculateMaxAdrPercentage(state);
+  const { upperExpansion, lowerExpansion } = adaptiveScale;
+  const maxAdrPercentage = Math.max(upperExpansion, lowerExpansion);
 
   for (let level = 0.25; level <= maxAdrPercentage; level += 0.25) {
-    renderStaticMarker(ctx, level, config, d, range, height, padding);
+    renderStaticMarker(ctx, level, config, d, adaptiveScale, height, padding);
   }
 }
 
 // Render dynamic day range percentage markers
-function renderDynamicMarkers(ctx, config, d, range, height, padding) {
+function renderDynamicMarkers(ctx, config, d, adaptiveScale, height, padding) {
   if (!config.features.percentageMarkers.dynamic) return;
 
   const dayRangePct = calculateDayRangePercentage(d);
   if (dayRangePct) {
-    renderDynamicMarker(ctx, dayRangePct, config, d, range, height, padding);
+    renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height, padding);
   }
 }
 
 // Render single static percentage marker
-function renderStaticMarker(ctx, level, config, d, range, height, padding) {
+function renderStaticMarker(ctx, level, config, d, adaptiveScale, height, padding) {
   const { positioning, colors } = config;
   const midPrice = d.open || d.current;
   const adrValue = d.adrHigh - d.adrLow;
 
+  // Create price scale using same parameters as main visualization
+  const { min, max } = adaptiveScale;
+  const labelPadding = 5;
+
+  const priceScale = (price) => {
+    const normalized = (max - price) / (max - min);
+    return labelPadding + (normalized * (height - 2 * labelPadding));
+  };
+
   const highPrice = midPrice + (adrValue * level);
   const lowPrice = midPrice - (adrValue * level);
-  const highY = getYCoordinate(highPrice, range, height, padding);
-  const lowY = getYCoordinate(lowPrice, range, height, padding);
+  const highY = priceScale(highPrice);
+  const lowY = priceScale(lowPrice);
 
-  renderPercentageMarkerLine(ctx, positioning.adrAxisX, highY, `${(level * 100).toFixed(0)}%`, 'right', colors);
+  renderPercentageMarkerLine(ctx, positioning.adrAxisX, highY, `+${(level * 100).toFixed(0)}%`, 'right', colors);
   renderPercentageMarkerLine(ctx, positioning.adrAxisX, lowY, `-${(level * 100).toFixed(0)}%`, 'right', colors);
 }
 
 // Render dynamic day range percentage at extremes
-function renderDynamicMarker(ctx, dayRangePct, config, d, range, height, padding) {
+function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height, padding) {
   const { positioning, colors } = config;
   const midPrice = d.open || d.current;
   const todayHigh = d.high || midPrice;
   const todayLow = d.low || midPrice;
   const label = `DR ${dayRangePct}%`;
 
-  const highY = getYCoordinate(todayHigh, range, height, padding);
-  const lowY = getYCoordinate(todayLow, range, height, padding);
+  // Create price scale using same parameters as main visualization
+  const { min, max } = adaptiveScale;
+  const labelPadding = 5;
+
+  const priceScale = (price) => {
+    const normalized = (max - price) / (max - min);
+    return labelPadding + (normalized * (height - 2 * labelPadding));
+  };
+
+  const highY = priceScale(todayHigh);
+  const lowY = priceScale(todayLow);
 
   ctx.fillStyle = colors.sessionPrices;
   ctx.font = 'bold 10px sans-serif';

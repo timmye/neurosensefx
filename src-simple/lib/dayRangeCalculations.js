@@ -20,18 +20,26 @@ export function calculateMaxAdrPercentage(state) {
     return 0.5; // Default to 50% if no data
   }
 
-  // Calculate total movement from both high and low
+  // Calculate percentage movement from mid price to high and low
   const highMovement = state.todayHigh ? Math.abs(state.todayHigh - state.midPrice) / adrValue : 0;
   const lowMovement = state.todayLow ? Math.abs(state.midPrice - state.todayLow) / adrValue : 0;
-  const totalMovement = highMovement + lowMovement;
 
-  // Start with 50% minimum and add total movement
-  let maxPercentage = 0.5 + totalMovement;
+  // Use the maximum movement from either side (not total)
+  const maxMovement = Math.max(highMovement, lowMovement);
 
-  // Only round up if significantly beyond current threshold to avoid premature expansion
-  if (maxPercentage <= 0.6) return 0.5; // Keep at 50% for minimal movements
-  if (maxPercentage <= 0.85) return 0.75; // Expand to 75% for moderate movements
-  return Math.ceil(maxPercentage * 4) / 4; // Round up for large movements
+  // Progressive disclosure thresholds:
+  // - Stay at 50% if price is within 40% ADR of mid price (50% - 10% buffer)
+  // - Expand to 75% if price is between 40-60% ADR from mid price
+  // - Expand to 100%+ if price is beyond 60% ADR from mid price
+
+  if (maxMovement <= 0.4) {
+    return 0.5; // Keep at 50% with 10% buffer
+  } else if (maxMovement <= 0.6) {
+    return 0.75; // Expand to 75% for moderate movements
+  } else {
+    // For large movements, round up to next 0.25 increment
+    return Math.ceil((maxMovement + 0.15) * 4) / 4;
+  }
 }
 
 // Calculate ADR value from high/low
@@ -52,21 +60,58 @@ function updateMaxPercentage(maxPercentage, price, midPrice, adrValue) {
   return Math.max(maxPercentage, percentage);
 }
 
-// Create adaptive scale using max ADR percentage
+// Create adaptive scale using ASYMMETRIC ADR disclosure
 export function calculateAdaptiveScale(d, config) {
   const { scaling } = config;
   const adrValue = d.adrHigh - d.adrLow;
   const state = createScaleState(d);
-  const maxAdrPercentage = calculateMaxAdrPercentage(state);
-  const buffer = adrValue * scaling.minBufferPercent;
-  const maxRange = adrValue * maxAdrPercentage;
+  const midPrice = state.midPrice;
+
+  // Calculate actual movements from mid price as ADR percentages
+  const highMovement = state.todayHigh ? (state.todayHigh - midPrice) / adrValue : 0;
+  const lowMovement = state.todayLow ? (midPrice - state.todayLow) / adrValue : 0;
+  const currentMovement = (d.current - midPrice) / adrValue;
+
+  // Determine required expansion for EACH SIDE INDEPENDENTLY
+  let upperExpansion = 0.5; // Default: 50% ADR above
+  let lowerExpansion = 0.5; // Default: 50% ADR below
+
+  // Expand upper side ONLY if price moves up significantly
+  const maxUpwardMovement = Math.max(highMovement, currentMovement, 0);
+  if (maxUpwardMovement > 0.4) { // Beyond 40% ADR
+    if (maxUpwardMovement > 0.6) { // Beyond 60% ADR
+      upperExpansion = Math.ceil((maxUpwardMovement + 0.15) * 4) / 4;
+    } else {
+      upperExpansion = 0.75; // 75% ADR for 40-60% movement
+    }
+  }
+
+  // Expand lower side ONLY if price moves down significantly
+  const maxDownwardMovement = Math.max(lowMovement, -currentMovement, 0);
+  if (maxDownwardMovement > 0.4) { // Beyond 40% ADR
+    if (maxDownwardMovement > 0.6) { // Beyond 60% ADR
+      lowerExpansion = Math.ceil((maxDownwardMovement + 0.15) * 4) / 4;
+    } else {
+      lowerExpansion = 0.75; // 75% ADR for 40-60% movement
+    }
+  }
+
+  // Calculate actual price boundaries based on ASYMMETRIC expansion
+  const upperBound = midPrice + (adrValue * upperExpansion);
+  const lowerBound = midPrice - (adrValue * lowerExpansion);
+
+  // Ensure today's prices are always included (minimum expansion)
+  const min = Math.min(lowerBound, d.low || lowerBound);
+  const max = Math.max(upperBound, d.high || upperBound);
 
   return {
-    min: d.adrLow - buffer,
-    max: d.adrHigh + buffer,
-    range: maxRange * 2 + (buffer * 2),
-    maxAdrPercentage,
-    isProgressive: maxAdrPercentage > 0.5
+    min: min,
+    max: max,
+    range: max - min,
+    upperExpansion, // Track independent upper expansion
+    lowerExpansion, // Track independent lower expansion
+    maxAdrPercentage: Math.max(upperExpansion, lowerExpansion),
+    isProgressive: upperExpansion > 0.5 || lowerExpansion > 0.5
   };
 }
 

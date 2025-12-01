@@ -50,10 +50,15 @@
   });
 
   $: if (canvas && ctx && width && height) {
-    // Only setup canvas once to avoid resize conflicts
-    ctx = setupCanvas(canvas, width, height);
-    render();
-    if (onResize) onResize();
+    // Check if dimensions actually changed before setting up canvas
+    const currentWidth = canvas.width / (window.devicePixelRatio || 1);
+    const currentHeight = canvas.height / (window.devicePixelRatio || 1);
+
+    if (Math.abs(currentWidth - width) > 1 || Math.abs(currentHeight - height) > 1) {
+      ctx = setupCanvas(canvas, width, height);
+      render();
+      if (onResize) onResize();
+    }
   }
 
   $: if (ctx && (data || connectionStatus)) {
@@ -87,8 +92,7 @@
   canvas {
     display: block;
     background: #0a0a0a;
-    position: absolute;
-    top: -2px;
-    left: -2px;
+    width: 100%;
+    height: 100%;
   }
 </style>
