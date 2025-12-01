@@ -2,6 +2,7 @@
 // Framework-first: Individual drawing functions, <15 lines each
 
 import { COLORS, FONT_SIZES, LINE_WIDTHS } from './colors.js';
+import { formatPriceWithPipPosition } from './priceFormat.js';
 
 export function drawAxis(ctx, x, height) {
   ctx.strokeStyle = COLORS.axis;
@@ -44,23 +45,33 @@ export function drawBoundaries(ctx, width, adrLow, adrHigh, priceScale) {
   ctx.stroke();
 }
 
-export function drawPriceMarkers(ctx, axisX, data, midPrice, priceScale, formatPrice) {
-  const prices = [
+export function drawPriceMarkers(ctx, axisX, data, midPrice, priceScale, symbolData) {
+  const prices = createPriceArray(midPrice, data);
+  ctx.font = `${FONT_SIZES.price}px monospace`;
+
+  prices.forEach(item => {
+    renderPriceMarker(ctx, item, axisX, priceScale, symbolData);
+  });
+}
+
+// Create array of price data for rendering
+function createPriceArray(midPrice, data) {
+  return [
     { label: 'O', price: midPrice, color: COLORS.center },
     { label: 'H', price: data.todayHigh, color: COLORS.highLow },
     { label: 'L', price: data.todayLow, color: COLORS.highLow },
     { label: 'C', price: data.current, color: COLORS.current }
   ];
+}
 
-  ctx.font = `${FONT_SIZES.price}px monospace`;
+// Render individual price marker
+function renderPriceMarker(ctx, item, axisX, priceScale, symbolData) {
+  if (!item.price || !isFinite(item.price)) return;
 
-  prices.forEach(item => {
-    if (item.price && isFinite(item.price)) {
-      const y = priceScale(item.price);
-      const label = `${item.label} ${formatPrice(item.price)}`;
-      drawPriceMarker(ctx, axisX, y, label, item.color);
-    }
-  });
+  const y = priceScale(item.price);
+  const formattedPrice = formatPriceWithPipPosition(item.price, symbolData.pipPosition, symbolData.pipSize, symbolData.pipetteSize);
+  const label = `${item.label} ${formattedPrice}`;
+  drawPriceMarker(ctx, axisX, y, label, item.color);
 }
 
 export function drawPriceMarker(ctx, x, y, label, color) {

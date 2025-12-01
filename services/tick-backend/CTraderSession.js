@@ -72,6 +72,10 @@ class CTraderSession extends EventEmitter {
                     bid: price,
                     ask: price,
                     timestamp: timestamp,
+                    // pipPosition integration fields
+                    pipPosition: symbolInfo.pipPosition,
+                    pipSize: symbolInfo.pipSize,
+                    pipetteSize: symbolInfo.pipetteSize,
                 };
             }
             else if (event.bid != null && event.ask != null) {
@@ -93,6 +97,10 @@ class CTraderSession extends EventEmitter {
                             bid: bidPrice,
                             ask: askPrice,
                             timestamp: timestamp,
+                            // pipPosition integration fields
+                            pipPosition: symbolInfo.pipPosition,
+                            pipSize: symbolInfo.pipSize,
+                            pipetteSize: symbolInfo.pipetteSize,
                         };
                     } else {
                         console.log(`[DEBUG_TRACE | CTraderSession] Skipping tick - ask (${askPrice}) <= bid (${bidPrice})`);
@@ -182,6 +190,9 @@ async getFullSymbolInfo(symbolId) {
     const processedInfo = {
         symbolName: fullInfo.symbolName,
         digits: Number(fullInfo.digits),
+        pipPosition: Number(fullInfo.pipPosition),    // ← ADD THIS
+        pipSize: Math.pow(10, -fullInfo.pipPosition),   // ← ADD THIS
+        pipetteSize: Math.pow(10, -(fullInfo.pipPosition + 1)) // ← ADD THIS
     };
     this.symbolInfoCache.set(symbolId, processedInfo);
     return processedInfo;
@@ -248,6 +259,9 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
         projectedAdrLow: todaysOpen - (adr / 2),
         initialPrice,
         initialMarketProfile,
+        pipPosition: symbolInfo.pipPosition,        // ← ADD THIS
+        pipSize: symbolInfo.pipSize,               // ← ADD THIS
+        pipetteSize: symbolInfo.pipetteSize        // ← ADD THIS
     };
     
     return finalPackage;

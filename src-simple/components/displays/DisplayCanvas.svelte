@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
-  import { setupCanvas, renderErrorMessage, renderStatusMessage } from '../../lib/visualizers.js';
+  import { setupCanvas } from '../../lib/dayRangeCore.js';
+  import { renderErrorMessage, renderStatusMessage } from '../../lib/canvasStatusRenderer.js';
   import { get, getDefault } from '../../lib/visualizationRegistry.js';
 
   export let data, displayType, width, height, onResize;
@@ -44,15 +45,12 @@
 
   onMount(() => {
     if (!canvas) return;
-    canvas.width = width;
-    canvas.height = height;
     ctx = setupCanvas(canvas, width, height);
     render();
   });
 
   $: if (canvas && ctx && width && height) {
-    canvas.width = width;
-    canvas.height = height;
+    // Only setup canvas once to avoid resize conflicts
     ctx = setupCanvas(canvas, width, height);
     render();
     if (onResize) onResize();

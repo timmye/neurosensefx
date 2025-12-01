@@ -18,7 +18,11 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     current: data.bid || data.ask || lastData?.current || 1.0,
     open: lastData?.open || data.bid || data.ask || 1.0,
     adrHigh: lastData?.adrHigh || (data.bid || data.ask || 1.0) * 1.01,
-    adrLow: lastData?.adrLow || (data.bid || data.ask || 1.0) * 0.99
+    adrLow: lastData?.adrLow || (data.bid || data.ask || 1.0) * 0.99,
+    // pipPosition integration - preserve pipPosition data from backend
+    pipPosition: data.pipPosition,
+    pipSize: data.pipSize,
+    pipetteSize: data.pipetteSize
   } : null;
 
   if (displayData) {

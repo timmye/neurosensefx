@@ -84,7 +84,9 @@ class WebSocketServer {
     }
 
     async handleSubscribe(ws, symbolName, adrLookbackDays = 14) {
-        if (!symbolName || !this.currentAvailableSymbols.includes(symbolName)) {
+        // Check symbol validity against the CTraderSession's symbol map directly
+        // This ensures all loaded symbols (including non-FX) are available for subscription
+        if (!symbolName || !this.cTraderSession.symbolMap.has(symbolName)) {
             return this.sendToClient(ws, { type: 'error', message: `Invalid symbol: ${symbolName}` });
         }
         try {
@@ -103,7 +105,11 @@ class WebSocketServer {
                 projectedAdrHigh: dataPackage.projectedAdrHigh,
                 projectedAdrLow: dataPackage.projectedAdrLow,
                 initialPrice: dataPackage.initialPrice,
-                initialMarketProfile: dataPackage.initialMarketProfile || []
+                initialMarketProfile: dataPackage.initialMarketProfile || [],
+                // pipPosition integration fields
+                pipPosition: dataPackage.pipPosition,
+                pipSize: dataPackage.pipSize,
+                pipetteSize: dataPackage.pipetteSize
             });
 
             const clientSubs = this.clientSubscriptions.get(ws);
