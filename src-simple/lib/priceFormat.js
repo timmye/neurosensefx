@@ -33,11 +33,14 @@ export function formatPriceWithPipPosition(price, pipPosition, pipSize, pipetteS
   if (pipPosition !== undefined && pipPosition !== null) {
     // Format to pipPosition + 1 digits for full pipette precision
     const digits = pipPosition + 1;
-    return price.toFixed(digits);
+    const formatted = price.toFixed(digits);
+    // Remove trailing zeros after decimal point
+    return formatted.replace(/\.?0+$/, '');
   }
 
   // Fallback to 5 digits if no pipPosition available
-  return price.toFixed(5);
+  const formatted = price.toFixed(5);
+  return formatted.replace(/\.?0+$/, '');
 }
 
 export function formatPriceLabel(price, digits = 5) {
