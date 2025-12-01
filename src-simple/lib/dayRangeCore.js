@@ -31,14 +31,20 @@ export function renderPixelPerfectLine(ctx, x1, y1, x2, y2) {
   ctx.stroke();
 }
 
-export function renderAdrAxis(ctx, config, height, padding) {
+export function renderAdrAxis(ctx, config, height, padding, width) {
   const { positioning, colors } = config;
+  let axisX = positioning.adrAxisX;
+
+  // Handle percentage (0-1) as fraction of width
+  if (typeof axisX === 'number' && axisX > 0 && axisX <= 1 && width) {
+    axisX = width * axisX;
+  }
 
   ctx.save();
   ctx.strokeStyle = colors.axisPrimary;
   ctx.lineWidth = 1;
 
-  renderPixelPerfectLine(ctx, positioning.adrAxisX, padding, positioning.adrAxisX, height - padding);
+  renderPixelPerfectLine(ctx, axisX, padding, axisX, height - padding);
   ctx.restore();
 }
 

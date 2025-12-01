@@ -11,9 +11,10 @@ export function validateMarketData(d, ctx, s) {
 }
 
 export function createDayRangeConfig(s, width, height, getConfig) {
+  const baseConfig = getConfig();
   return getConfig({
     positioning: {
-      adrAxisX: width / 3,
+      adrAxisX: baseConfig.positioning.adrAxisX || width / 3,
       padding: 50
     },
     features: {

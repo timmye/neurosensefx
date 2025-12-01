@@ -18,14 +18,14 @@ export const defaultConfig = {
 
   // Typography
   fonts: {
-    priceLabels: '10px monospace',
+    priceLabels: '20px monospace',
     percentageLabels: '10px sans-serif',
     statusMessages: '12px monospace'
   },
 
   // Positioning
   positioning: {
-    adrAxisX: null, // Will calculate as width/3 if null
+    adrAxisX: 0.65 , // 90% from left (10% from right). Use null for width/3 default
     padding: 10, // Reduced from 50 to minimize black borders
     labelOffset: 12
   },

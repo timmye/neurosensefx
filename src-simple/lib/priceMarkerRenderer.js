@@ -2,64 +2,108 @@
 // Framework-first: Current, open, and H/L price markers with Canvas 2D
 
 import { setupTextRendering } from './dayRangeCore.js';
-import { formatPrice } from './priceFormat.js';
+import { formatPriceWithPipPosition } from './priceFormat.js';
 
 // Render current price marker with color coding
-export function renderCurrentPrice(ctx, config, axisX, priceScale, price) {
+export function renderCurrentPrice(ctx, config, axisX, priceScale, price, symbolData) {
   if (!price) return;
 
   ctx.save();
-  setupTextRendering(ctx, config.fonts.priceLabels, 'middle', 'center');
+  setupTextRendering(ctx, config.fonts.priceLabels, 'middle', 'right');
   ctx.fillStyle = config.colors.currentPrice;
 
-  const label = `C ${formatPrice(price)}`;
+  const formattedPrice = formatPriceWithPipPosition(price, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
   const currentY = priceScale(price);
-  ctx.fillText(label, axisX, currentY);
+
+  // Draw horizontal marker line on ADR axis
+  const dpr = window.devicePixelRatio || 1;
+  const markerLength = 12 / dpr;
+  ctx.strokeStyle = config.colors.currentPrice;
+  ctx.lineWidth = 2 / dpr;
+  ctx.beginPath();
+  ctx.moveTo(axisX - markerLength, currentY);
+  ctx.lineTo(axisX + markerLength, currentY);
+  ctx.stroke();
+
+  ctx.fillText(formattedPrice, axisX - 5, currentY);
   ctx.restore();
 }
 
 // Render open price marker with color coding
-export function renderOpenPrice(ctx, config, axisX, priceScale, price) {
+export function renderOpenPrice(ctx, config, axisX, priceScale, price, symbolData) {
   if (!price) return;
 
   ctx.save();
-  setupTextRendering(ctx, config.fonts.priceLabels, 'middle', 'center');
+  setupTextRendering(ctx, config.fonts.priceLabels, 'middle', 'right');
   ctx.fillStyle = config.colors.openPrice;
 
-  const label = `O ${formatPrice(price)}`;
+  const formattedPrice = formatPriceWithPipPosition(price, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
   const openY = priceScale(price);
-  ctx.fillText(label, axisX, openY);
+
+  // Draw horizontal marker line on ADR axis
+  const dpr = window.devicePixelRatio || 1;
+  const markerLength = 12 / dpr;
+  ctx.strokeStyle = config.colors.openPrice;
+  ctx.lineWidth = 2 / dpr;
+  ctx.beginPath();
+  ctx.moveTo(axisX - markerLength, openY);
+  ctx.lineTo(axisX + markerLength, openY);
+  ctx.stroke();
+
+  ctx.fillText(formattedPrice, axisX - 5, openY);
   ctx.restore();
 }
 
 // Render today's high and low price markers
-export function renderHighLowMarkers(ctx, config, axisX, priceScale, mappedData) {
+export function renderHighLowMarkers(ctx, config, axisX, priceScale, mappedData, symbolData) {
   ctx.save();
   ctx.fillStyle = config.colors.sessionPrices;
   ctx.font = config.fonts.priceLabels;
-  ctx.textAlign = 'center';
+  ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
 
-  renderHighMarker(ctx, axisX, priceScale, mappedData.todayHigh);
-  renderLowMarker(ctx, axisX, priceScale, mappedData.todayLow);
+  renderHighMarker(ctx, axisX, priceScale, mappedData.todayHigh, symbolData, config);
+  renderLowMarker(ctx, axisX, priceScale, mappedData.todayLow, symbolData, config);
 
   ctx.restore();
 }
 
 // Render high price marker
-function renderHighMarker(ctx, axisX, priceScale, todayHigh) {
+function renderHighMarker(ctx, axisX, priceScale, todayHigh, symbolData, config) {
   if (!todayHigh) return;
 
   const highY = priceScale(todayHigh);
-  const highLabel = `H ${formatPrice(todayHigh)}`;
-  ctx.fillText(highLabel, axisX, highY);
+  const formattedPrice = formatPriceWithPipPosition(todayHigh, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
+
+  // Draw horizontal marker line on ADR axis
+  const dpr = window.devicePixelRatio || 1;
+  const markerLength = 12 / dpr;
+  ctx.strokeStyle = config.colors.sessionPrices;
+  ctx.lineWidth = 2 / dpr;
+  ctx.beginPath();
+  ctx.moveTo(axisX - markerLength, highY);
+  ctx.lineTo(axisX + markerLength, highY);
+  ctx.stroke();
+
+  ctx.fillText(formattedPrice, axisX - 5, highY);
 }
 
 // Render low price marker
-function renderLowMarker(ctx, axisX, priceScale, todayLow) {
+function renderLowMarker(ctx, axisX, priceScale, todayLow, symbolData, config) {
   if (!todayLow) return;
 
   const lowY = priceScale(todayLow);
-  const lowLabel = `L ${formatPrice(todayLow)}`;
-  ctx.fillText(lowLabel, axisX, lowY);
+  const formattedPrice = formatPriceWithPipPosition(todayLow, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
+
+  // Draw horizontal marker line on ADR axis
+  const dpr = window.devicePixelRatio || 1;
+  const markerLength = 12 / dpr;
+  ctx.strokeStyle = config.colors.sessionPrices;
+  ctx.lineWidth = 2 / dpr;
+  ctx.beginPath();
+  ctx.moveTo(axisX - markerLength, lowY);
+  ctx.lineTo(axisX + markerLength, lowY);
+  ctx.stroke();
+
+  ctx.fillText(formattedPrice, axisX - 5, lowY);
 }

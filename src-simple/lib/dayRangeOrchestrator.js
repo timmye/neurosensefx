@@ -21,16 +21,15 @@ export function renderDayRange(ctx, d, s, getConfig) {
 
   renderBackground(ctx, width, height);
   renderStructuralElements(ctx, config, width, height, priceScale, d, adaptiveScale);
-  renderPriceElements(ctx, config, priceScale, d);
-  renderPercentageElements(ctx, config, d, adaptiveScale, height);
-  logProgressiveInfo(d, adaptiveScale);
+  renderPriceElements(ctx, config, priceScale, d, s);
+  renderPercentageElements(ctx, config, d, adaptiveScale, height, width);
 }
 
 function renderStructuralElements(ctx, config, width, height, priceScale, d, adaptiveScale) {
   const midPrice = d.open || d.current;
   const adrValue = d.adrHigh - d.adrLow;
 
-  renderAdrAxis(ctx, config, height, 5); // Use minimal padding
+  renderAdrAxis(ctx, config, height, 5, width); // Use minimal padding
   renderCenterLine(ctx, config, width, priceScale(midPrice));
 
   if (config.features.boundaryLines) {
@@ -42,25 +41,25 @@ function renderStructuralElements(ctx, config, width, height, priceScale, d, ada
   }
 }
 
-function renderPriceElements(ctx, config, priceScale, d) {
-  const axisX = config.positioning.adrAxisX;
+function renderPriceElements(ctx, config, priceScale, d, s) {
+  const { width } = s;
+  let axisX = config.positioning.adrAxisX;
+
+  // Handle percentage (0-1) as fraction of width
+  if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {
+    axisX = width * axisX;
+  }
+
   const mappedData = createMappedData(d);
 
-  renderCurrentPrice(ctx, config, axisX, priceScale, d.current);
-  renderOpenPrice(ctx, config, axisX, priceScale, d.open);
-  renderHighLowMarkers(ctx, config, axisX, priceScale, mappedData);
+  renderCurrentPrice(ctx, config, axisX, priceScale, d.current, s);
+  renderOpenPrice(ctx, config, axisX, priceScale, d.open, s);
+  renderHighLowMarkers(ctx, config, axisX, priceScale, mappedData, s);
 }
 
-function renderPercentageElements(ctx, config, d, adaptiveScale, height) {
+function renderPercentageElements(ctx, config, d, adaptiveScale, height, width) {
   if (config.features.percentageMarkers.static || config.features.percentageMarkers.dynamic) {
-    renderPercentageMarkers(ctx, config, d, adaptiveScale, height, config.positioning.padding);
+    renderPercentageMarkers(ctx, config, d, adaptiveScale, height, config.positioning.padding, width);
   }
 }
 
-function logProgressiveInfo(d, adaptiveScale) {
-  const dayRangePct = calculateDayRangePercentage(d);
-  if (dayRangePct) {
-    const maxAdrPct = (adaptiveScale.maxAdrPercentage * 100).toFixed(0);
-    console.log(`[PROGRESSIVE] Day Range: ${dayRangePct}% | Max ADR: ${maxAdrPct}% | Progressive: ${adaptiveScale.isProgressive ? 'ACTIVE' : 'STANDARD'}`);
-  }
-}
