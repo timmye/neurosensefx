@@ -46,14 +46,14 @@
     if (!canvas) return;
     canvas.width = width;
     canvas.height = height;
-    ctx = setupCanvas(canvas);
+    ctx = setupCanvas(canvas, width, height);
     render();
   });
 
   $: if (canvas && ctx && width && height) {
     canvas.width = width;
     canvas.height = height;
-    ctx = setupCanvas(canvas);
+    ctx = setupCanvas(canvas, width, height);
     render();
     if (onResize) onResize();
   }
@@ -74,8 +74,23 @@
   }
 </script>
 
-<canvas bind:this={canvas} />
+<div class="canvas-container">
+  <canvas bind:this={canvas} />
+</div>
 
 <style>
-  canvas{display:block;background:#0a0a0a;width:100%;height:100%}
+  .canvas-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    background: #0a0a0a;
+    position: absolute;
+    top: -2px;
+    left: -2px;
+  }
 </style>

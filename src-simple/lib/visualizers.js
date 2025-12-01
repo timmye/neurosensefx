@@ -12,21 +12,19 @@ import {
 } from './dayRangeElements.js';
 import { drawPercentageMarkers } from './percentageMarkers.js';
 
-export function setupCanvas(canvas) {
+export function setupCanvas(canvas, width = null, height = null) {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
 
+  // Use provided dimensions or fall back to getBoundingClientRect()
+  const rect = width && height ? { width, height } : canvas.getBoundingClientRect();
+
   // Set actual size in memory
-  const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width * dpr;
   canvas.height = rect.height * dpr;
 
   // Scale the drawing context to match device pixel ratio
   ctx.scale(dpr, dpr);
-
-  // Set canvas CSS size back to normal
-  canvas.style.width = rect.width + 'px';
-  canvas.style.height = rect.height + 'px';
 
   return ctx;
 }
@@ -74,8 +72,16 @@ export function renderDayRange(ctx, d, s) {
   drawCenterLine(ctx, width, midPrice, priceScale);
   drawBoundaries(ctx, width, d.adrLow, d.adrHigh, priceScale);
 
-  // Draw data elements
-  drawPriceMarkers(ctx, axisX, d, midPrice, priceScale, formatPrice);
+  // Draw data elements - Map processor output to expected dayRangeElements input
+  const mappedData = {
+    todayHigh: d.high,
+    todayLow: d.low,
+    current: d.current,
+    adrHigh: d.adrHigh,
+    adrLow: d.adrLow
+  };
+
+  drawPriceMarkers(ctx, axisX, mappedData, midPrice, priceScale, formatPrice);
   drawPercentageMarkers(ctx, axisX, midPrice, adrValue, priceScale);
 }
 
