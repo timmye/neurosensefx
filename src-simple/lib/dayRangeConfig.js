@@ -18,6 +18,7 @@ export const defaultConfig = {
 
   // Typography
   fonts: {
+    currentPrice: 'bold 36px monospace',
     priceLabels: '20px monospace',
     percentageLabels: '10px sans-serif',
     statusMessages: '12px monospace'
@@ -25,8 +26,8 @@ export const defaultConfig = {
 
   // Positioning
   positioning: {
-    adrAxisX: 0.65 , // 90% from left (10% from right). Use null for width/3 default
-    padding: 10, // Reduced from 50 to minimize black borders
+    adrAxisX: 0.75 , // 90% from left (10% from right). Use null for width/3 default
+    padding: 0, // Reduced from 50 to minimize black borders
     labelOffset: 12
   },
 

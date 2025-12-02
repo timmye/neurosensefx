@@ -9,7 +9,7 @@ export function renderCurrentPrice(ctx, config, axisX, priceScale, price, symbol
   if (!price) return;
 
   ctx.save();
-  setupTextRendering(ctx, config.fonts.priceLabels, 'middle', 'right');
+  setupTextRendering(ctx, config.fonts.currentPrice, 'middle', 'right');
   ctx.fillStyle = config.colors.currentPrice;
 
   const formattedPrice = formatPriceWithPipPosition(price, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
