@@ -3,6 +3,7 @@
   import FloatingDisplay from './FloatingDisplay.svelte';
   import { onMount, onDestroy } from 'svelte';
 
+  let keyboardHandler;
   let escPressCount = 0;
   let escTimer = null;
 
@@ -18,11 +19,11 @@
     // ESC: Progressive escape pattern
     if (event.key === 'Escape') {
       event.preventDefault();
+      escPressCount++;
 
       // Reset timer for progressive pattern
       clearTimeout(escTimer);
       escTimer = setTimeout(() => { escPressCount = 0; }, 1000);
-      escPressCount++;
 
       if (escPressCount === 1) {
         // First ESC: Close overlays/modals
@@ -39,6 +40,7 @@
   }
 
   onMount(() => {
+    // Simplified initialization for debugging
     workspacePersistence.loadFromStorage();
     workspacePersistence.saveToStorage();
 
@@ -69,7 +71,7 @@
       return state;
     });
 
-    console.log('[WORKSPACE] Framework-First keyboard handling ready');
+    console.log('[WORKSPACE] Workspace initialized with original code');
   });
 
   onDestroy(() => {
