@@ -3,33 +3,57 @@
   import { setupCanvas } from '../../lib/dayRangeCore.js';
   import { renderErrorMessage, renderStatusMessage } from '../../lib/canvasStatusRenderer.js';
   import { get, getDefault } from '../../lib/visualizationRegistry.js';
+  import { renderMarketProfile } from '../../lib/marketProfileRenderer.js';
 
-  export let data, displayType, width, height, onResize;
+  export let data, showMarketProfile, marketProfileData, width, height, onResize;
   export let connectionStatus = null;
   export let symbol = '';
-  export let marketData = null; // Market data (ADR values) for market profile
 
   let canvas, ctx;
 
   function render() {
     if (!ctx || !canvas) return;
     try {
-      console.log('[DISPLAY_CANVAS] Starting render - DisplayType:', displayType, 'Data length:', data?.length);
+      // Determine display type for renderer selection
+      const displayType = showMarketProfile && marketProfileData && marketProfileData.length > 0 ? 'dayRangeWithMarketProfile' : 'dayRange';
 
-      // If we have data, render it
+      // Select appropriate renderer based on display type
       if (data) {
-        const renderer = get(displayType || 'dayRange') || getDefault();
-        console.log('[DISPLAY_CANVAS] Got renderer:', !!renderer, 'for display type:', displayType);
+        let renderer;
+        let config = { width, height };
+
+        if (displayType === 'dayRangeWithMarketProfile') {
+          // Use combined renderer for market profile overlay
+          renderer = get('dayRangeWithMarketProfile');
+          config = { width, height, marketData: data };
+
+          if (!renderer) {
+            // Fallback to overlay approach if combined renderer not available
+            renderer = get('dayRange') || getDefault();
+          }
+        } else {
+          // Use day range renderer for regular display
+          renderer = get('dayRange') || getDefault();
+        }
 
         if (renderer) {
-          console.log('[DISPLAY_CANVAS] Calling renderer with data:', data?.length ? `${data.length} items` : 'no data');
-          // Pass market data to renderer for market profile scaling
-          const config = { width, height, marketData };
-          renderer(ctx, data, config);
-          console.log('[DISPLAY_CANVAS] Renderer completed successfully');
+          if (displayType === 'dayRangeWithMarketProfile' && get('dayRangeWithMarketProfile')) {
+            // Use the combined renderer which handles both visualizations
+            renderer(ctx, marketProfileData, config);
+          } else {
+            renderer(ctx, data, config);
+
+            // Overlay market profile if enabled and data available (fallback)
+            if (showMarketProfile && marketProfileData && marketProfileData.length > 0) {
+              const marketProfileConfig = { width, height, marketData: data };
+              ctx.save(); // Save context for overlay
+              renderMarketProfile(ctx, marketProfileData, marketProfileConfig);
+              ctx.restore(); // Restore context
+            }
+          }
         } else {
-          console.error('[DISPLAY_CANVAS] No renderer found for display type:', displayType);
-          renderErrorMessage(ctx, `Unknown display type: ${displayType}`, { width, height });
+          console.error('[DISPLAY_CANVAS] No renderer found');
+          renderErrorMessage(ctx, 'Renderer not available', { width, height });
         }
         return;
       }
@@ -50,9 +74,6 @@
       renderErrorMessage(ctx, 'No data available', { width, height });
     } catch (error) {
       console.error('[DISPLAY_CANVAS] Error during render:', error);
-      console.error('[DISPLAY_CANVAS] Error stack:', error.stack);
-      console.error('[DISPLAY_CANVAS] Display type:', displayType);
-      console.error('[DISPLAY_CANVAS] Data:', data);
       renderErrorMessage(ctx, `RENDER_ERROR: ${error.message}`, { width, height });
     }
   }
@@ -75,7 +96,7 @@
     }
   }
 
-  $: if (ctx && (data || connectionStatus)) {
+  $: if (ctx && (data || connectionStatus || showMarketProfile)) {
     render();
   }
 

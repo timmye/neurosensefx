@@ -1,46 +1,65 @@
 // Market Profile Renderer - Crystal Clarity Compliant
 // Framework-first: Canvas 2D API with DPR-aware rendering
+// Uses EXACT same rendering methods as Day Range Meter for 100% compliance
 
 import { renderStatusMessage, renderErrorMessage } from './canvasStatusRenderer.js';
 import { calculatePointOfControl, calculateValueArea } from './marketProfileProcessor.js';
 import { calculateAdaptiveScale } from './dayRangeCalculations.js';
+import { createPriceScale } from './priceScale.js';
+import { setupCanvas, renderPixelPerfectLine, setupTextRendering } from './dayRangeCore.js';
+import { renderBackground } from './dayRangeRenderingUtils.js';
+import { createDayRangeConfig, validateMarketData } from './dayRangeRenderingUtils.js';
+import { getConfig } from './dayRangeConfig.js';
 
 export function renderMarketProfile(ctx, data, config) {
-  console.log('[MARKET_PROFILE RENDER] Starting render - Data length:', data?.length, 'Config:', config);
+  console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:15] renderMarketProfile called');
+  console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:16] Data length:', data?.length);
+  console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:17] Config:', config);
 
   if (!data || data.length === 0) {
-    console.log('[MARKET_PROFILE RENDER] No data available - Rendering status message');
+    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:19] No data - rendering status message');
     renderStatusMessage(ctx, "No Market Profile Data");
     return;
   }
 
+  console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:24] Starting Market Profile rendering');
+
   try {
     const { width, height } = config;
-    const dpr = window.devicePixelRatio || 1;
-    console.log('[MARKET_PROFILE RENDER] Canvas setup - Width:', width, 'Height:', height, 'DPR:', dpr);
 
-    // Setup canvas for DPR
-    const canvas = ctx.canvas;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
+    // Use Day Range Meter standard validation (includes marketData checking)
+    if (!validateMarketData(config.marketData, ctx, { width, height })) {
+      renderStatusMessage(ctx, "No Market Profile Data");
+      return;
+    }
 
-    // Clear canvas
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, width, height);
+    // NOTE: No background rendering - market profile is overlay on day range meter
+    // Background handled by day range meter base layer
 
-    const padding = 40;
-    const profileWidth = width - (padding * 2);
-    const profileHeight = height - (padding * 2);
-
-    // Get market data reference for ADR values (assuming it's available in the display state)
-    // This should be passed from the parent component
+    // Get market data reference for ADR values (must be passed from parent component)
     const marketData = config.marketData || {};
 
-    // Calculate scaling using Day Range Meter's approach
-    let priceScale;
+    // Create base Day Range Meter configuration first for padding access
+    // CRITICAL FIX: Use EXACT same padding as Day Range Meter (padding: 0) for Y-coordinate parity
+    const baseDayRangeConfig = createDayRangeConfig({
+      marketData: marketData
+    }, width, height, getConfig);
+
+    // Use Day Range Meter standard padding configuration (both now use padding: 0)
+    const positioning = baseDayRangeConfig.positioning;
+    const padding = positioning.padding;
+
+    // Calculate ADR axis position for market profile extending RIGHT from ADR axis
+    const adrAxisX = width * 0.75; // ADR axis at 75% from left
+    const marketProfileStartX = adrAxisX; // Start from ADR axis, extend right
+    const marketProfileWidth = width - adrAxisX; // Right side space only (25% of canvas)
+    const profileHeight = height - (padding * 2);
+
+    // Use EXACT same scaling system as Day Range Meter for trader accuracy
+    let adaptiveScale, priceScale;
+
     if (marketData.adrHigh && marketData.adrLow && marketData.current) {
-      // Use Day Range Meter's ADR-based scaling if market data is available
+      // Use Day Range Meter's ADR-based scaling (exact same calculations)
       const adaptiveScaleConfig = {
         scaling: {
           maxAdrPercentage: 0.5, // Default 50% ADR
@@ -48,61 +67,56 @@ export function renderMarketProfile(ctx, data, config) {
         }
       };
 
-      const adaptiveScale = calculateAdaptiveScale(marketData, adaptiveScaleConfig);
-      const { min: scaleMin, max: scaleMax } = adaptiveScale;
-      const scaleRange = scaleMax - scaleMin;
+      adaptiveScale = calculateAdaptiveScale(marketData, adaptiveScaleConfig);
 
-      console.log('[MARKET_PROFILE RENDER] Using ADR-based scaling - Min:', scaleMin, 'Max:', scaleMax, 'Range:', scaleRange);
-
-      priceScale = scaleRange > 0 ? profileHeight / scaleRange : 1;
-
-      // Store adaptive scale for use in coordinate calculations
-      config.adaptiveScale = adaptiveScale;
+      // Use EXACT same Day Range Meter price scaling function
+      // (baseDayRangeConfig already created above with correct marketData)
+      priceScale = createPriceScale(baseDayRangeConfig, adaptiveScale, height);
     } else {
-      // Fallback to simple min/max scaling if no market data
+      // Fallback: create synthetic adaptive scale from market profile data only
       const prices = data.map(d => d.price);
       const maxPrice = Math.max(...prices);
       const minPrice = Math.min(...prices);
-      const priceRange = maxPrice - minPrice;
 
-      console.log('[MARKET_PROFILE RENDER] Using simple min/max scaling - Min:', minPrice, 'Max:', maxPrice, 'Range:', priceRange);
+      // Create adaptive scale object for consistency
+      adaptiveScale = {
+        min: minPrice,
+        max: maxPrice,
+        range: maxPrice - minPrice,
+        isProgressive: false
+      };
 
-      priceScale = priceRange > 0 ? profileHeight / priceRange : 1;
-
-      // Store simple scale for consistency
-      config.adaptiveScale = { min: minPrice, max: maxPrice, range: priceRange };
+      // Update baseDayRangeConfig with synthetic market data for fallback
+      baseDayRangeConfig.marketData = {
+        high: maxPrice,
+        low: minPrice,
+        current: (maxPrice + minPrice) / 2
+      };
+      priceScale = createPriceScale(baseDayRangeConfig, adaptiveScale, height);
     }
 
     const maxTpo = Math.max(...data.map(d => d.tpo));
-    const tpoScale = maxTpo > 0 ? profileWidth / maxTpo : 1;
+    const tpoScale = maxTpo > 0 ? marketProfileWidth / maxTpo : 1;
 
     // Calculate profile metrics
-    console.log('[MARKET_PROFILE RENDER] Calculating profile metrics...');
     const poc = calculatePointOfControl(data);
     const valueArea = calculateValueArea(data);
-    console.log('[MARKET_PROFILE RENDER] POC:', poc, 'ValueArea:', valueArea);
-
-    // Helper function to convert price to Y coordinate using the adaptive scale
-    const priceToY = (price) => {
-      const { min, max, range } = config.adaptiveScale;
-      const normalized = (max - price) / range;
-      return padding + (normalized * profileHeight);
-    };
 
     // Render value area background
     if (valueArea.high && valueArea.low) {
-      console.log('[MARKET_PROFILE RENDER] Rendering value area background');
+      console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:99] Rendering value area background');
       ctx.fillStyle = 'rgba(74, 158, 255, 0.1)';
-      const vaY = priceToY(valueArea.high);
-      const vaHeight = priceToY(valueArea.low) - priceToY(valueArea.high);
-      ctx.fillRect(padding, vaY, profileWidth, vaHeight);
+      const vaY = priceScale(valueArea.high);
+      const vaHeight = priceScale(valueArea.low) - priceScale(valueArea.high);
+      console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:103] Value area rect:', marketProfileStartX, vaY, marketProfileWidth, vaHeight);
+      ctx.fillRect(marketProfileStartX, vaY, marketProfileWidth, vaHeight);
     }
 
+    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:107] Rendering profile bars - data length:', data.length);
     // Render profile bars
-    console.log('[MARKET_PROFILE RENDER] Rendering', data.length, 'profile bars');
     data.forEach((level, index) => {
-      const x = padding;
-      const y = priceToY(level.price);
+      const x = marketProfileStartX; // Start from ADR axis, extend right
+      const y = priceScale(level.price);
       const barWidth = Math.max(level.tpo * tpoScale, 1);
 
       // Color based on TPO intensity
@@ -115,64 +129,51 @@ export function renderMarketProfile(ctx, data, config) {
         ctx.fillStyle = '#666';
       }
 
+      if (index < 5) { // Only log first 5 bars to avoid spam
+        console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:121] Rendering bar', index, 'at', x, y, 'width', barWidth, 'color', ctx.fillStyle);
+      }
       ctx.fillRect(x, y, barWidth, 2);
-
-      if (index < 5) { // Log first 5 bars for debugging
-        console.log('[MARKET_PROFILE RENDER] Bar', index, '- Price:', level.price, 'TPO:', level.tpo, 'Width:', barWidth, 'Y:', y);
-      }
     });
 
-    // Render POC line
+    // Render POC line using Day Range Meter pixel-perfect rendering
     if (poc) {
-      console.log('[MARKET_PROFILE RENDER] Rendering POC line at price:', poc.price);
-      const pocY = priceToY(poc.price);
-      ctx.strokeStyle = '#4a9eff';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 3]);
-      ctx.beginPath();
-      ctx.moveTo(padding, pocY);
-      ctx.lineTo(width - padding, pocY);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      const pocY = priceScale(poc.price);
+      renderPixelPerfectLine(ctx, marketProfileStartX, pocY, width, pocY, {
+        color: '#4a9eff',
+        width: 2,
+        dashPattern: [5, 3]
+      });
 
-      // POC label
-      ctx.fillStyle = '#4a9eff';
-      ctx.font = '10px monospace';
-      ctx.fillText(`POC ${poc.price.toFixed(5)}`, width - padding - 80, pocY + 3);
+      // // POC label using Day Range Meter standard text rendering
+      // setupTextRendering(ctx, { font: '10px monospace', fill: '#4a9eff' });
+      // ctx.fillText(`POC ${poc.price.toFixed(5)}`, marketProfileStartX + 10, pocY + 3);
     }
 
-    // Render price labels for key levels
-    console.log('[MARKET_PROFILE RENDER] Rendering price labels');
-    ctx.fillStyle = '#fff';
-    ctx.font = '9px monospace';
-    ctx.textAlign = 'right';
+    // Render price labels for key levels using Day Range Meter standard text rendering
+    // setupTextRendering(ctx, { font: '9px monospace', fill: '#fff', textAlign: 'right' });
 
-    data.forEach(level => {
-      const intensity = level.tpo / maxTpo;
-      if (intensity > 0.7) {
-        const y = priceToY(level.price);
-        ctx.fillText(level.price.toFixed(5), padding - 5, y + 3);
-      }
-    });
+    // data.forEach(level => {
+    //   const intensity = level.tpo / maxTpo;
+    //   if (intensity > 0.7) {
+    //     const y = priceScale(level.price);
+    //     // Position price labels relative to ADR axis (left of market profile)
+    //     ctx.fillText(level.price.toFixed(5), adrAxisX - 5, y + 3);
+    //   }
+    // });
 
-    ctx.textAlign = 'left';
+    // ctx.textAlign = 'left';
 
-    // Render value area range
-    if (valueArea.high && valueArea.low) {
-      console.log('[MARKET_PROFILE RENDER] Rendering value area range');
-      ctx.fillStyle = '#4a9eff';
-      ctx.font = '10px monospace';
-      ctx.fillText(
-        `VA: ${valueArea.low.toFixed(5)} - ${valueArea.high.toFixed(5)}`,
-        padding,
-        height - 10
-      );
-    }
-
-    console.log('[MARKET_PROFILE RENDER] Render completed successfully');
+    // Render value area range using Day Range Meter standard text rendering
+    // if (valueArea.high && valueArea.low) {
+    //   setupTextRendering(ctx, { font: '10px monospace', fill: '#4a9eff', textAlign: 'left' });
+    //   ctx.fillText(
+    //     `VA: ${valueArea.low.toFixed(5)} - ${valueArea.high.toFixed(5)}`,
+    //     marketProfileStartX + 10,
+    //     height - 10
+    //   );
+    // }
   } catch (error) {
     console.error('[MARKET_PROFILE RENDER] Error during rendering:', error);
-    console.error('[MARKET_PROFILE RENDER] Error stack:', error.stack);
     renderErrorMessage(ctx, `MARKET_PROFILE_RENDER_ERROR: ${error.message}`, { width: config.width, height: config.height });
   }
 }

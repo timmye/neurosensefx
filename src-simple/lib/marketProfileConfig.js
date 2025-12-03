@@ -4,11 +4,11 @@
 export const marketProfileConfig = {
   bucketSize: 0.00001,
   sessionHours: { start: 0, end: 24 },
-  maxHistoryDays: 30,
+  maxHistoryDays: 1,
   valueAreaPercentage: 0.7,
   colors: {
-    background: '#0a0a0a',
-    profile: '#666',
+    background: '#0a0a0a10',
+    profile: '#474747ff',
     poc: '#4a9eff',
     valueArea: 'rgba(74, 158, 255, 0.1)',
     text: '#fff',
@@ -16,7 +16,7 @@ export const marketProfileConfig = {
   },
   rendering: {
     padding: 40,
-    barHeight: 2,
+    barHeight: 1,
     minBarWidth: 1,
     pocLineWidth: 2,
     pocDashPattern: [5, 3]

@@ -7,11 +7,17 @@ import { calculateAdaptiveScale, calculateDayRangePercentage } from './dayRangeC
 import { renderCurrentPrice, renderOpenPrice, renderHighLowMarkers } from './priceMarkerRenderer.js';
 import { renderPercentageMarkers } from './percentageMarkerRenderer.js';
 
-export function renderDayRange(ctx, d, s, getConfig) {
+export function renderDayRange(ctx, d, s, getConfig, options = {}) {
   const { width, height } = s;
+  const { clearCanvas = true } = options;
 
-  // The context is already DPR-scaled, so use logical dimensions
-  ctx.clearRect(0, 0, width, height);
+  if (clearCanvas) {
+    console.log('[DAY_RANGE_ORCHESTRATOR] Clearing canvas');
+    // The context is already DPR-scaled, so use logical dimensions
+    ctx.clearRect(0, 0, width, height);
+  } else {
+    console.log('[DAY_RANGE_ORCHESTRATOR] Skipping canvas clear for combined rendering');
+  }
 
   if (!validateMarketData(d, ctx, s)) return;
 
@@ -19,7 +25,10 @@ export function renderDayRange(ctx, d, s, getConfig) {
   const adaptiveScale = calculateAdaptiveScale(d, config);
   const priceScale = createPriceScale(config, adaptiveScale, height);
 
-  renderBackground(ctx, width, height);
+  // Only render solid background if not in combined mode
+  if (options.clearCanvas !== false) {
+    renderBackground(ctx, width, height);
+  }
   renderStructuralElements(ctx, config, width, height, priceScale, d, adaptiveScale);
   renderPriceElements(ctx, config, priceScale, d, s);
   renderPercentageElements(ctx, config, d, adaptiveScale, height, width);

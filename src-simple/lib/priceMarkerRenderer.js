@@ -15,6 +15,9 @@ export function renderCurrentPrice(ctx, config, axisX, priceScale, price, symbol
   const formattedPrice = formatPriceWithPipPosition(price, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
   const currentY = priceScale(price);
 
+  // Log exact Y-coordinate for parity analysis
+  console.log(`[Y-COORDINATE] Day Range Current Price: ${price.toFixed(5)}, Y: ${currentY.toFixed(6)}`);
+
   // Draw horizontal marker line on ADR axis
   const dpr = window.devicePixelRatio || 1;
   const markerLength = 12 / dpr;

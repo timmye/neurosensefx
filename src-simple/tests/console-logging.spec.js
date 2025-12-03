@@ -90,6 +90,27 @@ test.describe('Market Profile Console Debugging', () => {
     console.log('⏱️ Waiting 5 seconds for Market Profile initialization...');
     await page.waitForTimeout(5000);
 
+    // Step 2: Press Alt+M to toggle market profile overlay
+    console.log('🔄 Pressing Alt+M to toggle Market Profile overlay...');
+
+    // Focus the first display to ensure keyboard events work
+    const firstDisplay = page.locator('.floating-display').first();
+    if (await firstDisplay.count() > 0) {
+      await firstDisplay.focus();
+      await page.waitForTimeout(500);
+
+      // Press Alt+M
+      await page.keyboard.down('Alt');
+      await page.keyboard.press('m');
+      await page.keyboard.up('Alt');
+      console.log('🔄 Alt+M pressed - waiting for market profile overlay...');
+
+      // Wait for overlay to render
+      await page.waitForTimeout(3000);
+    } else {
+      console.log('⚠️ No displays found to toggle market profile');
+    }
+
     // Take screenshot for documentation
     await page.screenshot({
       path: 'market-profile-console-debug.png',

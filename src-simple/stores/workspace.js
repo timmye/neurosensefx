@@ -5,13 +5,7 @@ const initialState = {
   nextZIndex: 1,
   config: {
     defaultSize: { width: 220, height: 120 },
-    defaultPosition: { x: 100, y: 100 },
-    // Crystal Clarity: Configuration determines visualization type
-    defaultVisualizationType: 'marketProfile',
-    symbolVisualizationTypes: {
-      // Example: 'EURUSD' could default to 'marketProfile'
-      // But all displays created through Alt+A should use dayRange by default
-    }
+    defaultPosition: { x: 100, y: 100 }
   }
 };
 
@@ -27,6 +21,7 @@ const actions = {
         position: position || state.config.defaultPosition,
         size: { ...state.config.defaultSize },
         zIndex: state.nextZIndex,
+        showMarketProfile: false, // Simple boolean - market profile off by default
         created: Date.now()
       };
 
@@ -94,11 +89,9 @@ const actions = {
       const display = state.displays.get(id);
       if (!display) return state;
 
-      const currentType = display.visualizationType || state.config.defaultVisualizationType;
-      const newType = currentType === 'marketProfile' ? 'dayRange' : 'marketProfile';
-
+      // Simple boolean toggle
       const newDisplays = new Map(state.displays);
-      newDisplays.set(id, { ...display, visualizationType: newType });
+      newDisplays.set(id, { ...display, showMarketProfile: !display.showMarketProfile });
 
       return { ...state, displays: newDisplays };
     });

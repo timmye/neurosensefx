@@ -44,6 +44,13 @@
     workspacePersistence.loadFromStorage();
     workspacePersistence.saveToStorage();
 
+    // Ensure workspace can receive keyboard events
+    const workspaceEl = document.querySelector('.workspace');
+    if (workspaceEl) {
+      workspaceEl.focus();
+      console.log('[WORKSPACE] Workspace focused and ready for keyboard shortcuts');
+    }
+
     console.log('[WORKSPACE] Workspace initialized - use Alt+A to create displays');
   });
 

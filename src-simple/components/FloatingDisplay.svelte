@@ -15,10 +15,9 @@ import { getBucketSizeForSymbol } from '../lib/displayDataProcessor.js';
   let canvasHeight = display.size.height - 40;
   let formattedSymbol = formatSymbol(display.symbol);
 
-  // Crystal Clarity: Determine visualization type per display, fallback to config default
-  $: visualizationType = display.visualizationType ||
-                         $workspaceStore.config.symbolVisualizationTypes[display.symbol] ||
-                         $workspaceStore.config.defaultVisualizationType;
+  // Simple: Track current display from store for market profile boolean
+  $: currentDisplay = $workspaceStore.displays.get(display.id);
+  $: showMarketProfile = currentDisplay?.showMarketProfile || false;
 
   onMount(() => {
     connectionManager = new ConnectionManager(getWebSocketUrl());
@@ -43,23 +42,11 @@ import { getBucketSizeForSymbol } from '../lib/displayDataProcessor.js';
     // Simple subscription: ConnectionManager handles the rest
     const unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, (data) => {
       try {
-        // Handle market profile data processing based on configuration, not display type
-        if (visualizationType === 'marketProfile') {
-          if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
-            const bucketSize = getBucketSizeForSymbol(formattedSymbol);
-            console.log('[MARKET_PROFILE] Using bucket size:', bucketSize, 'for symbol:', formattedSymbol);
-            lastMarketProfileData = buildInitialProfile(data.initialMarketProfile, bucketSize);
-            console.log('[MARKET_PROFILE] Built initial profile with', lastMarketProfileData.length, 'price levels');
-          } else if (data.type === 'tick' && lastMarketProfileData) {
-            lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data);
-            console.log('[MARKET_PROFILE] Updated profile with tick - Total levels:', lastMarketProfileData.length);
-          }
-          return;
-        }
-
-        // Handle regular symbol data for other visualization types
+        // ALWAYS process regular symbol data first (Crystal Clarity: unified data flow)
         const result = processSymbolData(data, formattedSymbol, lastData);
-        if (result?.type === 'error') {
+        if (result?.type === 'data') {
+          lastData = result.data;
+        } else if (result?.type === 'error') {
           // Check if this is a connection status message, not a real error
           const errorMsg = result.message.toLowerCase();
           if (errorMsg.includes('disconnected') || errorMsg.includes('connecting') || errorMsg.includes('waiting') || errorMsg.includes('timeout')) {
@@ -67,18 +54,17 @@ import { getBucketSizeForSymbol } from '../lib/displayDataProcessor.js';
           } else {
             canvasRef?.renderError(`BACKEND_ERROR: ${result.message}`);
           }
-        } else if (result?.type === 'data') {
-          lastData = result.data;
-          console.log('[SYSTEM] Rendering', visualizationType, '- Symbol:', formattedSymbol);
-        } else if (result?.type === 'unhandled') {
-          console.log('[SYSTEM] Unhandled message type - Type:', result.messageType);
+        }
+
+        // Market profile specific processing (pre-process data even when toggled off)
+        if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
+          const bucketSize = getBucketSizeForSymbol(formattedSymbol);
+          lastMarketProfileData = buildInitialProfile(data.initialMarketProfile, bucketSize);
+        } else if (data.type === 'tick' && lastMarketProfileData) {
+          lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data);
         }
       } catch (error) {
         console.error('[FLOATING_DISPLAY] Caught error in data processing:', error);
-        console.error('[FLOATING_DISPLAY] Error message:', error.message);
-        console.error('[FLOATING_DISPLAY] Error stack:', error.stack);
-        console.error('[FLOATING_DISPLAY] Data that caused error:', data);
-        console.error('[FLOATING_DISPLAY] Visualization type:', visualizationType);
         canvasRef?.renderError(`JSON_PARSE_ERROR: ${error.message}`);
       }
     });
@@ -119,20 +105,20 @@ import { getBucketSizeForSymbol } from '../lib/displayDataProcessor.js';
   <DisplayHeader
     symbol={display.symbol}
     connectionStatus={connectionStatus}
-    visualizationType={visualizationType}
+    showMarketProfile={showMarketProfile}
     onClose={handleClose}
     onFocus={handleFocus}
   />
 
   <DisplayCanvas
     bind:this={canvasRef}
-    data={visualizationType === 'marketProfile' ? lastMarketProfileData : lastData}
-    displayType={visualizationType}
+    data={lastData}
+    marketProfileData={lastMarketProfileData}
+    showMarketProfile={showMarketProfile}
     width={display.size.width}
     height={canvasHeight}
     connectionStatus={connectionStatus}
     symbol={formattedSymbol}
-    marketData={lastData}
     onResize={() => {}}
   />
 

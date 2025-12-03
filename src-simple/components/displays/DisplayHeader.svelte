@@ -1,9 +1,9 @@
 <script>
-  export let symbol, connectionStatus, visualizationType, onClose, onFocus;
+  export let symbol, connectionStatus, showMarketProfile, onClose, onFocus;
   function handleKeydown(e) { (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onFocus()); }
 
-  $: vizIndicator = visualizationType === 'marketProfile' ? 'MP' : 'DR';
-  $: vizTitle = visualizationType === 'marketProfile' ? 'Market Profile' : 'Day Range';
+  $: vizIndicator = showMarketProfile ? 'MP' : 'DR';
+  $: vizTitle = showMarketProfile ? 'Market Profile ON' : 'Day Range';
 </script>
 
 <div class="header" role="button" tabindex="0" on:click={onFocus} on:keydown={handleKeydown}>

@@ -15,7 +15,7 @@ export function createDayRangeConfig(s, width, height, getConfig) {
   return getConfig({
     positioning: {
       adrAxisX: baseConfig.positioning.adrAxisX || width / 3,
-      padding: 50
+      padding: baseConfig.positioning.padding || 0
     },
     features: {
       ...getConfig().features,
