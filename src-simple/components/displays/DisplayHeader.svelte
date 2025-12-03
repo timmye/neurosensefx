@@ -1,10 +1,14 @@
 <script>
-  export let symbol, connectionStatus, onClose, onFocus;
+  export let symbol, connectionStatus, visualizationType, onClose, onFocus;
   function handleKeydown(e) { (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onFocus()); }
+
+  $: vizIndicator = visualizationType === 'marketProfile' ? 'MP' : 'DR';
+  $: vizTitle = visualizationType === 'marketProfile' ? 'Market Profile' : 'Day Range';
 </script>
 
 <div class="header" role="button" tabindex="0" on:click={onFocus} on:keydown={handleKeydown}>
   <span class="symbol">{symbol}</span>
+  <span class="viz-indicator" title={vizTitle}>{vizIndicator}</span>
   <div class="connection-status"
        class:connected={connectionStatus === 'connected'}
        class:connecting={connectionStatus === 'connecting'}
@@ -17,6 +21,7 @@
 <style>
   .header{display:flex;justify-content:space-between;align-items:center;height:40px;background:#2a2a2a;padding:0 12px;cursor:move;outline:none}
   .symbol{color:#fff;font-weight:bold;font-size:14px;pointer-events:none}
+  .viz-indicator{color:#4a9eff;font-size:10px;font-weight:bold;background:#1a1a1a;padding:2px 4px;border-radius:2px;margin-left:8px;text-transform:uppercase;letter-spacing:0.5px}
   .close{background:none;border:none;color:#999;font-size:18px;cursor:pointer;padding:4px 8px;border-radius:3px;transition:background .2s ease,color .2s ease}
   .close:hover,.close:focus{background:#3a3a3a;color:#fff}
   .close:focus{outline:1px solid #4a9eff}

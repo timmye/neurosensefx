@@ -1,5 +1,5 @@
 ## Issues Found
-
+Template:
 ### Issue N: [Description]
 - Severity: BLOCKING / NON-BLOCKING
 - Impact: [What doesn't work]
@@ -56,3 +56,18 @@ Issue -1-: canvas display area does not match container on resize. Previously we
     -2-: dayRangeMeter: Initial rendering shows total 125% ADR height, not starting at 50%ADR height with progressive disclosure. 
     -3-: red 50%ADR borders do not cover full width of canvas.
 
+
+### Issue 6: [Market profile implementation incomplete]
+- Severity: BLOCKING / 
+- Impact: [Traders cannot trade without market profile]
+- Next task affected: YES 
+- Status: DOCUMENTED
+- Logs/Behavior: 
+    -1- MARKET PROFILE AND DAY RANGE METER yscale not matching. 
+        - Day range meter look compressed in y axis
+        - Market profile unclear, possible also compressed into narrow y range. 
+
+    DESIRED BEHAVIOUR: Day Range meter is the standard and basis for all other displays.Desired: all displays use the same functions as market profile for yaxis. 
+    
+    LOGS:
+  

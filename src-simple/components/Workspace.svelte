@@ -8,7 +8,7 @@
   let escTimer = null;
 
   function handleKeydown(event) {
-    // Alt+A: Create display
+    // Alt+A: Create display (Crystal Clarity compliant - single entry point)
     if (event.altKey && event.key === 'a') {
       event.preventDefault();
       const symbol = prompt('Enter symbol:');
@@ -40,38 +40,11 @@
   }
 
   onMount(() => {
-    // Simplified initialization for debugging
+    // Initialize workspace (no automatic display creation)
     workspacePersistence.loadFromStorage();
     workspacePersistence.saveToStorage();
 
-    // Auto-create a test display for debugging if none exist
-    workspaceStore.update(state => {
-      if (state.displays.size === 0) {
-        console.log('[SYSTEM] No displays found, creating default EURUSD display for testing');
-        const symbol = 'EURUSD';
-        const id = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const display = {
-          id,
-          symbol,
-          position: { x: 150, y: 150 },
-          size: { width: 300, height: 180 },
-          zIndex: state.nextZIndex,
-          created: Date.now()
-        };
-
-        const newDisplays = new Map(state.displays);
-        newDisplays.set(id, display);
-
-        return {
-          ...state,
-          displays: newDisplays,
-          nextZIndex: state.nextZIndex + 1
-        };
-      }
-      return state;
-    });
-
-    console.log('[WORKSPACE] Workspace initialized with original code');
+    console.log('[WORKSPACE] Workspace initialized - use Alt+A to create displays');
   });
 
   onDestroy(() => {

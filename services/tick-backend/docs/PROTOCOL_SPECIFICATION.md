@@ -31,14 +31,6 @@ Production:  ws://localhost:8081
 }
 ```
 
-#### ⚠️ LEGACY: Subscribe
-```json
-{
-  "type": "subscribe",
-  "symbols": ["EURUSD"]
-}
-```
-
 #### Unsubscribe
 ```json
 {

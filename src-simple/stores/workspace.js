@@ -5,7 +5,13 @@ const initialState = {
   nextZIndex: 1,
   config: {
     defaultSize: { width: 220, height: 120 },
-    defaultPosition: { x: 100, y: 100 }
+    defaultPosition: { x: 100, y: 100 },
+    // Crystal Clarity: Configuration determines visualization type
+    defaultVisualizationType: 'marketProfile',
+    symbolVisualizationTypes: {
+      // Example: 'EURUSD' could default to 'marketProfile'
+      // But all displays created through Alt+A should use dayRange by default
+    }
   }
 };
 
@@ -81,6 +87,21 @@ const actions = {
         nextZIndex: state.nextZIndex + 1
       };
     });
+  },
+
+  toggleMarketProfile: (id) => {
+    workspaceStore.update(state => {
+      const display = state.displays.get(id);
+      if (!display) return state;
+
+      const currentType = display.visualizationType || state.config.defaultVisualizationType;
+      const newType = currentType === 'marketProfile' ? 'dayRange' : 'marketProfile';
+
+      const newDisplays = new Map(state.displays);
+      newDisplays.set(id, { ...display, visualizationType: newType });
+
+      return { ...state, displays: newDisplays };
+    });
   }
 };
 
@@ -125,3 +146,10 @@ const persistence = {
 
 export const workspaceActions = actions;
 export const workspacePersistence = persistence;
+
+// Expose to window for testing purposes
+if (typeof window !== 'undefined') {
+  window.workspaceStore = workspaceStore;
+  window.workspaceActions = actions;
+  window.workspacePersistence = persistence;
+}

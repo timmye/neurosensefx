@@ -1,17 +1,24 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import interact from 'interactjs';
-  import { workspaceActions } from '../stores/workspace.js';
+  import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
-  import { processSymbolData, getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
+  import { processSymbolData, getWebSocketUrl, formatSymbol, processMarketProfileData } from '../lib/displayDataProcessor.js';
+  import { buildInitialProfile, updateProfileWithTick } from '../lib/marketProfileProcessor.js';
+import { getBucketSizeForSymbol } from '../lib/displayDataProcessor.js';
   import DisplayHeader from './displays/DisplayHeader.svelte';
   import DisplayCanvas from './displays/DisplayCanvas.svelte';
 
   export let display;
   let element, interactable, connectionManager, canvasRef;
-  let connectionStatus = 'disconnected', lastData = null;
+  let connectionStatus = 'disconnected', lastData = null, lastMarketProfileData = null;
   let canvasHeight = display.size.height - 40;
   let formattedSymbol = formatSymbol(display.symbol);
+
+  // Crystal Clarity: Determine visualization type per display, fallback to config default
+  $: visualizationType = display.visualizationType ||
+                         $workspaceStore.config.symbolVisualizationTypes[display.symbol] ||
+                         $workspaceStore.config.defaultVisualizationType;
 
   onMount(() => {
     connectionManager = new ConnectionManager(getWebSocketUrl());
@@ -36,6 +43,21 @@
     // Simple subscription: ConnectionManager handles the rest
     const unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, (data) => {
       try {
+        // Handle market profile data processing based on configuration, not display type
+        if (visualizationType === 'marketProfile') {
+          if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
+            const bucketSize = getBucketSizeForSymbol(formattedSymbol);
+            console.log('[MARKET_PROFILE] Using bucket size:', bucketSize, 'for symbol:', formattedSymbol);
+            lastMarketProfileData = buildInitialProfile(data.initialMarketProfile, bucketSize);
+            console.log('[MARKET_PROFILE] Built initial profile with', lastMarketProfileData.length, 'price levels');
+          } else if (data.type === 'tick' && lastMarketProfileData) {
+            lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data);
+            console.log('[MARKET_PROFILE] Updated profile with tick - Total levels:', lastMarketProfileData.length);
+          }
+          return;
+        }
+
+        // Handle regular symbol data for other visualization types
         const result = processSymbolData(data, formattedSymbol, lastData);
         if (result?.type === 'error') {
           // Check if this is a connection status message, not a real error
@@ -47,11 +69,16 @@
           }
         } else if (result?.type === 'data') {
           lastData = result.data;
-          console.log('[SYSTEM] Rendering', display.type || 'dayRange', '- Symbol:', formattedSymbol);
+          console.log('[SYSTEM] Rendering', visualizationType, '- Symbol:', formattedSymbol);
         } else if (result?.type === 'unhandled') {
           console.log('[SYSTEM] Unhandled message type - Type:', result.messageType);
         }
       } catch (error) {
+        console.error('[FLOATING_DISPLAY] Caught error in data processing:', error);
+        console.error('[FLOATING_DISPLAY] Error message:', error.message);
+        console.error('[FLOATING_DISPLAY] Error stack:', error.stack);
+        console.error('[FLOATING_DISPLAY] Data that caused error:', data);
+        console.error('[FLOATING_DISPLAY] Visualization type:', visualizationType);
         canvasRef?.renderError(`JSON_PARSE_ERROR: ${error.message}`);
       }
     });
@@ -74,29 +101,38 @@
 
   function handleClose() { workspaceActions.removeDisplay(display.id); }
   function handleFocus() { workspaceActions.bringToFront(display.id); }
+  function handleKeydown(e) {
+    if (e.altKey && e.key === 'm') {
+      e.preventDefault();
+      workspaceActions.toggleMarketProfile(display.id);
+    }
+  }
 </script>
 
 <div class="floating-display" bind:this={element} data-display-id={display.id}
      tabindex="0" role="application" aria-label="{display.symbol} display"
      on:focus={handleFocus}
+     on:keydown={handleKeydown}
      style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};
             width: {display.size.width}px; height: {display.size.height}px;">
 
   <DisplayHeader
     symbol={display.symbol}
     connectionStatus={connectionStatus}
+    visualizationType={visualizationType}
     onClose={handleClose}
     onFocus={handleFocus}
   />
 
   <DisplayCanvas
     bind:this={canvasRef}
-    data={lastData}
-    displayType={display.type}
+    data={visualizationType === 'marketProfile' ? lastMarketProfileData : lastData}
+    displayType={visualizationType}
     width={display.size.width}
     height={canvasHeight}
     connectionStatus={connectionStatus}
     symbol={formattedSymbol}
+    marketData={lastData}
     onResize={() => {}}
   />
 

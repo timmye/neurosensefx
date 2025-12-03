@@ -1,4 +1,5 @@
 // Data processing utilities for display components
+// Week 2: Market Profile integration
 
 export function processSymbolData(data, formattedSymbol, lastData) {
   if (data.type === 'error') {
@@ -32,6 +33,48 @@ export function processSymbolData(data, formattedSymbol, lastData) {
   }
 
   return null;
+}
+
+export function processMarketProfileData(data, formattedSymbol, lastProfile) {
+  if (data.type === 'error') {
+    return { type: 'error', message: data.message };
+  }
+
+  if (data.type === 'symbolDataPackage' && data.symbol === formattedSymbol) {
+    return {
+      type: 'marketProfile',
+      data: {
+        initialProfile: data.initialMarketProfile || [],
+        symbol: data.symbol,
+        bucketSize: getBucketSizeForSymbol(data.symbol)
+      }
+    };
+  }
+
+  if (data.type === 'tick' && data.symbol === formattedSymbol && lastProfile) {
+    return {
+      type: 'marketProfileUpdate',
+      data: {
+        tick: data,
+        lastProfile: lastProfile
+      }
+    };
+  }
+
+  return null;
+}
+
+export function getBucketSizeForSymbol(symbol) {
+  const symbolConfigs = {
+    'EURUSD': 0.00001,
+    'GBPUSD': 0.00001,
+    'USDJPY': 0.001,
+    'USDCHF': 0.00001,
+    'BTCUSD': 1.0,    // Crypto needs much larger bucket size
+    'ETHUSD': 0.01,   // Crypto intermediate bucket size
+    'XRPUSD': 0.0001  // Crypto small bucket size
+  };
+  return symbolConfigs[symbol] || 0.00001;
 }
 
 export function getWebSocketUrl() {
