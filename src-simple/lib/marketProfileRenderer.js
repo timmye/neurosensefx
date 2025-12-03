@@ -113,26 +113,55 @@ export function renderMarketProfile(ctx, data, config) {
     }
 
     console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:107] Rendering profile bars - data length:', data.length);
-    // Render profile bars
-    data.forEach((level, index) => {
-      const x = marketProfileStartX; // Start from ADR axis, extend right
-      const y = priceScale(level.price);
-      const barWidth = Math.max(level.tpo * tpoScale, 1);
+    // Render profile bars in intensity order: Low → Medium → High
+    // This ensures high intensity bars always plot in front for better visibility
 
-      // Color based on TPO intensity
+    // Step 1: Render low intensity bars (grey background)
+    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Low intensity bars (≤60%)');
+    data.forEach((level, index) => {
+      const intensity = level.tpo / maxTpo;
+      if (intensity <= 0.6) {
+        const x = marketProfileStartX;
+        const y = priceScale(level.price);
+        const barWidth = Math.max(level.tpo * tpoScale, 1);
+        ctx.fillStyle = '#666';
+        if (index < 5) {
+          console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Low bar', index, 'at', x, y, 'width', barWidth);
+        }
+        ctx.fillRect(x, y, barWidth, 2);
+      }
+    });
+
+    // Step 2: Render medium intensity bars (lighter blue)
+    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Medium intensity bars (60-80%)');
+    data.forEach((level, index) => {
+      const intensity = level.tpo / maxTpo;
+      if (intensity > 0.6 && intensity <= 0.8) {
+        const x = marketProfileStartX;
+        const y = priceScale(level.price);
+        const barWidth = Math.max(level.tpo * tpoScale, 1);
+        ctx.fillStyle = '#66b3ff';
+        if (index < 5) {
+          console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Medium bar', index, 'at', x, y, 'width', barWidth);
+        }
+        ctx.fillRect(x, y, barWidth, 2);
+      }
+    });
+
+    // Step 3: Render high intensity bars (bright blue) - always visible on top
+    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering High intensity bars (>80%)');
+    data.forEach((level, index) => {
       const intensity = level.tpo / maxTpo;
       if (intensity > 0.8) {
+        const x = marketProfileStartX;
+        const y = priceScale(level.price);
+        const barWidth = Math.max(level.tpo * tpoScale, 1);
         ctx.fillStyle = '#4a9eff';
-      } else if (intensity > 0.6) {
-        ctx.fillStyle = '#66b3ff';
-      } else {
-        ctx.fillStyle = '#666';
+        if (index < 5) {
+          console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering High bar', index, 'at', x, y, 'width', barWidth);
+        }
+        ctx.fillRect(x, y, barWidth, 2);
       }
-
-      if (index < 5) { // Only log first 5 bars to avoid spam
-        console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:121] Rendering bar', index, 'at', x, y, 'width', barWidth, 'color', ctx.fillStyle);
-      }
-      ctx.fillRect(x, y, barWidth, 2);
     });
 
     // Render POC line using Day Range Meter pixel-perfect rendering

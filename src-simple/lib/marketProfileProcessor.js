@@ -84,25 +84,72 @@ export function calculateValueArea(profile, targetPercentage = 0.7) {
     return { high: null, low: null };
   }
 
-  const sortedByTpo = [...profile].sort((a, b) => b.tpo - a.tpo);
+  // Step 1: Calculate total TPO and target TPO for the value area
   const totalTpo = profile.reduce((sum, level) => sum + level.tpo, 0);
   const targetTpo = totalTpo * targetPercentage;
 
-  let currentTpo = 0;
-  const valueAreaLevels = [];
+  // Step 2: Find Point of Control (POC) - price level with highest TPO
+  const pocIndex = profile.reduce((maxIndex, level, index, arr) =>
+    level.tpo > arr[maxIndex].tpo ? index : maxIndex, 0);
 
-  for (const level of sortedByTpo) {
-    valueAreaLevels.push(level);
-    currentTpo += level.tpo;
-    if (currentTpo >= targetTpo) {
-      break;
+  // Step 3: Initialize value area with POC and start expanding outward
+  let currentTpo = profile[pocIndex].tpo;
+  const valueAreaLevels = [profile[pocIndex]];
+
+  // Initialize expansion boundaries (above and below POC)
+  let upperIndex = pocIndex + 1;
+  let lowerIndex = pocIndex - 1;
+
+  console.log(`[VALUE_AREA_CALC] POC found at price ${profile[pocIndex].price} with ${profile[pocIndex].tpo} TPOs`);
+  console.log(`[VALUE_AREA_CALC] Target TPO: ${targetTpo} (${targetPercentage * 100}% of ${totalTpo})`);
+
+  // Step 4: Expand value area outward from POC until target TPO is reached
+  // This ensures price continuity - value area contains contiguous price levels
+  while (currentTpo < targetTpo && (upperIndex < profile.length || lowerIndex >= 0)) {
+    // Compare TPO counts at next levels above and below POC
+    const upperLevel = upperIndex < profile.length ? profile[upperIndex] : null;
+    const lowerLevel = lowerIndex >= 0 ? profile[lowerIndex] : null;
+
+    let selectedLevel = null;
+
+    // Choose level with higher TPO count (prioritize more active price levels)
+    // This creates a more accurate value area focused on high-activity zones
+    if (upperLevel && lowerLevel) {
+      if (upperLevel.tpo >= lowerLevel.tpo) {
+        selectedLevel = upperLevel;
+        upperIndex++;
+      } else {
+        selectedLevel = lowerLevel;
+        lowerIndex--;
+      }
+    } else if (upperLevel) {
+      selectedLevel = upperLevel;
+      upperIndex++;
+    } else if (lowerLevel) {
+      selectedLevel = lowerLevel;
+      lowerIndex--;
+    }
+
+    if (selectedLevel) {
+      valueAreaLevels.push(selectedLevel);
+      currentTpo += selectedLevel.tpo;
+      console.log(`[VALUE_AREA_CALC] Added level at ${selectedLevel.price} (${selectedLevel.tpo} TPOs), current TPO: ${currentTpo}`);
     }
   }
 
+  // Step 5: Extract price range from continuous value area levels
   const prices = valueAreaLevels.map(level => level.price);
-  return {
+  const valueAreaRange = {
     high: Math.max(...prices),
     low: Math.min(...prices),
-    levels: valueAreaLevels
+    levels: valueAreaLevels.sort((a, b) => a.price - b.price), // Sort by price for continuity
+    totalTpo: currentTpo,
+    targetTpo: targetTpo,
+    percentage: (currentTpo / totalTpo) * 100
   };
+
+  console.log(`[VALUE_AREA_CALC] Final Value Area: ${valueAreaRange.low.toFixed(5)} - ${valueAreaRange.high.toFixed(5)}`);
+  console.log(`[VALUE_AREA_CALC] Actual coverage: ${valueAreaRange.percentage.toFixed(1)}% (${currentTpo}/${totalTpo} TPOs)`);
+
+  return valueAreaRange;
 }
