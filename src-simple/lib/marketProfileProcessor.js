@@ -100,8 +100,9 @@ export function calculateValueArea(profile, targetPercentage = 0.7) {
   let upperIndex = pocIndex + 1;
   let lowerIndex = pocIndex - 1;
 
-  console.log(`[VALUE_AREA_CALC] POC found at price ${profile[pocIndex].price} with ${profile[pocIndex].tpo} TPOs`);
-  console.log(`[VALUE_AREA_CALC] Target TPO: ${targetTpo} (${targetPercentage * 100}% of ${totalTpo})`);
+  // DEBUGGER: PERFORMANCE FIX - Remove excessive logging that causes frontend slowdown
+  // console.log(`[VALUE_AREA_CALC] POC found at price ${profile[pocIndex].price} with ${profile[pocIndex].tpo} TPOs`);
+  // console.log(`[VALUE_AREA_CALC] Target TPO: ${targetTpo} (${targetPercentage * 100}% of ${totalTpo})`);
 
   // Step 4: Expand value area outward from POC until target TPO is reached
   // This ensures price continuity - value area contains contiguous price levels
@@ -133,7 +134,8 @@ export function calculateValueArea(profile, targetPercentage = 0.7) {
     if (selectedLevel) {
       valueAreaLevels.push(selectedLevel);
       currentTpo += selectedLevel.tpo;
-      console.log(`[VALUE_AREA_CALC] Added level at ${selectedLevel.price} (${selectedLevel.tpo} TPOs), current TPO: ${currentTpo}`);
+      // DEBUGGER: PERFORMANCE FIX - Remove excessive logging that causes frontend slowdown
+      // console.log(`[VALUE_AREA_CALC] Added level at ${selectedLevel.price} (${selectedLevel.tpo} TPOs), current TPO: ${currentTpo}`);
     }
   }
 
@@ -148,8 +150,9 @@ export function calculateValueArea(profile, targetPercentage = 0.7) {
     percentage: (currentTpo / totalTpo) * 100
   };
 
-  console.log(`[VALUE_AREA_CALC] Final Value Area: ${valueAreaRange.low.toFixed(5)} - ${valueAreaRange.high.toFixed(5)}`);
-  console.log(`[VALUE_AREA_CALC] Actual coverage: ${valueAreaRange.percentage.toFixed(1)}% (${currentTpo}/${totalTpo} TPOs)`);
+  // DEBUGGER: PERFORMANCE FIX - Remove excessive logging that causes frontend slowdown
+  // console.log(`[VALUE_AREA_CALC] Final Value Area: ${valueAreaRange.low.toFixed(5)} - ${valueAreaRange.high.toFixed(5)}`);
+  // console.log(`[VALUE_AREA_CALC] Actual coverage: ${valueAreaRange.percentage.toFixed(1)}% (${currentTpo}/${totalTpo} TPOs)`);
 
   return valueAreaRange;
 }

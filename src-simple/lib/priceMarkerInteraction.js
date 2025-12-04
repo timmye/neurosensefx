@@ -32,7 +32,7 @@ export class PriceMarkerInteraction {
   handleMouseDown(e) {
     if (!e.altKey || e.button !== 0) return;
     const relativeY = e.clientY - this.canvas.getBoundingClientRect().top;
-    const price = this.toPrice(relativeY, this.data);
+    const price = toPrice(this.canvas, this.scale, this.data, relativeY);
     if (price) {
       const pipSize = this.data?.pipSize || 0.0001;
       const pipPosition = this.data?.pipPosition || 4;
@@ -50,7 +50,7 @@ export class PriceMarkerInteraction {
 
     if (altKey) {
       const relativeY = e.clientY - this.canvas.getBoundingClientRect().top;
-      const price = this.toPrice(relativeY, this.data);
+      const price = toPrice(this.canvas, this.scale, this.data, relativeY);
       if (this.onHoverPrice) {
         this.onHoverPrice(price);
       }
@@ -67,7 +67,7 @@ export class PriceMarkerInteraction {
 
     const rect = this.canvas.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    const price = this.toPrice(y, this.data);
+    const price = toPrice(this.canvas, this.scale, this.data, y);
 
     if (price) {
       const state = workspaceStore.getState();
