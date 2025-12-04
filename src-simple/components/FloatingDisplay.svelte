@@ -17,6 +17,7 @@
   let formattedSymbol = formatSymbol(display.symbol);
   let priceMarkers = [], selectedMarker = null;
   let hoverPrice = null;
+  let deltaInfo = null;
 
   // Simple: Track current display from store for market profile boolean
   $: currentDisplay = $workspaceStore.displays.get(display.id);
@@ -126,6 +127,7 @@
     priceMarkers={priceMarkers}
     selectedMarker={selectedMarker}
     hoverPrice={hoverPrice}
+    {deltaInfo}
     onResize={() => {}}
   />
 
@@ -137,6 +139,7 @@
     bind:priceMarkers
     bind:selectedMarker
     bind:hoverPrice
+    bind:deltaInfo
   />
 
   <div class="resize-handle"></div>

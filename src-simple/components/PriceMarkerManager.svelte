@@ -13,6 +13,7 @@
   export let priceMarkers = [];
   export let selectedMarker = null;
   export let hoverPrice = null;
+  export let deltaInfo = null;
 
   let priceMarkerInteraction = null;
 
@@ -33,7 +34,16 @@
           hoverPrice = price;
         };
 
-        // Set up rerender callback for delta overlay cleanup
+        // Set up delta callbacks for reactive rendering
+        priceMarkerInteraction.onDeltaMove = (startPrice, currentPrice) => {
+          deltaInfo = { startPrice, currentPrice, active: true };
+        };
+
+        priceMarkerInteraction.onDeltaEnd = () => {
+          deltaInfo = null;
+        };
+
+        // Keep rerender callback for backward compatibility
         priceMarkerInteraction.onRerender = () => {
           if (canvasRef && canvasRef.render) {
             canvasRef.render();

@@ -8,6 +8,8 @@ import { renderUserPriceMarkers, renderHoverPreview } from './priceMarkerRendere
 import { createPriceScale } from './dayRangeRenderingUtils.js';
 import { calculateAdaptiveScale } from './dayRangeCalculations.js';
 import { getConfig } from './dayRangeConfig.js';
+import { formatPriceToPipLevel, formatPipMovement, formatPriceWithPipPosition } from './priceFormat.js';
+import { drawPriceMarker } from './dayRangeElements.js';
 
 // Determine display type based on market profile visibility and data
 export function getDisplayType(showMarketProfile, marketProfileData) {
@@ -102,4 +104,58 @@ export function renderConnectionStatus(ctx, connectionStatus, symbol, width, hei
   }
 
   return true;
+}
+
+// Render price delta measurement
+export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
+  if (!deltaInfo || !deltaInfo.active || !data) return;
+
+  try {
+
+    // Use the exact same coordinate system as Day Range Meter
+    const scaleData = {
+      adrHigh: data?.adrHigh,
+      adrLow: data?.adrLow,
+      high: data?.high,
+      low: data?.low,
+      current: data?.current,
+      open: data?.open
+    };
+    const config = { scaling: 'adaptive' };
+    const adaptiveScale = calculateAdaptiveScale(scaleData, config);
+    const priceScale = createPriceScale(config, adaptiveScale, height);
+
+    const delta = deltaInfo.currentPrice - deltaInfo.startPrice;
+    const deltaPercent = ((delta / deltaInfo.startPrice) * 100).toFixed(2);
+    const pipPosition = data?.pipPosition || 4;
+    const pipSize = data?.pipSize || 0.0001;
+    const deltaPips = formatPipMovement(delta, pipPosition);
+
+    // Use proper FX formatting for prices
+    const formattedStartPrice = formatPriceWithPipPosition(deltaInfo.startPrice, pipPosition, pipSize);
+    const formattedCurrentPrice = formatPriceWithPipPosition(deltaInfo.currentPrice, pipPosition, pipSize);
+
+    const startY = priceScale(deltaInfo.startPrice);
+    const currentY = priceScale(deltaInfo.currentPrice);
+
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    ctx.moveTo(50, startY);
+    ctx.lineTo(50, currentY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    drawPriceMarker(ctx, 35, startY, `${formattedStartPrice}`, '#FFD700');
+    drawPriceMarker(ctx, 35, currentY, `${formattedCurrentPrice} (${deltaPips})`, '#FFD700');
+
+    ctx.fillStyle = '#FFD700';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'left';
+    const midY = (startY + currentY) / 2;
+    ctx.fillText(`${deltaPercent}%`, 55, midY);
+  } catch (error) {
+    console.error('[DISPLAY_CANVAS_RENDERER] Error rendering price delta:', error);
+  }
 }

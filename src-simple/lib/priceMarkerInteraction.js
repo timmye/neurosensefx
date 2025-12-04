@@ -18,6 +18,8 @@ export class PriceMarkerInteraction {
     this.data = data;
     this.activeDropdown = null;
     this.deltaMode = null;
+    this.onDeltaMove = null;
+    this.onDeltaEnd = null;
     this.init();
   }
 
@@ -80,8 +82,9 @@ export class PriceMarkerInteraction {
     if (this.deltaMode) {
       const relativeY = e.clientY - this.canvas.getBoundingClientRect().top;
       const currentPrice = toPrice(this.canvas, this.scale, this.data, relativeY);
-      if (currentPrice) {
-        this.renderDeltaOverlay(this.deltaMode.startPrice, currentPrice);
+      if (currentPrice && this.onDeltaMove) {
+        // Let parent handle via reactive render pipeline
+        this.onDeltaMove(this.deltaMode.startPrice, currentPrice);
       }
       return;
     }
@@ -107,7 +110,9 @@ export class PriceMarkerInteraction {
     // End delta mode on right button release
     if (this.deltaMode && e.button === 2) {
       this.deltaMode = null;
-      this.clearDeltaOverlay();
+      if (this.onDeltaEnd) {
+        this.onDeltaEnd();
+      }
     }
   }
 
@@ -151,62 +156,14 @@ export class PriceMarkerInteraction {
     }
   }
 
-  renderDeltaOverlay(startPrice, currentPrice) {
-    const ctx = this.canvas.getContext('2d');
-
-    // Use the exact same coordinate system as Day Range Meter
-    const width = this.canvas.width;
-    const height = this.canvas.height;
-    const scaleData = {
-      adrHigh: this.data?.adrHigh,
-      adrLow: this.data?.adrLow,
-      high: this.data?.high,
-      low: this.data?.low,
-      current: this.data?.current,
-      open: this.data?.open
-    };
-    const config = { scaling: 'adaptive' };
-    const adaptiveScale = calculateAdaptiveScale(scaleData, config);
-    const priceScale = createPriceScale(config, adaptiveScale, height);
-
-    const delta = currentPrice - startPrice;
-    const deltaPercent = ((delta / startPrice) * 100).toFixed(2);
-    const pipPosition = this.data?.pipPosition || 4;
-    const pipSize = this.data?.pipSize || 0.0001;
-    const deltaPips = formatPipMovement(delta, pipPosition);
-
-    // Use proper FX formatting for prices
-    const formattedStartPrice = formatPriceWithPipPosition(startPrice, pipPosition, pipSize);
-    const formattedCurrentPrice = formatPriceWithPipPosition(currentPrice, pipPosition, pipSize);
-
-    const startY = priceScale(startPrice);
-    const currentY = priceScale(currentPrice);
-
-    ctx.strokeStyle = '#FFD700';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 3]);
-    ctx.beginPath();
-    ctx.moveTo(50, startY);
-    ctx.lineTo(50, currentY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    drawPriceMarker(ctx, 35, startY, `${formattedStartPrice}`, '#FFD700');
-    drawPriceMarker(ctx, 35, currentY, `${formattedCurrentPrice} (${deltaPips})`, '#FFD700');
-
-    ctx.fillStyle = '#FFD700';
-    ctx.font = '11px monospace';
-    ctx.textAlign = 'left';
-    const midY = (startY + currentY) / 2;
-    ctx.fillText(`${deltaPercent}%`, 55, midY);
-  }
-
-  clearDeltaOverlay() {
-    if (this.onRerender) {
-      this.onRerender();
+  endDeltaMode() {
+    this.deltaMode = null;
+    if (this.onDeltaEnd) {
+      this.onDeltaEnd();
     }
   }
 
+  
   destroy() {
     this.hideDropdown();
     this.endDeltaMode(); // Clean up any active delta mode

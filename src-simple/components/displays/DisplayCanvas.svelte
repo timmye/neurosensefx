@@ -7,7 +7,8 @@
     getRenderer,
     renderWithRenderer,
     renderPriceMarkers,
-    renderConnectionStatus as renderConnStatus
+    renderConnectionStatus as renderConnStatus,
+    renderPriceDelta
   } from '../../lib/displayCanvasRenderer.js';
 
   export let data, showMarketProfile, marketProfileData, width, height, onResize;
@@ -16,6 +17,7 @@
   export let priceMarkers = [];
   export let selectedMarker = null;
   export let hoverPrice = null;
+  export let deltaInfo = null;
 
   let canvas, ctx;
 
@@ -33,6 +35,7 @@
         if (renderer) {
           renderWithRenderer(renderer, ctx, data, config, displayType, marketProfileData);
           renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hoverPrice, width, height);
+          renderPriceDelta(ctx, deltaInfo, data, width, height);
         } else {
           console.error('[DISPLAY_CANVAS] No renderer found');
           renderErrorMessage(ctx, 'Renderer not available', { width, height });
@@ -71,7 +74,7 @@
     }
   }
 
-  $: if (ctx && (data || connectionStatus || showMarketProfile || priceMarkers || selectedMarker || hoverPrice)) {
+  $: if (ctx && (data || connectionStatus || showMarketProfile || priceMarkers || selectedMarker || hoverPrice || deltaInfo)) {
     render();
   }
 
