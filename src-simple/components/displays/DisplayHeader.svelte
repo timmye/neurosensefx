@@ -1,5 +1,5 @@
 <script>
-  export let symbol, connectionStatus, showMarketProfile, onClose, onFocus;
+  export let symbol, connectionStatus, showMarketProfile, onClose, onFocus, onRefresh;
   function handleKeydown(e) { (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onFocus()); }
 
   $: vizIndicator = showMarketProfile ? 'MP' : 'DR';
@@ -15,6 +15,7 @@
        class:disconnected={connectionStatus === 'disconnected'}
        class:error={connectionStatus === 'error'}
        title="Connection status: {connectionStatus}"></div>
+  <button class="refresh" on:click={onRefresh} aria-label="Refresh display" title="Refresh canvas">↻</button>
   <button class="close" on:click={onClose} aria-label="Close display">×</button>
 </div>
 
@@ -22,6 +23,9 @@
   .header{display:flex;justify-content:space-between;align-items:center;height:40px;background:#2a2a2a;padding:0 12px;cursor:move;outline:none}
   .symbol{color:#fff;font-weight:bold;font-size:14px;pointer-events:none}
   .viz-indicator{color:#4a9eff;font-size:10px;font-weight:bold;background:#1a1a1a;padding:2px 4px;border-radius:2px;margin-left:8px;text-transform:uppercase;letter-spacing:0.5px}
+  .refresh{background:none;border:none;color:#999;font-size:16px;cursor:pointer;padding:4px 6px;border-radius:3px;transition:background .2s ease,color .2s ease;margin-right:4px}
+  .refresh:hover,.refresh:focus{background:#3a3a3a;color:#4a9eff}
+  .refresh:focus{outline:1px solid #4a9eff}
   .close{background:none;border:none;color:#999;font-size:18px;cursor:pointer;padding:4px 8px;border-radius:3px;transition:background .2s ease,color .2s ease}
   .close:hover,.close:focus{background:#3a3a3a;color:#fff}
   .close:focus{outline:1px solid #4a9eff}

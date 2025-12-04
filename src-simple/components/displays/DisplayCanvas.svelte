@@ -88,6 +88,12 @@
     if (!ctx || !canvas) return;
     renderErrorMessage(ctx, message, { width, height });
   }
+
+  export function refreshCanvas() {
+    if (!ctx || !canvas) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    render();
+  }
 </script>
 
 <div class="canvas-container">

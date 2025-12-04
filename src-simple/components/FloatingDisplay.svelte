@@ -92,6 +92,11 @@
 
   function handleClose() { workspaceActions.removeDisplay(display.id); }
   function handleFocus() { workspaceActions.bringToFront(display.id); }
+  function handleRefresh() {
+    if (canvasRef && canvasRef.refreshCanvas) {
+      canvasRef.refreshCanvas();
+    }
+  }
   function handleKeydown(e) {
     if (e.altKey && e.key === 'm') {
       e.preventDefault();
@@ -113,6 +118,7 @@
     showMarketProfile={showMarketProfile}
     onClose={handleClose}
     onFocus={handleFocus}
+    onRefresh={handleRefresh}
   />
 
   <DisplayCanvas
