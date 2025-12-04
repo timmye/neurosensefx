@@ -2,11 +2,13 @@
   import { onMount } from 'svelte';
   import { setupCanvas } from '../../lib/dayRangeCore.js';
   import { renderErrorMessage, renderStatusMessage } from '../../lib/canvasStatusRenderer.js';
-  import { get, getDefault } from '../../lib/visualizationRegistry.js';
-  import { renderMarketProfile } from '../../lib/marketProfileRenderer.js';
-  import { renderUserPriceMarkers, renderHoverPreview } from '../../lib/priceMarkerRenderer.js';
-  import { calculateAdaptiveScale } from '../../lib/dayRangeCalculations.js';
-  import { createDayRangeConfig, createPriceScale } from '../../lib/dayRangeRenderingUtils.js';
+  import {
+    getDisplayType,
+    getRenderer,
+    renderWithRenderer,
+    renderPriceMarkers,
+    renderConnectionStatus as renderConnStatus
+  } from '../../lib/displayCanvasRenderer.js';
 
   export let data, showMarketProfile, marketProfileData, width, height, onResize;
   export let connectionStatus = null;
@@ -14,88 +16,23 @@
   export let priceMarkers = [];
   export let selectedMarker = null;
   export let hoverPrice = null;
-  export let interactionSystem = null;
 
   let canvas, ctx;
 
   function render() {
     if (!ctx || !canvas) return;
     try {
-      // Determine display type for renderer selection
-      const displayType = showMarketProfile && marketProfileData && marketProfileData.length > 0 ? 'dayRangeWithMarketProfile' : 'dayRange';
+      const displayType = getDisplayType(showMarketProfile, marketProfileData);
 
-      // Select appropriate renderer based on display type
       if (data) {
-        let renderer;
-        let config = { width, height };
-
-        if (displayType === 'dayRangeWithMarketProfile') {
-          // Use combined renderer for market profile overlay
-          renderer = get('dayRangeWithMarketProfile');
-          config = { width, height, marketData: data };
-
-          if (!renderer) {
-            // Fallback to overlay approach if combined renderer not available
-            renderer = get('dayRange') || getDefault();
-          }
-        } else {
-          // Use day range renderer for regular display
-          renderer = get('dayRange') || getDefault();
-        }
+        const renderer = getRenderer(displayType);
+        const config = displayType === 'dayRangeWithMarketProfile'
+          ? { width, height, marketData: data }
+          : { width, height };
 
         if (renderer) {
-          if (displayType === 'dayRangeWithMarketProfile' && get('dayRangeWithMarketProfile')) {
-            // Use the combined renderer which handles both visualizations
-            renderer(ctx, marketProfileData, config);
-          } else {
-            renderer(ctx, data, config);
-
-            // Overlay market profile if enabled and data available (fallback)
-            if (showMarketProfile && marketProfileData && marketProfileData.length > 0) {
-              const marketProfileConfig = { width, height, marketData: data };
-              ctx.save(); // Save context for overlay
-              renderMarketProfile(ctx, marketProfileData, marketProfileConfig);
-              ctx.restore(); // Restore context
-            }
-          }
-
-          // Add price marker rendering after existing visualizations
-          if (data && (priceMarkers || hoverPrice)) {
-            // Get proper configuration for price markers
-            const defaultConfig = (() => {
-              // Import default configuration to ensure colors and fonts are available
-              try {
-                // Use a minimal but complete config for price marker rendering
-                return {
-                  colors: {
-                    currentPrice: '#10B981',
-                    openPrice: '#6B7280',
-                    sessionPrices: '#F59E0B'
-                  },
-                  fonts: {
-                    currentPrice: 'bold 36px monospace',
-                    priceLabels: '20px monospace'
-                  }
-                };
-              } catch {
-                return {};
-              }
-            })();
-            const dayRangeConfig = createDayRangeConfig({ width, height }, width, height, () => defaultConfig);
-            const adaptiveScale = calculateAdaptiveScale(data, dayRangeConfig);
-            const priceScale = createPriceScale(dayRangeConfig, adaptiveScale, height);
-            const axisX = width - 15; // ADR axis position
-
-            // Render user price markers
-            if (priceMarkers && priceMarkers.length > 0) {
-              renderUserPriceMarkers(ctx, dayRangeConfig, axisX, priceScale, priceMarkers, selectedMarker, data);
-            }
-
-            // Render hover preview
-            if (hoverPrice && interactionSystem) {
-              renderHoverPreview(ctx, dayRangeConfig, axisX, priceScale, hoverPrice);
-            }
-          }
+          renderWithRenderer(renderer, ctx, data, config, displayType, marketProfileData);
+          renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hoverPrice, width, height);
         } else {
           console.error('[DISPLAY_CANVAS] No renderer found');
           renderErrorMessage(ctx, 'Renderer not available', { width, height });
@@ -103,19 +40,12 @@
         return;
       }
 
-      // Only show connection status for non-connected states (use status message, not error)
-      if (connectionStatus && connectionStatus !== 'connected') {
-        renderStatusMessage(ctx, `${connectionStatus.toUpperCase()}: ${symbol}`, { width, height });
+      // Handle connection status
+      if (renderConnStatus(ctx, connectionStatus, symbol, width, height)) {
         return;
       }
 
-      // Show waiting for data when connected but no data yet (use status message, not error)
-      if (connectionStatus === 'connected') {
-        renderStatusMessage(ctx, `WAITING FOR DATA: ${symbol}`, { width, height });
-        return;
-      }
-
-      // Only show "No data available" if this is truly an error state (no data, no connection status)
+      // Default error state
       renderErrorMessage(ctx, 'No data available', { width, height });
     } catch (error) {
       console.error('[DISPLAY_CANVAS] Error during render:', error);
@@ -148,9 +78,9 @@
   export function getContext() { return ctx; }
   export function getCanvas() { return canvas; }
   export function renderConnectionStatus(status, symbol) {
-    if (!ctx || !canvas) return;
     renderStatusMessage(ctx, `${status.toUpperCase()}: ${symbol}`, { width, height });
   }
+
   export function renderError(message) {
     if (!ctx || !canvas) return;
     renderErrorMessage(ctx, message, { width, height });
