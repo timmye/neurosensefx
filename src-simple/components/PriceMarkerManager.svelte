@@ -32,6 +32,13 @@
         priceMarkerInteraction.onHoverPrice = (price) => {
           hoverPrice = price;
         };
+
+        // Set up rerender callback for delta overlay cleanup
+        priceMarkerInteraction.onRerender = () => {
+          if (canvasRef && canvasRef.render) {
+            canvasRef.render();
+          }
+        };
       }
     }, 100);
   });
