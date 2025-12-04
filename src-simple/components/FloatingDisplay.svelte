@@ -6,18 +6,26 @@
   import { processSymbolData, getWebSocketUrl, formatSymbol, processMarketProfileData } from '../lib/displayDataProcessor.js';
   import { buildInitialProfile, updateProfileWithTick } from '../lib/marketProfileProcessor.js';
 import { getBucketSizeForSymbol } from '../lib/displayDataProcessor.js';
+  import { createPriceMarkerInteraction } from '../lib/priceMarkerInteraction.js';
+  import { loadMarkers, saveMarkers } from '../stores/priceMarkerPersistence.js';
   import DisplayHeader from './displays/DisplayHeader.svelte';
   import DisplayCanvas from './displays/DisplayCanvas.svelte';
 
   export let display;
-  let element, interactable, connectionManager, canvasRef;
+  let element, interactable, connectionManager, canvasRef, priceMarkerInteraction;
   let connectionStatus = 'disconnected', lastData = null, lastMarketProfileData = null;
   let canvasHeight = display.size.height - 40;
   let formattedSymbol = formatSymbol(display.symbol);
+  let priceMarkers = [], selectedMarker = null;
+  let hoverPrice = null;
 
   // Simple: Track current display from store for market profile boolean
   $: currentDisplay = $workspaceStore.displays.get(display.id);
   $: showMarketProfile = currentDisplay?.showMarketProfile || false;
+
+  // Price marker updates from workspace store
+  $: if (currentDisplay?.priceMarkers) priceMarkers = currentDisplay.priceMarkers, saveMarkers(formattedSymbol, priceMarkers);
+  $: selectedMarker = currentDisplay?.selectedMarker || null;
 
   onMount(() => {
     connectionManager = new ConnectionManager(getWebSocketUrl());
@@ -75,14 +83,35 @@ import { getBucketSizeForSymbol } from '../lib/displayDataProcessor.js';
     };
     connectionStatus = connectionManager.status;
 
+    // Initialize price markers and interaction system
+    priceMarkers = loadMarkers(formattedSymbol);
+    workspaceActions.setDisplayPriceMarkers(display.id, priceMarkers);
+    setTimeout(() => {
+      const canvasElement = canvasRef?.getCanvas ? canvasRef.getCanvas() : null;
+      if (canvasElement) {
+        priceMarkerInteraction = createPriceMarkerInteraction(canvasElement, display.id, lastData, null);
+
+        // Set up hover price callback
+        priceMarkerInteraction.onHoverPrice = (price) => {
+          hoverPrice = price;
+        };
+      }
+    }, 100);
+
     return () => {
       if (unsubscribe) unsubscribe();
     };
   });
 
+  // Update price marker interaction when market data changes
+  $: if (lastData && priceMarkerInteraction) {
+    priceMarkerInteraction.updateData(lastData);
+  }
+
   onDestroy(() => {
     interactable?.unset();
     connectionManager?.disconnect();
+    priceMarkerInteraction?.destroy();
   });
 
   function handleClose() { workspaceActions.removeDisplay(display.id); }
@@ -119,6 +148,10 @@ import { getBucketSizeForSymbol } from '../lib/displayDataProcessor.js';
     height={canvasHeight}
     connectionStatus={connectionStatus}
     symbol={formattedSymbol}
+    priceMarkers={priceMarkers}
+    selectedMarker={selectedMarker}
+    hoverPrice={hoverPrice}
+    interactionSystem={priceMarkerInteraction}
     onResize={() => {}}
   />
 

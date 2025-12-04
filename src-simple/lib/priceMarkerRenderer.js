@@ -3,6 +3,7 @@
 
 import { setupTextRendering } from './dayRangeCore.js';
 import { formatPriceWithPipPosition } from './priceFormat.js';
+import { MARKER_TYPES } from './priceMarkers.js';
 
 // Render current price marker with color coding
 export function renderCurrentPrice(ctx, config, axisX, priceScale, price, symbolData) {
@@ -12,11 +13,13 @@ export function renderCurrentPrice(ctx, config, axisX, priceScale, price, symbol
   setupTextRendering(ctx, config.fonts.currentPrice, 'middle', 'right');
   ctx.fillStyle = config.colors.currentPrice;
 
-  const formattedPrice = formatPriceWithPipPosition(price, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
-  const currentY = priceScale(price);
+  // Handle missing symbolData gracefully
+  const pipPosition = symbolData?.pipPosition || 4;
+  const pipSize = symbolData?.pipSize || 0.0001;
+  const pipetteSize = symbolData?.pipetteSize || 0.00001;
 
-  // Log exact Y-coordinate for parity analysis
-  console.log(`[Y-COORDINATE] Day Range Current Price: ${price.toFixed(5)}, Y: ${currentY.toFixed(6)}`);
+  const formattedPrice = formatPriceWithPipPosition(price, pipPosition, pipSize, pipetteSize);
+  const currentY = priceScale(price);
 
   // Draw horizontal marker line on ADR axis
   const dpr = window.devicePixelRatio || 1;
@@ -40,7 +43,12 @@ export function renderOpenPrice(ctx, config, axisX, priceScale, price, symbolDat
   setupTextRendering(ctx, config.fonts.priceLabels, 'middle', 'right');
   ctx.fillStyle = config.colors.openPrice;
 
-  const formattedPrice = formatPriceWithPipPosition(price, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
+  // Handle missing symbolData gracefully
+  const pipPosition = symbolData?.pipPosition || 4;
+  const pipSize = symbolData?.pipSize || 0.0001;
+  const pipetteSize = symbolData?.pipetteSize || 0.00001;
+
+  const formattedPrice = formatPriceWithPipPosition(price, pipPosition, pipSize, pipetteSize);
   const openY = priceScale(price);
 
   // Draw horizontal marker line on ADR axis
@@ -75,8 +83,13 @@ export function renderHighLowMarkers(ctx, config, axisX, priceScale, mappedData,
 function renderHighMarker(ctx, axisX, priceScale, todayHigh, symbolData, config) {
   if (!todayHigh) return;
 
+  // Handle missing symbolData gracefully
+  const pipPosition = symbolData?.pipPosition || 4;
+  const pipSize = symbolData?.pipSize || 0.0001;
+  const pipetteSize = symbolData?.pipetteSize || 0.00001;
+
   const highY = priceScale(todayHigh);
-  const formattedPrice = formatPriceWithPipPosition(todayHigh, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
+  const formattedPrice = formatPriceWithPipPosition(todayHigh, pipPosition, pipSize, pipetteSize);
 
   // Draw horizontal marker line on ADR axis
   const dpr = window.devicePixelRatio || 1;
@@ -95,8 +108,13 @@ function renderHighMarker(ctx, axisX, priceScale, todayHigh, symbolData, config)
 function renderLowMarker(ctx, axisX, priceScale, todayLow, symbolData, config) {
   if (!todayLow) return;
 
+  // Handle missing symbolData gracefully
+  const pipPosition = symbolData?.pipPosition || 4;
+  const pipSize = symbolData?.pipSize || 0.0001;
+  const pipetteSize = symbolData?.pipetteSize || 0.00001;
+
   const lowY = priceScale(todayLow);
-  const formattedPrice = formatPriceWithPipPosition(todayLow, symbolData?.pipPosition, symbolData?.pipSize, symbolData?.pipetteSize);
+  const formattedPrice = formatPriceWithPipPosition(todayLow, pipPosition, pipSize, pipetteSize);
 
   // Draw horizontal marker line on ADR axis
   const dpr = window.devicePixelRatio || 1;
@@ -109,4 +127,63 @@ function renderLowMarker(ctx, axisX, priceScale, todayLow, symbolData, config) {
   ctx.stroke();
 
   ctx.fillText(formattedPrice, axisX - 5, lowY);
+}
+
+// Render user-placed price markers with selection highlighting
+export function renderUserPriceMarkers(ctx, config, axisX, priceScale, markers, selectedMarker, symbolData) {
+  if (!markers || markers.length === 0) return;
+
+  ctx.save();
+  const dpr = window.devicePixelRatio || 1;
+  const markerLength = 12 / dpr;
+
+  markers.forEach(marker => {
+    const markerY = priceScale(marker.price);
+    const isSelected = selectedMarker && selectedMarker.id === marker.id;
+
+    ctx.strokeStyle = isSelected ? '#ff6b35' : marker.type.color;
+    ctx.lineWidth = isSelected ? 3 / dpr : marker.type.size / dpr;
+    ctx.globalAlpha = marker.type.opacity;
+
+    ctx.beginPath();
+    ctx.moveTo(axisX - markerLength, markerY);
+    ctx.lineTo(axisX + markerLength, markerY);
+    ctx.stroke();
+
+    if (isSelected) {
+      setupTextRendering(ctx, config.fonts.priceLabels, 'middle', 'right');
+      ctx.fillStyle = '#ff6b35';
+
+      // Handle missing symbolData gracefully
+      const pipPosition = symbolData?.pipPosition || 4;
+      const pipSize = symbolData?.pipSize || 0.0001;
+      const pipetteSize = symbolData?.pipetteSize || 0.00001;
+
+      const formattedPrice = formatPriceWithPipPosition(marker.price, pipPosition, pipSize, pipetteSize);
+      ctx.fillText(formattedPrice, axisX - 5, markerY);
+    }
+  });
+
+  ctx.restore();
+}
+
+// Render Alt+hover preview line at hover price
+export function renderHoverPreview(ctx, config, axisX, priceScale, hoverPrice) {
+  if (!hoverPrice) return;
+
+  ctx.save();
+  const dpr = window.devicePixelRatio || 1;
+  const hoverY = priceScale(hoverPrice);
+  const markerLength = 80 / dpr;
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.lineWidth = 2 / dpr;
+  ctx.setLineDash([6 / dpr, 4 / dpr]);
+
+  ctx.beginPath();
+  ctx.moveTo(axisX - markerLength, hoverY);
+  ctx.lineTo(axisX + markerLength, hoverY);
+  ctx.stroke();
+
+  ctx.restore();
 }

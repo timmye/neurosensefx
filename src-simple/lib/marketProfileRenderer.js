@@ -5,7 +5,7 @@
 import { renderStatusMessage, renderErrorMessage } from './canvasStatusRenderer.js';
 import { calculatePointOfControl, calculateValueArea } from './marketProfileProcessor.js';
 import { calculateAdaptiveScale } from './dayRangeCalculations.js';
-import { createPriceScale } from './priceScale.js';
+import { createPriceScale } from './dayRangeRenderingUtils.js';
 import { setupCanvas, renderPixelPerfectLine, setupTextRendering } from './dayRangeCore.js';
 import { renderBackground } from './dayRangeRenderingUtils.js';
 import { createDayRangeConfig, validateMarketData } from './dayRangeRenderingUtils.js';

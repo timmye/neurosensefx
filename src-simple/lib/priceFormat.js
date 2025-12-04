@@ -31,16 +31,31 @@ export function formatPriceWithPipPosition(price, pipPosition, pipSize, pipetteS
 
   // Use pipPosition to determine optimal formatting precision
   if (pipPosition !== undefined && pipPosition !== null) {
-    // Format to pipPosition + 1 digits for full pipette precision
-    const digits = pipPosition + 1;
+    // Format to pipPosition digits for pip-level precision (no pipette)
+    const digits = pipPosition;
     const formatted = price.toFixed(digits);
     // Remove trailing zeros after decimal point
     return formatted.replace(/\.?0+$/, '');
   }
 
-  // Fallback to 5 digits if no pipPosition available
-  const formatted = price.toFixed(5);
+  // Fallback to 4 digits if no pipPosition available
+  const formatted = price.toFixed(4);
   return formatted.replace(/\.?0+$/, '');
+}
+
+// Format price to pip level only (no pipette)
+export function formatPriceToPipLevel(price, pipPosition, pipSize) {
+  if (typeof price !== 'number' || !isFinite(price)) return null;
+
+  // If we have pip info, round to nearest pip
+  if (pipPosition !== undefined && pipPosition !== null && pipSize) {
+    // Divide by pipSize to get pips, round, then multiply back
+    const pips = Math.round(price / pipSize);
+    return pips * pipSize;
+  }
+
+  // Fallback: round to 4 decimal places for most forex pairs
+  return Math.round(price * 10000) / 10000;
 }
 
 export function formatPriceLabel(price, digits = 5) {

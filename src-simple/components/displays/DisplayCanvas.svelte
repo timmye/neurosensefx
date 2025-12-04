@@ -4,10 +4,17 @@
   import { renderErrorMessage, renderStatusMessage } from '../../lib/canvasStatusRenderer.js';
   import { get, getDefault } from '../../lib/visualizationRegistry.js';
   import { renderMarketProfile } from '../../lib/marketProfileRenderer.js';
+  import { renderUserPriceMarkers, renderHoverPreview } from '../../lib/priceMarkerRenderer.js';
+  import { calculateAdaptiveScale } from '../../lib/dayRangeCalculations.js';
+  import { createDayRangeConfig, createPriceScale } from '../../lib/dayRangeRenderingUtils.js';
 
   export let data, showMarketProfile, marketProfileData, width, height, onResize;
   export let connectionStatus = null;
   export let symbol = '';
+  export let priceMarkers = [];
+  export let selectedMarker = null;
+  export let hoverPrice = null;
+  export let interactionSystem = null;
 
   let canvas, ctx;
 
@@ -49,6 +56,44 @@
               ctx.save(); // Save context for overlay
               renderMarketProfile(ctx, marketProfileData, marketProfileConfig);
               ctx.restore(); // Restore context
+            }
+          }
+
+          // Add price marker rendering after existing visualizations
+          if (data && (priceMarkers || hoverPrice)) {
+            // Get proper configuration for price markers
+            const defaultConfig = (() => {
+              // Import default configuration to ensure colors and fonts are available
+              try {
+                // Use a minimal but complete config for price marker rendering
+                return {
+                  colors: {
+                    currentPrice: '#10B981',
+                    openPrice: '#6B7280',
+                    sessionPrices: '#F59E0B'
+                  },
+                  fonts: {
+                    currentPrice: 'bold 36px monospace',
+                    priceLabels: '20px monospace'
+                  }
+                };
+              } catch {
+                return {};
+              }
+            })();
+            const dayRangeConfig = createDayRangeConfig({ width, height }, width, height, () => defaultConfig);
+            const adaptiveScale = calculateAdaptiveScale(data, dayRangeConfig);
+            const priceScale = createPriceScale(dayRangeConfig, adaptiveScale, height);
+            const axisX = width - 15; // ADR axis position
+
+            // Render user price markers
+            if (priceMarkers && priceMarkers.length > 0) {
+              renderUserPriceMarkers(ctx, dayRangeConfig, axisX, priceScale, priceMarkers, selectedMarker, data);
+            }
+
+            // Render hover preview
+            if (hoverPrice && interactionSystem) {
+              renderHoverPreview(ctx, dayRangeConfig, axisX, priceScale, hoverPrice);
             }
           }
         } else {
@@ -96,7 +141,7 @@
     }
   }
 
-  $: if (ctx && (data || connectionStatus || showMarketProfile)) {
+  $: if (ctx && (data || connectionStatus || showMarketProfile || priceMarkers || selectedMarker || hoverPrice)) {
     render();
   }
 

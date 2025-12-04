@@ -11,6 +11,16 @@ const initialState = {
 
 export const workspaceStore = writable(initialState);
 
+// Add getState method for non-reactive access (needed by priceMarkerInteraction)
+workspaceStore.getState = () => {
+  let currentValue;
+  const unsubscribe = workspaceStore.subscribe(value => {
+    currentValue = value;
+  });
+  unsubscribe();
+  return currentValue;
+};
+
 const actions = {
   addDisplay: (symbol, position = null) => {
     workspaceStore.update(state => {
@@ -22,6 +32,7 @@ const actions = {
         size: { ...state.config.defaultSize },
         zIndex: state.nextZIndex,
         showMarketProfile: false, // Simple boolean - market profile off by default
+        priceMarkers: [], // Array of price markers for this display
         created: Date.now()
       };
 
@@ -95,6 +106,88 @@ const actions = {
 
       return { ...state, displays: newDisplays };
     });
+  },
+
+  // Price marker actions
+  addPriceMarker: (displayId, marker) => {
+    workspaceStore.update(state => {
+      const d = state.displays.get(displayId);
+      return d ? {
+        ...state,
+        displays: new Map(state.displays).set(displayId, {
+          ...d,
+          priceMarkers: [...d.priceMarkers, { ...marker, id: Date.now().toString() }]
+        })
+      } : state;
+    });
+  },
+
+  removePriceMarker: (displayId, markerId) => {
+    workspaceStore.update(state => {
+      const d = state.displays.get(displayId);
+      return d ? {
+        ...state,
+        displays: new Map(state.displays).set(displayId, {
+          ...d,
+          priceMarkers: d.priceMarkers.filter(m => m.id !== markerId)
+        })
+      } : state;
+    });
+  },
+
+  updatePriceMarker: (displayId, markerId, updates) => {
+    workspaceStore.update(state => {
+      const d = state.displays.get(displayId);
+      return d ? {
+        ...state,
+        displays: new Map(state.displays).set(displayId, {
+          ...d,
+          priceMarkers: d.priceMarkers.map(m => m.id === markerId ? { ...m, ...updates } : m)
+        })
+      } : state;
+    });
+  },
+
+  selectPriceMarker: (displayId, markerId) => {
+    workspaceStore.update(state => {
+      const d = state.displays.get(displayId);
+      return d ? {
+        ...state,
+        displays: new Map(state.displays).set(displayId, {
+          ...d,
+          priceMarkers: d.priceMarkers.map(m => ({ ...m, selected: m.id === markerId }))
+        })
+      } : state;
+    });
+  },
+
+  clearPriceMarkerSelection: () => {
+    workspaceStore.update(state => {
+      const newDisplays = new Map();
+      for (const [id, display] of state.displays) {
+        newDisplays.set(id, {
+          ...display,
+          priceMarkers: display.priceMarkers.map(m => ({ ...m, selected: false }))
+        });
+      }
+      return { ...state, displays: newDisplays };
+    });
+  },
+
+  setDisplayPriceMarkers: (displayId, markers) => {
+    workspaceStore.update(state => {
+      const display = state.displays.get(displayId);
+      if (!display) return state;
+
+      const newDisplays = new Map(state.displays);
+      newDisplays.set(displayId, { ...display, priceMarkers: markers });
+
+      return { ...state, displays: newDisplays };
+    });
+  },
+
+  getDisplay: (displayId) => {
+    return workspaceStore.getState().displays.get(displayId);
   }
 };
 

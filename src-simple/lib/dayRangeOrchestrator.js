@@ -12,11 +12,8 @@ export function renderDayRange(ctx, d, s, getConfig, options = {}) {
   const { clearCanvas = true } = options;
 
   if (clearCanvas) {
-    console.log('[DAY_RANGE_ORCHESTRATOR] Clearing canvas');
     // The context is already DPR-scaled, so use logical dimensions
     ctx.clearRect(0, 0, width, height);
-  } else {
-    console.log('[DAY_RANGE_ORCHESTRATOR] Skipping canvas clear for combined rendering');
   }
 
   if (!validateMarketData(d, ctx, s)) return;
