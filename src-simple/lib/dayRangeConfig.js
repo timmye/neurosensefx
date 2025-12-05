@@ -18,7 +18,7 @@ export const defaultConfig = {
 
   // Typography
   fonts: {
-    currentPrice: 'bold 36px monospace',
+    currentPrice: 'bold 44px monospace',
     priceLabels: '20px monospace',
     percentageLabels: '10px sans-serif',
     statusMessages: '12px monospace'

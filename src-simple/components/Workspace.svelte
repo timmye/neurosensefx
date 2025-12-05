@@ -9,7 +9,7 @@
 
   function handleKeydown(event) {
     // Alt+A: Create display (Crystal Clarity compliant - single entry point)
-    if (event.altKey && event.key === 'a') {
+    if (event.altKey && event.key.toLowerCase() === 'a') {
       event.preventDefault();
       const symbol = prompt('Enter symbol:');
       if (symbol) workspaceActions.addDisplay(symbol.replace('/', '').trim().toUpperCase());
