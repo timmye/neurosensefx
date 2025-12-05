@@ -60,7 +60,7 @@ function updateMaxPercentage(maxPercentage, price, midPrice, adrValue) {
   return Math.max(maxPercentage, percentage);
 }
 
-// Create adaptive scale using ASYMMETRIC ADR disclosure
+// Create adaptive scale using SYMMETRIC ADR disclosure
 export function calculateAdaptiveScale(d, config) {
   const { scaling } = config;
   const adrValue = d.adrHigh - d.adrLow;
@@ -72,31 +72,89 @@ export function calculateAdaptiveScale(d, config) {
   const lowMovement = state.todayLow ? (midPrice - state.todayLow) / adrValue : 0;
   const currentMovement = (d.current - midPrice) / adrValue;
 
-  // Determine required expansion for EACH SIDE INDEPENDENTLY
+  // SYMMETRIC SCALING: Use same expansion for both sides
+  // Determine required expansion using the maximum movement on either side
+  let maxExpansion = 0.5; // Default: 50% ADR on both sides
+
+  // Calculate the maximum movement in either direction
+  const maxUpwardMovement = Math.max(highMovement, currentMovement, 0);
+  const maxDownwardMovement = Math.max(lowMovement, -currentMovement, 0);
+  const maxMovement = Math.max(maxUpwardMovement, maxDownwardMovement);
+
+  // Progressive disclosure thresholds:
+  // - Stay at 50% if price is within 40% ADR of mid price (50% - 10% buffer)
+  // - Expand to 75% if price is between 40-60% ADR from mid price
+  // - Expand to 100%+ if price is beyond 60% ADR from mid price
+
+  if (maxMovement <= 0.4) {
+    maxExpansion = 0.5; // Keep at 50% with 10% buffer
+  } else if (maxMovement <= 0.6) {
+    maxExpansion = 0.75; // Expand to 75% for moderate movements
+  } else {
+    // For large movements, round up to next 0.25 increment
+    maxExpansion = Math.ceil((maxMovement + 0.15) * 4) / 4;
+  }
+
+  // TRUE SYMMETRIC: Opening price stays at center regardless of today's range
+  const centerPrice = midPrice;
+  const totalRange = adrValue * maxExpansion * 2; // Both sides combined
+
+  const min = centerPrice - (totalRange / 2);
+  const max = centerPrice + (totalRange / 2);
+
+  return {
+    min: min,
+    max: max,
+    range: max - min,
+    upperExpansion: maxExpansion, // Now identical for both sides
+    lowerExpansion: maxExpansion, // Now identical for both sides
+    maxAdrPercentage: maxExpansion,
+    isProgressive: maxExpansion > 0.5
+  };
+}
+
+// ORIGINAL ASYMMETRIC SCALING FUNCTION (Commented out for future use)
+// This function implements asymmetric scaling where upper and lower bounds
+// expand independently based on price movement in each direction
+/*
+export function calculateAdaptiveScaleAsymmetric(d, config) {
+  const { scaling } = config;
+  const adrValue = d.adrHigh - d.adrLow;
+  const state = createScaleState(d);
+  const midPrice = state.midPrice;
+
+  // Calculate actual movements from mid price as ADR percentages
+  const highMovement = state.todayHigh ? (state.todayHigh - midPrice) / adrValue : 0;
+  const lowMovement = state.todayLow ? (midPrice - state.todayLow) / adrValue : 0;
+  const currentMovement = (d.current - midPrice) / adrValue;
+
+  // ASYMMETRIC SCALING: Independent expansion for upper and lower bounds
   let upperExpansion = 0.5; // Default: 50% ADR above
   let lowerExpansion = 0.5; // Default: 50% ADR below
 
-  // Expand upper side ONLY if price moves up significantly
+  // Calculate required expansion for upper bound
   const maxUpwardMovement = Math.max(highMovement, currentMovement, 0);
-  if (maxUpwardMovement > 0.4) { // Beyond 40% ADR
-    if (maxUpwardMovement > 0.6) { // Beyond 60% ADR
-      upperExpansion = Math.ceil((maxUpwardMovement + 0.15) * 4) / 4;
-    } else {
-      upperExpansion = 0.75; // 75% ADR for 40-60% movement
-    }
+  if (maxUpwardMovement <= 0.4) {
+    upperExpansion = 0.5; // Keep at 50% with 10% buffer
+  } else if (maxUpwardMovement <= 0.6) {
+    upperExpansion = 0.75; // Expand to 75% for moderate movements
+  } else {
+    // For large movements, round up to next 0.25 increment
+    upperExpansion = Math.ceil((maxUpwardMovement + 0.15) * 4) / 4;
   }
 
-  // Expand lower side ONLY if price moves down significantly
+  // Calculate required expansion for lower bound
   const maxDownwardMovement = Math.max(lowMovement, -currentMovement, 0);
-  if (maxDownwardMovement > 0.4) { // Beyond 40% ADR
-    if (maxDownwardMovement > 0.6) { // Beyond 60% ADR
-      lowerExpansion = Math.ceil((maxDownwardMovement + 0.15) * 4) / 4;
-    } else {
-      lowerExpansion = 0.75; // 75% ADR for 40-60% movement
-    }
+  if (maxDownwardMovement <= 0.4) {
+    lowerExpansion = 0.5; // Keep at 50% with 10% buffer
+  } else if (maxDownwardMovement <= 0.6) {
+    lowerExpansion = 0.75; // Expand to 75% for moderate movements
+  } else {
+    // For large movements, round up to next 0.25 increment
+    lowerExpansion = Math.ceil((maxDownwardMovement + 0.15) * 4) / 4;
   }
 
-  // Calculate actual price boundaries based on ASYMMETRIC expansion
+  // ASYMMETRIC: Apply independent expansion to upper and lower bounds
   const upperBound = midPrice + (adrValue * upperExpansion);
   const lowerBound = midPrice - (adrValue * lowerExpansion);
 
@@ -108,12 +166,13 @@ export function calculateAdaptiveScale(d, config) {
     min: min,
     max: max,
     range: max - min,
-    upperExpansion, // Track independent upper expansion
-    lowerExpansion, // Track independent lower expansion
+    upperExpansion: upperExpansion,
+    lowerExpansion: lowerExpansion,
     maxAdrPercentage: Math.max(upperExpansion, lowerExpansion),
-    isProgressive: upperExpansion > 0.5 || lowerExpansion > 0.5
+    isProgressive: Math.max(upperExpansion, lowerExpansion) > 0.5
   };
 }
+*/
 
 // Create state object for scale calculations
 function createScaleState(d) {
