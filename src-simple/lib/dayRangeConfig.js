@@ -5,7 +5,7 @@ export const defaultConfig = {
   // Visual elements
   colors: {
     axisPrimary: '#4B5563',
-    axisReference: '#6B7280',
+    axisReference: '#f66a51ff',
     currentPrice: '#6B7280',
     priceUp: '#4a9eff',
     priceDown: '#8f6ce0ff  ',

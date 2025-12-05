@@ -29,7 +29,7 @@ export function renderReferenceLines(ctx, width, boundaries, coordinates, refere
   if (!shouldRenderReferences(boundaries, referenceLines)) return;
 
   ctx.save();
-  ctx.strokeStyle = `${colors.boundaryLine}66`; // Add transparency
+  ctx.strokeStyle = `${colors.boundaryLine}99`; // Add transparency
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 3]);
 

@@ -54,7 +54,7 @@ export function renderCenterLine(ctx, config, width, y) {
   ctx.save();
   ctx.strokeStyle = colors.axisReference;
   ctx.lineWidth = 1;
-  ctx.setLineDash([2, 2]);
+  ctx.setLineDash([4, 1]);
 
   renderPixelPerfectLine(ctx, 0, y, width, y);
   ctx.setLineDash([]);
