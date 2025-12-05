@@ -4,12 +4,12 @@
 
 // Mock pip position data for symbols when connectionManager doesn't have it
 const MOCK_PIP_DATA = {
-  'EUR/USD': { pipPosition: 4, pipSize: 0.0001, pipetteSize: 0.00001 },
-  'GBP/USD': { pipPosition: 4, pipSize: 0.0001, pipetteSize: 0.00001 },
-  'USD/JPY': { pipPosition: 2, pipSize: 0.01, pipetteSize: 0.001 },
-  'BTC/USD': { pipPosition: 2, pipSize: 0.01, pipetteSize: 0.001 },
-  'XAU/USD': { pipPosition: 1, pipSize: 0.1, pipetteSize: 0.01 },
-  'XAG/USD': { pipPosition: 2, pipSize: 0.01, pipetteSize: 0.001 }
+  'EUR/USD': { pipPosition: 4, pipSize: 0.0001 },
+  'GBP/USD': { pipPosition: 4, pipSize: 0.0001 },
+  'USD/JPY': { pipPosition: 2, pipSize: 0.01 },
+  'BTC/USD': { pipPosition: 2, pipSize: 0.01 },
+  'XAU/USD': { pipPosition: 1, pipSize: 0.1 },
+  'XAG/USD': { pipPosition: 2, pipSize: 0.01 }
 };
 
 /**
@@ -21,31 +21,27 @@ const MOCK_PIP_DATA = {
  */
 export function createSymbolData(symbol, connectionManager = null, pipDataOverride = null) {
   // Try to get pip data from connectionManager if available
-  let pipPosition, pipSize, pipetteSize;
+  let pipPosition, pipSize;
 
   if (pipDataOverride) {
     // Use provided pip data override
     pipPosition = pipDataOverride.pipPosition;
     pipSize = pipDataOverride.pipSize;
-    pipetteSize = pipDataOverride.pipetteSize;
   } else if (connectionManager && typeof connectionManager.getPipPosition === 'function') {
     // Use connectionManager if it has pip methods
     pipPosition = connectionManager.getPipPosition(symbol);
     pipSize = connectionManager.getPipSize(symbol);
-    pipetteSize = connectionManager.getPipetteSize(symbol);
   } else {
     // Fall back to mock data
     const mockData = MOCK_PIP_DATA[symbol] || MOCK_PIP_DATA['EUR/USD'];
     pipPosition = mockData.pipPosition;
     pipSize = mockData.pipSize;
-    pipetteSize = mockData.pipetteSize;
   }
 
   return {
     symbol,
     pipPosition,
-    pipSize,
-    pipetteSize
+    pipSize
   };
 }
 
@@ -75,7 +71,6 @@ export function createSymbolDataWithDimensions(symbol, width, height, connection
 export function extractPipDataFromMarketData(data) {
   return {
     pipPosition: data.pipPosition,
-    pipSize: data.pipSize,
-    pipetteSize: data.pipetteSize
+    pipSize: data.pipSize
   };
 }

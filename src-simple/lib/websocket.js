@@ -51,8 +51,8 @@ export function createWebSocketConnection(url) {
             type: data.type,
             symbol: data.symbol,
             pipPosition: data.pipPosition,
-            pipSize: data.pipSize,
-            pipetteSize: data.pipetteSize
+            pipSize: data.pipSize
+            // pipetteSize removed for efficiency
           });
         }
         subscriptions.update(subs => {

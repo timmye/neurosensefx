@@ -64,8 +64,14 @@
 
         // Market profile specific processing (pre-process data even when toggled off)
         if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
-          const bucketSize = getBucketSizeForSymbol(formattedSymbol);
-          lastMarketProfileData = buildInitialProfile(data.initialMarketProfile, bucketSize);
+          // Crystal Clarity Compliant: Use symbolData for bucket calculation
+          // pipetteSize removed - using pip-based buckets for efficiency
+          const symbolData = {
+            pipPosition: data.pipPosition,
+            pipSize: data.pipSize
+          };
+          const bucketSize = getBucketSizeForSymbol(formattedSymbol, symbolData);
+          lastMarketProfileData = buildInitialProfile(data.initialMarketProfile, bucketSize, symbolData);
         } else if (data.type === 'tick' && lastMarketProfileData) {
           lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data);
         }

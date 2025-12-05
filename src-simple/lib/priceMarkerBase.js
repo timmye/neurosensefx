@@ -38,9 +38,8 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
 export function getSymbolDataWithDefaults(symbolData) {
   return {
     pipPosition: symbolData?.pipPosition || 4, // TODO: Remove this fallback - pass pipPosition directly
-    pipSize: symbolData?.pipSize || 0.0001,
-    pipetteSize: symbolData?.pipetteSize || 0.00001,
-    ...symbolData
+    pipSize: symbolData?.pipSize || 0.0001
+    // pipetteSize removed - pip-based buckets are more efficient
   };
 }
 

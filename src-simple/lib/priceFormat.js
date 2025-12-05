@@ -4,7 +4,9 @@
 
 export function formatPrice(price, pipPosition) {
   if (typeof price !== 'number' || !isFinite(price)) return 'N/A';
-  if (pipPosition === null || pipPosition === undefined) return price.toFixed(4);
+  if (pipPosition === null || pipPosition === undefined) {
+    throw new Error('[formatPrice] pipPosition is required');
+  }
   return price.toFixed(pipPosition);
 }
 
@@ -20,7 +22,7 @@ export function formatPriceToPipLevel(price, pipPosition, pipSize) {
     const pips = Math.round(price / pipSize);
     return pips * pipSize;
   }
-  return Math.round(price * 10000) / 10000;
+  throw new Error('[formatPriceToPipLevel] pipPosition and pipSize are required');
 }
 
 export function formatPipMovement(priceChange, pipPosition) {
@@ -28,3 +30,4 @@ export function formatPipMovement(priceChange, pipPosition) {
   const pipValue = priceChange / Math.pow(10, -pipPosition);
   return `${pipValue > 0 ? '+' : ''}${pipValue.toFixed(1)} pips`;
 }
+

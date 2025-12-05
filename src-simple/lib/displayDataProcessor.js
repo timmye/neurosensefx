@@ -15,8 +15,8 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     adrLow: data.projectedAdrLow || (data.todaysLow || 1.0) * 0.99,
     // pipPosition integration - preserve pipPosition data from backend
     pipPosition: data.pipPosition,
-    pipSize: data.pipSize,
-    pipetteSize: data.pipetteSize
+    pipSize: data.pipSize
+    // pipetteSize removed - using pip-based buckets for efficiency
   } : data.type === 'tick' && data.symbol === formattedSymbol ? {
     high: Math.max(lastData?.high || 0, data.ask || data.bid || 0),
     low: Math.min(lastData?.low || Infinity, data.bid || data.ask || Infinity),
@@ -24,10 +24,10 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     open: lastData?.open || data.bid || data.ask || 1.0,
     adrHigh: lastData?.adrHigh || (data.bid || data.ask || 1.0) * 1.01,
     adrLow: lastData?.adrLow || (data.bid || data.ask || 1.0) * 0.99,
-    // pipPosition integration - preserve pipPosition data from lastData (tick messages don't have it)
-    pipPosition: data.pipPosition || lastData?.pipPosition,
-    pipSize: data.pipSize || lastData?.pipSize,
-    pipetteSize: data.pipetteSize || lastData?.pipetteSize
+    // pipPosition integration - Crystal Clarity Compliant: No OR operator fallbacks
+    pipPosition: data.pipPosition !== undefined ? data.pipPosition : lastData?.pipPosition,
+    pipSize: data.pipSize !== undefined ? data.pipSize : lastData?.pipSize
+    // pipetteSize removed - pip-based buckets are more efficient
   } : null;
 
   if (displayData) {
@@ -45,12 +45,20 @@ export function processMarketProfileData(data, formattedSymbol, lastProfile) {
   }
 
   if (data.type === 'symbolDataPackage' && data.symbol === formattedSymbol) {
+    // Crystal Clarity Compliant: Use symbolData for bucket calculation
+    // pipetteSize removed - using pip-based buckets for efficiency
+    const symbolData = {
+      pipPosition: data.pipPosition,
+      pipSize: data.pipSize
+    };
+
     return {
       type: 'marketProfile',
       data: {
         initialProfile: data.initialMarketProfile || [],
         symbol: data.symbol,
-        bucketSize: getBucketSizeForSymbol(data.symbol)
+        bucketSize: getBucketSizeForSymbol(data.symbol, symbolData),
+        symbolData: symbolData // Pass symbolData for processor use
       }
     };
   }
@@ -68,17 +76,12 @@ export function processMarketProfileData(data, formattedSymbol, lastProfile) {
   return null;
 }
 
-export function getBucketSizeForSymbol(symbol) {
-  const symbolConfigs = {
-    'EURUSD': 0.00001,
-    'GBPUSD': 0.00001,
-    'USDJPY': 0.001,
-    'USDCHF': 0.00001,
-    'BTCUSD': 1.0,    // Crypto needs much larger bucket size
-    'ETHUSD': 0.01,   // Crypto intermediate bucket size
-    'XRPUSD': 0.0001  // Crypto small bucket size
-  };
-  return symbolConfigs[symbol] || 0.00001;
+export function getBucketSizeForSymbol(symbol, symbolData) {
+  if (!symbolData?.pipSize) {
+    throw new Error(`Symbol data required for ${symbol}`);
+  }
+
+  return symbolData.pipSize;
 }
 
 export function getWebSocketUrl() {
