@@ -15,7 +15,10 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     adrLow: data.projectedAdrLow || (data.todaysLow || 1.0) * 0.99,
     // pipPosition integration - preserve pipPosition data from backend
     pipPosition: data.pipPosition,
-    pipSize: data.pipSize
+    pipSize: data.pipSize,
+    // Initialize previousPrice and direction for first tick
+    previousPrice: data.bid || data.ask || data.initialPrice || data.todaysOpen || 1.0,
+    direction: 'neutral'
     // pipetteSize removed - using pip-based buckets for efficiency
   } : data.type === 'tick' && data.symbol === formattedSymbol ? {
     high: Math.max(lastData?.high || 0, data.ask || data.bid || 0),
@@ -26,7 +29,16 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     adrLow: lastData?.adrLow || (data.bid || data.ask || 1.0) * 0.99,
     // pipPosition integration - Crystal Clarity Compliant: No OR operator fallbacks
     pipPosition: data.pipPosition !== undefined ? data.pipPosition : lastData?.pipPosition,
-    pipSize: data.pipSize !== undefined ? data.pipSize : lastData?.pipSize
+    pipSize: data.pipSize !== undefined ? data.pipSize : lastData?.pipSize,
+    // Track previous price and calculate direction
+    previousPrice: lastData?.current || lastData?.previousPrice || 1.0,
+    direction: (() => {
+      const currentPrice = data.bid || data.ask || lastData?.current || 1.0;
+      const prevPrice = lastData?.current || lastData?.previousPrice || 1.0;
+      if (currentPrice > prevPrice) return 'up';
+      if (currentPrice < prevPrice) return 'down';
+      return 'neutral';
+    })()
     // pipetteSize removed - pip-based buckets are more efficient
   } : null;
 

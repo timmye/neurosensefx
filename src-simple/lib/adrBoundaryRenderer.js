@@ -17,22 +17,12 @@ export function renderBoundaryLines(ctx, width, coordinates, colors) {
   ctx.restore();
 }
 
-export function renderBoundaryLabels(ctx, width, height, boundaries, coordinates, colors, labelPadding = 5) {
-  if (!boundaries || !coordinates) return;
-
-  ctx.save();
-  ctx.fillStyle = colors.percentageLabels;
-  ctx.font = '10px sans-serif';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-
-  const upperPctStr = `${Math.round(boundaries.upperExpansion * 100)}%`;
-  const lowerPctStr = `${Math.round(boundaries.lowerExpansion * 100)}%`;
-
-  ctx.fillText(`+${upperPctStr} ADR`, width - 5, Math.max(labelPadding + 10, coordinates.upperY + 10));
-  ctx.fillText(`-${lowerPctStr} ADR`, width - 5, Math.min(height - labelPadding - 10, coordinates.lowerY - 10));
-
-  ctx.restore();
+export function renderBoundaryLabels(
+  _ctx, _width, _height, _boundaries, _coordinates, _colors, _labelPadding = 5
+) {
+  // Function disabled - ADR percentage labels no longer rendered
+  // This reduces visual clutter while maintaining API compatibility
+  return;
 }
 
 export function renderReferenceLines(ctx, width, boundaries, coordinates, referenceLines, colors) {

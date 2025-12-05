@@ -11,8 +11,8 @@ export const marketProfileConfig = {
   colors: {
     background: '#0a0a0a10',
     profile: '#474747ff',
-    poc: '#3d85d7ff',
-    valueArea: 'rgba(74, 158, 255, 0.1)',
+    poc: '#8d3dd7ff',
+    valueArea: 'rgba(37, 83, 135, 0.9)',
     text: '#fff',
     grid: '#333'
   },

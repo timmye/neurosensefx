@@ -11,9 +11,15 @@ export function renderCurrentPrice(ctx, config, axisX, priceScale, price, symbol
   const formattedPrice = formatPriceForDisplay(price, symbolData);
   const currentY = priceScale(price);
 
-  renderMarkerLine(ctx, currentY, axisX, config.colors.currentPrice, 2, 12, {
+  // Select color based on tick direction
+  const direction = symbolData?.direction || 'neutral';
+  const priceColor = direction === 'up' ? config.colors.priceUp :
+                     direction === 'down' ? config.colors.priceDown :
+                     config.colors.currentPrice;
+
+  renderMarkerLine(ctx, currentY, axisX, priceColor, 4, 12, {
     text: formattedPrice,
-    textColor: config.colors.currentPrice,
+    textColor: priceColor,
     textFont: config.fonts.currentPrice
   });
 }

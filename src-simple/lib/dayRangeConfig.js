@@ -6,19 +6,21 @@ export const defaultConfig = {
   colors: {
     axisPrimary: '#4B5563',
     axisReference: '#6B7280',
-    currentPrice: '#10B981',
-    sessionPrices: '#F59E0B',
+    currentPrice: '#6B7280',
+    priceUp: '#4a9eff',
+    priceDown: '#8f6ce0ff  ',
+    sessionPrices: '#f69051ff',
     openPrice: '#6B7280',
     adrRange: 'rgba(224, 224, 224, 0.3)',
     sessionRange: 'rgba(59, 130, 246, 0.3)',
-    boundaryLine: '#EF4444',
+    boundaryLine: '#854be80d',
     percentageLabels: '#9CA3AF',
     markers: '#374151'
   },
 
   // Typography
   fonts: {
-    currentPrice: 'bold 44px monospace',
+    currentPrice: 'bold 46px monospace',
     priceLabels: '20px monospace',
     percentageLabels: '10px sans-serif',
     statusMessages: '12px monospace'

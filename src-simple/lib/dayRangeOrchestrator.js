@@ -27,8 +27,21 @@ export function renderDayRange(ctx, d, s, getConfig, options = {}) {
     renderBackground(ctx, width, height);
   }
   renderStructuralElements(ctx, config, width, height, priceScale, d, adaptiveScale);
-  renderPriceElements(ctx, config, priceScale, d, s);
+
+  // Render all price markers EXCEPT current price
+  renderPriceElementsExceptCurrent(ctx, config, priceScale, d, s);
+
+  // Render percentage markers
   renderPercentageElements(ctx, config, d, adaptiveScale, height, width);
+
+  // Calculate axisX for current price rendering
+  let axisX = config.positioning.adrAxisX;
+  if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {
+    axisX = width * axisX;
+  }
+
+  // Render current price LAST so it's always on top of everything
+  renderCurrentPrice(ctx, config, axisX, priceScale, d.current, d);
 }
 
 function renderStructuralElements(ctx, config, width, height, priceScale, d, adaptiveScale) {
@@ -47,7 +60,7 @@ function renderStructuralElements(ctx, config, width, height, priceScale, d, ada
   }
 }
 
-function renderPriceElements(ctx, config, priceScale, d, s) {
+function renderPriceElementsExceptCurrent(ctx, config, priceScale, d, s) {
   const { width } = s;
   let axisX = config.positioning.adrAxisX;
 
@@ -58,7 +71,7 @@ function renderPriceElements(ctx, config, priceScale, d, s) {
 
   const mappedData = createMappedData(d);
 
-  renderCurrentPrice(ctx, config, axisX, priceScale, d.current, d);
+  // Render all price markers EXCEPT current price
   renderOpenPrice(ctx, config, axisX, priceScale, d.open, d);
   renderHighLowMarkers(ctx, config, axisX, priceScale, mappedData, d);
 }

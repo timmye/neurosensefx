@@ -124,7 +124,7 @@ export function renderMarketProfile(ctx, data, config) {
         const x = marketProfileStartX;
         const y = priceScale(level.price);
         const barWidth = Math.max(level.tpo * tpoScale, 1);
-        ctx.fillStyle = '#666';
+        ctx.fillStyle = '#374151';
         if (index < 5) {
           console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Low bar', index, 'at', x, y, 'width', barWidth);
         }
@@ -140,7 +140,7 @@ export function renderMarketProfile(ctx, data, config) {
         const x = marketProfileStartX;
         const y = priceScale(level.price);
         const barWidth = Math.max(level.tpo * tpoScale, 1);
-        ctx.fillStyle = '#66b3ff';
+        ctx.fillStyle = '#53589b';
         if (index < 5) {
           console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Medium bar', index, 'at', x, y, 'width', barWidth);
         }
@@ -156,7 +156,7 @@ export function renderMarketProfile(ctx, data, config) {
         const x = marketProfileStartX;
         const y = priceScale(level.price);
         const barWidth = Math.max(level.tpo * tpoScale, 1);
-        ctx.fillStyle = '#4a9eff';
+        ctx.fillStyle = '#7b5dc0 ';
         if (index < 5) {
           console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering High bar', index, 'at', x, y, 'width', barWidth);
         }
@@ -168,7 +168,7 @@ export function renderMarketProfile(ctx, data, config) {
     if (poc) {
       const pocY = priceScale(poc.price);
       renderPixelPerfectLine(ctx, marketProfileStartX, pocY, width, pocY, {
-        color: '#4a9eff',
+        color: '#ff8c4aff',
         width: 2,
         dashPattern: [5, 3]
       });

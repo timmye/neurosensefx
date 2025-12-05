@@ -78,7 +78,7 @@ export function renderAdrBoundaryLines(ctx, config, width, height, priceScale, a
 
   // Render all components
   renderBoundaryLines(ctx, width, coordinates, colors);
-  renderBoundaryLabels(ctx, width, height, boundaries, coordinates, colors);
+  renderBoundaryLabels(ctx, width, height, boundaries, coordinates, colors); // Now a no-op function
   renderRefLines(ctx, width, boundaries, coordinates, referenceLines, colors);
 }
 
