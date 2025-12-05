@@ -12,7 +12,11 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     current: data.bid || data.ask || data.initialPrice || data.todaysOpen || 1.0,
     open: data.todaysOpen || data.initialPrice || 1.0,
     adrHigh: data.projectedAdrHigh || (data.todaysHigh || 1.0) * 1.01,
-    adrLow: data.projectedAdrLow || (data.todaysLow || 1.0) * 0.99
+    adrLow: data.projectedAdrLow || (data.todaysLow || 1.0) * 0.99,
+    // pipPosition integration - preserve pipPosition data from backend
+    pipPosition: data.pipPosition,
+    pipSize: data.pipSize,
+    pipetteSize: data.pipetteSize
   } : data.type === 'tick' && data.symbol === formattedSymbol ? {
     high: Math.max(lastData?.high || 0, data.ask || data.bid || 0),
     low: Math.min(lastData?.low || Infinity, data.bid || data.ask || Infinity),
@@ -20,10 +24,10 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     open: lastData?.open || data.bid || data.ask || 1.0,
     adrHigh: lastData?.adrHigh || (data.bid || data.ask || 1.0) * 1.01,
     adrLow: lastData?.adrLow || (data.bid || data.ask || 1.0) * 0.99,
-    // pipPosition integration - preserve pipPosition data from backend
-    pipPosition: data.pipPosition,
-    pipSize: data.pipSize,
-    pipetteSize: data.pipetteSize
+    // pipPosition integration - preserve pipPosition data from lastData (tick messages don't have it)
+    pipPosition: data.pipPosition || lastData?.pipPosition,
+    pipSize: data.pipSize || lastData?.pipSize,
+    pipetteSize: data.pipetteSize || lastData?.pipetteSize
   } : null;
 
   if (displayData) {

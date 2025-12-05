@@ -18,6 +18,7 @@
   let priceMarkers = [], selectedMarker = null;
   let hoverPrice = null;
   let deltaInfo = null;
+  let freshnessCheckInterval;
 
   // Simple: Track current display from store for market profile boolean
   $: currentDisplay = $workspaceStore.displays.get(display.id);
@@ -80,8 +81,12 @@
     };
     connectionStatus = connectionManager.status;
 
+    // Start checking data freshness every 5 seconds
+    freshnessCheckInterval = setInterval(checkDataFreshness, 5000);
+
     return () => {
       if (unsubscribe) unsubscribe();
+      if (freshnessCheckInterval) clearInterval(freshnessCheckInterval);
     };
   });
 
@@ -95,6 +100,17 @@
   function handleRefresh() {
     if (canvasRef && canvasRef.refreshCanvas) {
       canvasRef.refreshCanvas();
+    }
+  }
+  function checkDataFreshness() {
+    if (connectionStatus === 'disconnected') {
+      refreshConnection();
+    }
+    // If connected, trust the connection - low volatility is fine
+  }
+  function refreshConnection() {
+    if (connectionManager && connectionStatus !== 'connected') {
+      connectionManager.connect();
     }
   }
   function handleKeydown(e) {
