@@ -1,6 +1,8 @@
 // Market Profile Data Processor - Crystal Clarity Compliant
 // Framework-first: Pure data processing, no rendering logic
 
+import { formatPrice } from './priceFormat.js';
+
 export function processMarketProfileData(data, lastProfile = null) {
   if (data.type === 'symbolDataPackage') {
     return buildInitialProfile(data.initialMarketProfile || []);
@@ -10,7 +12,7 @@ export function processMarketProfileData(data, lastProfile = null) {
   return lastProfile;
 }
 
-export function buildInitialProfile(m1Bars, bucketSize = 0.00001) {
+export function buildInitialProfile(m1Bars, bucketSize = 0.00001, symbolData = null) {
   if (!m1Bars || m1Bars.length === 0) {
     return [];
   }
@@ -18,7 +20,7 @@ export function buildInitialProfile(m1Bars, bucketSize = 0.00001) {
   const priceMap = new Map();
 
   m1Bars.forEach(bar => {
-    const range = generatePriceLevels(bar.low, bar.high, bucketSize);
+    const range = generatePriceLevels(bar.low, bar.high, bucketSize, symbolData);
     range.forEach(price => {
       priceMap.set(price, (priceMap.get(price) || 0) + 1);
     });
@@ -48,7 +50,7 @@ export function updateProfileWithTick(lastProfile, tickData) {
   return updatedProfile;
 }
 
-export function generatePriceLevels(low, high, bucketSize = 0.00001) {
+export function generatePriceLevels(low, high, bucketSize = 0.00001, symbolData = null) {
   const levels = [];
   let currentPrice = Math.floor(low / bucketSize) * bucketSize;
 
@@ -57,7 +59,9 @@ export function generatePriceLevels(low, high, bucketSize = 0.00001) {
   let levelCount = 0;
 
   while (currentPrice <= high && levelCount < maxLevels) {
-    levels.push(parseFloat(currentPrice.toFixed(5)));
+    // Use centralized formatPrice with symbolData pipPosition if available
+    const pipPosition = symbolData?.pipPosition ?? 4;
+    levels.push(parseFloat(formatPrice(currentPrice, pipPosition)));
     currentPrice += bucketSize;
     levelCount++;
   }

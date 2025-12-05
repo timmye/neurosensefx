@@ -127,7 +127,7 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
 
     const delta = deltaInfo.currentPrice - deltaInfo.startPrice;
     const deltaPercent = ((delta / deltaInfo.startPrice) * 100).toFixed(2);
-    const pipPosition = data?.pipPosition || 4;
+    const pipPosition = data?.pipPosition;
     const pipSize = data?.pipSize || 0.0001;
     const deltaPips = formatPipMovement(delta, pipPosition);
 

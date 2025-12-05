@@ -69,7 +69,7 @@ function renderPriceMarker(ctx, item, axisX, priceScale, symbolData) {
   if (!item.price || !isFinite(item.price)) return;
 
   const y = priceScale(item.price);
-  const formattedPrice = formatPriceWithPipPosition(item.price, symbolData.pipPosition, symbolData.pipSize, symbolData.pipetteSize);
+  const formattedPrice = formatPriceWithPipPosition(item.price, symbolData.pipPosition);
   const label = `${item.label} ${formattedPrice}`;
   drawPriceMarker(ctx, axisX, y, label, item.color);
 }

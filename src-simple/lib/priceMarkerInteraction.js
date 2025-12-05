@@ -68,7 +68,7 @@ export class PriceMarkerInteraction {
     const price = toPrice(this.canvas, this.scale, this.data, relativeY);
     if (price) {
       const pipSize = this.data?.pipSize || 0.0001;
-      const pipPosition = this.data?.pipPosition || 4;
+      const pipPosition = this.data?.pipPosition;
       const roundedPrice = formatPriceToPipLevel(price, pipPosition, pipSize);
       const marker = createMarker('normal', roundedPrice, this.displayId);
       if (marker) {

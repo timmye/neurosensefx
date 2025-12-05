@@ -1,7 +1,7 @@
 // Day Range Meter - Framework-First Implementation (Crystal Clarity Compliant)
 // Direct Canvas 2D API, DPR-aware rendering, no abstractions
 
-import { formatPriceWithPipPosition } from './priceFormat.js';
+import { formatPrice } from './priceFormat.js';
 
 export function renderDayRange(ctx, data, size, getConfig) {
   const { width, height } = size;
@@ -57,7 +57,7 @@ export function renderDayRange(ctx, data, size, getConfig) {
   ];
   prices.forEach(p => {
     ctx.fillStyle = p.color;
-    ctx.fillText(`${p.label} ${formatPrice(p.price, data)}`, 20, priceToY(p.price, range, height, padding));
+    ctx.fillText(`${p.label} ${formatPrice(p.price, data.pipPosition)}`, 20, priceToY(p.price, range, height, padding));
   });
 
   // Percentage markers
@@ -95,13 +95,6 @@ function priceToY(price, range, height, padding) {
   return padding + (normalized * (height - 2 * padding));
 }
 
-function formatPrice(price, symbolData) {
-  if (typeof price !== 'number') return price;
-  if (symbolData?.pipPosition !== undefined) {
-    return formatPriceWithPipPosition(price, symbolData.pipPosition, symbolData.pipSize, symbolData.pipetteSize);
-  }
-  return price.toFixed(5); // Fallback for backward compatibility
-}
 
 function getDefaultConfig() {
   return {

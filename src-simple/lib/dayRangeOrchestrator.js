@@ -58,9 +58,9 @@ function renderPriceElements(ctx, config, priceScale, d, s) {
 
   const mappedData = createMappedData(d);
 
-  renderCurrentPrice(ctx, config, axisX, priceScale, d.current, s);
-  renderOpenPrice(ctx, config, axisX, priceScale, d.open, s);
-  renderHighLowMarkers(ctx, config, axisX, priceScale, mappedData, s);
+  renderCurrentPrice(ctx, config, axisX, priceScale, d.current, d);
+  renderOpenPrice(ctx, config, axisX, priceScale, d.open, d);
+  renderHighLowMarkers(ctx, config, axisX, priceScale, mappedData, d);
 }
 
 function renderPercentageElements(ctx, config, d, adaptiveScale, height, width) {

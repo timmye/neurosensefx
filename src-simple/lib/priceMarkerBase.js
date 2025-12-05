@@ -34,9 +34,10 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
 }
 
 // Get symbol data with defaults for missing properties
+// Note: This function should not be used - pass pipPosition directly to formatPrice()
 export function getSymbolDataWithDefaults(symbolData) {
   return {
-    pipPosition: symbolData?.pipPosition || 4,
+    pipPosition: symbolData?.pipPosition || 4, // TODO: Remove this fallback - pass pipPosition directly
     pipSize: symbolData?.pipSize || 0.0001,
     pipetteSize: symbolData?.pipetteSize || 0.00001,
     ...symbolData
@@ -44,7 +45,9 @@ export function getSymbolDataWithDefaults(symbolData) {
 }
 
 // Format price for display with proper pip handling
-export function formatPriceForDisplay(price, symbolData) {
-  const { pipPosition, pipSize, pipetteSize } = getSymbolDataWithDefaults(symbolData);
-  return formatPriceWithPipPosition(price, pipPosition, pipSize, pipetteSize);
+// Supports both market data and symbol data structures for flexibility
+export function formatPriceForDisplay(price, dataOrSymbolData) {
+  // Try pipPosition from market data first, then from symbol data
+  const pipPosition = dataOrSymbolData?.pipPosition || dataOrSymbolData?.marketData?.pipPosition;
+  return formatPriceWithPipPosition(price, pipPosition);
 }
