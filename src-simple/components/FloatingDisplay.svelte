@@ -27,7 +27,7 @@
   $: selectedMarker = currentDisplay?.selectedMarker || null;
 
   onMount(() => {
-    connectionManager = new ConnectionManager(getWebSocketUrl());
+    connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
 
     interactable = interact(element).draggable({
       onmove: (e) => workspaceActions.updatePosition(display.id, {x: e.rect.left, y: e.rect.top})
@@ -106,6 +106,10 @@
   function handleRefresh() {
     if (canvasRef && canvasRef.refreshCanvas) {
       canvasRef.refreshCanvas();
+    }
+    // Re-request symbol data to handle race conditions
+    if (connectionManager && connectionStatus === 'connected') {
+      connectionManager.resubscribeSymbol(formattedSymbol);
     }
   }
   function checkDataFreshness() {

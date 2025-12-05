@@ -1,8 +1,18 @@
+// Singleton instance for all displays
+let sharedInstance = null;
+
 export class ConnectionManager {
   constructor(url) {
     this.url = url; this.ws = null; this.subscriptions = new Map();
     this.reconnectAttempts = 0; this.maxReconnects = 5; this.reconnectDelay = 1000;
     this.status = 'disconnected'; this.onStatusChange = null;
+  }
+
+  static getInstance(url) {
+    if (!sharedInstance) {
+      sharedInstance = new ConnectionManager(url);
+    }
+    return sharedInstance;
   }
 
   connect() {
@@ -40,6 +50,12 @@ export class ConnectionManager {
   resubscribeAll() {
     for (const [s] of this.subscriptions) {
       this.ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol: s, adrLookbackDays: 14 }));
+    }
+  }
+
+  resubscribeSymbol(symbol) {
+    if (this.ws?.readyState === WebSocket.OPEN && this.subscriptions.has(symbol)) {
+      this.ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays: 14 }));
     }
   }
 
