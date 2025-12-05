@@ -13,7 +13,8 @@
   export let display;
   let element, interactable, connectionManager, canvasRef;
   let connectionStatus = 'disconnected', lastData = null, lastMarketProfileData = null;
-  let canvasHeight = display.size.height - 40;
+  let showHeader = display.showHeader !== false; // Default to true
+  let isHovering = false;
   let formattedSymbol = formatSymbol(display.symbol);
   let priceMarkers = [], selectedMarker = null;
   let hoverPrice = null;
@@ -36,7 +37,6 @@
         move (event) {
           const newSize = { width: event.rect.width, height: event.rect.height };
           workspaceActions.updateSize(display.id, newSize);
-          canvasHeight = newSize.height - 40;
         }
       },
       modifiers: [interact.modifiers.restrictSize({ min: { width: 150, height: 80 } })],
@@ -120,7 +120,7 @@
     }
   }
   function handleKeydown(e) {
-    if (e.altKey && e.key === 'm') {
+    if (e.altKey && e.key.toLowerCase() === 'm') {
       e.preventDefault();
       workspaceActions.toggleMarketProfile(display.id);
     }
@@ -131,6 +131,8 @@
      tabindex="0" role="application" aria-label="{display.symbol} display"
      on:focus={handleFocus}
      on:keydown={handleKeydown}
+     on:mouseenter={() => isHovering = true}
+     on:mouseleave={() => isHovering = false}
      style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};
             width: {display.size.width}px; height: {display.size.height}px;">
 
@@ -141,6 +143,7 @@
     onClose={handleClose}
     onFocus={handleFocus}
     onRefresh={handleRefresh}
+    showHeader={showHeader || isHovering}
   />
 
   <DisplayCanvas
@@ -149,7 +152,7 @@
     marketProfileData={lastMarketProfileData}
     showMarketProfile={showMarketProfile}
     width={display.size.width}
-    height={canvasHeight}
+    height={display.size.height}
     connectionStatus={connectionStatus}
     symbol={formattedSymbol}
     priceMarkers={priceMarkers}

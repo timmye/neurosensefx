@@ -4,7 +4,7 @@ const initialState = {
   displays: new Map(),
   nextZIndex: 1,
   config: {
-    defaultSize: { width: 220, height: 120 },
+    defaultSize: { width: 220, height: 350 },
     defaultPosition: { x: 100, y: 100 }
   }
 };
@@ -31,7 +31,8 @@ const actions = {
         position: position || state.config.defaultPosition,
         size: { ...state.config.defaultSize },
         zIndex: state.nextZIndex,
-        showMarketProfile: false, // Simple boolean - market profile off by default
+        showMarketProfile: true, // Simple boolean - market profile off by default
+        showHeader: false, // Hide header by default for traders
         priceMarkers: [], // Array of price markers for this display
         created: Date.now()
       };

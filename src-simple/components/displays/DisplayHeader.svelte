@@ -1,11 +1,12 @@
 <script>
-  export let symbol, connectionStatus, showMarketProfile, onClose, onFocus, onRefresh;
-  function handleKeydown(e) { (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onFocus()); }
+  export let symbol, connectionStatus, showMarketProfile, onClose, onFocus, onRefresh, showHeader = true;
+  function handleKeydown(e) { (e.key.toLowerCase() === 'enter' || e.key === ' ') && (e.preventDefault(), onFocus()); }
 
   $: vizIndicator = showMarketProfile ? 'MP' : 'DR';
   $: vizTitle = showMarketProfile ? 'Market Profile ON' : 'Day Range';
 </script>
 
+{#if showHeader}
 <div class="header" role="button" tabindex="0" on:click={onFocus} on:keydown={handleKeydown}>
   <span class="symbol">{symbol}</span>
   <span class="viz-indicator" title={vizTitle}>{vizIndicator}</span>
@@ -18,9 +19,10 @@
   <button class="refresh" on:click={onRefresh} aria-label="Refresh display" title="Refresh canvas">↻</button>
   <button class="close" on:click={onClose} aria-label="Close display">×</button>
 </div>
+{/if}
 
 <style>
-  .header{display:flex;justify-content:space-between;align-items:center;height:40px;background:#2a2a2a;padding:0 12px;cursor:move;outline:none}
+  .header{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;height:40px;background:rgba(42,42,42,0.95);backdrop-filter:blur(4px);padding:0 12px;cursor:move;outline:none;z-index:10;transition:opacity .2s ease,transform .2s ease}
   .symbol{color:#fff;font-weight:bold;font-size:14px;pointer-events:none}
   .viz-indicator{color:#4a9eff;font-size:10px;font-weight:bold;background:#1a1a1a;padding:2px 4px;border-radius:2px;margin-left:8px;text-transform:uppercase;letter-spacing:0.5px}
   .refresh{background:none;border:none;color:#999;font-size:16px;cursor:pointer;padding:4px 6px;border-radius:3px;transition:background .2s ease,color .2s ease;margin-right:4px}
