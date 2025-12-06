@@ -95,7 +95,7 @@ function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height,
   const midY = priceScale(midPrice);
 
   ctx.fillStyle = colors.sessionPrices;
-  ctx.font = 'bold 10px sans-serif';
+  ctx.font = colors.fonts?.percentageLabels || '10px sans-serif';
   ctx.textAlign = 'right';
   ctx.fillText(label, ctx.canvas.width - 5, midY);
 }

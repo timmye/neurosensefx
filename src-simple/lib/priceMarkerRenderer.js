@@ -21,7 +21,9 @@ export function renderCurrentPrice(ctx, config, axisX, priceScale, price, symbol
     text: formattedPrice,
     textColor: priceColor,
     textFont: config.fonts.currentPrice,
-    textBackground: true  // Enable semi-transparent background for current price
+    textBackground: true,  // Enable semi-transparent background for current price
+    emphasizePips: true,    // Enable pip emphasis for current price
+    pipPosition: symbolData?.pipPosition
   });
 }
 

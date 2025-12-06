@@ -20,10 +20,19 @@ export const defaultConfig = {
 
   // Typography
   fonts: {
-    currentPrice: 'bold 46px monospace',
+    currentPrice: 'bold 36px monospace',
     priceLabels: '20px monospace',
     percentageLabels: '10px sans-serif',
-    statusMessages: '12px monospace'
+    statusMessages: '12px monospace',
+    uiElements: '12px monospace',
+    uiSymbol: '14px monospace',
+    uiVizIndicator: '10px monospace',
+    uiButtons: '14px monospace'
+  },
+
+  // Text Emphasis
+  emphasis: {
+    ratio: 1.3 // Emphasized text is 1.5x larger than base text
   },
 
   // Positioning

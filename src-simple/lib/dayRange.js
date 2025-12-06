@@ -46,7 +46,7 @@ export function renderDayRange(ctx, data, size, getConfig) {
   ctx.stroke();
 
   // Price markers
-  ctx.font = '10px monospace';
+  ctx.font = config.fonts?.percentageLabels || '10px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const prices = [

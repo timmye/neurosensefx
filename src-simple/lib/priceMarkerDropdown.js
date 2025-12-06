@@ -21,7 +21,7 @@ export function showDropdown(x, y, marker, displayId) {
     const i = document.createElement('div');
     i.textContent = o.l;
     const c = o.t === marker.type.name ? '#4a9eff' : (o.t === 'delete' ? '#ff6b35' : '#fff');
-    i.style.cssText = `padding:8px 16px;cursor:pointer;color:${c};font-size:13px;background:${o.t === marker.type.name ? '#4a9eff' : 'transparent'};`;
+    i.style.cssText = `padding:8px 16px;cursor:pointer;color:${c};font-size:12px;background:${o.t === marker.type.name ? '#4a9eff' : 'transparent'};`;
 
     i.onmouseenter = () => {
       if (o.t !== marker.type.name) i.style.backgroundColor = '#333';

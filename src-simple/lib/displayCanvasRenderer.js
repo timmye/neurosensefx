@@ -151,7 +151,7 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
     drawPriceMarker(ctx, 35, currentY, `${formattedCurrentPrice} (${deltaPips})`, '#FFD700');
 
     ctx.fillStyle = '#FFD700';
-    ctx.font = '11px monospace';
+    ctx.font = config.fonts?.statusMessages || '12px monospace';
     ctx.textAlign = 'left';
     const midY = (startY + currentY) / 2;
     ctx.fillText(`${deltaPercent}%`, 55, midY);
