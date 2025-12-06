@@ -806,6 +806,103 @@ get_service_info() {
 # ENHANCED SERVICE MANAGEMENT
 # =============================================================================
 
+# Gracefully kill processes on specified ports with VS Code protection
+graceful_kill_on_ports() {
+    local ports=("$@")
+    local service_name="${FUNCNAME[1]}"  # Get calling function name for context
+
+    log_info "🧹 Cleaning up processes on ports: ${ports[*]}"
+
+    for port in "${ports[@]}"; do
+        if lsof -i :$port 2>/dev/null | grep -q "LISTEN"; then
+            # Get PIDs of processes using the port
+            local pids=($(lsof -ti:$port 2>/dev/null))
+            local killed=false
+
+            # First pass: graceful shutdown
+            for pid in "${pids[@]}"; do
+                if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                    # Check if the process is VS Code
+                    local cmd=$(ps -p $pid -o command= 2>/dev/null)
+                    if echo "$cmd" | grep -q "vscode"; then
+                        log_info "🔒 Skipping VS Code process (PID: $pid) on port $port"
+                        continue
+                    fi
+
+                    # Check if it's a node/vite/npm process (our target processes)
+                    if echo "$cmd" | grep -q -E "node|vite|npm"; then
+                        log_info "🔄 Sending SIGTERM to $service_name process (PID: $pid) on port $port"
+                        kill -TERM "$pid" 2>/dev/null || true
+                        killed=true
+                    fi
+                fi
+            done
+
+            if [ "$killed" = true ]; then
+                # Wait for graceful shutdown
+                sleep 2
+
+                # Second pass: force kill stubborn processes
+                for pid in $(lsof -ti:$port 2>/dev/null); do
+                    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                        local cmd=$(ps -p $pid -o command= 2>/dev/null)
+                        if echo "$cmd" | grep -q -E "node|vite|npm"; then
+                            log_warning "⚡ Force killing stubborn $service_name process (PID: $pid) on port $port"
+                            kill -9 "$pid" 2>/dev/null || true
+                        fi
+                    fi
+                done
+            fi
+        fi
+    done
+}
+
+# Gracefully kill process from PID file with VS Code protection
+graceful_kill_from_pid_file() {
+    local pid_file="$1"
+    local service_name="$2"
+
+    if [ ! -f "$pid_file" ]; then
+        return 0
+    fi
+
+    local pid=$(cat "$pid_file" 2>/dev/null)
+    if [ -z "$pid" ]; then
+        rm -f "$pid_file"
+        return 0
+    fi
+
+    # Check if process is still running
+    if ! kill -0 "$pid" 2>/dev/null; then
+        rm -f "$pid_file"
+        return 0
+    fi
+
+    # Check if the process is VS Code
+    local cmd=$(ps -p $pid -o command= 2>/dev/null)
+    if echo "$cmd" | grep -q "vscode"; then
+        log_info "🔒 Skipping VS Code process (PID: $pid) from $pid_file"
+        return 0
+    fi
+
+    # Check if it's a node/vite/npm process (our target processes)
+    if echo "$cmd" | grep -q -E "node|vite|npm"; then
+        log_info "🔄 Sending SIGTERM to $service_name process (PID: $pid)"
+        kill -TERM "$pid" 2>/dev/null || true
+
+        # Wait for graceful shutdown
+        sleep 2
+
+        # Check if process is still running and force kill if necessary
+        if kill -0 "$pid" 2>/dev/null; then
+            log_warning "⚡ Force killing stubborn $service_name process (PID: $pid)"
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+    fi
+
+    rm -f "$pid_file"
+}
+
 # Enhanced stop with environment cleanup
 stop() {
     log "Stopping services..."
@@ -820,19 +917,10 @@ stop() {
     pkill -f "neurosensefx_dev" 2>/dev/null || true
     pkill -f "neurosensefx_prod" 2>/dev/null || true
 
-    # Kill PIDs from parallel mode if they exist
-    if [ -f .backend.pid ]; then
-        kill -9 $(cat .backend.pid) 2>/dev/null || true
-        rm -f .backend.pid
-    fi
-    if [ -f .frontend.pid ]; then
-        kill -9 $(cat .frontend.pid) 2>/dev/null || true
-        rm -f .frontend.pid
-    fi
-    if [ -f .frontend-simple.pid ]; then
-        kill -9 $(cat .frontend-simple.pid) 2>/dev/null || true
-        rm -f .frontend-simple.pid
-    fi
+    # Gracefully kill PIDs from parallel mode if they exist
+    graceful_kill_from_pid_file ".backend.pid" "backend"
+    graceful_kill_from_pid_file ".frontend.pid" "frontend"
+    graceful_kill_from_pid_file ".frontend-simple.pid" "frontend-simple"
 
     # Update environment status
     update_environment_status "backend_running" "false"
@@ -1081,14 +1169,8 @@ dev-simple() {
     log_info "   Simple Frontend: http://localhost:5175"
     log_info ""
 
-    # Kill any existing processes on our ports
-    log_info "🧹 Cleaning up existing processes..."
-    for port in 8080 5175; do
-        if lsof -i :$port 2>/dev/null | grep -q "LISTEN"; then
-            lsof -ti:$port | xargs kill -9 2>/dev/null || true
-            sleep 0.5
-        fi
-    done
+    # Gracefully clean up existing processes on our ports
+    graceful_kill_on_ports 8080 5175
 
     # Start backend
     log_info "🔧 Starting backend..."
@@ -1138,12 +1220,8 @@ backend() {
     log_info "   Backend: http://localhost:8080"
     log_info ""
 
-    # Kill any existing processes on backend port
-    log_info "🧹 Cleaning up existing backend process..."
-    if lsof -i :8080 2>/dev/null | grep -q "LISTEN"; then
-        lsof -ti:8080 | xargs kill -9 2>/dev/null || true
-        sleep 0.5
-    fi
+    # Gracefully clean up existing processes on backend port
+    graceful_kill_on_ports 8080
 
     # Start backend
     log_info "🚀 Starting WebSocket backend server..."

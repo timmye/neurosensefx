@@ -31,19 +31,19 @@ export function renderReferenceLines(ctx, width, boundaries, coordinates, refere
   ctx.save();
   ctx.strokeStyle = `${colors.boundaryLine}99`; // Add transparency
   ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
+  ctx.setLineDash([8,8]);
 
   // Only show if different from current boundaries
   if (boundaries.upperExpansion > 0.5 && Math.abs(referenceLines.fiftyUpperY - coordinates.upperY) > 5) {
     renderPixelPerfectLine(ctx, 0, referenceLines.fiftyUpperY, width, referenceLines.fiftyUpperY);
     ctx.fillStyle = `${colors.percentageLabels}99`;
-    ctx.fillText('+50% ADR', width - 70, referenceLines.fiftyUpperY);
+    //ctx.fillText('+50% ADR', width - 70, referenceLines.fiftyUpperY);
   }
 
   if (boundaries.lowerExpansion > 0.5 && Math.abs(referenceLines.fiftyLowerY - coordinates.lowerY) > 5) {
     renderPixelPerfectLine(ctx, 0, referenceLines.fiftyLowerY, width, referenceLines.fiftyLowerY);
     ctx.fillStyle = `${colors.percentageLabels}99`;
-    ctx.fillText('-50% ADR', width - 70, referenceLines.fiftyLowerY);
+    //ctx.fillText('-50% ADR', width - 70, referenceLines.fiftyLowerY);
   }
 
   ctx.setLineDash([]);

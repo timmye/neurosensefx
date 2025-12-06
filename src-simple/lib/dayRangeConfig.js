@@ -13,7 +13,7 @@ export const defaultConfig = {
     openPrice: '#6B7280',
     adrRange: 'rgba(224, 224, 224, 0.3)',
     sessionRange: 'rgba(59, 130, 246, 0.3)',
-    boundaryLine: '#854be80d',
+    boundaryLine: '#854be8',
     percentageLabels: '#9CA3AF',
     markers: '#374151'
   },

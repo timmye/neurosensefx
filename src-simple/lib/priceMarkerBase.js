@@ -6,7 +6,7 @@ import { formatPriceWithPipPosition } from './priceFormat.js';
 
 // Render a horizontal marker line with optional text label
 export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, config = {}) {
-  const { text = null, textColor = color, textFont = null, dashed = false } = config;
+  const { text = null, textColor = color, textFont = null, dashed = false, textBackground = false } = config;
   const dpr = window.devicePixelRatio || 1;
 
   ctx.save();
@@ -26,6 +26,23 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
   // Draw text label if provided
   if (text && textFont) {
     setupTextRendering(ctx, textFont, 'middle', 'right');
+
+    // Draw semi-transparent background if enabled (for current price)
+    if (textBackground) {
+      const metrics = ctx.measureText(text);
+      const fontHeight = parseInt(ctx.font.match(/\d+/)) || 12; // Extract font size from ctx.font
+      const padding = Math.max(3, fontHeight * 0.08); // Dynamic padding based on font size
+      const backgroundHeight = fontHeight * 0.7; // 70% of font height for proper text alignment
+
+      ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
+      ctx.fillRect(
+        axisX - metrics.width - 5 - padding,
+        y - backgroundHeight / 2,
+        metrics.width + padding * 2,
+        backgroundHeight
+      );
+    }
+
     ctx.fillStyle = textColor;
     ctx.fillText(text, axisX - 5, y);
   }

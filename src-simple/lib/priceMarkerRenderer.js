@@ -20,7 +20,8 @@ export function renderCurrentPrice(ctx, config, axisX, priceScale, price, symbol
   renderMarkerLine(ctx, currentY, axisX, priceColor, 4, 12, {
     text: formattedPrice,
     textColor: priceColor,
-    textFont: config.fonts.currentPrice
+    textFont: config.fonts.currentPrice,
+    textBackground: true  // Enable semi-transparent background for current price
   });
 }
 
