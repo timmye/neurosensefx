@@ -1,11 +1,64 @@
 <script>
   import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';
   import FloatingDisplay from './FloatingDisplay.svelte';
+  import WorkspaceModal from './WorkspaceModal.svelte';
   import { onMount, onDestroy } from 'svelte';
+  import './Workspace.css';
 
   let keyboardHandler;
   let escPressCount = 0;
   let escTimer = null;
+  let fileInput;
+
+  // Export/Import functions using workspace actions
+  function exportWorkspace() {
+    try {
+      workspaceActions.exportWorkspace();
+      console.log('✅ Workspace export initiated');
+    } catch (error) {
+      console.error('❌ Failed to export workspace:', error);
+    }
+  }
+
+  function importWorkspace() {
+    fileInput.click();
+  }
+
+  async function handleFileChange(event) {
+    const file = event.target.files[0];
+    if (file) {
+      try {
+        console.log('📥 Importing workspace...');
+        await workspaceActions.importWorkspace(file);
+        console.log('✅ Workspace imported successfully');
+      } catch (error) {
+        console.error('❌ Failed to import workspace:', error);
+      } finally {
+        event.target.value = ''; // Reset input
+      }
+    }
+  }
+
+  // Workspace dialog state and functions
+  let showWorkspaceModal = false;
+
+  function showWorkspaceDialog() {
+    showWorkspaceModal = true;
+  }
+
+  function handleExportClick() {
+    showWorkspaceModal = false;
+    exportWorkspace();
+  }
+
+  function handleImportClick() {
+    showWorkspaceModal = false;
+    fileInput.click();
+  }
+
+  function handleModalCancel() {
+    showWorkspaceModal = false;
+  }
 
   function handleKeydown(event) {
     // Alt+A: Create display (Crystal Clarity compliant - single entry point)
@@ -13,6 +66,13 @@
       event.preventDefault();
       const symbol = prompt('Enter symbol:');
       if (symbol) workspaceActions.addDisplay(symbol.replace('/', '').trim().toUpperCase());
+      return;
+    }
+
+    // Alt+W: Workspace controls
+    if (event.altKey && event.key.toLowerCase() === 'w') {
+      event.preventDefault();
+      showWorkspaceDialog();
       return;
     }
 
@@ -60,6 +120,15 @@
   });
 </script>
 
+<!-- Hidden file input for import -->
+<input
+  type="file"
+  accept=".json"
+  bind:this={fileInput}
+  on:change={handleFileChange}
+  style="display: none"
+/>
+
 <div class="workspace-container" role="application">
   <div class="flow-layer"></div>
   <div class="flow-layer"></div>
@@ -71,91 +140,11 @@
   </div>
 </div>
 
-<style>
-  .workspace-container {
-    position: fixed;
-    inset: 0;
-    overflow: hidden;
-    background: radial-gradient(rgb(26, 26, 46), rgb(15, 15, 30));
-    isolation: isolate;
-  }
+<!-- Workspace Modal -->
+<WorkspaceModal
+  bind:show={showWorkspaceModal}
+  on:export={handleExportClick}
+  on:import={handleImportClick}
+  on:cancel={handleModalCancel}
+/>
 
-  .workspace-container .flow-layer {
-    position: absolute;
-    top: -25%;
-    left: -25%;
-    width: 150%;
-    height: 150%;
-    opacity: 0.25;
-    pointer-events: none;
-    will-change: transform;
-  }
-
-  .workspace-container .flow-layer:nth-child(1) {
-    background: radial-gradient(rgb(79, 70, 229) 0%, transparent 40%);
-    filter: blur(50px);
-    animation: 27.3s ease-in-out 0s infinite normal none running perlinMove1;
-  }
-
-  .workspace-container .flow-layer:nth-child(2) {
-    background: radial-gradient(at 30% 70%, rgb(59, 130, 246) 0%, transparent 35%);
-    filter: blur(45px);
-    animation: 31.7s ease-in-out -11.2s infinite normal none running perlinMove2;
-  }
-
-  .workspace-container .flow-layer:nth-child(3) {
-    background: radial-gradient(at 70% 30%, rgb(99, 102, 241) 0%, transparent 38%);
-    filter: blur(55px);
-    animation: 23.9s ease-in-out -7.8s infinite normal none running perlinMove3;
-  }
-
-  .workspace {
-    position: relative;
-    height: 100%;
-    width: 100%;
-    outline: none;
-  }
-
-  @keyframes perlinMove1 {
-    0%, 100% {
-      transform: translate3d(0, 0, 0) scale(1);
-    }
-    33% {
-      transform: translate3d(30px, -50px, 0) scale(1.1);
-    }
-    66% {
-      transform: translate3d(-20px, 20px, 0) scale(0.9);
-    }
-  }
-
-  @keyframes perlinMove2 {
-    0%, 100% {
-      transform: translate3d(0, 0, 0) scale(1);
-    }
-    33% {
-      transform: translate3d(-40px, 30px, 0) scale(1.2);
-    }
-    66% {
-      transform: translate3d(25px, -30px, 0) scale(0.8);
-    }
-  }
-
-  @keyframes perlinMove3 {
-    0%, 100% {
-      transform: translate3d(0, 0, 0) scale(1);
-    }
-    33% {
-      transform: translate3d(35px, 25px, 0) scale(0.85);
-    }
-    66% {
-      transform: translate3d(-25px, -40px, 0) scale(1.15);
-    }
-  }
-
-  /* Respect user's motion preferences */
-  @media (prefers-reduced-motion: reduce) {
-    .workspace-container .flow-layer {
-      animation: none;
-    }
-  }
-</style>

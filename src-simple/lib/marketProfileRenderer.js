@@ -12,17 +12,10 @@ import { createDayRangeConfig, validateMarketData } from './dayRangeRenderingUti
 import { getConfig } from './dayRangeConfig.js';
 
 export function renderMarketProfile(ctx, data, config) {
-  console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:15] renderMarketProfile called');
-  console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:16] Data length:', data?.length);
-  console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:17] Config:', config);
-
   if (!data || data.length === 0) {
-    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:19] No data - rendering status message');
     renderStatusMessage(ctx, "No Market Profile Data");
     return;
   }
-
-  console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:24] Starting Market Profile rendering');
 
   try {
     const { width, height } = config;
@@ -104,62 +97,31 @@ export function renderMarketProfile(ctx, data, config) {
 
     // Render value area background
     if (valueArea.high && valueArea.low) {
-      console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:99] Rendering value area background');
       ctx.fillStyle = 'rgba(74, 158, 255, 0.1)';
       const vaY = priceScale(valueArea.high);
       const vaHeight = priceScale(valueArea.low) - priceScale(valueArea.high);
-      console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:103] Value area rect:', marketProfileStartX, vaY, marketProfileWidth, vaHeight);
       ctx.fillRect(marketProfileStartX, vaY, marketProfileWidth, vaHeight);
     }
-
-    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER:107] Rendering profile bars - data length:', data.length);
     // Render profile bars in intensity order: Low → Medium → High
     // This ensures high intensity bars always plot in front for better visibility
 
-    // Step 1: Render low intensity bars (grey background)
-    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Low intensity bars (≤60%)');
     data.forEach((level, index) => {
       const intensity = level.tpo / maxTpo;
+      const x = marketProfileStartX;
+      const y = priceScale(level.price);
+      const barWidth = Math.max(level.tpo * tpoScale, 1);
+
       if (intensity <= 0.6) {
-        const x = marketProfileStartX;
-        const y = priceScale(level.price);
-        const barWidth = Math.max(level.tpo * tpoScale, 1);
+        // Low intensity bars (grey background)
         ctx.fillStyle = '#374151';
-        if (index < 5) {
-          console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Low bar', index, 'at', x, y, 'width', barWidth);
-        }
         ctx.fillRect(x, y, barWidth, 2);
-      }
-    });
-
-    // Step 2: Render medium intensity bars (lighter blue)
-    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Medium intensity bars (60-80%)');
-    data.forEach((level, index) => {
-      const intensity = level.tpo / maxTpo;
-      if (intensity > 0.6 && intensity <= 0.8) {
-        const x = marketProfileStartX;
-        const y = priceScale(level.price);
-        const barWidth = Math.max(level.tpo * tpoScale, 1);
-        ctx.fillStyle = '#53589b';
-        if (index < 5) {
-          console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering Medium bar', index, 'at', x, y, 'width', barWidth);
-        }
+      } else if (intensity > 0.6 && intensity <= 0.8) {
+        // Medium intensity bars (lighter blue)
+        ctx.fillStyle = '#404694ff';
         ctx.fillRect(x, y, barWidth, 2);
-      }
-    });
-
-    // Step 3: Render high intensity bars (bright blue) - always visible on top
-    console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering High intensity bars (>80%)');
-    data.forEach((level, index) => {
-      const intensity = level.tpo / maxTpo;
-      if (intensity > 0.8) {
-        const x = marketProfileStartX;
-        const y = priceScale(level.price);
-        const barWidth = Math.max(level.tpo * tpoScale, 1);
-        ctx.fillStyle = '#7b5dc0 ';
-        if (index < 5) {
-          console.log('[DEBUGGER:MARKET_PROFILE_RENDERER] Rendering High bar', index, 'at', x, y, 'width', barWidth);
-        }
+      } else if (intensity > 0.8) {
+        // High intensity bars (bright blue) - always visible on top
+        ctx.fillStyle = '#7b5dc0';
         ctx.fillRect(x, y, barWidth, 2);
       }
     });
@@ -168,7 +130,7 @@ export function renderMarketProfile(ctx, data, config) {
     if (poc) {
       const pocY = priceScale(poc.price);
       renderPixelPerfectLine(ctx, marketProfileStartX, pocY, width, pocY, {
-        color: '#ff8c4aff',
+        color: '#ff8c4a',
         width: 2,
         dashPattern: [5, 3]
       });

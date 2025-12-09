@@ -21,28 +21,36 @@ workspaceStore.getState = () => {
   return currentValue;
 };
 
+// Helper to update display properties
+const updateDisplay = (id, updates, extra = {}) => {
+  workspaceStore.update(state => {
+    const display = state.displays.get(id);
+    if (!display) return state;
+
+    const newDisplays = new Map(state.displays);
+    newDisplays.set(id, { ...display, ...updates });
+
+    return { ...state, displays: newDisplays, ...extra };
+  });
+};
+
 const actions = {
   addDisplay: (symbol, position = null) => {
     workspaceStore.update(state => {
       const id = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const display = {
-        id,
-        symbol,
+        id, symbol, created: Date.now(),
         position: position || state.config.defaultPosition,
         size: { ...state.config.defaultSize },
         zIndex: state.nextZIndex,
-        showMarketProfile: true, // Simple boolean - market profile off by default
-        showHeader: false, // Hide header by default for traders
-        priceMarkers: [], // Array of price markers for this display
-        created: Date.now()
+        showMarketProfile: true,
+        showHeader: false,
+        priceMarkers: []
       };
-
-      const newDisplays = new Map(state.displays);
-      newDisplays.set(id, display);
 
       return {
         ...state,
-        displays: newDisplays,
+        displays: new Map(state.displays).set(id, display),
         nextZIndex: state.nextZIndex + 1
       };
     });
@@ -56,56 +64,30 @@ const actions = {
     });
   },
 
-  updatePosition: (id, position) => {
-    workspaceStore.update(state => {
-      const display = state.displays.get(id);
-      if (!display) return state;
-
-      const newDisplays = new Map(state.displays);
-      newDisplays.set(id, { ...display, position });
-
-      return { ...state, displays: newDisplays };
-    });
-  },
-
-  updateSize: (id, size) => {
-    workspaceStore.update(state => {
-      const display = state.displays.get(id);
-      if (!display) return state;
-
-      const newDisplays = new Map(state.displays);
-      newDisplays.set(id, { ...display, size });
-
-      return { ...state, displays: newDisplays };
-    });
-  },
+  updatePosition: (id, position) => updateDisplay(id, { position }),
+  updateSize: (id, size) => updateDisplay(id, { size }),
 
   bringToFront: (id) => {
     workspaceStore.update(state => {
       const display = state.displays.get(id);
-      if (!display) return state;
-
-      const newDisplays = new Map(state.displays);
-      newDisplays.set(id, { ...display, zIndex: state.nextZIndex });
-
-      return {
+      return display ? {
         ...state,
-        displays: newDisplays,
+        displays: new Map(state.displays).set(id, { ...display, zIndex: state.nextZIndex }),
         nextZIndex: state.nextZIndex + 1
-      };
+      } : state;
     });
   },
 
   toggleMarketProfile: (id) => {
     workspaceStore.update(state => {
       const display = state.displays.get(id);
-      if (!display) return state;
-
-      // Simple boolean toggle
-      const newDisplays = new Map(state.displays);
-      newDisplays.set(id, { ...display, showMarketProfile: !display.showMarketProfile });
-
-      return { ...state, displays: newDisplays };
+      return display ? {
+        ...state,
+        displays: new Map(state.displays).set(id, {
+          ...display,
+          showMarketProfile: !display.showMarketProfile
+        })
+      } : state;
     });
   },
 
@@ -117,7 +99,7 @@ const actions = {
         ...state,
         displays: new Map(state.displays).set(displayId, {
           ...d,
-          priceMarkers: [...d.priceMarkers, { ...marker, id: Date.now().toString() }]
+          priceMarkers: [...d.priceMarkers, marker]
         })
       } : state;
     });
@@ -175,20 +157,76 @@ const actions = {
     });
   },
 
-  setDisplayPriceMarkers: (displayId, markers) => {
-    workspaceStore.update(state => {
-      const display = state.displays.get(displayId);
-      if (!display) return state;
+  setDisplayPriceMarkers: (displayId, markers) => updateDisplay(displayId, { priceMarkers: markers }),
 
-      const newDisplays = new Map(state.displays);
-      newDisplays.set(displayId, { ...display, priceMarkers: markers });
+  getDisplay: (displayId) => workspaceStore.getState().displays.get(displayId),
 
-      return { ...state, displays: newDisplays };
-    });
+  importWorkspace: async (file) => {
+    try {
+      const text = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
+
+      const data = JSON.parse(text);
+
+      // Restore price markers to localStorage
+      if (data.priceMarkers) {
+        for (const [key, value] of Object.entries(data.priceMarkers)) {
+          localStorage.setItem(key, JSON.stringify(value));
+        }
+      }
+
+      // Update workspace state
+      workspaceStore.update(state => ({
+        ...state,
+        displays: new Map(data.workspace.displays || []),
+        nextZIndex: data.workspace.nextZIndex || 1
+      }));
+
+      console.log('✅ Workspace imported successfully');
+    } catch (error) {
+      console.error('❌ Failed to import workspace:', error);
+    }
   },
 
-  getDisplay: (displayId) => {
-    return workspaceStore.getState().displays.get(displayId);
+  exportWorkspace: () => {
+    try {
+      const state = workspaceStore.getState();
+      const priceMarkers = {};
+
+      // Collect all price-markers from localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('price-markers-')) {
+          priceMarkers[key] = JSON.parse(localStorage.getItem(key));
+        }
+      }
+
+      const exportData = {
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        workspace: {
+          displays: Array.from(state.displays.entries()),
+          nextZIndex: state.nextZIndex
+        },
+        priceMarkers
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `workspace-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Workspace exported successfully');
+    } catch (error) {
+      console.error('❌ Failed to export workspace:', error);
+    }
   }
 };
 
