@@ -53,10 +53,13 @@
         if (result?.type === 'data') {
           lastData = result.data;
         } else if (result?.type === 'error') {
-          // Check if this is a connection status message, not a real error
+          // Check if this is a connection-related error, not a real application error
           const errorMsg = result.message.toLowerCase();
-          if (errorMsg.includes('disconnected') || errorMsg.includes('connecting') || errorMsg.includes('waiting') || errorMsg.includes('timeout')) {
-            // Don't call renderError for connection status messages - let DisplayCanvas handle it via connectionStatus
+          if (errorMsg.includes('disconnected') || errorMsg.includes('connecting') ||
+              errorMsg.includes('waiting') || errorMsg.includes('timeout') ||
+              errorMsg.includes('invalid symbol') || errorMsg.includes('backend not ready')) {
+            // Don't render connection-related errors - let DisplayCanvas handle via connectionStatus
+            // This prevents stuck "SYSTEM ERROR" states during race conditions
           } else {
             canvasRef?.renderError(`BACKEND_ERROR: ${result.message}`);
           }
@@ -81,10 +84,11 @@
       }
     });
 
-    connectionManager.onStatusChange = () => {
+    // Register status callback that won't be overwritten
+    const unsubscribeStatus = connectionManager.addStatusCallback(() => {
       connectionStatus = connectionManager.status;
       // Canvas will update reactively through the connectionStatus prop
-    };
+    });
     connectionStatus = connectionManager.status;
 
     // Start checking data freshness every 5 seconds
@@ -92,6 +96,7 @@
 
     return () => {
       if (unsubscribe) unsubscribe();
+      if (unsubscribeStatus) unsubscribeStatus();
       if (freshnessCheckInterval) clearInterval(freshnessCheckInterval);
     };
   });
@@ -107,9 +112,14 @@
     if (canvasRef && canvasRef.refreshCanvas) {
       canvasRef.refreshCanvas();
     }
-    // Re-request symbol data to handle race conditions
-    if (connectionManager && connectionStatus === 'connected') {
-      connectionManager.resubscribeSymbol(formattedSymbol);
+    // Always re-request symbol data on refresh to clear stuck states
+    if (connectionManager) {
+      if (connectionStatus === 'connected') {
+        connectionManager.resubscribeSymbol(formattedSymbol);
+      } else if (connectionStatus === 'disconnected') {
+        // Trigger reconnection if stuck in disconnected state
+        refreshConnection();
+      }
     }
   }
   function checkDataFreshness() {

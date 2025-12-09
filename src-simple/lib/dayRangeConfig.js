@@ -7,8 +7,8 @@ export const defaultConfig = {
     axisPrimary: '#4B5563',
     axisReference: '#f66a51ff',
     currentPrice: '#6B7280',
-    priceUp: '#4a9eff',
-    priceDown: '#8f6ce0ff  ',
+    priceUp: '#4a9eff', //4a9eff
+    priceDown: '#8f6ce0ff  ', //8f6ce0ff
     sessionPrices: '#f69051ff',
     openPrice: '#6B7280',
     adrRange: 'rgba(224, 224, 224, 0.3)',
@@ -20,7 +20,7 @@ export const defaultConfig = {
 
   // Typography
   fonts: {
-    currentPrice: 'bold 36px monospace',
+    currentPrice: 'bold 46px monospace',
     priceLabels: '20px monospace',
     percentageLabels: '10px sans-serif',
     statusMessages: '12px monospace',
@@ -32,7 +32,7 @@ export const defaultConfig = {
 
   // Text Emphasis
   emphasis: {
-    ratio: 1.3 // Emphasized text is 1.5x larger than base text
+    ratio: 1 // Emphasized text is 1.5x larger than base text
   },
 
   // Positioning

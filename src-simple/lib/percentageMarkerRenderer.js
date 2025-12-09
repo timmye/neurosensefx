@@ -97,7 +97,28 @@ function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height,
   ctx.fillStyle = colors.sessionPrices;
   ctx.font = colors.fonts?.percentageLabels || '10px sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText(label, ctx.canvas.width - 5, midY);
+
+  // Add semi-transparent background for DR% text
+  const textMetrics = ctx.measureText(label);
+  const textX = ctx.canvas.width - 5;
+  const backgroundPadding = 3;
+  const backgroundOpacity = 0.6;
+
+  // Use actual Canvas font metrics instead of approximate height
+  const actualHeight = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
+
+  // Draw background rectangle using precise text measurements
+  ctx.fillStyle = `rgba(0, 0, 0, ${backgroundOpacity})`;
+  ctx.fillRect(
+    textX - textMetrics.width - backgroundPadding,
+    midY - actualHeight / 2 - backgroundPadding / 2,
+    textMetrics.width + backgroundPadding * 2,
+    actualHeight + backgroundPadding
+  );
+
+  // Redraw text on top
+  ctx.fillStyle = colors.sessionPrices;
+  ctx.fillText(label, textX, midY);
 }
 
 // Render marker line with label

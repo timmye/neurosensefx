@@ -97,7 +97,9 @@ export function renderConnectionStatus(ctx, connectionStatus, symbol, width, hei
     ? `CONNECTED: ${symbol}`
     : `${connectionStatus.toUpperCase()}: ${symbol}`;
 
-  if (connectionStatus === 'connected') {
+  // Only render actual error states as errors
+  // Connection states (connecting, disconnected) should render as status messages
+  if (connectionStatus === 'connected' || connectionStatus === 'connecting' || connectionStatus === 'disconnected') {
     renderStatusMessage(ctx, message, statusConfig);
   } else {
     renderErrorMessage(ctx, message, statusConfig);
