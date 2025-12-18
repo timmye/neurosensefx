@@ -1,6 +1,0 @@
-#!/bin/bash
-
-# LLM Simple Status Command
-# Just type './status' to check development environment
-
-exec ./simple-dev.sh status

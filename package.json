@@ -5,56 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite --mode development",
-    "dev:prod": "NODE_ENV=production vite --mode production",
     "build": "vite build",
-    "build:prod": "NODE_ENV=production vite build --mode production",
-    "build:validate": "node scripts/build-production.js",
-    "preview": "vite preview --mode production --port 4173",
-    "preview:dev": "vite preview --mode development --port 5174",
+    "preview": "vite preview --port 4173",
     "lint": "eslint .",
     "start": "./run.sh start",
-    "start:prod": "./run.sh start --production",
-    "start:dev": "./run.sh start --development",
     "stop": "./run.sh stop",
     "status": "./run.sh status",
-    "env-status": "./run.sh env-status",
-    "logs": "./run.sh logs",
-    "test:unit": "vitest run",
-    "test:e2e": "playwright test tests/primary-trader-workflow.spec.js tests/e2e/browser-logs.spec.js",
-    "test:browser-logs": "playwright test tests/e2e/browser-logs.spec.js",
-    "test:all": "npm run test:unit && npm run test:e2e",
-    "test:install": "playwright install chromium firefox webkit",
-    "test:cleanup": "rm -rf test-results/",
-    "test:logs": "echo 'Use npm run test:browser-logs for native browser console output.'",
-    "test:performance": "playwright test tests/performance/",
-    "test:performance:regression": "playwright test tests/performance/performance-regression-testing.spec.js",
-    "test:performance:benchmarking": "playwright test tests/performance/performance-benchmarking-system.spec.js",
-    "test:performance:cicd": "playwright test tests/performance/ci-cd-performance-monitoring.spec.js",
-    "test:performance:trading": "playwright test tests/performance/trading-workflow-performance.spec.js",
-    "test:performance:production": "playwright test tests/performance/production-environment-testing.spec.js",
-    "test:performance:master": "playwright test tests/performance/performance-test-runner.spec.js",
-    "test:performance:complete": "npm run test:performance:regression && npm run test:performance:benchmarking && npm run test:performance:cicd && npm run test:performance:trading && npm run test:performance:production && npm run test:performance:master"
+    "logs": "./run.sh logs"
   },
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
-    "d3": "^7.9.0",
-    "d3-scale": "^4.0.2",
     "interactjs": "^1.10.27",
     "svelte": "^4.2.7",
-    "ws": "^8.18.3",
-    "zod": "^3.22.4"
+    "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
     "@sveltejs/vite-plugin-svelte": "^3.0.1",
-    "@types/node": "^24.7.2",
     "eslint": "^8.56.0",
     "eslint-plugin-svelte": "^2.35.1",
-    "jsdom": "^27.2.0",
-    "playwright": "^1.56.1",
-    "prettier": "^3.1.1",
-    "terser": "^5.44.1",
-    "vite": "^5.4.19",
-    "vitest": "^1.0.0"
+    "vite": "^5.4.19"
   }
 }

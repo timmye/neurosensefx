@@ -16,7 +16,7 @@ RUN npm install -g pnpm@latest
 COPY package*.json ./
 RUN npm ci
 COPY . .
-EXPOSE 5173
+EXPOSE 5174
 CMD ["npm", "run", "dev"]
 
 # Build stage

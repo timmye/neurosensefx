@@ -23,13 +23,13 @@ class WebSocketServer {
         if (availableSymbols && availableSymbols.length > 0) {
             this.currentAvailableSymbols = availableSymbols;
         }
-        
-        const statusData = { type: 'status', status, availableSymbols: this.currentAvailableSymbols };
+
+        const statusData = { type: 'status', status, availableSymbols: this.currentAvailableSymbols, symbol: 'system' };
         if (message) statusData.message = message;
         this.broadcastToAll(statusData);
 
         if (status === 'connected') {
-            this.broadcastToAll({ type: 'ready', availableSymbols: this.currentAvailableSymbols });
+            this.broadcastToAll({ type: 'ready', availableSymbols: this.currentAvailableSymbols, symbol: 'system' });
         }
     }
 
@@ -44,11 +44,12 @@ class WebSocketServer {
         this.sendToClient(ws, {
             type: 'status',
             status: this.currentBackendStatus,
-            availableSymbols: this.currentAvailableSymbols
+            availableSymbols: this.currentAvailableSymbols,
+            symbol: 'system'
         });
-        
+
         if (this.currentBackendStatus === 'connected') {
-            this.sendToClient(ws, { type: 'ready', availableSymbols: this.currentAvailableSymbols });
+            this.sendToClient(ws, { type: 'ready', availableSymbols: this.currentAvailableSymbols, symbol: 'system' });
         }
     }
 
@@ -79,7 +80,12 @@ class WebSocketServer {
             }
         } catch (error) {
             console.error('Failed to handle message:', error);
-            this.sendToClient(ws, { type: 'error', message: 'Invalid message format.' });
+            this.sendToClient(ws, {
+                type: 'error',
+                message: 'Invalid message format.',
+                symbol: 'system',
+                originalType: data.type || null
+            });
         }
     }
 
@@ -130,7 +136,7 @@ class WebSocketServer {
 
         } catch (error) {
             console.error(`Failed to get data package for ${symbolName}:`, error);
-            this.sendToClient(ws, { type: 'error', message: `Failed to get data for ${symbolName}: ${error.message}` });
+            this.sendToClient(ws, { type: 'error', message: `Failed to get data for ${symbolName}: ${error.message}`, symbol: symbolName });
         }
     }
     

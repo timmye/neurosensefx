@@ -40,7 +40,6 @@ DIM=$'\033[2m'
 # Service configuration - Environment-aware ports
 DEFAULT_DEV_BACKEND_PORT=8080
 DEFAULT_DEV_FRONTEND_PORT=5174
-DEFAULT_DEV_SIMPLE_PORT=5175
 DEFAULT_PROD_BACKEND_PORT=8081
 DEFAULT_PROD_FRONTEND_PORT=4173
 
@@ -371,8 +370,6 @@ create_environment_backup() {
         "$BACKEND_LOG"
         "$FRONTEND_LOG"
         "$ENV_STATUS_FILE"
-        "src/lib/utils/environmentUtils.js"
-        "src/utils/crossEnvironmentCopy.js"
     )
 
     # Add environment-specific storage if localStorage is accessible
@@ -501,7 +498,7 @@ clean_old_backups() {
 snapshot_save() {
     # Validate we have something to save
     if [ ! -d "dist/" ] || [ -z "$(ls -A dist/)" ]; then
-        log_error "No valid build to save. Run 'npm run build:prod' first."
+        log_error "No valid build to save. Run 'npm run build' first."
         return 1
     fi
 
@@ -920,7 +917,6 @@ stop() {
     # Gracefully kill PIDs from parallel mode if they exist
     graceful_kill_from_pid_file ".backend.pid" "backend"
     graceful_kill_from_pid_file ".frontend.pid" "frontend"
-    graceful_kill_from_pid_file ".frontend-simple.pid" "frontend-simple"
 
     # Update environment status
     update_environment_status "backend_running" "false"
@@ -1162,57 +1158,6 @@ check_running_services() {
 }
 
 
-# Crystal Clarity development mode - backend + simple frontend only
-dev-simple() {
-    log_info "🚀 Starting Crystal Clarity Development Environment..."
-    log_info "   Backend: http://localhost:8080"
-    log_info "   Simple Frontend: http://localhost:5175"
-    log_info ""
-
-    # Gracefully clean up existing processes on our ports
-    graceful_kill_on_ports 8080 5175
-
-    # Start backend
-    log_info "🔧 Starting backend..."
-    cd services/tick-backend
-    npm run dev > ../../backend.log 2>&1 &
-    BACKEND_PID=$!
-    cd ../..
-
-    # Wait for backend to be ready
-    sleep 2
-
-    # Start simple frontend
-    log_info "✨ Starting simple frontend..."
-    cd src-simple
-    npm run dev > ../frontend-simple.log 2>&1 &
-    SIMPLE_PID=$!
-    cd ..
-
-    # Save PIDs for cleanup
-    echo "$BACKEND_PID" > .backend.pid
-    echo "$SIMPLE_PID" > .frontend-simple.pid
-
-    sleep 2
-
-    echo ""
-    log_success "✅ Crystal Clarity Development Environment Ready!"
-    echo ""
-    echo "${GREEN}🌐 Simple Frontend:${NC} http://localhost:5175"
-    echo "${GREEN}🔧 Backend:${NC} ws://localhost:8080"
-    echo ""
-    echo "🔥 Hot reload enabled"
-    echo "📝 Logs: backend.log, frontend-simple.log"
-    echo "🛑 Stop with: ./run.sh stop"
-    echo ""
-
-    # Optional: open browser
-    if command -v xdg-open > /dev/null 2>&1; then
-        log_info "Opening browser..."
-        sleep 1
-        xdg-open "http://localhost:5175" &
-    fi
-}
 
 # Backend-only mode - starts just the WebSocket server
 backend() {
@@ -1243,7 +1188,7 @@ backend() {
     echo "📝 Logs: backend.log"
     echo "🛑 Stop with: ./run.sh stop"
     echo ""
-    echo "💡 Use './run.sh dev' or './run.sh dev-simple' to start frontends"
+    echo "💡 Use './run.sh dev' to start the frontend"
     echo ""
 }
 
@@ -1539,7 +1484,7 @@ start() {
     if [ "$env" = "$PRODUCTION_MODE" ]; then
         # Build and serve production version
         log_info "Building production frontend..."
-        nohup npm run build:prod > "$FRONTEND_LOG" 2>&1 &
+        nohup npm run build > "$FRONTEND_LOG" 2>&1 &
         BUILD_PID=$!
         disown $BUILD_PID 2>/dev/null || true
 
@@ -1872,8 +1817,7 @@ usage() {
     echo ""
 
     echo "${BOLD}CORE COMMANDS:${NC}"
-    echo "  ${GREEN}dev${NC}        Start development with original frontend (foreground)"
-    echo "  ${GREEN}dev-simple${NC} Start Crystal Clarity development (simple frontend)"
+    echo "  ${GREEN}dev${NC}        Start development with Crystal Clarity frontend (foreground)"
     echo "  ${GREEN}backend${NC}    Start backend WebSocket server only"
     echo "  ${GREEN}start${NC}      Start all services in background (production mode)"
     echo "  ${RED}stop${NC}         Stop all services immediately"
@@ -1904,8 +1848,7 @@ usage() {
     echo ""
 
     echo "${BOLD}EXAMPLES:${NC}"
-    echo "  ./run.sh dev                           # Start development (original frontend)"
-    echo "  ./run.sh dev-simple                    # Start Crystal Clarity development"
+    echo "  ./run.sh dev                           # Start development (Crystal Clarity frontend)"
     echo "  ./run.sh backend                       # Start backend WebSocket server only"
     echo "  ./run.sh start                         # Start production services"
     echo "  ./run.sh status                        # Check service health"
@@ -1940,10 +1883,7 @@ case "${1:-}" in
     "dev")
         dev "${2:-true}"  # Pass auto-browser flag
         ;;
-    "dev-simple")
-        dev-simple
-        ;;
-    "backend")
+        "backend")
         backend
         ;;
     "start")

@@ -1,8 +1,0 @@
-#!/bin/bash
-
-# LLM Simple Stop Command
-# Just type './stop' to end development
-
-echo "🛑 Stopping Simple Frontend Development..."
-
-exec ./simple-dev.sh stop

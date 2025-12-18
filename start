@@ -1,8 +1,0 @@
-#!/bin/bash
-
-# LLM Simple Start Command
-# Just type './start' to begin development
-
-echo "🚀 Starting Simple Frontend Development..."
-
-exec ./simple-dev.sh start
