@@ -5,10 +5,17 @@ export function createKeyboardHandler(workspaceActions) {
   let escPressCount = 0;
   let escTimer = null;
 
-  function handleCreateDisplay() {
+  function handleCreateDisplay(source = 'ctrader') {
     const symbol = prompt('Enter symbol:');
     if (symbol) {
-      workspaceActions.addDisplay(symbol.replace('/', '').trim().toUpperCase());
+      workspaceActions.addDisplay(symbol.replace('/', '').trim().toUpperCase(), null, source);
+    }
+  }
+
+  function handleCreateTradingViewDisplay() {
+    const symbol = prompt('Enter symbol (TradingView):');
+    if (symbol) {
+      workspaceActions.addDisplay(symbol.replace('/', '').trim().toUpperCase(), null, 'tradingview');
     }
   }
 
@@ -33,10 +40,17 @@ export function createKeyboardHandler(workspaceActions) {
   }
 
   function handleKeydown(event) {
-    // Alt+A: Create display
+    // Alt+A: Create cTrader display
     if (event.altKey && event.key === 'a') {
       event.preventDefault();
-      handleCreateDisplay();
+      handleCreateDisplay('ctrader');
+      return;
+    }
+
+    // Alt+T: Create TradingView display
+    if (event.altKey && event.key === 't') {
+      event.preventDefault();
+      handleCreateTradingViewDisplay();
       return;
     }
 

@@ -13,7 +13,8 @@
   export let display;
   let element, interactable, connectionManager, canvasRef;
   let connectionStatus = 'disconnected', lastData = null, lastMarketProfileData = null;
-    let formattedSymbol = formatSymbol(display.symbol);
+  let formattedSymbol = formatSymbol(display.symbol);
+  let source = display.source || 'ctrader';
   let priceMarkers = [], selectedMarker = null;
   let hoverPrice = null;
   let deltaInfo = null;
@@ -57,7 +58,7 @@
       } catch (error) {
         canvasRef?.renderError(`JSON_PARSE_ERROR: ${error.message}`);
       }
-    });
+    }, 14, source);
     function isConnectionRelated(message) {
       const msg = message.toLowerCase();
       return ['disconnected', 'connecting', 'waiting', 'timeout', 'invalid symbol', 'backend not ready']
@@ -111,6 +112,7 @@
             width: {display.size.width}px; height: {display.size.height}px;">
   <DisplayHeader
     symbol={display.symbol}
+    {source}
     connectionStatus={connectionStatus}
     showMarketProfile={showMarketProfile}
     onClose={handleClose}

@@ -1,45 +1,63 @@
 // Data processing utilities for display components
 // Week 2: Market Profile integration
+// Phase 2: TradingView client integration
+
+// Helper function for pip estimation (client-side)
+function estimatePipPosition(price) {
+  if (price > 1000) return 2;  // Crypto/stocks
+  if (price > 10) return 3;    // JPY pairs
+  return 4;                    // Most forex pairs
+}
+
+function estimatePipSize(price) {
+  if (price > 1000) return 0.01;
+  if (price > 10) return 0.001;
+  return 0.0001;
+}
+
+function getDirection(currentPrice, prevPrice) {
+  if (currentPrice > prevPrice) return 'up';
+  if (currentPrice < prevPrice) return 'down';
+  return 'neutral';
+}
 
 export function processSymbolData(data, formattedSymbol, lastData) {
   if (data.type === 'error') {
     return { type: 'error', message: data.message };
   }
 
+  // Common price reference for pip estimation
+  const priceRef = data.current || data.price || data.bid || data.ask || lastData?.current || 1.0;
+
   const displayData = data.type === 'symbolDataPackage' ? {
-    high: data.todaysHigh || data.projectedAdrHigh || 1.0,
-    low: data.todaysLow || data.projectedAdrLow || 1.0,
-    current: data.bid || data.ask || data.initialPrice || data.todaysOpen || 1.0,
-    open: data.todaysOpen || data.initialPrice || 1.0,
-    adrHigh: data.projectedAdrHigh || (data.todaysHigh || 1.0) * 1.01,
-    adrLow: data.projectedAdrLow || (data.todaysLow || 1.0) * 0.99,
-    // pipPosition integration - preserve pipPosition data from backend
-    pipPosition: data.pipPosition,
-    pipSize: data.pipSize,
+    high: data.high || data.todaysHigh || data.projectedAdrHigh || 1.0,
+    low: data.low || data.todaysLow || data.projectedAdrLow || 1.0,
+    current: data.current || data.price || data.bid || data.ask || data.initialPrice || data.todaysOpen || 1.0,
+    open: data.open || data.todaysOpen || data.initialPrice || 1.0,
+    adrHigh: data.adrHigh || data.projectedAdrHigh || (data.todaysHigh || 1.0) * 1.01,
+    adrLow: data.adrLow || data.projectedAdrLow || (data.todaysLow || 1.0) * 0.99,
+    pipPosition: data.pipPosition ?? estimatePipPosition(data.current || priceRef),
+    pipSize: data.pipSize ?? estimatePipSize(data.current || priceRef),
     pipetteSize: data.pipetteSize,
-    // Initialize previousPrice and direction for first tick
-    previousPrice: data.bid || data.ask || data.initialPrice || data.todaysOpen || 1.0,
+    source: data.source || 'ctrader',
+    previousPrice: data.current || data.price || data.bid || data.ask || data.initialPrice || data.todaysOpen || 1.0,
     direction: 'neutral'
   } : data.type === 'tick' && data.symbol === formattedSymbol ? {
-    high: Math.max(lastData?.high || 0, data.ask || data.bid || 0),
-    low: Math.min(lastData?.low || Infinity, data.bid || data.ask || Infinity),
-    current: data.bid || data.ask || lastData?.current || 1.0,
+    high: Math.max(lastData?.high || 0, data.high || data.ask || data.bid || 0),
+    low: Math.min(lastData?.low || Infinity, data.low || data.bid || data.ask || Infinity),
+    current: data.price || data.bid || data.ask || lastData?.current || 1.0,
     open: lastData?.open || data.bid || data.ask || 1.0,
-    adrHigh: lastData?.adrHigh || (data.bid || data.ask || 1.0) * 1.01,
-    adrLow: lastData?.adrLow || (data.bid || data.ask || 1.0) * 0.99,
-    // pipPosition integration - Crystal Clarity Compliant: No OR operator fallbacks
-    pipPosition: data.pipPosition !== undefined ? data.pipPosition : lastData?.pipPosition,
-    pipSize: data.pipSize !== undefined ? data.pipSize : lastData?.pipSize,
-    pipetteSize: data.pipetteSize !== undefined ? data.pipetteSize : lastData?.pipetteSize,
-    // Track previous price and calculate direction
+    adrHigh: lastData?.adrHigh || (data.price || data.bid || data.ask || 1.0) * 1.01,
+    adrLow: lastData?.adrLow || (data.price || data.bid || data.ask || 1.0) * 0.99,
+    pipPosition: data.pipPosition ?? lastData?.pipPosition ?? estimatePipPosition(priceRef),
+    pipSize: data.pipSize ?? lastData?.pipSize ?? estimatePipSize(priceRef),
+    pipetteSize: data.pipetteSize ?? lastData?.pipetteSize,
+    source: data.source || lastData?.source || 'ctrader',
     previousPrice: lastData?.current || lastData?.previousPrice || 1.0,
-    direction: (() => {
-      const currentPrice = data.bid || data.ask || lastData?.current || 1.0;
-      const prevPrice = lastData?.current || lastData?.previousPrice || 1.0;
-      if (currentPrice > prevPrice) return 'up';
-      if (currentPrice < prevPrice) return 'down';
-      return 'neutral';
-    })()
+    direction: getDirection(
+      data.price || data.bid || data.ask || lastData?.current || 1.0,
+      lastData?.current || lastData?.previousPrice || 1.0
+    )
   } : null;
 
   if (displayData) {

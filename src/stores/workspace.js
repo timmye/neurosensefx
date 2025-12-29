@@ -35,11 +35,11 @@ const updateDisplay = (id, updates, extra = {}) => {
 };
 
 const actions = {
-  addDisplay: (symbol, position = null) => {
+  addDisplay: (symbol, position = null, source = 'ctrader') => {
     workspaceStore.update(state => {
       const id = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const display = {
-        id, symbol, created: Date.now(),
+        id, symbol, source, created: Date.now(),
         position: position || state.config.defaultPosition,
         size: { ...state.config.defaultSize },
         zIndex: state.nextZIndex,

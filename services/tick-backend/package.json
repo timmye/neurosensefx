@@ -23,6 +23,7 @@
         "inquirer": "^8.2.6",
         "moment": "^2.30.1",
         "protobufjs": "^7.2.5",
+        "tradingview-ws": "^0.0.3",
         "winston": "^3.10.0",
         "ws": "^8.14.2",
         "yargs": "^17.7.2"

@@ -3,11 +3,10 @@
   import FloatingDisplay from './FloatingDisplay.svelte';
   import WorkspaceModal from './WorkspaceModal.svelte';
   import { onMount, onDestroy } from 'svelte';
+  import { createKeyboardHandler } from '../lib/keyboardHandler.js';
   import './Workspace.css';
 
   let keyboardHandler;
-  let escPressCount = 0;
-  let escTimer = null;
   let fileInput;
 
   // Export/Import functions using workspace actions
@@ -61,45 +60,20 @@
   }
 
   function handleKeydown(event) {
-    // Alt+A: Create display (Crystal Clarity compliant - single entry point)
-    if (event.altKey && event.key.toLowerCase() === 'a') {
-      event.preventDefault();
-      const symbol = prompt('Enter symbol:');
-      if (symbol) workspaceActions.addDisplay(symbol.replace('/', '').trim().toUpperCase());
-      return;
-    }
-
     // Alt+W: Workspace controls
     if (event.altKey && event.key.toLowerCase() === 'w') {
       event.preventDefault();
       showWorkspaceDialog();
       return;
     }
-
-    // ESC: Progressive escape pattern
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      escPressCount++;
-
-      // Reset timer for progressive pattern
-      clearTimeout(escTimer);
-      escTimer = setTimeout(() => { escPressCount = 0; }, 1000);
-
-      if (escPressCount === 1) {
-        // First ESC: Close overlays/modals
-        document.querySelectorAll('.modal, .overlay, .dropdown').forEach(el => {
-          el.close ? el.close() : el.remove();
-        });
-      } else if (escPressCount === 2) {
-        // Second ESC: Clear display focus
-        document.querySelectorAll('.focused').forEach(el =>
-          el.classList.remove('focused'));
-        escPressCount = 0;
-      }
-    }
+    // Delegate other keyboard shortcuts to keyboardHandler (Alt+A, Alt+T, ESC)
+    keyboardHandler?.handleKeydown(event);
   }
 
   onMount(() => {
+    // Initialize keyboard handler
+    keyboardHandler = createKeyboardHandler(workspaceActions);
+
     // Initialize workspace (no automatic display creation)
     workspacePersistence.loadFromStorage();
     workspacePersistence.saveToStorage();
@@ -111,11 +85,11 @@
       console.log('[WORKSPACE] Workspace focused and ready for keyboard shortcuts');
     }
 
-    console.log('[WORKSPACE] Workspace initialized - use Alt+A to create displays');
+    console.log('[WORKSPACE] Workspace initialized - use Alt+A (cTrader) or Alt+T (TradingView) to create displays');
   });
 
   onDestroy(() => {
-    clearTimeout(escTimer);
+    keyboardHandler?.cleanup();
     console.log('[WORKSPACE] Workspace cleaned up');
   });
 </script>

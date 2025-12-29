@@ -4,6 +4,7 @@ let sharedInstance = null;
 export class ConnectionManager {
   constructor(url) {
     this.url = url; this.ws = null; this.subscriptions = new Map();
+    this.subscriptionAdr = new Map(); // Track ADR for each symbol
     this.reconnectAttempts = 0; this.maxReconnects = 5; this.reconnectDelay = 1000;
     this.status = 'disconnected';
     // Support multiple callbacks instead of single callback
@@ -17,6 +18,11 @@ export class ConnectionManager {
     return sharedInstance;
   }
 
+  // Helper: create source-aware composite key
+  makeKey(symbol, source) {
+    return `${symbol}:${source}`;
+  }
+
   connect() {
     if (this.ws?.readyState === WebSocket.OPEN) return;
     this.ws = new WebSocket(this.url); this.status = 'connecting';
@@ -27,20 +33,17 @@ export class ConnectionManager {
     this.ws.onmessage = (e) => {
       try {
         const d = JSON.parse(e.data);
-        console.log(`[DEBUGGER:ConnectionManager] Received message type: ${d.type}, symbol: ${d.symbol}`);
 
         // Handle system-level messages (status, ready, global errors)
         if (d.type === 'status' || d.type === 'ready' || (d.type === 'error' && d.symbol === 'system')) {
-          console.log(`[DEBUGGER:ConnectionManager] Processing system message: ${d.type}`);
           // Broadcast system messages to all subscriptions
-          this.subscriptions.forEach((callbacks, symbol) => {
+          this.subscriptions.forEach((callbacks, key) => {
             if (callbacks && callbacks.size > 0) {
-              console.log(`[DEBUGGER:ConnectionManager] Broadcasting system message to ${symbol} subscribers (${callbacks.size} callbacks)`);
               callbacks.forEach(callback => {
                 try {
                   callback(d);
                 } catch (error) {
-                  console.error(`[DEBUGGER:ConnectionManager] Callback error for ${symbol}:`, error);
+                  console.error(`Callback error for ${key}:`, error);
                 }
               });
             }
@@ -48,20 +51,17 @@ export class ConnectionManager {
           return;
         }
 
-        console.log(`[DEBUGGER:ConnectionManager] Looking up subscription for symbol: ${d.symbol}`);
-        console.log(`[DEBUGGER:ConnectionManager] Available subscriptions:`, Array.from(this.subscriptions.keys()));
-        const callbacks = this.subscriptions.get(d.symbol);
+        // Use composite key for data messages with source
+        const key = d.source ? this.makeKey(d.symbol, d.source) : d.symbol;
+        const callbacks = this.subscriptions.get(key);
         if (callbacks && callbacks.size > 0) {
-          console.log(`[DEBUGGER:ConnectionManager] Found ${callbacks.size} subscription(s), calling callbacks for ${d.symbol}`);
           callbacks.forEach(callback => {
             try {
               callback(d);
             } catch (error) {
-              console.error(`[DEBUGGER:ConnectionManager] Callback error for ${d.symbol}:`, error);
+              console.error(`Callback error for ${key}:`, error);
             }
           });
-        } else {
-          console.log(`[DEBUGGER:ConnectionManager] No subscription found for symbol: ${d.symbol}`);
         }
       } catch (er) {
         console.error('Message parse error:', er);
@@ -83,52 +83,48 @@ export class ConnectionManager {
     setTimeout(() => { this.reconnectAttempts++; this.connect(); }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
   }
 
-  subscribeAndRequest(symbol, callback, adr = 14) {
-    console.log(`[DEBUGGER:ConnectionManager] subscribeAndRequest called for ${symbol}`);
-
+  subscribeAndRequest(symbol, callback, adr = 14, source = 'ctrader') {
+    const key = this.makeKey(symbol, source);
     // Get existing callbacks or create new Set
-    if (!this.subscriptions.has(symbol)) {
-      this.subscriptions.set(symbol, new Set());
+    if (!this.subscriptions.has(key)) {
+      this.subscriptions.set(key, new Set());
+      // Store ADR for this symbol (only on first subscription)
+      this.subscriptionAdr.set(key, adr);
     }
 
     // Add the new callback
-    const callbacks = this.subscriptions.get(symbol);
+    const callbacks = this.subscriptions.get(key);
     callbacks.add(callback);
 
-    console.log(`[DEBUGGER:ConnectionManager] Subscription stored. ${callbacks.size} callback(s) for ${symbol}. Total subscriptions: ${this.subscriptions.size}`);
-    console.log(`[DEBUGGER:ConnectionManager] WebSocket state: ${this.ws?.readyState} (OPEN=${WebSocket.OPEN})`);
-
     if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log(`[DEBUGGER:ConnectionManager] Sending request for ${symbol}`);
-      this.ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays: adr }));
-    } else {
-      console.log(`[DEBUGGER:ConnectionManager] WebSocket not open, request will be sent on connect`);
+      this.ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays: adr, source }));
     }
 
     return () => {
-      console.log(`[DEBUGGER:ConnectionManager] Unsubscribing one callback from ${symbol}`);
-      const callbacks = this.subscriptions.get(symbol);
+      const callbacks = this.subscriptions.get(key);
       if (callbacks) {
         callbacks.delete(callback);
         if (callbacks.size === 0) {
-          this.subscriptions.delete(symbol);
-          console.log(`[DEBUGGER:ConnectionManager] No more callbacks for ${symbol}, removed subscription`);
+          this.subscriptions.delete(key);
+          this.subscriptionAdr.delete(key);
         }
       }
     };
   }
 
   resubscribeAll() {
-    console.log(`[DEBUGGER:ConnectionManager] resubscribeAll called with ${this.subscriptions.size} subscriptions`);
-    for (const [s] of this.subscriptions) {
-      console.log(`[DEBUGGER:ConnectionManager] Resubscribing to ${s}`);
-      this.ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol: s, adrLookbackDays: 14 }));
+    for (const [key] of this.subscriptions) {
+      const [symbol, source] = key.split(':');
+      const adr = this.subscriptionAdr.get(key) || 14;
+      this.ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays: adr, source }));
     }
   }
 
-  resubscribeSymbol(symbol) {
-    if (this.ws?.readyState === WebSocket.OPEN && this.subscriptions.has(symbol)) {
-      this.ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays: 14 }));
+  resubscribeSymbol(symbol, source) {
+    const key = this.makeKey(symbol, source);
+    if (this.ws?.readyState === WebSocket.OPEN && this.subscriptions.has(key)) {
+      const adr = this.subscriptionAdr.get(key) || 14;
+      this.ws.send(JSON.stringify({ type: 'get_symbol_data_package', symbol, adrLookbackDays: adr, source }));
     }
   }
 
