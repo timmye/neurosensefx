@@ -2,9 +2,11 @@
 
 ## Overview
 
-Add TradingView as a second, independent market data source for the **Day Range Meter**. Traders choose their data source when creating a display via keyboard shortcuts (Alt+A for cTrader, Alt+T for TradingView). Two parallel, non-interacting feeds keep the architecture simple and elegant.
+Add TradingView as a second, independent market data source for the **Day Range Meter** and **Market Profile**. Traders choose their data source when creating a display via keyboard shortcuts (Alt+A for cTrader, Alt+T for TradingView). Two parallel, non-interacting feeds keep the architecture simple and elegant.
 
-**Core Focus:** Day Range Meter visualization using D1 (daily) candles from TradingView.
+**Core Focus:**
+- Day Range Meter visualization using D1 (daily) candles
+- Market Profile using M1 (1-minute) candles
 
 ---
 
@@ -62,7 +64,7 @@ flowchart TB
         end
 
         CS -->|tick events| ROUTER
-        TVS -->|D1 candle events| ROUTER
+        TVS -->|D1 + M1 candle events| ROUTER
     end
 
     subgraph CLIENT["Client Layer"]
@@ -76,6 +78,7 @@ flowchart TB
         DC[DisplayCanvas]
         SB[SourceBadge]
         DRM[Day Range Meter]
+        MP[Market Profile]
     end
 
     ROUTER -->|WebSocket| CM
@@ -84,12 +87,14 @@ flowchart TB
     WS --> FD
     FD --> DC
     DC --> DRM
+    DC --> MP
     DC --> SB
 
     style CTRADER fill:#1a5f3a
     style TV fill:#5f3a1a
     style CLIENT fill:#1a3a5f
     style DRM fill:#3a5f1a
+    style MP fill:#5f3a1a
 ```
 
 **Key Principle: Parallel, non-interacting feeds**
@@ -148,6 +153,60 @@ const adr = average(high - low) for last 14 complete days
 const adrHigh = today's open + (adr / 2)
 const adrLow = today's open - (adr / 2)
 ```
+
+---
+
+## Market Profile Data Requirements
+
+Market Profile requires M1 (1-minute) bars for TPO (Time-Price-Opportunity) calculation. TradingView provides M1 bars with volume for all symbols including FX.
+
+```mermaid
+flowchart LR
+    subgraph REQUIRED["Market Profile Requirements"]
+        R1[M1 bars]
+        R2[OHLCV data]
+        R3[Initial profile]
+    end
+
+    subgraph CTRADER["cTrader Provides"]
+        C1[M1 bars✓]
+        C2[OHLC✓]
+        C3[initialMarketProfile array✓]
+    end
+
+    subgraph TV["TradingView M1 Candle"]
+        T1[M1 bars✓]
+        T2[OHLCV✓]
+        T3[initialMarketProfile array✓]
+    end
+
+    style REQUIRED fill:#1a3a5f
+    style CTRADER fill:#1a5f3a
+    style TV fill:#5f3a1a
+```
+
+**Data Format:**
+```javascript
+// TradingView M1 bars (clean format, no bit manipulation):
+interface M1Bar {
+    time: number      // Unix timestamp
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+}
+
+// Emitted in symbolDataPackage:
+interface TradingViewDataPackage {
+    // ... existing Day Range fields ...
+    initialMarketProfile: M1Bar[]  // Today's M1 bars for TPO calculation
+}
+```
+
+**Subscription:** Single chart session, two series:
+- `sds_1`: D1 timeframe for ADR and Day Range Meter
+- `sds_2`: M1 timeframe for Market Profile
 
 ---
 
@@ -326,7 +385,7 @@ interface Candle {
 }
 ```
 
-### Our Message Format (Day Range Meter)
+### Our Message Format (Day Range Meter + Market Profile)
 
 ```typescript
 // TradingView backend emits (with ADR calculated):
@@ -337,9 +396,19 @@ interface TradingViewDataPackage {
     open: number
     high: number
     low: number
-    current: number      // close price
-    adrHigh: number      // CALCULATED from historical
-    adrLow: number       // CALCULATED from historical
+    current: number              // D1 close price
+    projectedAdrHigh: number     // CALCULATED from historical
+    projectedAdrLow: number      // CALCULATED from historical
+    initialMarketProfile: M1Bar[]  // M1 bars for TPO
+}
+
+interface M1Bar {
+    time: number
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
 }
 
 // Real-time updates:
@@ -459,11 +528,12 @@ flowchart TD
 flowchart LR
     subgraph CTRADER["cTrader (Unchanged)"]
         C1["{type: 'tick', symbol, bid, ask, ...}"]
+        C2["{symbolDataPackage, initialMarketProfile, ...}"]
     end
 
     subgraph TV["TradingView (New)"]
         T1["{type: 'tick', source: 'tradingview', symbol, price, ...}"]
-        T2["{type: 'symbolDataPackage', source: 'tradingview', symbol, open, high, low, current, adrHigh, adrLow}"]
+        T2["{symbolDataPackage, source: 'tradingview', projectedAdrHigh, projectedAdrLow, initialMarketProfile}"]
     end
 
     subgraph REQUEST["Subscribe Request"]
@@ -471,6 +541,7 @@ flowchart LR
     end
 
     R1 --> C1
+    R1 --> C2
     R1 --> T1
     R1 --> T2
 
@@ -524,26 +595,27 @@ flowchart TD
 
 | Aspect | Lines | Complexity | Rationale |
 |--------|-------|------------|-----------|
-| Backend new files | ~110 | Low | Framework-first, includes ADR calc |
+| Backend new files | ~150 | Low | Framework-first, D1 + M1 subscriptions |
 | Backend modifications | ~8 | Trivial | Add router init |
 | Client modifications | ~30 | Low | Keyboard + badge + data handling |
-| **Total** | **~150** | **Low** | Parallel feeds, focused on Day Range |
+| **Total** | **~190** | **Low** | Parallel feeds, Day Range + Market Profile |
 
 **Crystal Clarity Compliance:**
-- Files <120 lines: ✓ (TradingViewSession ~80, DataRouter ~30)
+- Files <120 lines: ✓ (TradingViewSession ~150, requires split for compliance)
 - Functions <15 lines: ✓ (All focused, single-responsibility)
 - Framework-first: ✓ (Native WebSocket, tradingview-ws library)
 - No abstractions: ✓ (Direct library usage, minimal routing)
-- Simple over features: ✓ (Day Range focus only, no bloat)
+- Simple over features: ✓ (Day Range + Market Profile, no bloat)
 
 ---
 
 ## Success Criteria
 
-- [ ] Alt+A creates cTrader Day Range display (green badge)
-- [ ] Alt+T creates TradingView Day Range display (orange badge)
+- [ ] Alt+A creates cTrader display (green badge)
+- [ ] Alt+T creates TradingView display (orange badge)
 - [ ] Day Range Meter displays correctly with TradingView data
-- [ ] ADR (adrHigh/adrLow) calculated and shown accurately
+- [ ] ADR (projectedAdrHigh/projectedAdrLow) calculated and shown accurately
+- [ ] Market Profile displays correctly with TradingView M1 data
 - [ ] Source badge visible on each display
 - [ ] Each display receives data from its source only
 - [ ] No cross-talk or mixing of data sources
@@ -564,9 +636,8 @@ flowchart TD
 - ❌ DivergenceDetector component
 - ❌ Normalization layer
 - ❌ Source preference UI (per-display toggle)
-- ❌ Market Profile from TradingView (Day Range only for POC)
 
-**Philosophy**: The trader chooses their source when creating the Day Range display. Simple and elegant.
+**Philosophy**: The trader chooses their source when creating the display. Simple and elegant.
 
 ---
 
