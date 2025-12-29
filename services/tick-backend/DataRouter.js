@@ -38,8 +38,8 @@ class DataRouter {
             ...(candle.open !== undefined && { open: candle.open }),
             ...(candle.high !== undefined && { high: candle.high }),
             ...(candle.low !== undefined && { low: candle.low }),
-            ...(candle.adrHigh !== undefined && { adrHigh: candle.adrHigh }),
-            ...(candle.adrLow !== undefined && { adrLow: candle.adrLow }),
+            ...(candle.projectedAdrHigh !== undefined && { projectedAdrHigh: candle.projectedAdrHigh }),
+            ...(candle.projectedAdrLow !== undefined && { projectedAdrLow: candle.projectedAdrLow }),
             // CRITICAL: Include pipPosition and pipSize
             ...(candle.pipPosition !== undefined && { pipPosition: candle.pipPosition }),
             ...(candle.pipSize !== undefined && { pipSize: candle.pipSize }),

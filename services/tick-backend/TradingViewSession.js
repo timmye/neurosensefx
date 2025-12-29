@@ -99,8 +99,8 @@ class TradingViewSession extends EventEmitter {
 
         for (const [symbol, data] of this.subscriptions.entries()) {
             if (data.chartSession === chartSession && !data.initialSent) {
-                // Calculate ADR from historical candles and send initial package
-                const adr = this.calculateAdr(data.historicalCandles);
+                // Calculate ADR from historical candles (exactly 14 days, matching cTrader)
+                const adr = this.calculateAdr(data.historicalCandles, data.lookbackDays || 14);
 
                 this.emit('candle', {
                     type: 'symbolDataPackage',
@@ -110,8 +110,8 @@ class TradingViewSession extends EventEmitter {
                     high: data.lastCandle.high,
                     low: data.lastCandle.low,
                     current: data.lastCandle.close,
-                    adrHigh: data.lastCandle.open + (adr / 2),
-                    adrLow: data.lastCandle.open - (adr / 2)
+                    projectedAdrHigh: data.lastCandle.open + (adr / 2),
+                    projectedAdrLow: data.lastCandle.open - (adr / 2)
                 });
 
                 data.initialSent = true;
@@ -149,7 +149,7 @@ class TradingViewSession extends EventEmitter {
         // Store subscription (will populate when series completes)
         this.subscriptions.set(symbol, {
             chartSession,
-            adr: null,
+            lookbackDays,
             lastCandle: null,
             historicalCandles: [],
             initialSent: false
@@ -158,14 +158,17 @@ class TradingViewSession extends EventEmitter {
         console.log(`[TradingView] D1 subscription active for ${symbol}`);
     }
 
-    calculateAdr(candles) {
-        if (candles.length < 3) return 0;
+    calculateAdr(candles, lookbackDays = 14) {
+        if (candles.length < lookbackDays + 1) return 0;
 
-        // Exclude first and last (partial candles) for ADR
-        const completeCandles = candles.slice(1, -1);
-        if (completeCandles.length === 0) return 0;
+        // Exclude only the last candle (today's partial), take exactly lookbackDays
+        // Matches cTrader: slice(Math.max(0, dailyBars.length - 1 - adrLookbackDays), dailyBars.length - 1)
+        const startIndex = Math.max(0, candles.length - 1 - lookbackDays);
+        const adrCandles = candles.slice(startIndex, candles.length - 1);
 
-        const ranges = completeCandles.map(c => c.high - c.low);
+        if (adrCandles.length === 0) return 0;
+
+        const ranges = adrCandles.map(c => c.high - c.low);
         return ranges.reduce((a, b) => a + b, 0) / ranges.length;
     }
 
