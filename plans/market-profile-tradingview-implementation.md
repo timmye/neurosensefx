@@ -4,7 +4,7 @@
 
 Implement M1 (1-minute) candle support for Market Profile visualization in the TradingView data feed. Currently, `TradingViewSession.js` only implements D1 (daily) candles for Day Range Meter, but Market Profile requires M1 bars for TPO (Time-Price-Opportunity) calculation.
 
-**Approach**: Extend the existing single-chart-session pattern to subscribe to both D1 and M1 series within one session, track completion states independently (TradingView API fires `series_completed` per series), accumulate both candle types, and emit a combined `symbolDataPackage` with `initialMarketProfile` when both series complete.
+**Approach**: Single chart session with dual-series subscription (D1 and M1), independent completion tracking (TradingView API fires `series_completed` per series), accumulation of both candle types, and combined `symbolDataPackage` emission with `initialMarketProfile` when both series complete.
 
 **Why not parallel sessions**: Scope doc specifies single session with two series (sds_1: D1, sds_2: M1). Parallel sessions would double connection overhead and add lifecycle management complexity, violating the simplicity principle.
 
@@ -279,6 +279,7 @@ TradingView API
 **Acceptance Criteria**:
 
 - M1 candles from `sds_2` are stored in `m1Candles` array
+- Hard cap of 1500 M1 candles enforced; excess truncated with warning
 - Console log shows M1 candle count when series completes
 - D1 candles continue to accumulate in `historicalCandles` array as before
 
@@ -355,7 +356,18 @@ TradingView API
 +                        close: c.v[4],
 +                        volume: c.v[5]
 +                    }));
-+                    data.m1Candles.push(...parsedM1);
++
++                    // Hard cap prevents unbounded memory growth if API exceeds request
++                    const MAX_M1_CANDLES = 1500;
++                    if (data.m1Candles.length + parsedM1.length > MAX_M1_CANDLES) {
++                        const available = MAX_M1_CANDLES - data.m1Candles.length;
++                        if (available > 0) {
++                            data.m1Candles.push(...parsedM1.slice(0, available));
++                        }
++                        console.warn(`[TradingView] M1 candle limit reached for ${symbol}, truncated to ${MAX_M1_CANDLES}`);
++                    } else {
++                        data.m1Candles.push(...parsedM1);
++                    }
 +                    break;
 +                }
 +            }
@@ -374,8 +386,10 @@ TradingView API
 **Requirements**:
 
 - Modify `handleSeriesCompleted()` to detect which series completed via `params[1]` (series token)
-- Set `d1Complete = true` when `sds_1` (D1) completes
-- Set `m1Complete = true` when `sds_2` (M1) completes
+- Validate candle count > 0 before setting completion flag; emit error if series completed with zero candles
+- Set `d1Complete = true` when `sds_1` (D1) completes with data
+- Set `m1Complete = true` when `sds_2` (M1) completes with data
+- Clear `completionTimeout` when `initialSent = true` (both series complete)
 - Only emit `symbolDataPackage` when BOTH `d1Complete && m1Complete` are true
 - Include `initialMarketProfile` field with `m1Candles` array in emitted package
 
@@ -383,7 +397,9 @@ TradingView API
 
 - `symbolDataPackage` emits only after both D1 and M1 series complete
 - Emitted package contains `initialMarketProfile` array with M1 bars
+- Zero-candle series completion emits error instead of hanging
 - Console log confirms "Both D1 and M1 series complete for {symbol}"
+- `completionTimeout` cleared when data package emitted
 - Frontend receives `initialMarketProfile` in WebSocket message
 
 **Code Changes**:
@@ -423,15 +439,23 @@ TradingView API
 +                // Determine which series completed by checking accumulated data
 +                // D1 complete: historicalCandles populated (14+ days)
 +                // M1 complete: m1Candles populated (~1440 bars for one day)
-+                // Cannot emit until both complete: would send incomplete package missing ADR or TPO data
++                // Validate candle count > 0; empty series indicates API error
 +                if (data.historicalCandles.length > 0 && !data.d1Complete) {
 +                    data.d1Complete = true;
 +                    console.log(`[TradingView] D1 series complete for ${symbol}`);
++                } else if (data.historicalCandles.length === 0 && !data.d1Complete) {
++                    console.error(`[TradingView] D1 series completed with zero candles for ${symbol}`);
++                    this.emit('error', new Error(`D1 series empty for ${symbol}`));
++                    return;
 +                }
 +
 +                if (data.m1Candles.length > 0 && !data.m1Complete) {
 +                    data.m1Complete = true;
 +                    console.log(`[TradingView] M1 series complete for ${symbol} (${data.m1Candles.length} candles)`);
++                } else if (data.m1Candles.length === 0 && !data.m1Complete) {
++                    console.error(`[TradingView] M1 series completed with zero candles for ${symbol}`);
++                    this.emit('error', new Error(`M1 series empty for ${symbol}`));
++                    return;
 +                }
 +
 +                // Both D1 and M1 required before emission
@@ -455,6 +479,13 @@ TradingView API
 +                    });
 +
 +                    data.initialSent = true;
++
++                    // Clear timeout guard; series completed successfully
++                    if (data.completionTimeout) {
++                        clearTimeout(data.completionTimeout);
++                        data.completionTimeout = null;
++                    }
++
 +                    console.log(`[TradingView] Initial data package sent for ${symbol} (includes ${data.m1Candles.length} M1 bars)`);
 +                }
                  break;
@@ -593,3 +624,9 @@ Milestones must execute sequentially due to dependencies:
 - [ ] WebSocket message includes `initialMarketProfile` field
 - [ ] No existing cTrader functionality is broken
 - [ ] Code passes all linters (zero violations)
+
+**Edge Case Testing**:
+- [ ] Timeout recovery: Simulate M1 non-completion, verify timeout fires error after 30 seconds
+- [ ] Empty series handling: Mock `series_completed` with zero candles, verify error raised
+- [ ] Candle limit enforcement: Return 5000 M1 candles, verify truncation to 1500 with warning
+- [ ] Interruption recovery: Disconnect during load, verify clean state cleanup

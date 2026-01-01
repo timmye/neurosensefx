@@ -41,7 +41,8 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     pipetteSize: data.pipetteSize,
     source: data.source || 'ctrader',
     previousPrice: data.current || data.price || data.bid || data.ask || data.initialPrice || data.todaysOpen || 1.0,
-    direction: 'neutral'
+    direction: 'neutral',
+    initialMarketProfile: data.initialMarketProfile || null
   } : data.type === 'tick' && data.symbol === formattedSymbol ? {
     high: Math.max(lastData?.high || 0, data.high || data.ask || data.bid || 0),
     low: Math.min(lastData?.low || Infinity, data.low || data.bid || data.ask || Infinity),
@@ -71,16 +72,19 @@ export function processSymbolData(data, formattedSymbol, lastData) {
 
 
 export function getBucketSizeForSymbol(symbol, symbolData, bucketMode = 'pip') {
-  if (!symbolData?.pipSize) {
-    throw new Error(`Symbol data required for ${symbol}`);
-  }
+  // If pipSize is not available, estimate it from current price
+  const priceRef = symbolData?.current || symbolData?.price || symbolData?.bid || symbolData?.ask || 1.0;
 
   // Return pipSize for 'pip' mode, pipetteSize for 'pipette' mode
-  if (bucketMode === 'pipette' && symbolData.pipetteSize) {
+  if (bucketMode === 'pipette' && symbolData?.pipetteSize) {
     return symbolData.pipetteSize;
   }
+  if (symbolData?.pipSize) {
+    return symbolData.pipSize;
+  }
 
-  return symbolData.pipSize;
+  // Fallback to estimation if pipSize not available (TradingView data)
+  return estimatePipSize(priceRef);
 }
 
 export function getWebSocketUrl() {

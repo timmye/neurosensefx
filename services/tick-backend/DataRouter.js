@@ -44,7 +44,9 @@ class DataRouter {
             ...(candle.pipPosition !== undefined && { pipPosition: candle.pipPosition }),
             ...(candle.pipSize !== undefined && { pipSize: candle.pipSize }),
             // Also include current for symbolDataPackage
-            ...(candle.current !== undefined && { current: candle.current })
+            ...(candle.current !== undefined && { current: candle.current }),
+            // Include initialMarketProfile for Market Profile data
+            ...(candle.initialMarketProfile !== undefined && { initialMarketProfile: candle.initialMarketProfile })
         };
         console.log(`[DataRouter] Broadcasting message:`, JSON.stringify(message));
         this.broadcastToClients(message, candle.symbol, 'tradingview');

@@ -17,18 +17,55 @@ export function buildInitialProfile(m1Bars, bucketSize = 0.00001, symbolData = n
     return [];
   }
 
+  // Calculate adaptive bucket size based on actual price range
+  // Target: ~1000-2000 price levels for entire dataset
+  // This prevents memory overflow for crypto assets (BTCUSD, etc.)
+  const adaptiveBucketSize = calculateAdaptiveBucketSize(m1Bars, bucketSize, symbolData);
+
   const priceMap = new Map();
 
   m1Bars.forEach(bar => {
-    const range = generatePriceLevels(bar.low, bar.high, bucketSize, symbolData);
+    const range = generatePriceLevels(bar.low, bar.high, adaptiveBucketSize, symbolData);
     range.forEach(price => {
       priceMap.set(price, (priceMap.get(price) || 0) + 1);
     });
   });
 
-  return Array.from(priceMap.entries())
+  const profile = Array.from(priceMap.entries())
     .map(([price, tpo]) => ({ price, tpo }))
     .sort((a, b) => a.price - b.price);
+
+  console.log(`[MARKET_PROFILE] Built profile with ${profile.length} levels from ${m1Bars.length} M1 bars (bucket size: ${adaptiveBucketSize})`);
+
+  return profile;
+}
+
+// Calculate adaptive bucket size to prevent memory overflow
+function calculateAdaptiveBucketSize(m1Bars, defaultBucketSize, symbolData) {
+  // Find global price range across all M1 bars
+  let globalLow = Infinity;
+  let globalHigh = -Infinity;
+
+  for (const bar of m1Bars) {
+    if (bar.low < globalLow) globalLow = bar.low;
+    if (bar.high > globalHigh) globalHigh = bar.high;
+  }
+
+  const priceRange = globalHigh - globalLow;
+
+  // Target approximately 1500 price levels for the entire dataset
+  // This provides good granularity without memory issues
+  const targetLevelCount = 1500;
+  const adaptiveBucketSize = priceRange / targetLevelCount;
+
+  // Use the larger of: adaptive size or pip-based minimum
+  // This ensures we don't go below meaningful price increments
+  const minBucketSize = defaultBucketSize;
+  const finalBucketSize = Math.max(adaptiveBucketSize, minBucketSize);
+
+  console.log(`[MARKET_PROFILE] Price range: ${globalLow.toFixed(2)} - ${globalHigh.toFixed(2)} (${priceRange.toFixed(2)}), adaptive bucket: ${finalBucketSize}`);
+
+  return finalBucketSize;
 }
 
 export function updateProfileWithTick(lastProfile, tickData) {
@@ -54,8 +91,9 @@ export function generatePriceLevels(low, high, bucketSize = 0.00001, symbolData 
   const levels = [];
   let currentPrice = Math.floor(low / bucketSize) * bucketSize;
 
-  // Prevent infinite loops and excessive memory usage
-  const maxLevels = 10000;
+  // Safety limit: prevent infinite loops if bucketSize is too small
+  // With adaptive bucket sizing, this should rarely trigger
+  const maxLevels = 5000;
   let levelCount = 0;
 
   while (currentPrice <= high && levelCount < maxLevels) {
@@ -67,7 +105,7 @@ export function generatePriceLevels(low, high, bucketSize = 0.00001, symbolData 
   }
 
   if (levelCount >= maxLevels) {
-    console.warn('[MARKET_PROFILE] Price level generation truncated to prevent memory overflow');
+    console.warn('[MARKET_PROFILE] Price level generation hit safety limit - check bucket size calculation');
   }
 
   return levels;
