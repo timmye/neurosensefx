@@ -175,14 +175,32 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    drawPriceMarker(ctx, 35, startY, `${formattedStartPrice}`, '#FFD700');
-    drawPriceMarker(ctx, 35, currentY, `${formattedCurrentPrice} (${deltaPips})`, '#FFD700');
+    drawPriceMarker(ctx, 35, startY, `${formattedStartPrice}`, '#FFD700', true);
+    drawPriceMarker(ctx, 35, currentY, `${formattedCurrentPrice} (${deltaPips})`, '#FFD700', true);
 
-    ctx.fillStyle = '#FFD700';
+    // Setup font for percentage text
     ctx.font = config.fonts?.statusMessages || '12px monospace';
     ctx.textAlign = 'left';
     const midY = (startY + currentY) / 2;
-    ctx.fillText(`${deltaPercent}%`, 55, midY);
+    const percentText = `${deltaPercent}%`;
+
+    // Draw background for percentage text
+    const textWidth = ctx.measureText(percentText).width;
+    const fontHeight = 12;
+    const padding = 3;
+    const backgroundHeight = fontHeight * 0.7;
+
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
+    ctx.fillRect(
+      55 - padding,
+      midY - backgroundHeight / 2,
+      textWidth + padding * 2,
+      backgroundHeight
+    );
+
+    // Draw percentage text
+    ctx.fillStyle = '#FFD700';
+    ctx.fillText(percentText, 55, midY);
   } catch (error) {
     console.error('[DISPLAY_CANVAS_RENDERER] Error rendering price delta:', error);
   }

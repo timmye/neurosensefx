@@ -49,9 +49,26 @@ export function renderMarketProfile(ctx, data, config) {
     const profileHeight = height - (padding * 2);
 
     // Use EXACT same scaling system as Day Range Meter for trader accuracy
+    // Expand range to include BOTH ADR boundaries AND actual Market Profile prices
     let adaptiveScale, priceScale;
 
-    if (marketData.adrHigh && marketData.adrLow && marketData.current) {
+    // Get actual price range from Market Profile M1 bars
+    const profilePrices = data.map(d => d.price);
+    const profileMinPrice = Math.min(...profilePrices);
+    const profileMaxPrice = Math.max(...profilePrices);
+
+    // Merge ADR range with actual Market Profile price range
+    // This ensures all prices are visible even when today moves beyond ADR
+    const mergedMarketData = {
+      ...marketData,
+      high: Math.max(marketData.high || -Infinity, profileMaxPrice),
+      low: Math.min(marketData.low || Infinity, profileMinPrice),
+      adrHigh: marketData.adrHigh,
+      adrLow: marketData.adrLow,
+      current: marketData.current
+    };
+
+    if (mergedMarketData.adrHigh && mergedMarketData.adrLow && mergedMarketData.current) {
       // Use Day Range Meter's ADR-based scaling (exact same calculations)
       const adaptiveScaleConfig = {
         scaling: {
@@ -60,30 +77,25 @@ export function renderMarketProfile(ctx, data, config) {
         }
       };
 
-      adaptiveScale = calculateAdaptiveScale(marketData, adaptiveScaleConfig);
+      adaptiveScale = calculateAdaptiveScale(mergedMarketData, adaptiveScaleConfig);
 
       // Use EXACT same Day Range Meter price scaling function
       // (baseDayRangeConfig already created above with correct marketData)
       priceScale = createPriceScale(baseDayRangeConfig, adaptiveScale, height);
     } else {
       // Fallback: create synthetic adaptive scale from market profile data only
-      const prices = data.map(d => d.price);
-      const maxPrice = Math.max(...prices);
-      const minPrice = Math.min(...prices);
-
-      // Create adaptive scale object for consistency
-      adaptiveScale = {
-        min: minPrice,
-        max: maxPrice,
-        range: maxPrice - minPrice,
+      const adaptiveScale = {
+        min: profileMinPrice,
+        max: profileMaxPrice,
+        range: profileMaxPrice - profileMinPrice,
         isProgressive: false
       };
 
       // Update baseDayRangeConfig with synthetic market data for fallback
       baseDayRangeConfig.marketData = {
-        high: maxPrice,
-        low: minPrice,
-        current: (maxPrice + minPrice) / 2
+        high: profileMaxPrice,
+        low: profileMinPrice,
+        current: (profileMaxPrice + profileMinPrice) / 2
       };
       priceScale = createPriceScale(baseDayRangeConfig, adaptiveScale, height);
     }

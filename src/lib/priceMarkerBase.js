@@ -109,7 +109,8 @@ export function getSymbolDataWithDefaults(symbolData) {
 // Supports both market data and symbol data structures for flexibility
 export function formatPriceForDisplay(price, dataOrSymbolData) {
   // Try pipPosition from market data first, then from symbol data
-  const pipPosition = dataOrSymbolData?.pipPosition || dataOrSymbolData?.marketData?.pipPosition;
+  // Use ?? instead of || because pipPosition=0 is valid for crypto
+  const pipPosition = dataOrSymbolData?.pipPosition ?? dataOrSymbolData?.marketData?.pipPosition;
   return formatPriceWithPipPosition(price, pipPosition);
 }
 

@@ -4,14 +4,16 @@
 
 // Helper function for pip estimation (client-side)
 function estimatePipPosition(price) {
-  if (price > 1000) return 2;  // Crypto/stocks
-  if (price > 10) return 3;    // JPY pairs
-  return 4;                    // Most forex pairs
+  if (price > 10000) return 0;  // Crypto/stocks - whole numbers
+  if (price > 1000) return 1;   // Gold (XAUUSD)
+  if (price > 10) return 2;     // JPY pairs
+  return 4;                     // Most forex pairs
 }
 
 function estimatePipSize(price) {
-  if (price > 1000) return 0.01;
-  if (price > 10) return 0.001;
+  if (price > 10000) return 1;    // Crypto/stocks - whole numbers
+  if (price > 1000) return 0.1;   // Gold (XAUUSD)
+  if (price > 10) return 0.01;    // JPY pairs
   return 0.0001;
 }
 

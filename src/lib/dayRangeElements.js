@@ -74,7 +74,7 @@ function renderPriceMarker(ctx, item, axisX, priceScale, symbolData) {
   drawPriceMarker(ctx, axisX, y, label, item.color);
 }
 
-export function drawPriceMarker(ctx, x, y, label, color) {
+export function drawPriceMarker(ctx, x, y, label, color, showBackground = false) {
   // Draw marker line
   ctx.strokeStyle = color;
   ctx.lineWidth = LINE_WIDTHS.priceMarker;
@@ -83,9 +83,27 @@ export function drawPriceMarker(ctx, x, y, label, color) {
   ctx.lineTo(x + 12, y);
   ctx.stroke();
 
+  // Draw background if enabled
+  if (showBackground) {
+    ctx.font = `${FONT_SIZES.price}px monospace`;
+    const textWidth = ctx.measureText(label).width;
+    const fontHeight = 12;
+    const padding = 3;
+    const backgroundHeight = fontHeight * 0.7;
+
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
+    ctx.fillRect(
+      x + 15 - padding,
+      y - backgroundHeight / 2,
+      textWidth + padding * 2,
+      backgroundHeight
+    );
+  }
+
   // Draw label
   ctx.fillStyle = color;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
+  ctx.font = `${FONT_SIZES.price}px monospace`;
   ctx.fillText(label, x + 15, y);
 }
