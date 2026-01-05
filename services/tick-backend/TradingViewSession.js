@@ -206,16 +206,20 @@ class TradingViewSession extends EventEmitter {
 
         console.log(`[TradingView] Filtered M1 candles for ${symbol}: ${data.m1Candles.length} total → ${todaysM1Candles.length} from today (UTC)`);
 
+        // Use today's actual open from M1 bars (matching cTrader behavior)
+        // Falls back to last D1 close if no M1 bars today yet
+        const todaysOpen = todaysM1Candles.length > 0 ? todaysM1Candles[0].open : data.lastCandle.close;
+
         this.emit('candle', {
             type: 'symbolDataPackage',
             source: 'tradingview',
             symbol,
-            open: data.lastCandle.open,
+            open: todaysOpen,  // Today's actual open (matching cTrader)
             high: data.lastCandle.high,
             low: data.lastCandle.low,
             current: data.lastCandle.close,
-            projectedAdrHigh: data.lastCandle.open + (adr / 2),
-            projectedAdrLow: data.lastCandle.open - (adr / 2),
+            projectedAdrHigh: todaysOpen + (adr / 2),  // Centered on today's open
+            projectedAdrLow: todaysOpen - (adr / 2),
             initialMarketProfile: todaysM1Candles  // Only today's M1 bars for TPO calculation
         });
 
