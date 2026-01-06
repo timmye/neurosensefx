@@ -76,6 +76,9 @@ export class ConnectionManager {
 
   handleClose() {
     this.status = 'disconnected'; this.notifyStatusChange();
+    // Clear stale subscriptions to prevent memory leak on reconnect
+    this.subscriptions.clear();
+    this.subscriptionAdr.clear();
     if (this.reconnectAttempts < this.maxReconnects) this.scheduleReconnect();
   }
 

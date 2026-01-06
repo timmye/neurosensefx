@@ -19,11 +19,37 @@
   let hoverPrice = null;
   let deltaInfo = null;
   let freshnessCheckInterval;
+  let unsubscribe = null; // Store unsubscribe for hard refresh
+  let dataCallback = null; // Store callback for re-subscription
   $: currentDisplay = $workspaceStore.displays.get(display.id);
   $: showMarketProfile = currentDisplay?.showMarketProfile || false;
   $: selectedMarker = currentDisplay?.selectedMarker || null;
   onMount(() => {
   connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
+    // Define data callback for reuse in refresh
+    dataCallback = (data) => {
+      try {
+        const result = processSymbolData(data, formattedSymbol, lastData);
+        if (result?.type === 'data') {
+          lastData = result.data;
+        } else if (result?.type === 'error' && !isConnectionRelated(result.message)) {
+          canvasRef?.renderError(`BACKEND_ERROR: ${result.message}`);
+        }
+        if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
+          const bucketSize = getBucketSizeForSymbol(formattedSymbol, data, marketProfileConfig.bucketMode);
+          lastMarketProfileData = buildInitialProfile(data.initialMarketProfile, bucketSize, data);
+        } else if (data.type === 'tick' && lastMarketProfileData) {
+          lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data);
+        }
+      } catch (error) {
+        canvasRef?.renderError(`JSON_PARSE_ERROR: ${error.message}`);
+      }
+    };
+    function isConnectionRelated(message) {
+      const msg = message.toLowerCase();
+      return ['disconnected', 'connecting', 'waiting', 'timeout', 'invalid symbol', 'backend not ready']
+        .some(term => msg.includes(term));
+    }
     interactable = interact(element)
       .draggable({
         onmove: (e) => workspaceActions.updatePosition(display.id, {x: e.rect.left, y: e.rect.top})
@@ -41,29 +67,7 @@
       })
       .on('tap', () => workspaceActions.bringToFront(display.id));
     connectionManager.connect();
-    const unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, (data) => {
-      try {
-        const result = processSymbolData(data, formattedSymbol, lastData);
-        if (result?.type === 'data') {
-          lastData = result.data;
-        } else if (result?.type === 'error' && !isConnectionRelated(result.message)) {
-          canvasRef?.renderError(`BACKEND_ERROR: ${result.message}`);
-        }
-        if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
-          const bucketSize = getBucketSizeForSymbol(formattedSymbol, data, marketProfileConfig.bucketMode);
-          lastMarketProfileData = buildInitialProfile(data.initialMarketProfile, bucketSize, data);
-        } else if (data.type === 'tick' && lastMarketProfileData) {
-          lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data);
-        }
-      } catch (error) {
-        canvasRef?.renderError(`JSON_PARSE_ERROR: ${error.message}`);
-      }
-    }, 14, source);
-    function isConnectionRelated(message) {
-      const msg = message.toLowerCase();
-      return ['disconnected', 'connecting', 'waiting', 'timeout', 'invalid symbol', 'backend not ready']
-        .some(term => msg.includes(term));
-    }
+    unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, dataCallback, 14, source);
     const unsubscribeStatus = connectionManager.addStatusCallback(() => {
       connectionStatus = connectionManager.status;
     });
@@ -73,6 +77,8 @@
       if (unsubscribe) unsubscribe();
       if (unsubscribeStatus) unsubscribeStatus();
       if (freshnessCheckInterval) clearInterval(freshnessCheckInterval);
+      unsubscribe = null;
+      dataCallback = null;
     };
   });
   onDestroy(() => {
@@ -82,12 +88,24 @@
   function handleClose() { workspaceActions.removeDisplay(display.id); }
   function handleFocus() { workspaceActions.bringToFront(display.id); }
   function handleRefresh() {
-    if (canvasRef?.refreshCanvas) canvasRef.refreshCanvas();
-    if (connectionStatus === 'connected') {
-      connectionManager.resubscribeSymbol(formattedSymbol);
-    } else if (connectionStatus === 'disconnected') {
-      refreshConnection();
+    if (connectionManager && dataCallback) {
+      // Unsubscribe from current (clears callback from Set)
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+
+      // Clear existing data to force reload
+      lastData = null;
+      lastMarketProfileData = null;
+
+      // Force fresh subscription regardless of connection state
+      // subscribeAndRequest will queue request if not OPEN, and resubscribeAll() will replay on open
+      unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, dataCallback, 14, source);
     }
+
+    // Refresh canvas
+    if (canvasRef?.refreshCanvas) canvasRef.refreshCanvas();
   }
   function checkDataFreshness() {
     if (connectionStatus === 'disconnected') refreshConnection();
