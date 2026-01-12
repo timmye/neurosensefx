@@ -80,7 +80,7 @@ export function renderUserPriceMarkers(ctx, config, axisX, priceScale, markers, 
   if (!markers || markers.length === 0) return;
 
   const dpr = window.devicePixelRatio || 1;
-  const markerLength = 12 / dpr;
+  const markerLength = 24 / dpr;
 
   markers.forEach(marker => {
     const markerY = priceScale(marker.price);

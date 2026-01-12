@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --port 4173",
     "lint": "eslint .",
+    "test": "npx playwright test",
     "start": "./run.sh start",
     "stop": "./run.sh stop",
     "status": "./run.sh status",
@@ -20,6 +21,7 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.1",
     "eslint": "^8.56.0",
     "eslint-plugin-svelte": "^2.35.1",

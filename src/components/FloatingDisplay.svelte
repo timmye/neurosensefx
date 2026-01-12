@@ -52,6 +52,12 @@
     }
     interactable = interact(element)
       .draggable({
+        modifiers: [
+          interact.modifiers.snap({
+            targets: [interact.snappers.grid({ x: 10, y: 10, range: 15 })],
+            relativePoints: [{ x: 0, y: 0 }]
+          })
+        ],
         onmove: (e) => workspaceActions.updatePosition(display.id, {x: e.rect.left, y: e.rect.top})
       })
       .resizable({
@@ -62,7 +68,16 @@
             height: event.rect.height
           });
         }},
-        modifiers: [interact.modifiers.restrictSize({ min: { width: 150, height: 80 } })],
+        modifiers: [
+          interact.modifiers.restrictSize({ min: { width: 150, height: 80 } }),
+          interact.modifiers.snapSize({
+            targets: [
+              { height: 174, range: 15 },
+              { height: 350, range: 15 },
+              interact.snappers.grid({ width: 10, height: 10 })
+            ]
+          })
+        ],
         inertia: true
       })
       .on('tap', () => workspaceActions.bringToFront(display.id));

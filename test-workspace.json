@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2026-01-06T00:00:00.000Z",
+  "workspace": {
+    "displays": [
+      ["display-1", {"id": "display-1", "symbol": "AUDUSD", "source": "ctrader", "created": 1736092800000, "position": {"x": 50, "y": 50}, "size": {"width": 220, "height": 350}, "zIndex": 1, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-2", {"id": "display-2", "symbol": "ETHUSD", "source": "tradingview", "created": 1736092800000, "position": {"x": 300, "y": 50}, "size": {"width": 220, "height": 350}, "zIndex": 2, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-3", {"id": "display-3", "symbol": "BTCUSD", "source": "tradingview", "created": 1736092800000, "position": {"x": 550, "y": 50}, "size": {"width": 220, "height": 350}, "zIndex": 3, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-4", {"id": "display-4", "symbol": "USDJPY", "source": "ctrader", "created": 1736092800000, "position": {"x": 800, "y": 50}, "size": {"width": 220, "height": 350}, "zIndex": 4, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-5", {"id": "display-5", "symbol": "EURUSD", "source": "ctrader", "created": 1736092800000, "position": {"x": 50, "y": 450}, "size": {"width": 220, "height": 350}, "zIndex": 5, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-6", {"id": "display-6", "symbol": "XAUUSD", "source": "ctrader", "created": 1736092800000, "position": {"x": 300, "y": 450}, "size": {"width": 220, "height": 350}, "zIndex": 6, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-7", {"id": "display-7", "symbol": "WTI", "source": "ctrader", "created": 1736092800000, "position": {"x": 550, "y": 450}, "size": {"width": 220, "height": 350}, "zIndex": 7, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-8", {"id": "display-8", "symbol": "USDCHF", "source": "ctrader", "created": 1736092800000, "position": {"x": 800, "y": 450}, "size": {"width": 220, "height": 350}, "zIndex": 8, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-9", {"id": "display-9", "symbol": "GBPUSD", "source": "ctrader", "created": 1736092800000, "position": {"x": 50, "y": 850}, "size": {"width": 220, "height": 350}, "zIndex": 9, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-10", {"id": "display-10", "symbol": "DX.F", "source": "ctrader", "created": 1736092800000, "position": {"x": 300, "y": 850}, "size": {"width": 220, "height": 350}, "zIndex": 10, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}],
+      ["display-11", {"id": "display-11", "symbol": "NAS100", "source": "ctrader", "created": 1736092800000, "position": {"x": 550, "y": 850}, "size": {"width": 220, "height": 350}, "zIndex": 11, "showMarketProfile": true, "showHeader": false, "priceMarkers": []}]
+    ],
+    "nextZIndex": 12
+  },
+  "priceMarkers": {}
+}

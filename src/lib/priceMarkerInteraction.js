@@ -70,7 +70,7 @@ export class PriceMarkerInteraction {
       const pipSize = this.data?.pipSize || 0.0001;
       const pipPosition = this.data?.pipPosition;
       const roundedPrice = formatPriceToPipLevel(price, pipPosition, pipSize);
-      const marker = createMarker('normal', roundedPrice, this.displayId);
+      const marker = createMarker('small', roundedPrice, this.displayId);
       if (marker) {
         workspaceActions.addPriceMarker(this.displayId, marker);
       }

@@ -3,13 +3,13 @@
 export const MARKER_TYPES = {
   BIG: {
     name: 'big',
-    color: '#ff6b35',
+    color: '#fd4400',
     size: 4,
     opacity: 1
   },
   NORMAL: {
     name: 'normal',
-    color: '#ffffff',
+    color: '#f7fa37',
     size: 2,
     opacity: 1
   },
@@ -17,7 +17,7 @@ export const MARKER_TYPES = {
     name: 'small',
     color: '#ffffff',
     size: 2,
-    opacity: 0.5
+    opacity: 1
   }
 };
 

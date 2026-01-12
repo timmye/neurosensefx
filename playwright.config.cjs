@@ -5,7 +5,7 @@ const { defineConfig, devices } = require('@playwright/test');
  * Tests the Crystal Clarity implementation with real browser automation
  */
 module.exports = defineConfig({
-  testDir: './tests',
+  testDir: './src/tests',
 
   // Run tests in files in parallel
   fullyParallel: true,

@@ -7,8 +7,8 @@ export const defaultConfig = {
     axisPrimary: '#4B5563',
     axisReference: '#f66a51ff',
     currentPrice: '#6B7280',
-    priceUp: '#4a9eff', //4a9eff
-    priceDown: '#8f6ce0ff  ', //8f6ce0ff
+    priceUp: '#cde0f6ff', //4a9eff
+    priceDown: '#4a9eff  ', //8f6ce0ff
     sessionPrices: '#f69051ff',
     openPrice: '#6B7280',
     adrRange: 'rgba(224, 224, 224, 0.3)',

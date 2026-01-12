@@ -35,6 +35,15 @@ npm run preview
 ```
 The production build will be available at http://localhost:4173
 
+### Testing
+```bash
+npm test                      # Run all E2E tests
+npx playwright test --ui      # Run tests with Playwright UI
+npx playwright test --headed  # Run tests in headed browser mode
+```
+
+Tests cover the complete application workflow including display creation, interaction, persistence, and keyboard shortcuts. See `src/tests/e2e/comprehensive-llm-workflow.spec.js` for details.
+
 ## Environment Variables
 
 Create a `.env` file based on `.env.example`:

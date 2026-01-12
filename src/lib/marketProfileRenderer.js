@@ -141,11 +141,13 @@ export function renderMarketProfile(ctx, data, config) {
     // Render POC line using Day Range Meter pixel-perfect rendering
     if (poc) {
       const pocY = priceScale(poc.price);
-      renderPixelPerfectLine(ctx, marketProfileStartX, pocY, width, pocY, {
-        color: '#ff8c4a',
-        width: 2,
-        dashPattern: [5, 3]
-      });
+      ctx.save();
+      ctx.strokeStyle = '#ff8c4a';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      renderPixelPerfectLine(ctx, marketProfileStartX, pocY, width, pocY);
+      ctx.setLineDash([]);
+      ctx.restore();
 
       // // POC label using Day Range Meter standard text rendering
       // setupTextRendering(ctx, { font: '10px monospace', fill: '#4a9eff' });
