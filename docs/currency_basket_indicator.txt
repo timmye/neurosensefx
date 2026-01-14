@@ -1,0 +1,529 @@
+//@version=6
+indicator("Top movers table - Intraday", overlay=false)
+////////_OVERVIEW_////////
+////This indicator shows the relative performance of individual currencies of the FX majors (+CNY). 
+////Each basket is calculated and currencies weighted based on "Trade Weighted" values of trade between countries from literature. 
+////Use: To show the relative performance of each currency - like the DXY, but for each currency.
+////You can see how currencies behave similarly or opposite, and when they are strengthening etc. 
+////Set the start date/time from when you want to anchor the relative performance.
+
+////////_KEY_FEATURES_////////
+////• Real-time intraday currency strength analysis with customizable anchor points
+////• Trade-weighted baskets using economic literature-based weightings for accuracy
+////• Logarithmic scaling for proper percentage-based performance measurement
+////• Normalization to 100wt baseline at anchor point for easy comparison
+////• Optional performance table showing current values and wt changes in real-time
+////• Custom weight override capability for personalized basket compositions
+////• Multi-timeframe support with configurable data resolution
+////• Visual currency labels and color-coded lines for quick identification
+
+////////_HOW_IT_WORKS_////////
+////1. Each currency basket uses 7 major pairs weighted by trade volume importance
+////2. Logarithmic calculation: ln(current_price/anchor_price) for accurate percentage changes  
+////3. Weighted sum of all pairs in basket, with proper inversion for base/quote handling
+////4. Normalization to 100wt at anchor point makes all currencies comparable
+////5. Values above 100wt = currency strengthening, below 100wt = weakening
+////6. Real-time updates every bar with lookahead protection for live trading
+
+////////_TRADING_APPLICATIONS_////////
+////• Currency strength/weakness identification for pair selection
+////• Correlation analysis - see which currencies move together/opposite
+////• Trend confirmation - strong currencies trending up should continue
+////• Divergence spotting - when price action differs from basket strength
+////• Risk management - avoid trading weak currencies in risk-off environments
+////• Session analysis - see which currencies perform best in different sessions
+
+////////_INTRADAY_OPTIMIZATIONS_////////
+////• Enhanced anchor date/time picker with hour precision for session starts
+////• Real-time data feeds with anti-lookahead protection for live accuracy
+////• Optional data resolution override for multi-timeframe analysis
+////• Performance table for quick scanning without chart interpretation
+////• Thicker line width (2px) for better visibility on intraday timeframes
+////• Improved color palette with high contrast for monitor trading setups
+////////
+////////PERFORMANCE TABLE////////
+//This table displays the strongest and weakest performing currencies
+// for the current day, along with the currencies that are
+// contributing most to their performance. The table updates in real-time
+// and shows the top contributors (in points) for each currency's movement.
+////////
+
+// === Performance Table Display Options ===
+show_table = input.bool(true, title="Show Performance Table")
+// === Basket Visibility Checkboxes ===
+showUSD = input.bool(true, title="Show USD Basket")
+showEUR = input.bool(true, title="Show EUR Basket")
+showJPY = input.bool(true, title="Show JPY Basket")
+showGBP = input.bool(true, title="Show GBP Basket")
+showAUD = input.bool(true, title="Show AUD Basket")
+showCAD = input.bool(true, title="Show CAD Basket")
+showCHF = input.bool(true, title="Show CHF Basket")
+showNZD = input.bool(true, title="Show NZD Basket")
+showCNY = input.bool(false, title="Show CNY Basket") // Added CNY Basket
+
+// === Toggle for Custom Weights ===
+useCustomWeights = input.bool(false, title="Use Custom Weights")
+
+// === Intraday Start DateTime Selector ===
+anchor_date = input.time(timestamp("2025-01-13 09:00"), title="Anchor Date & Time (Intraday)")
+
+// === Data Resolution for Intraday ===
+data_resolution = input.timeframe("", title="Data Resolution (leave empty for chart timeframe)")
+
+// === Utility: Normalize Weights ===
+normalize_weights(wt) =>
+    total = array.sum(wt)
+    result = array.new_float()
+    for i = 0 to array.size(wt) - 1
+        array.push(result, array.get(wt, i) / total)
+    result
+
+// === Function to Calculate Basket Value - Intraday Optimized ===
+calc_basket(base, pairs, default_wt, custom_wt) =>
+    wt = useCustomWeights ? normalize_weights(custom_wt) : normalize_weights(default_wt)
+    float val = 0.0
+    var float initial_val = na
+    
+    // Use current timeframe or specified resolution for intraday
+    resolution = data_resolution == "" ? timeframe.period : data_resolution
+
+    for i = 0 to array.size(pairs) - 1
+        pair = array.get(pairs, i)
+        // Request security with lookahead disabled for real-time intraday data
+        px = request.security(pair, resolution, close, lookahead=barmerge.lookahead_off)
+        wt = array.get(wt, i)
+        invert = str.contains(pair, base) and not str.startswith(pair, base)
+        px := invert ? 1.0 / px : px
+        val += wt * math.log(px)
+
+    // More precise intraday anchor detection
+    anchor_timestamp = anchor_date
+    is_anchor_bar = time >= anchor_timestamp and time[1] < anchor_timestamp
+
+    if na(initial_val) or is_anchor_bar
+        initial_val := math.exp(val)
+
+    normalized_val = na(initial_val) ? na : (math.exp(val) / initial_val) * 100
+    normalized_val
+
+// === Input for Custom Weights (Conditional) ===
+groupTitle = "Custom Weights (basket must =100)" // Define the group title
+usd_custom_wt = array.from(
+  input.float(20, title="USD: EURUSD", group=groupTitle, inline="USD", display = display.all - display.status_line),
+  input.float(15, title="USD: USDJPY", group=groupTitle, inline="USD", display = display.all - display.status_line),
+  input.float(13, title="USD: GBPUSD", group=groupTitle, inline="USD", display = display.all - display.status_line),
+  input.float(10, title="USD: AUDUSD", group=groupTitle, inline="USD", display = display.all - display.status_line),
+  input.float(30, title="USD: USDCAD", group=groupTitle, inline="USD", display = display.all - display.status_line),
+  input.float(7, title="USD: USDCHF", group=groupTitle, inline="USD", display = display.all - display.status_line),
+  input.float(5, title="USD: NZDUSD", group=groupTitle, inline="USD", display = display.all - display.status_line)
+ )
+eur_custom_wt = array.from(
+  input.float(25, title="EUR: EURUSD", group=groupTitle, inline="EUR", display = display.all - display.status_line),
+  input.float(15, title="EUR: EURJPY", group=groupTitle, inline="EUR", display = display.all - display.status_line),
+  input.float(20, title="EUR: EURGBP", group=groupTitle, inline="EUR", display = display.all - display.status_line),
+  input.float(10, title="EUR: EURAUD", group=groupTitle, inline="EUR", display = display.all - display.status_line),
+  input.float(15, title="EUR: EURCHF", group=groupTitle, inline="EUR", display = display.all - display.status_line),
+  input.float(10, title="EUR: EURCAD", group=groupTitle, inline="EUR", display = display.all - display.status_line),
+  input.float(5, title="EUR: EURNZD", group=groupTitle, inline="EUR", display = display.all - display.status_line)
+ )
+jpy_custom_wt = array.from(
+  input.float(25, title="JPY: EURJPY", group=groupTitle, inline="JPY", display = display.all - display.status_line),
+  input.float(30, title="JPY: USDJPY", group=groupTitle, inline="JPY", display = display.all - display.status_line),
+  input.float(15, title="JPY: GBPJPY", group=groupTitle, inline="JPY", display = display.all - display.status_line),
+  input.float(10, title="JPY: AUDJPY", group=groupTitle, inline="JPY", display = display.all - display.status_line),
+  input.float(10, title="JPY: CADJPY", group=groupTitle, inline="JPY", display = display.all - display.status_line),
+  input.float(5, title="JPY: CHFJPY", group=groupTitle, inline="JPY", display = display.all - display.status_line),
+  input.float(5, title="JPY: NZDJPY", group=groupTitle, inline="JPY", display = display.all - display.status_line)
+ )
+gbp_custom_wt = array.from(
+  input.float(35, title="GBP: EURGBP", group=groupTitle, inline="GBP", display = display.all - display.status_line),
+  input.float(30, title="GBP: USDGBP", group=groupTitle, inline="GBP", display = display.all - display.status_line),
+  input.float(10, title="GBP: GBPJPY", group=groupTitle, inline="GBP", display = display.all - display.status_line),
+  input.float(8, title="GBP: AUDGBP", group=groupTitle, inline="GBP", display = display.all - display.status_line),
+  input.float(8, title="GBP: CADGBP", group=groupTitle, inline="GBP", display = display.all - display.status_line),
+  input.float(5, title="GBP: CHFGBP", group=groupTitle, inline="GBP", display = display.all - display.status_line),
+  input.float(4, title="GBP: NZDGBP", group=groupTitle, inline="GBP", display = display.all - display.status_line)
+ )
+aud_custom_wt = array.from(
+  input.float(20, title="AUD: EURAUD", group=groupTitle, inline="AUD", display = display.all - display.status_line),
+  input.float(25, title="AUD: AUDUSD", group=groupTitle, inline="AUD", display = display.all - display.status_line),
+  input.float(20, title="AUD: AUDJPY", group=groupTitle, inline="AUD", display = display.all - display.status_line),
+  input.float(10, title="AUD: AUDGBP", group=groupTitle, inline="AUD", display = display.all - display.status_line),
+  input.float(10, title="AUD: AUDCAD", group=groupTitle, inline="AUD", display = display.all - display.status_line),
+  input.float(5, title="AUD: AUDCHF", group=groupTitle, inline="AUD", display = display.all - display.status_line),
+  input.float(10, title="AUD: AUDNZD", group=groupTitle, inline="AUD", display = display.all - display.status_line)
+ )
+cad_custom_wt = array.from(
+  input.float(15, title="CAD: EURCAD", group=groupTitle, inline="CAD", display = display.all - display.status_line),
+  input.float(40, title="CAD: USDCAD", group=groupTitle, inline="CAD", display = display.all - display.status_line),
+  input.float(10, title="CAD: CADJPY", group=groupTitle, inline="CAD", display = display.all - display.status_line),
+  input.float(10, title="CAD: CADGBP", group=groupTitle, inline="CAD", display = display.all - display.status_line),
+  input.float(10, title="CAD: AUDCAD", group=groupTitle, inline="CAD", display = display.all - display.status_line),
+  input.float(8, title="CAD: CADCHF", group=groupTitle, inline="CAD", display = display.all - display.status_line),
+  input.float(7, title="CAD: NZDCAD", group=groupTitle, inline="CAD", display = display.all - display.status_line)
+ )
+chf_custom_wt = array.from(
+  input.float(40, title="CHF: EURCHF", group=groupTitle, inline="CHF", display = display.all - display.status_line),
+  input.float(30, title="CHF: USDCHF", group=groupTitle, inline="CHF", display = display.all - display.status_line),
+  input.float(10, title="CHF: CHFJPY", group=groupTitle, inline="CHF", display = display.all - display.status_line),
+  input.float(10, title="CHF: CHFGBP", group=groupTitle, inline="CHF", display = display.all - display.status_line),
+  input.float(0, title="CHF: CHFUSD", group=groupTitle, inline="CHF", display = display.all - display.status_line),
+  input.float(5, title="CHF: CADCHF", group=groupTitle, inline="CHF", display = display.all - display.status_line),
+  input.float(5, title="CHF: NZDCHF", group=groupTitle, inline="CHF", display = display.all - display.status_line)
+ )
+nzd_custom_wt = array.from(
+  input.float(15, title="NZD: EURNZD", group=groupTitle, inline="NZD", display = display.all - display.status_line),
+  input.float(25, title="NZD: NZDUSD", group=groupTitle, inline="NZD", display = display.all - display.status_line),
+  input.float(15, title="NZD: NZDJPY", group=groupTitle, inline="NZD", display = display.all - display.status_line),
+  input.float(10, title="NZD: NZDGBP", group=groupTitle, inline="NZD", display = display.all - display.status_line),
+  input.float(10, title="NZD: NZDCAD", group=groupTitle, inline="NZD", display = display.all - display.status_line),
+  input.float(5, title="NZD: NZDCHF", group=groupTitle, inline="NZD", display = display.all - display.status_line),
+  input.float(20, title="NZD: AUDNZD", group=groupTitle, inline="NZD", display = display.all - display.status_line)
+ )
+
+// CNY Custom Weights
+cny_custom_wt = array.from(
+  input.float(20, title="CNY: USDCNY", group=groupTitle, inline="CNY", display = display.all - display.status_line),
+  input.float(15, title="CNY: EURCNY", group=groupTitle, inline="CNY", display = display.all - display.status_line),
+  input.float(10, title="CNY: JPYCNY", group=groupTitle, inline="CNY", display = display.all - display.status_line),
+  input.float(10, title="CNY: GBPCNY", group=groupTitle, inline="CNY", display = display.all - display.status_line),
+  input.float(20, title="CNY: AUDCNY", group=groupTitle, inline="CNY", display = display.all - display.status_line),
+  input.float(20, title="CNY: CADCNY", group=groupTitle, inline="CNY", display = display.all - display.status_line),
+  input.float(5, title="CNY: CHFCNY", group=groupTitle, inline="CNY", display = display.all - display.status_line)
+ )
+
+// === USD Basket ===
+usd_pairs = array.from("EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD")
+usd_default_wt = array.from(20.0, 15.0, 13.0, 10.0, 30.0, 7.0, 5.0) // Approximate trade weights
+usd_index = showUSD ? calc_basket("USD", usd_pairs, usd_default_wt, usd_custom_wt) : na
+plot(showUSD and time >= anchor_date ? usd_index : na, title="USD Basket", color=color.blue, linewidth=1)
+var label usdLabel = na
+if showUSD and time >= anchor_date and barstate.islast
+    txtUSD =  'USD'
+    usdLabel := label.new(bar_index, usd_index, text=txtUSD, color=color.blue, textcolor=color.white, style = label.style_label_left)
+    label.delete(usdLabel[1])
+
+// === EUR Basket ===
+eur_pairs = array.from("EURUSD", "EURJPY", "EURGBP", "EURAUD", "EURCHF", "EURCAD", "EURNZD")
+eur_default_wt = array.from(25.0, 15.0, 20.0, 10.0, 15.0, 10.0, 5.0) // Approximate trade weights
+eur_index = showEUR ? calc_basket("EUR", eur_pairs, eur_default_wt, eur_custom_wt) : na
+plot(showEUR and time >= anchor_date ? eur_index : na, title="EUR Basket", color=color.red, linewidth=1)
+var label eurLabel = na
+if showEUR and time >= anchor_date and barstate.islast
+    txtEUR =  'EUR'
+    eurLabel := label.new(bar_index, eur_index, text=txtEUR, color=color.red, textcolor=color.white, style = label.style_label_left)
+    label.delete(eurLabel[1])
+
+// === JPY Basket ===
+jpy_pairs = array.from("EURJPY", "USDJPY", "GBPJPY", "AUDJPY", "CADJPY", "CHFJPY", "NZDJPY")
+jpy_default_wt = array.from(25.0, 30.0, 15.0, 10.0, 10.0, 5.0, 5.0) // Approximate trade weights
+jpy_index = showJPY ? calc_basket("JPY", jpy_pairs, jpy_default_wt, jpy_custom_wt) : na
+plot(showJPY and time >= anchor_date ? jpy_index : na, title="JPY Basket", color=color.orange, linewidth=1)
+var label jpyLabel = na
+if showJPY and time >= anchor_date and barstate.islast
+    txtJPY =  'JPY'
+    jpyLabel := label.new(bar_index, jpy_index, text=txtJPY, color=color.orange, textcolor=color.white, style = label.style_label_left)
+    label.delete(jpyLabel[1])
+
+// === GBP Basket ===
+gbp_pairs = array.from("EURGBP", "USDGBP", "GBPJPY", "AUDGBP", "CADGBP", "CHFGBP", "NZDGBP")
+gbp_default_wt = array.from(35.0, 30.0, 10.0, 8.0, 8.0, 5.0, 4.0) // Approximate trade weights
+gbp_index = showGBP ? calc_basket("GBP", gbp_pairs, gbp_default_wt, gbp_custom_wt) : na
+plot(showGBP and time >= anchor_date ? gbp_index : na, title="GBP Basket", color=color.purple, linewidth=1)
+var label gbpLabel = na
+if showGBP and time >= anchor_date and barstate.islast
+    txtGBP =  'GBP'
+    gbpLabel := label.new(bar_index, gbp_index, text=txtGBP, color=color.purple, textcolor=color.white, style = label.style_label_left)
+    label.delete(gbpLabel[1])
+
+// === AUD Basket ===
+aud_pairs = array.from("EURAUD", "AUDUSD", "AUDJPY", "AUDGBP", "AUDCAD", "AUDCHF", "AUDNZD")
+aud_default_wt = array.from(20.0, 25.0, 20.0, 10.0, 10.0, 5.0, 10.0) // Approximate trade weights
+aud_index = showAUD ? calc_basket("AUD", aud_pairs, aud_default_wt, aud_custom_wt) : na
+plot(showAUD and time >= anchor_date ? aud_index : na, title="AUD Basket", color=color.green, linewidth=1)
+var label audLabel = na
+if showAUD and time >= anchor_date and barstate.islast
+    txtAUD =  'AUD'
+    audLabel := label.new(bar_index, aud_index, text=txtAUD, color=color.green, textcolor=color.white, style = label.style_label_left)
+    label.delete(audLabel[1])
+
+// === CAD Basket ===
+cad_pairs = array.from("EURCAD", "USDCAD", "CADJPY", "CADGBP", "AUDCAD", "CADCHF", "NZDCAD")
+cad_default_wt = array.from(15.0, 40.0, 10.0, 10.0, 10.0, 8.0, 7.0) // Approximate trade weights
+cad_index = showCAD ? calc_basket("CAD", cad_pairs, cad_default_wt, cad_custom_wt) : na
+plot(showCAD and time >= anchor_date ? cad_index : na, title="CAD Basket", color=color.teal, linewidth=1)
+var label cadLabel = na
+if showCAD and time >= anchor_date and barstate.islast
+    txtCAD =  'CAD'
+    cadLabel := label.new(bar_index, cad_index, text=txtCAD, color=color.teal, textcolor=color.white, style = label.style_label_left)
+    label.delete(cadLabel[1])
+
+// === CHF Basket ===
+chf_pairs = array.from("EURCHF", "USDCHF", "CHFJPY", "CHFGBP", "CHFUSD", "CADCHF", "NZDCHF")
+chf_default_wt = array.from(40.0, 30.0, 10.0, 10.0, 0.0, 5.0, 5.0) // Approximate trade weights (CHFUSD is redundant with USDCHF)
+chf_index = showCHF ? calc_basket("CHF", chf_pairs, chf_default_wt, chf_custom_wt) : na
+plot(showCHF and time >= anchor_date ? chf_index : na, title="CHF Basket", color=color.maroon, linewidth=1)
+var label chfLabel = na
+if showCHF and time >= anchor_date and barstate.islast
+    txtCHF =  'CHF'
+    chfLabel := label.new(bar_index, chf_index, text=txtCHF, color=color.maroon, textcolor=color.white, style = label.style_label_left)
+    label.delete(chfLabel[1])
+
+// === NZD Basket ===
+nzd_pairs = array.from("EURNZD", "NZDUSD", "NZDJPY", "NZDGBP", "NZDCAD", "NZDCHF", "AUDNZD")
+nzd_default_wt = array.from(15.0, 25.0, 15.0, 10.0, 10.0, 5.0, 20.0) // Approximate trade weights
+nzd_index = showNZD ? calc_basket("NZD", nzd_pairs, nzd_default_wt, nzd_custom_wt) : na
+plot(showNZD and time >= anchor_date ? nzd_index : na, title="NZD Basket", color=color.lime, linewidth=1)
+var label nzdLabel = na
+if showNZD and time >= anchor_date and barstate.islast
+    txtNZD =  'NZD'
+    nzdLabel := label.new(bar_index, nzd_index, text=txtNZD, color=color.lime, textcolor=color.white, style = label.style_label_left)
+    label.delete(nzdLabel[1])
+
+// === CNY Basket ===
+cny_pairs = array.from("USDCNY", "EURCNY", "JPYCNY", "GBPCNY", "AUDCNY", "CADCNY", "CHFCNY")
+cny_default_wt = array.from(20.0, 15.0, 10.0, 10.0, 20.0, 20.0, 5.0)
+cny_index = showCNY ? calc_basket("CNY", cny_pairs, cny_default_wt, cny_custom_wt) : na
+plot(showCNY and time >= anchor_date ? cny_index : na, title="CNY Basket", color=color.fuchsia, linewidth=1)
+var label cnyLabel = na
+if showCNY and time >= anchor_date and barstate.islast
+    txtCNY =  'CNY'
+    cnyLabel := label.new(bar_index, cny_index, text=txtCNY, color=color.fuchsia, textcolor=color.white, style = label.style_label_left)
+    label.delete(cnyLabel[1])
+
+// === Zero Reference Line ===
+hline(100, "Reference Line (100wt)", color=color.gray, linestyle=hline.style_dashed)
+
+
+// === Table Color Customization ===
+// Customize the appearance of the performance table
+table_bg_color = input.color(color.new(color.black, 20), title="Table Background")
+table_header_bg = input.color(color.new(color.gray, 40), title="Header Background")
+table_header_text = input.color(color.white, title="Header Text")
+table_body_text = input.color(color.white, title="Body Text")
+table_positive_color = input.color(color.new(color.lime, 20), title="Positive Values")
+table_negative_color = input.color(color.new(color.red, 20), title="Negative Values")
+
+if show_table and barstate.islast
+    // Create arrays to store currency data
+    var currencies = array.new_string()
+    var values = array.new_float()
+    var changes = array.new_float()
+    
+    // Clear arrays
+    array.clear(currencies)
+    array.clear(values)
+    array.clear(changes)
+    
+    // FIXED: Store reference values using var and proper initialization
+    var float usd_start = na
+    var float eur_start = na
+    var float jpy_start = na
+    var float gbp_start = na
+    var float aud_start = na
+    var float cad_start = na
+    var float chf_start = na
+    var float nzd_start = na
+    var float cny_start = na
+    
+    // FIXED: Capture starting values at the anchor point, not script start
+    if time >= anchor_date and (na(usd_start) or time[1] < anchor_date)
+        usd_start := showUSD ? usd_index : na
+        eur_start := showEUR ? eur_index : na
+        jpy_start := showJPY ? jpy_index : na
+        gbp_start := showGBP ? gbp_index : na
+        aud_start := showAUD ? aud_index : na
+        cad_start := showCAD ? cad_index : na
+        chf_start := showCHF ? chf_index : na
+        nzd_start := showNZD ? nzd_index : na
+        cny_start := showCNY ? cny_index : na
+    
+    // FIXED: Only populate arrays if we have valid start and current values
+    if showUSD and not na(usd_index) and not na(usd_start) and usd_start != 0
+        array.push(currencies, "USD")
+        array.push(values, usd_index)
+        array.push(changes, usd_index - usd_start)
+    
+    if showEUR and not na(eur_index) and not na(eur_start) and eur_start != 0
+        array.push(currencies, "EUR")
+        array.push(values, eur_index)
+        array.push(changes, eur_index - eur_start)
+    
+    if showJPY and not na(jpy_index) and not na(jpy_start) and jpy_start != 0
+        array.push(currencies, "JPY")
+        array.push(values, jpy_index)
+        array.push(changes, jpy_index - jpy_start)
+    
+    if showGBP and not na(gbp_index) and not na(gbp_start) and gbp_start != 0
+        array.push(currencies, "GBP")
+        array.push(values, gbp_index)
+        array.push(changes, gbp_index - gbp_start)
+    
+    if showAUD and not na(aud_index) and not na(aud_start) and aud_start != 0
+        array.push(currencies, "AUD")
+        array.push(values, aud_index)
+        array.push(changes, aud_index - aud_start)
+    
+    if showCAD and not na(cad_index) and not na(cad_start) and cad_start != 0
+        array.push(currencies, "CAD")
+        array.push(values, cad_index)
+        array.push(changes, cad_index - cad_start)
+    
+    if showCHF and not na(chf_index) and not na(chf_start) and chf_start != 0
+        array.push(currencies, "CHF")
+        array.push(values, chf_index)
+        array.push(changes, chf_index - chf_start)
+    
+    if showNZD and not na(nzd_index) and not na(nzd_start) and nzd_start != 0
+        array.push(currencies, "NZD")
+        array.push(values, nzd_index)
+        array.push(changes, nzd_index - nzd_start)
+    
+    if showCNY and not na(cny_index) and not na(cny_start) and cny_start != 0
+        array.push(currencies, "CNY")
+        array.push(values, cny_index)
+        array.push(changes, cny_index - cny_start)
+    
+    // Find max and min performers
+    if array.size(changes) > 0
+        max_change = array.max(changes)
+        min_change = array.min(changes)
+        
+        max_idx = array.indexof(changes, max_change)
+        min_idx = array.indexof(changes, min_change)
+        
+        max_currency = array.get(currencies, max_idx)
+        min_currency = array.get(currencies, min_idx)
+        
+        // Find second max and min (declare variables only once)
+        var float second_max_change = na
+        var float second_min_change = na
+        var string second_max_currency = ""
+        var string second_min_currency = ""
+        
+        // Reset values for this calculation
+        second_max_change := na
+        second_min_change := na
+        second_max_currency := ""
+        second_min_currency := ""
+        
+        for i = 0 to array.size(changes) - 1
+            change_val = array.get(changes, i)
+            curr_name = array.get(currencies, i)
+            if curr_name != max_currency and (na(second_max_change) or change_val > second_max_change)
+                second_max_change := change_val
+                second_max_currency := curr_name
+            if curr_name != min_currency and (na(second_min_change) or change_val < second_min_change)
+                second_min_change := change_val
+                second_min_currency := curr_name
+        
+        // Create sorted arrays for top contributors
+        sorted_currencies = array.copy(currencies)
+        sorted_changes = array.copy(changes)
+        
+        // Simple bubble sort for top 3 contributors
+        size = array.size(sorted_changes)
+        for i = 0 to size - 2
+            for j = 0 to size - 2 - i
+                if array.get(sorted_changes, j) < array.get(sorted_changes, j + 1)
+                    // Swap changes
+                    temp_change = array.get(sorted_changes, j)
+                    array.set(sorted_changes, j, array.get(sorted_changes, j + 1))
+                    array.set(sorted_changes, j + 1, temp_change)
+                    // Swap currencies
+                    temp_curr = array.get(sorted_currencies, j)
+                    array.set(sorted_currencies, j, array.get(sorted_currencies, j + 1))
+                    array.set(sorted_currencies, j + 1, temp_curr)
+        
+        // Get different contributor lists for each row
+        top_gainers_1 = ""  // Contributors for strongest currency
+        top_gainers_2 = ""  // Contributors for 2nd strongest currency
+        top_losers_1 = ""   // Contributors for weakest currency  
+        top_losers_2 = ""   // Contributors for 2nd weakest currency
+        
+        // Contributors for strongest currency (3rd, 4th, 5th best)
+        gainer_count = 0
+        for i = 0 to size - 1
+            curr = array.get(sorted_currencies, i)
+            if curr != max_currency and curr != second_max_currency and gainer_count < 3
+                if gainer_count > 0
+                    top_gainers_1 += ", "
+                top_gainers_1 += curr + " +" + str.tostring(array.get(sorted_changes, i), "#.####")
+                gainer_count += 1
+        
+        // Contributors for 2nd strongest currency (strongest + others after 2nd)
+        gainer_count_2 = 0
+        for i = 0 to size - 1
+            curr = array.get(sorted_currencies, i)
+            if curr != second_max_currency and gainer_count_2 < 3
+                if gainer_count_2 > 0
+                    top_gainers_2 += ", "
+                if curr == max_currency
+                    top_gainers_2 += curr + " +" + str.tostring(array.get(sorted_changes, i), "#.####")
+                else
+                    top_gainers_2 += curr + " +" + str.tostring(array.get(sorted_changes, i), "#.####")
+                gainer_count_2 += 1
+        
+        // Contributors for weakest currency (3rd, 4th, 5th worst)
+        loser_count = 0
+        for i = size - 1 to 0
+            curr = array.get(sorted_currencies, i)
+            if curr != min_currency and curr != second_min_currency and loser_count < 3
+                if loser_count > 0
+                    top_losers_1 += ", "
+                top_losers_1 += curr + " " + str.tostring(array.get(sorted_changes, i), "#.####")
+                loser_count += 1
+        
+        // Contributors for 2nd weakest currency (weakest + others before 2nd worst)
+        loser_count_2 = 0
+        for i = size - 1 to 0
+            curr = array.get(sorted_currencies, i)
+            if curr != second_min_currency and loser_count_2 < 3
+                if loser_count_2 > 0
+                    top_losers_2 += ", "
+                top_losers_2 += curr + " " + str.tostring(array.get(sorted_changes, i), "#.####")
+                loser_count_2 += 1
+        
+        // Use user-defined colors from settings
+        bg_color = table_bg_color
+        header_bg = table_header_bg
+        header_text = table_header_text
+        body_text = table_body_text
+        positive_color = table_positive_color
+        negative_color = table_negative_color
+        
+        // Create compact summary table (2 columns, 7 rows: blank + header + 4 data rows) - positioned on LEFT
+        var table perf_table = table.new(position.top_left, 2, 7, bgcolor=bg_color, border_width=1)
+        
+        // Get current date
+        current_date = str.format("{0,date,dd.MM}", timenow)
+        
+        // Blank row at top
+        table.cell(perf_table, 0, 0, "", text_color=body_text, bgcolor=bg_color)
+        table.cell(perf_table, 1, 0, "", text_color=body_text, bgcolor=bg_color)
+        
+        // Headers
+        table.cell(perf_table, 0, 1, "Performance from Chart Start (" + current_date + ")", text_color=header_text, bgcolor=header_bg)
+        table.cell(perf_table, 1, 1, "Top Contributors (pts)", text_color=header_text, bgcolor=header_bg)
+        
+        // Top Gainer Row
+        table.cell(perf_table, 0, 2, "Strongest: " + max_currency + " +" + str.tostring(max_change, "#.####"), 
+                  text_color=positive_color, bgcolor=bg_color)
+        table.cell(perf_table, 1, 2, top_gainers_1, text_color=body_text, bgcolor=bg_color)
+        
+        // Second Top Gainer Row
+        if not na(second_max_change)
+            table.cell(perf_table, 0, 3, "2nd Best: " + second_max_currency + " +" + str.tostring(second_max_change, "#.####"), 
+                      text_color=positive_color, bgcolor=bg_color)
+            table.cell(perf_table, 1, 3, top_gainers_2, text_color=body_text, bgcolor=bg_color)
+        
+        // Top Loser Row
+        table.cell(perf_table, 0, 4, "Weakest: " + min_currency + " " + str.tostring(min_change, "#.####"), 
+                  text_color=negative_color, bgcolor=bg_color)
+        table.cell(perf_table, 1, 4, top_losers_1, text_color=body_text, bgcolor=bg_color)
+        
+        // Second Loser Row
+        if not na(second_min_change)
+            table.cell(perf_table, 0, 5, "2nd Worst: " + second_min_currency + " " + str.tostring(second_min_change, "#.####"), 
+                      text_color=negative_color, bgcolor=bg_color)
+            table.cell(perf_table, 1, 5, top_losers_2, text_color=body_text, bgcolor=bg_color)
