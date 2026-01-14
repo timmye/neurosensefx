@@ -36,8 +36,8 @@ module.exports = defineConfig({
     // Record video on failure
     video: 'retain-on-failure',
 
-    // Global timeout for each test
-    actionTimeout: 10000,
+    // Global timeout for each test (increased for FX Basket 28-pair subscription)
+    actionTimeout: 20000,
   },
 
   // Configure projects for major browsers - Chromium only for testing
