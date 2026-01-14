@@ -1,9 +1,10 @@
 // Day Range Rendering Utilities - Crystal Clarity Compliant
 // Framework-first: Canvas 2D rendering utilities
 
+import { renderStatusMessage } from './canvasStatusRenderer.js';
+
 export function validateMarketData(d, ctx, s) {
   if (!d || !d.current || !d.adrLow || !d.adrHigh) {
-    const { renderStatusMessage } = require('./canvasStatusRenderer.js');
     renderStatusMessage(ctx, 'Waiting for market data...', s);
     return false;
   }

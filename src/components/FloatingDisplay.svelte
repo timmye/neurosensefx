@@ -58,7 +58,7 @@
             relativePoints: [{ x: 0, y: 0 }]
           })
         ],
-        onmove: (e) => workspaceActions.updatePosition(display.id, {x: e.rect.left, y: e.rect.top})
+        onmove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top })
       })
       .resizable({
         edges: { right: true, bottom: true },
@@ -72,9 +72,7 @@
           interact.modifiers.restrictSize({ min: { width: 150, height: 80 } }),
           interact.modifiers.snapSize({
             targets: [
-              { height: 174, range: 15 },
-              { height: 350, range: 15 },
-              interact.snappers.grid({ width: 10, height: 10 })
+              interact.snappers.grid({ width: 10, height: 10, range: 15 })
             ]
           })
         ],

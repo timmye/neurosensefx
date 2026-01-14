@@ -1,6 +1,7 @@
 <script>
   import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';
   import FloatingDisplay from './FloatingDisplay.svelte';
+  import FxBasketDisplay from './FxBasketDisplay.svelte';
   import WorkspaceModal from './WorkspaceModal.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { createKeyboardHandler } from '../lib/keyboardHandler.js';
@@ -109,7 +110,11 @@
   <div class="flow-layer"></div>
   <div class="workspace" role="main" tabindex="0" on:keydown={handleKeydown}>
     {#each Array.from($workspaceStore.displays.values()) as display (display.id)}
-      <FloatingDisplay {display} />
+      {#if display.symbol === 'FX_BASKET'}
+        <FxBasketDisplay {display} />
+      {:else}
+        <FloatingDisplay {display} />
+      {/if}
     {/each}
   </div>
 </div>

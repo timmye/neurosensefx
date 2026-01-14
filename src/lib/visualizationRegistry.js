@@ -1,8 +1,15 @@
 // Visualization Registry - Crystal Clarity compliant
 // Simple registry for 6+ visualizations
 
+import { renderDayRange } from './dayRangeOrchestrator.js';
+import { renderFxBasket } from './fxBasket/fxBasketOrchestrator.js';
+
 const registry = new Map();
 const DEFAULT_TYPE = 'dayRange';
+
+// Register visualizations
+register('dayRange', renderDayRange);
+register('fxBasket', renderFxBasket);
 
 export function register(type, renderer) {
   if (typeof renderer === 'function') {

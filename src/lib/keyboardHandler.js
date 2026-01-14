@@ -47,6 +47,13 @@ export function createKeyboardHandler(workspaceActions) {
       return;
     }
 
+    // Alt+B: Create FX Basket display
+    if (event.altKey && event.key === 'b') {
+      event.preventDefault();
+      workspaceActions.addDisplay('FX_BASKET', null, 'ctrader');
+      return;
+    }
+
     // Alt+T: Create TradingView display
     if (event.altKey && event.key === 't') {
       event.preventDefault();
