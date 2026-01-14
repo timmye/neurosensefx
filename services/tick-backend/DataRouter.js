@@ -25,7 +25,6 @@ class DataRouter {
      * @param {Object} candle - TradingView candle data (can be tick or symbolDataPackage)
      */
     routeFromTradingView(candle) {
-        console.log(`[DataRouter] routeFromTradingView called for ${candle.symbol}, type: ${candle.type}`);
         // Handle both tick events and symbolDataPackage events
         const price = candle.price || candle.current;
         const message = {
@@ -48,7 +47,6 @@ class DataRouter {
             // Include initialMarketProfile for Market Profile data
             ...(candle.initialMarketProfile !== undefined && { initialMarketProfile: candle.initialMarketProfile })
         };
-        console.log(`[DataRouter] Broadcasting message:`, JSON.stringify(message));
         this.broadcastToClients(message, candle.symbol, 'tradingview');
     }
 

@@ -8,6 +8,7 @@ class WebSocketServer {
         this.tradingViewSession = tradingViewSession;
         this.clientSubscriptions = new Map();
         this.backendSubscriptions = new Map(); // key: "symbol:source", value: Set<ws>
+        this.pendingRequests = new Map(); // key: "symbol:adr", value: {promise, clients[]}
 
         this.currentBackendStatus = 'disconnected';
         this.currentAvailableSymbols = [];
@@ -66,8 +67,13 @@ class WebSocketServer {
     }
 
     async handleMessage(ws, message) {
+        let data;
         try {
-            const data = JSON.parse(message);
+            // [DEBUGGER:WebSocketServer.js:73] Log raw message for debugging
+            console.log(`[DEBUGGER:WebSocketServer:handleMessage:73] raw_message_type=${typeof message}, length=${message?.length}, content=${message}, timestamp=${Date.now()}`);
+
+            data = JSON.parse(message);
+            console.log(`[DEBUGGER:WebSocketServer:handleMessage:76] parsed_data=${JSON.stringify(data)}, has_symbol=${!!data.symbol}, has_type=${!!data.type}`);
             console.log(`[DEBUG] WebSocketServer received message: ${JSON.stringify(data)}`);
             if (data.symbol) {
                 console.log(`[SYMBOL_TRACE | WebSocketServer] Received initial request from client for symbol: ${data.symbol}`);
@@ -91,12 +97,15 @@ class WebSocketServer {
                     console.warn(`Unknown message type: ${data.type}`);
             }
         } catch (error) {
-            console.error('Failed to handle message:', error);
+            // [DEBUGGER:WebSocketServer.js:99] Log parse error details
+            console.error('[DEBUGGER:WebSocketServer:handleMessage:99] parse_error=true, error_message=' + error.message + ', error_stack=' + error.stack);
+            console.error('[DEBUGGER:WebSocketServer:handleMessage:100] raw_message=' + message + ', message_type=' + typeof message);
+            console.error('[DEBUGGER:WebSocketServer:handleMessage:101] data_object=' + JSON.stringify(data) + ', data_type=' + typeof data);
             this.sendToClient(ws, {
                 type: 'error',
                 message: 'Invalid message format.',
                 symbol: 'system',
-                originalType: data.type || null
+                originalType: data?.type || null
             });
         }
     }
@@ -108,59 +117,113 @@ class WebSocketServer {
         }
 
         // cTrader subscription (default)
-        // Check symbol validity against the CTraderSession's symbol map directly
-        // This ensures all loaded symbols (including non-FX) are available for subscription
-        if (!symbolName || !this.cTraderSession.symbolMap.has(symbolName)) {
-            return this.sendToClient(ws, { type: 'error', message: `Invalid symbol: ${symbolName}` });
+        // Only validate symbol name format (not presence in symbolMap to avoid race condition)
+        // Let cTrader API handle invalid symbols - it will return an error if the symbol doesn't exist
+        if (!symbolName || typeof symbolName !== 'string' || symbolName.trim().length === 0) {
+            return this.sendToClient(ws, { type: 'error', message: `Invalid symbol name: ${symbolName}`, symbol: symbolName });
         }
-        try {
-            const dataPackage = await this.cTraderSession.getSymbolDataPackage(symbolName, adrLookbackDays);
 
-            console.log(`[E2E_TRACE | WebSocketServer] Sending package with ${dataPackage.initialMarketProfile.length} profile entries.`);
+        // Check if request is already in flight
+        const requestKey = `${symbolName}:${adrLookbackDays}`;
 
-            this.sendToClient(ws, {
-                type: 'symbolDataPackage',
-                source: 'ctrader',
-                symbol: dataPackage.symbol,
-                digits: dataPackage.digits,
-                adr: dataPackage.adr,
-                todaysOpen: dataPackage.todaysOpen,
-                todaysHigh: dataPackage.todaysHigh,
-                todaysLow: dataPackage.todaysLow,
-                projectedAdrHigh: dataPackage.projectedAdrHigh,
-                projectedAdrLow: dataPackage.projectedAdrLow,
-                initialPrice: dataPackage.initialPrice,
-                initialMarketProfile: dataPackage.initialMarketProfile || [],
-                // pipPosition integration fields
-                pipPosition: dataPackage.pipPosition,
-                pipSize: dataPackage.pipSize,
-                pipetteSize: dataPackage.pipetteSize
-            });
+        if (this.pendingRequests.has(requestKey)) {
+            const pending = this.pendingRequests.get(requestKey);
+            pending.clients.push(ws);
+            console.log(`[COALESCE] Joining pending request for ${requestKey} (${pending.clients.length} clients)`);
+            return pending.promise;
+        }
 
-            const clientSubs = this.clientSubscriptions.get(ws);
-            if (clientSubs && !clientSubs.has(symbolName)) {
-                clientSubs.add(symbolName);
+        // Create new pending request with retry logic for rate limiting
+        const clients = [ws];
+        const MAX_RETRIES = 3;
+        const INITIAL_RETRY_DELAY_MS = 500;
 
-                // Use composite key for cTrader subscriptions
-                const key = `${symbolName}:ctrader`;
-                let symbolSubscribers = this.backendSubscriptions.get(key);
-                if (!symbolSubscribers) {
-                    symbolSubscribers = new Set();
-                    this.backendSubscriptions.set(key, symbolSubscribers);
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        const fetchWithRetry = async (retries = 0) => {
+            try {
+                const data = await this.cTraderSession.getSymbolDataPackage(symbolName, adrLookbackDays);
+                console.log(`[COALESCE] Sending ${requestKey} to ${clients.length} clients${retries > 0 ? ` (after ${retries} retries)` : ''}`);
+                console.log(`[E2E_TRACE | WebSocketServer] Sending package with ${data.initialMarketProfile.length} profile entries.`);
+
+                clients.forEach(client => {
+                    this.sendToClient(client, {
+                        type: 'symbolDataPackage',
+                        source: 'ctrader',
+                        symbol: data.symbol,
+                        digits: data.digits,
+                        adr: data.adr,
+                        todaysOpen: data.todaysOpen,
+                        todaysHigh: data.todaysHigh,
+                        todaysLow: data.todaysLow,
+                        projectedAdrHigh: data.projectedAdrHigh,
+                        projectedAdrLow: data.projectedAdrLow,
+                        initialPrice: data.initialPrice,
+                        initialMarketProfile: data.initialMarketProfile || [],
+                        pipPosition: data.pipPosition,
+                        pipSize: data.pipSize,
+                        pipetteSize: data.pipetteSize
+                    });
+                });
+
+                // Register subscriptions for all waiting clients
+                clients.forEach(client => {
+                    const clientSubs = this.clientSubscriptions.get(client);
+                    if (clientSubs && !clientSubs.has(symbolName)) {
+                        clientSubs.add(symbolName);
+
+                        const key = `${symbolName}:ctrader`;
+                        let symbolSubscribers = this.backendSubscriptions.get(key);
+                        if (!symbolSubscribers) {
+                            symbolSubscribers = new Set();
+                            this.backendSubscriptions.set(key, symbolSubscribers);
+                        }
+                        symbolSubscribers.add(client);
+
+                        if (symbolSubscribers.size === 1) {
+                            this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
+                                console.error(`Failed to subscribe to ticks for ${symbolName}:`, err);
+                            });
+                        }
+                    }
+                });
+
+                this.pendingRequests.delete(requestKey);
+                return data;
+            } catch (error) {
+                const isRateLimit = error.errorCode === 'REQUEST_FREQUENCY_EXCEEDED';
+                const isBlocked = error.errorCode === 'BLOCKED_PAYLOAD_TYPE';
+
+                // Retry on rate limit or blocked payload errors
+                if ((isRateLimit || isBlocked) && retries < MAX_RETRIES) {
+                    const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, retries);
+                    const errorType = isRateLimit ? 'Rate limit' : 'Blocked payload';
+                    console.log(`[COALESCE] ${errorType} for ${requestKey}, retry ${retries + 1}/${MAX_RETRIES} after ${delayMs}ms`);
+                    await sleep(delayMs);
+                    return fetchWithRetry(retries + 1);
                 }
-                // Add client FIRST, so ticks arriving during subscribeToTicks reach this client
-                symbolSubscribers.add(ws);
 
-                // Subscribe to backend on first client (after client is added to Set)
-                if (symbolSubscribers.size === 1) {
-                    await this.cTraderSession.subscribeToTicks(symbolName);
+                console.error(`[COALESCE] Failed ${requestKey} after ${retries} retries:`, error);
+                this.pendingRequests.delete(requestKey);
+
+                // Only send error to client if it's a rate limit issue (blocked is expected for some pairs)
+                if (isRateLimit) {
+                    clients.forEach(client => {
+                        this.sendToClient(client, {
+                            type: 'error',
+                            message: `Failed to get data for ${symbolName}: ${error.message || error.description}`,
+                            symbol: symbolName
+                        });
+                    });
                 }
+
+                throw error;
             }
+        };
 
-        } catch (error) {
-            console.error(`Failed to get data package for ${symbolName}:`, error);
-            this.sendToClient(ws, { type: 'error', message: `Failed to get data for ${symbolName}: ${error.message}`, symbol: symbolName });
-        }
+        const promise = fetchWithRetry();
+        this.pendingRequests.set(requestKey, { promise, clients });
+        return promise;
     }
 
     async handleTradingViewSubscribe(ws, symbolName, adrLookbackDays = 14) {

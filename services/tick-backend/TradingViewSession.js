@@ -204,8 +204,6 @@ class TradingViewSession extends EventEmitter {
             return barTimeMs >= startOfTodayUtc;
         });
 
-        console.log(`[TradingView] Filtered M1 candles for ${symbol}: ${data.m1Candles.length} total → ${todaysM1Candles.length} from today (UTC)`);
-
         // Use today's actual open from M1 bars (matching cTrader behavior)
         // Falls back to last D1 close if no M1 bars today yet
         const todaysOpen = todaysM1Candles.length > 0 ? todaysM1Candles[0].open : data.lastCandle.close;
@@ -230,8 +228,6 @@ class TradingViewSession extends EventEmitter {
             clearTimeout(data.completionTimeout);
             data.completionTimeout = null;
         }
-
-        console.log(`[TradingView] Initial data package sent for ${symbol} (includes ${todaysM1Candles.length} M1 bars from today)`);
     }
 
     async subscribeToSymbol(symbol, lookbackDays = 14) {
