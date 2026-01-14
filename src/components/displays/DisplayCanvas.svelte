@@ -40,7 +40,7 @@
     }
 
     try {
-      const displayType = getDisplayType(showMarketProfile, marketProfileData);
+      const displayType = getDisplayType(symbol, showMarketProfile, marketProfileData);
       console.log('[DISPLAY_CANVAS] Determined display type:', displayType);
 
       if (data) {
@@ -137,6 +137,13 @@
   export function refreshCanvas() {
     if (!ctx || !canvas) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    render();
+  }
+
+  export function renderFxBasket(basketData) {
+    // Update the data prop which will trigger a re-render via Svelte reactivity
+    data = basketData;
+    // Trigger render explicitly for immediate update
     render();
   }
 </script>

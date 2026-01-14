@@ -3,6 +3,7 @@
 // Bridges DisplayCanvas.svelte with specialized renderers
 
 import { renderDayRange, renderDayRangeWithMarketProfile } from './visualizers.js';
+import { renderFxBasket as renderFxBasketOrchestrator } from './fxBasket/fxBasketOrchestrator.js';
 import { renderStatusMessage, renderErrorMessage } from './canvasStatusRenderer.js';
 import { renderUserPriceMarkers, renderHoverPreview } from './priceMarkerRenderer.js';
 import { createPriceScale } from './dayRangeRenderingUtils.js';
@@ -11,8 +12,12 @@ import { getConfig } from './dayRangeConfig.js';
 import { formatPriceToPipLevel, formatPipMovement, formatPriceWithPipPosition } from './priceFormat.js';
 import { drawPriceMarker } from './dayRangeElements.js';
 
-// Determine display type based on market profile visibility and data
-export function getDisplayType(showMarketProfile, marketProfileData) {
+// Determine display type based on symbol, market profile visibility and data
+export function getDisplayType(symbol, showMarketProfile, marketProfileData) {
+  // Check for FX Basket first
+  if (symbol === 'FX_BASKET') {
+    return 'fxBasket';
+  }
   if (showMarketProfile && marketProfileData) {
     return 'dayRangeWithMarketProfile';
   }
@@ -24,6 +29,10 @@ export function getRenderer(displayType) {
   console.log('[DISPLAY_CANVAS_RENDERER] Getting renderer for display type:', displayType);
   let renderer;
   switch (displayType) {
+    case 'fxBasket':
+      renderer = renderFxBasketOrchestrator;
+      console.log('[DISPLAY_CANVAS_RENDERER] Selected fxBasket renderer:', typeof renderer);
+      return renderer;
     case 'dayRange':
       renderer = renderDayRange;
       console.log('[DISPLAY_CANVAS_RENDERER] Selected dayRange renderer:', typeof renderer);
@@ -59,6 +68,16 @@ export function renderWithRenderer(renderer, ctx, data, config, displayType, mar
 
   try {
     console.log('[DISPLAY_CANVAS_RENDERER] Calling renderer function...');
+
+    // Handle FX Basket rendering (different signature)
+    if (displayType === 'fxBasket') {
+      console.log('[DISPLAY_CANVAS_RENDERER] Rendering fxBasket');
+      console.log('[DISPLAY_CANVAS_RENDERER] Basket data:', data);
+      console.log('[DISPLAY_CANVAS_RENDERER] Dimensions:', config);
+      renderer(ctx, data, {}, config); // fxBasket signature: (ctx, basketData, config, dimensions)
+      return true;
+    }
+
     // For combined display, ensure market data is properly configured
     if (displayType === 'dayRangeWithMarketProfile') {
       console.log('[DISPLAY_CANVAS_RENDERER] Rendering dayRangeWithMarketProfile');
