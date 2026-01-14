@@ -52,10 +52,9 @@ export function calculateBasketValue(currency, priceMap) {
   // Require at least 50% coverage by weight for meaningful values
   if (coverage < 0.5) return null;
 
-  // Scale logSum to account for missing pairs (maintains consistency as more data arrives)
-  const scaledLogSum = logSum / coverage;
-
-  return { value: scaledLogSum, coverage };
+  // CRITICAL FIX: Do NOT scale by coverage (TradingView doesn't scale)
+  // The logSum is already weighted correctly; scaling causes extreme values
+  return { value: logSum, coverage };
 }
 
 // Normalize to 100wt baseline: (exp(current) / exp(baseline)) × 100

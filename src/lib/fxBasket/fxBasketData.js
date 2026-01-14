@@ -27,13 +27,20 @@ export function initializeState(anchorTime) {
 }
 
 // Helper: update basket from calculation result
-function updateBasketFromCalculation(basket, result) {
+// For initialization: use dailyOpenPrices only (fixed baseline)
+// For updates: use current prices (state.prices)
+function updateBasketFromCalculation(basket, result, state, currency) {
   if (!basket.initialized) {
-    basket.baselineLog = result.value;
-    basket.currentLog = result.value;
-    basket.normalized = 100;
-    basket.initialized = true;
-    basket.coverage = result.coverage;
+    // CRITICAL FIX: Only initialize from daily opens, not current prices
+    const dailyOpenResult = calculateBasketValue(currency, state.dailyOpenPrices);
+    if (dailyOpenResult && dailyOpenResult.coverage >= 0.5) {
+      basket.baselineLog = dailyOpenResult.value;
+      basket.currentLog = dailyOpenResult.value;
+      basket.normalized = 100;
+      basket.initialized = true;
+      basket.coverage = dailyOpenResult.coverage;
+    }
+    // If daily opens not ready, DON'T initialize (wait - prevents race condition)
   } else {
     basket.currentLog = result.value;
     basket.normalized = normalizeToBaseline(result.value, basket.baselineLog);
@@ -56,7 +63,7 @@ export function updatePrice(pair, price, state, isDailyOpen = false) {
   for (const currency of affectedCurrencies) {
     const basket = state.baskets[currency];
     const result = calculateBasketValue(currency, state.prices);
-    if (result !== null) updateBasketFromCalculation(basket, result);
+    if (result !== null) updateBasketFromCalculation(basket, result, state, currency);
   }
 }
 
@@ -65,7 +72,7 @@ export function updateAllBaskets(state) {
   for (const currency of Object.keys(BASKET_DEFINITIONS)) {
     const basket = state.baskets[currency];
     const result = calculateBasketValue(currency, state.prices);
-    if (result !== null) updateBasketFromCalculation(basket, result);
+    if (result !== null) updateBasketFromCalculation(basket, result, state, currency);
   }
   state.lastUpdate = new Date();
 }
@@ -79,7 +86,12 @@ export function initializeBaselinesFromDailyOpens(state) {
 
     const result = calculateBasketValue(currency, state.dailyOpenPrices);
     if (result && result.coverage >= 0.5) {
-      updateBasketFromCalculation(basket, result);
+      // Direct initialization from daily opens (skip recalculation in updateBasketFromCalculation)
+      basket.baselineLog = result.value;
+      basket.currentLog = result.value;
+      basket.normalized = 100;
+      basket.initialized = true;
+      basket.coverage = result.coverage;
     }
   }
   state.lastUpdate = new Date();
