@@ -53,10 +53,12 @@ function handleTimeout(sm) {
 
   if (coverage >= 0.6) {
     console.warn(`[FX BASKET] Timeout with partial data: ${sm.receivedPairs.size}/${sm.expectedPairs.length} pairs (${(coverage * 100).toFixed(0)}%)`);
+    console.warn(`[FX BASKET] Missing pairs: ${sm.missingPairs.join(', ')}`);
     sm.state = BasketState.READY;
     sm.partialData = true;
   } else {
     console.error(`[FX BASKET] Insufficient data: ${sm.receivedPairs.size}/${sm.expectedPairs.length} pairs (${(coverage * 100).toFixed(0)}%)`);
+    console.error(`[FX BASKET] Missing pairs: ${sm.missingPairs.join(', ')}`);
     sm.state = BasketState.ERROR;
   }
 }

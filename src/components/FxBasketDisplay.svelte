@@ -35,7 +35,7 @@
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
     fxPairs = getAllPairs();
     store = createStore();
-    stateMachine = createStateMachine(fxPairs);
+    stateMachine = createStateMachine(fxPairs, 45000); // 45s: 11s subscription + 25s coordinator + buffer
 
     setupInteract();
     startSubscriptions();
@@ -72,55 +72,26 @@
   async function startSubscriptions() {
     console.log('[FX BASKET] Starting subscription to', fxPairs.length, 'FX pairs...');
 
-    // Create processor callback
+    // Create processor callback - processes messages as they arrive
     const processorCallback = createProcessorCallback(store, stateMachine, handleBasketUpdate);
-
-    // Wrap processor callback to track statistics
-    const trackingCallback = (message) => {
-      const pair = message.symbol;
-      const now = Date.now();
-      lastTickTimes.set(pair, now);
-
-      if (message.type === 'tick') {
-        tickCount++;
-      } else if (message.type === 'symbolDataPackage') {
-        dataPackageCount++;
-      }
-
-      // Forward to actual processor
-      processorCallback(message);
-
-      // Update lastUpdate time
-      basketState.lastUpdate = new Date().toISOString();
-    };
 
     // Wait for connection to be established
     await waitForConnection();
 
-    // Use coordinated subscription to wait for both symbolDataPackage + tick
+    // Simple subscription - process messages as they arrive (Crystal Clarity)
     const subscriptions = [];
-    const REQUEST_DELAY_MS = 400;
+    const REQUEST_DELAY_MS = 600; // Avoids cTrader rate limits (400ms was too fast)
 
     for (let i = 0; i < fxPairs.length; i++) {
       const pair = fxPairs[i];
 
-      const unsub = connectionManager.subscribeCoordinated(
+      console.log(`[FX BASKET] Subscribing to ${pair} (${i+1}/${fxPairs.length})`);
+
+      const unsub = connectionManager.subscribeAndRequest(
         pair,
-        // onAllReceived: called when both symbolDataPackage + tick arrive
-        (symbolDataPackage, tick) => {
-          console.log(`[FX BASKET] Coordinated: ${pair} - both messages received`);
-          trackingCallback(symbolDataPackage);
-          trackingCallback(tick);
-        },
-        // onTimeout: handle timeout if both messages don't arrive
-        (partial, received) => {
-          console.warn(`[FX BASKET] Timeout for ${pair}, received:`, Array.from(received));
-          if (partial.symbolDataPackage) trackingCallback(partial.symbolDataPackage);
-          if (partial.tick) trackingCallback(partial.tick);
-        },
+        processorCallback,
         14, // adr
-        'ctrader',
-        5000 // timeoutMs
+        'ctrader'
       );
 
       subscriptions.push(unsub);
@@ -141,26 +112,35 @@
   }
 
   async function waitForConnection() {
-    // If already connected, return immediately
-    if (connectionManager.status === 'connected') {
-      console.log('[FX BASKET] Already connected');
+    // Check BOTH status AND actual WebSocket readyState
+    const isReady = connectionManager.status === 'connected'
+      && connectionManager.ws?.readyState === WebSocket.OPEN;
+
+    if (isReady) {
+      console.log('[FX BASKET] Already connected and ready');
       return;
     }
 
     // Otherwise wait for connection with timeout
     console.log('[FX BASKET] Waiting for connection...');
     return new Promise(resolve => {
+      let timeoutId;
+
       const unsubscribe = connectionManager.addStatusCallback(() => {
-        if (connectionManager.status === 'connected') {
+        const readyNow = connectionManager.status === 'connected'
+          && connectionManager.ws?.readyState === WebSocket.OPEN;
+
+        if (readyNow) {
+          clearTimeout(timeoutId); // Clear timeout when connected
           unsubscribe();
-          console.log('[FX BASKET] Connected!');
+          console.log('[FX BASKET] Connected and ready!');
           resolve();
         }
       });
 
       // Timeout after 10 seconds - proceed even if not connected
       // (allows tests to work without WebSocket server)
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         unsubscribe();
         console.warn('[FX BASKET] Connection timeout - proceeding anyway');
         resolve();
@@ -235,7 +215,7 @@
   async function handleRefresh() {
     if (connectionManager) {
       if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-      stateMachine = createStateMachine(fxPairs);
+      stateMachine = createStateMachine(fxPairs, 45000); // 45s: 11s subscription + 25s coordinator + buffer
       basketData = null;
       startSubscriptions();
     }

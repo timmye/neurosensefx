@@ -7,6 +7,7 @@ export class ConnectionManager {
   constructor(url) {
     this.url = url; this.ws = null; this.subscriptions = new Map();
     this.subscriptionAdr = new Map(); // Track ADR for each symbol
+    this.pendingSubscriptions = []; // Queue for subscriptions before WebSocket ready
     this.reconnectAttempts = 0; this.maxReconnects = 5; this.reconnectDelay = 1000;
     this.status = 'disconnected';
     // Support multiple callbacks instead of single callback
@@ -72,8 +73,27 @@ export class ConnectionManager {
   }
 
   async handleOpen() {
-    console.log('WebSocket connected'); this.status = 'connected'; this.reconnectAttempts = 0; this.reconnectDelay = 1000;
-    await this.resubscribeAll(); this.notifyStatusChange();
+    console.log('WebSocket connected');
+    this.status = 'connected';
+    this.reconnectAttempts = 0;
+    this.reconnectDelay = 1000;
+
+    // Send any pending subscriptions that were queued before connection was ready
+    if (this.pendingSubscriptions.length > 0) {
+      console.log(`[CM] Sending ${this.pendingSubscriptions.length} pending subscriptions`);
+      for (const sub of this.pendingSubscriptions) {
+        const payload = { type: 'get_symbol_data_package', symbol: sub.symbol, adrLookbackDays: sub.adr, source: sub.source };
+        try {
+          this.ws.send(JSON.stringify(payload));
+        } catch (error) {
+          console.error(`[CM ERROR] Failed to send pending subscription for ${sub.symbol}:`, error);
+        }
+      }
+      this.pendingSubscriptions = [];
+    }
+
+    await this.resubscribeAll();
+    this.notifyStatusChange();
   }
 
   handleClose() {
@@ -101,7 +121,7 @@ export class ConnectionManager {
     const callbacks = this.subscriptions.get(key);
     callbacks.add(callback);
 
-    // Only send if WebSocket is fully open and message is valid
+    // Send if WebSocket is ready, otherwise queue for later
     if (this.ws?.readyState === WebSocket.OPEN) {
       const payload = { type: 'get_symbol_data_package', symbol, adrLookbackDays: adr, source };
       try {
@@ -110,6 +130,10 @@ export class ConnectionManager {
       } catch (error) {
         console.error(`[CM ERROR] Failed to stringify/send message for ${symbol}:`, error);
       }
+    } else {
+      // Queue subscription for when connection opens
+      console.log(`[CM] Queueing subscription for ${symbol} (WebSocket not ready)`);
+      this.pendingSubscriptions.push({ symbol, adr, source });
     }
 
     return () => {
@@ -137,7 +161,7 @@ export class ConnectionManager {
   }
 
   createCoordinator(onAllReceived, onTimeout, timeoutMs) {
-    const { createMessageCoordinator } = require('./websocket/messageCoordinator.js');
+    // Use the imported createMessageCoordinator (from top of file)
     return createMessageCoordinator({
       requiredTypes: ['symbolDataPackage', 'tick'],
       timeoutMs,
@@ -162,13 +186,19 @@ export class ConnectionManager {
   }
 
   sendCoordinatedRequest(symbol, adr, source) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    const isOpen = this.ws?.readyState === WebSocket.OPEN;
+    console.log(`[CM SEND] Attempting to send for ${symbol}, WebSocket ready: ${isOpen}, state: ${this.ws?.readyState}`);
+
+    if (isOpen) {
       const payload = { type: 'get_symbol_data_package', symbol, adrLookbackDays: adr, source };
       try {
+        console.log(`[CM SEND] SUCCESS - Sending subscription request for ${symbol} from ${source}`);
         this.ws.send(JSON.stringify(payload));
       } catch (error) {
-        console.error(`[CM ERROR] Failed to send coordinated subscription for ${symbol}:`, error);
+        console.error(`[CM ERROR] Failed to send request for ${symbol}:`, error);
       }
+    } else {
+      console.warn(`[CM DEFER] SKIPPED - WebSocket not ready for ${symbol}, state: ${this.ws?.readyState}`);
     }
   }
 
