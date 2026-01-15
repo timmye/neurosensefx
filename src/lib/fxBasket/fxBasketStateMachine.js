@@ -11,7 +11,7 @@ export const BasketState = {
   ERROR: 'error'
 };
 
-export function createStateMachine(expectedPairs, timeoutMs = 30000) {
+export function createStateMachine(expectedPairs, timeoutMs = 10000) {
   return {
     state: BasketState.FAILED,
     expectedPairs,
@@ -20,6 +20,7 @@ export function createStateMachine(expectedPairs, timeoutMs = 30000) {
     timeoutId: null,
     timeoutMs,
     missingPairs: [],
+    partialData: false,
     getProgress() { return { received: this.receivedPairs.size, total: this.expectedPairs.length }; }
   };
 }
@@ -45,11 +46,19 @@ export function trackPair(sm, pair, dailyOpen, currentPrice) {
 }
 
 function handleTimeout(sm) {
-  if (sm.state === BasketState.READY) {
-    return;
-  }
+  if (sm.state === BasketState.READY) return;
+
+  const coverage = sm.receivedPairs.size / sm.expectedPairs.length;
   sm.missingPairs = sm.expectedPairs.filter(p => !sm.receivedPairs.has(p));
-  sm.state = BasketState.ERROR;
+
+  if (coverage >= 0.6) {
+    console.warn(`[FX BASKET] Timeout with partial data: ${sm.receivedPairs.size}/${sm.expectedPairs.length} pairs (${(coverage * 100).toFixed(0)}%)`);
+    sm.state = BasketState.READY;
+    sm.partialData = true;
+  } else {
+    console.error(`[FX BASKET] Insufficient data: ${sm.receivedPairs.size}/${sm.expectedPairs.length} pairs (${(coverage * 100).toFixed(0)}%)`);
+    sm.state = BasketState.ERROR;
+  }
 }
 
 export function getState(sm) {
@@ -71,6 +80,7 @@ export function reset(sm) {
   sm.startTime = null;
   sm.timeoutId = null;
   sm.missingPairs = [];
+  sm.partialData = false;
 }
 
 export function retry(sm) {

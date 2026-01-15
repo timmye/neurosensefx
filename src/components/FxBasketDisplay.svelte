@@ -5,7 +5,6 @@
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
   import { getAllPairs } from '../lib/fxBasket/fxBasketCalculations.js';
-  import { batchSubscribe } from '../lib/fxBasket/fxBasketSubscription.js';
   import { checkDataFreshness, refreshConnection } from '../lib/fxBasket/fxBasketConnection.js';
   import { createDebugAPI, exposeDebugAPI } from '../lib/fxBasket/fxBasketDebug.js';
   import { createStore } from '../lib/fxBasket/fxBasketStore.js';
@@ -70,7 +69,7 @@
     interactable = interact(element).draggable(dragConfig).resizable(resizeConfig).on('tap', () => workspaceActions.bringToFront(display.id));
   }
 
-  function startSubscriptions() {
+  async function startSubscriptions() {
     console.log('[FX BASKET] Starting subscription to', fxPairs.length, 'FX pairs...');
 
     // Create processor callback
@@ -95,13 +94,77 @@
       basketState.lastUpdate = new Date().toISOString();
     };
 
-    batchSubscribe(connectionManager, fxPairs, trackingCallback).then(subscriptions => {
-      console.log(`[FX BASKET] Subscriptions complete: ${subscriptions.length}`);
-      console.log('[FX BASKET] All subscriptions complete');
-      subscriptionsReady = true;
-      unsubscribe = () => subscriptions.forEach(unsub => unsub());
-    }).catch(err => {
-      console.error('[FX BASKET] Subscription failed:', err);
+    // Wait for connection to be established
+    await waitForConnection();
+
+    // Use coordinated subscription to wait for both symbolDataPackage + tick
+    const subscriptions = [];
+    const REQUEST_DELAY_MS = 400;
+
+    for (let i = 0; i < fxPairs.length; i++) {
+      const pair = fxPairs[i];
+
+      const unsub = connectionManager.subscribeCoordinated(
+        pair,
+        // onAllReceived: called when both symbolDataPackage + tick arrive
+        (symbolDataPackage, tick) => {
+          console.log(`[FX BASKET] Coordinated: ${pair} - both messages received`);
+          trackingCallback(symbolDataPackage);
+          trackingCallback(tick);
+        },
+        // onTimeout: handle timeout if both messages don't arrive
+        (partial, received) => {
+          console.warn(`[FX BASKET] Timeout for ${pair}, received:`, Array.from(received));
+          if (partial.symbolDataPackage) trackingCallback(partial.symbolDataPackage);
+          if (partial.tick) trackingCallback(partial.tick);
+        },
+        14, // adr
+        'ctrader',
+        5000 // timeoutMs
+      );
+
+      subscriptions.push(unsub);
+
+      // Rate limiting: 400ms delay between subscriptions
+      if (i < fxPairs.length - 1) {
+        await sleep(REQUEST_DELAY_MS);
+      }
+    }
+
+    console.log(`[FX BASKET] Subscriptions complete: ${subscriptions.length}`);
+    subscriptionsReady = true;
+    unsubscribe = () => subscriptions.forEach(unsub => unsub());
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function waitForConnection() {
+    // If already connected, return immediately
+    if (connectionManager.status === 'connected') {
+      console.log('[FX BASKET] Already connected');
+      return;
+    }
+
+    // Otherwise wait for connection with timeout
+    console.log('[FX BASKET] Waiting for connection...');
+    return new Promise(resolve => {
+      const unsubscribe = connectionManager.addStatusCallback(() => {
+        if (connectionManager.status === 'connected') {
+          unsubscribe();
+          console.log('[FX BASKET] Connected!');
+          resolve();
+        }
+      });
+
+      // Timeout after 10 seconds - proceed even if not connected
+      // (allows tests to work without WebSocket server)
+      setTimeout(() => {
+        unsubscribe();
+        console.warn('[FX BASKET] Connection timeout - proceeding anyway');
+        resolve();
+      }, 10000);
     });
   }
 

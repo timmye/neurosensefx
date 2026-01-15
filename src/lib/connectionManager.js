@@ -1,7 +1,7 @@
 // Singleton instance for all displays
 let sharedInstance = null;
 
-console.log('[DEBUGGER:connectionManager:1] ConnectionManager module loaded - DEBUG MODE ACTIVE');
+import { createMessageCoordinator } from './websocket/messageCoordinator.js';
 
 export class ConnectionManager {
   constructor(url) {
@@ -27,8 +27,6 @@ export class ConnectionManager {
 
   connect() {
     if (this.ws?.readyState === WebSocket.OPEN) return;
-    // [DEBUGGER:connectionManager.js:27] Log connection attempt
-    console.log(`[DEBUGGER:connectionManager:connect:27] connect_attempt=true, url=${this.url}, current_ws_state=${this.ws?.readyState}, timestamp=${Date.now()}`);
     this.ws = new WebSocket(this.url); this.status = 'connecting';
     this.notifyStatusChange();
     this.ws.onopen = () => this.handleOpen();
@@ -36,8 +34,6 @@ export class ConnectionManager {
     this.ws.onerror = (e) => { console.error('WebSocket error:', e); this.status = 'error'; this.notifyStatusChange(); };
     this.ws.onmessage = (e) => {
       try {
-        // [DEBUGGER:connectionManager.js:37] Log incoming message
-        console.log(`[DEBUGGER:connectionManager:onmessage:37] received_message=true, raw_data=${e.data}, data_length=${e.data?.length}, timestamp=${Date.now()}`);
         const d = JSON.parse(e.data);
 
         // Handle system-level messages (status, ready, global errors)
@@ -76,8 +72,6 @@ export class ConnectionManager {
   }
 
   async handleOpen() {
-    // [DEBUGGER:connectionManager.js:74] Log connection opened
-    console.log(`[DEBUGGER:connectionManager:handleOpen:74] ws_opened=true, url=${this.url}, status=${this.status}, subscriptions_count=${this.subscriptions.size}, timestamp=${Date.now()}`);
     console.log('WebSocket connected'); this.status = 'connected'; this.reconnectAttempts = 0; this.reconnectDelay = 1000;
     await this.resubscribeAll(); this.notifyStatusChange();
   }
@@ -95,7 +89,6 @@ export class ConnectionManager {
   }
 
   subscribeAndRequest(symbol, callback, adr = 14, source = 'ctrader') {
-    console.log('[DEBUGGER:connectionManager:subscribeAndRequest:ENTRY] === subscribeAndRequest CALLED ===', 'symbol=', symbol, 'source=', source);
     const key = this.makeKey(symbol, source);
     // Get existing callbacks or create new Set
     if (!this.subscriptions.has(key)) {
@@ -113,15 +106,10 @@ export class ConnectionManager {
       const payload = { type: 'get_symbol_data_package', symbol, adrLookbackDays: adr, source };
       try {
         const message = JSON.stringify(payload);
-        // [DEBUGGER:connectionManager.js:108] Log outgoing message
-        console.log(`[DEBUGGER:connectionManager:subscribeAndRequest:108] sending_message=true, symbol=${symbol}, source=${source}, payload=${JSON.stringify(payload)}, ws_state=${this.ws?.readyState}, timestamp=${Date.now()}`);
         this.ws.send(message);
       } catch (error) {
         console.error(`[CM ERROR] Failed to stringify/send message for ${symbol}:`, error);
       }
-    } else {
-      // [DEBUGGER:connectionManager.js:113] Log deferred message
-      console.log(`[DEBUGGER:connectionManager:subscribeAndRequest:113] deferring_message=true, symbol=${symbol}, ws_state=${this.ws?.readyState}, timestamp=${Date.now()}`);
     }
 
     return () => {
@@ -136,13 +124,71 @@ export class ConnectionManager {
     };
   }
 
+  subscribeCoordinated(symbol, onAllReceived, onTimeout, adr = 14, source = 'ctrader', timeoutMs = 5000) {
+    const coordinator = this.createCoordinator(onAllReceived, onTimeout, timeoutMs);
+    const key = this.makeKey(symbol, source);
+    this.ensureSubscription(key, adr);
+
+    const callback = this.createCoordinatorCallback(coordinator, symbol);
+    this.subscriptions.get(key).add(callback);
+    this.sendCoordinatedRequest(symbol, adr, source);
+
+    return () => this.cleanupCoordinated(key, callback, coordinator, symbol);
+  }
+
+  createCoordinator(onAllReceived, onTimeout, timeoutMs) {
+    const { createMessageCoordinator } = require('./websocket/messageCoordinator.js');
+    return createMessageCoordinator({
+      requiredTypes: ['symbolDataPackage', 'tick'],
+      timeoutMs,
+      onAllReceived: (sym, data) => onAllReceived(data.symbolDataPackage, data.tick),
+      onTimeout: (sym, partial, received) => onTimeout(partial, received)
+    });
+  }
+
+  createCoordinatorCallback(coordinator, symbol) {
+    return (message) => {
+      if (message.type === 'symbolDataPackage' || message.type === 'tick') {
+        coordinator.onMessage(symbol, message.type, message);
+      }
+    };
+  }
+
+  ensureSubscription(key, adr) {
+    if (!this.subscriptions.has(key)) {
+      this.subscriptions.set(key, new Set());
+      this.subscriptionAdr.set(key, adr);
+    }
+  }
+
+  sendCoordinatedRequest(symbol, adr, source) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      const payload = { type: 'get_symbol_data_package', symbol, adrLookbackDays: adr, source };
+      try {
+        this.ws.send(JSON.stringify(payload));
+      } catch (error) {
+        console.error(`[CM ERROR] Failed to send coordinated subscription for ${symbol}:`, error);
+      }
+    }
+  }
+
+  cleanupCoordinated(key, callback, coordinator, symbol) {
+    const callbacks = this.subscriptions.get(key);
+    if (callbacks) {
+      callbacks.delete(callback);
+      if (callbacks.size === 0) {
+        this.subscriptions.delete(key);
+        this.subscriptionAdr.delete(key);
+      }
+    }
+    coordinator.cleanup(symbol);
+  }
+
   async resubscribeAll() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.log('[CM RESUB] WebSocket not open, skipping resubscribeAll');
       return;
     }
-    // [DEBUGGER:connectionManager.js:131] Log resubscribe all
-    console.log(`[DEBUGGER:connectionManager:resubscribeAll:131] resubscribe_all=true, subscriptions_count=${this.subscriptions.size}, timestamp=${Date.now()}`);
 
     const REQUEST_DELAY_MS = 400;
     let index = 0;
@@ -154,8 +200,6 @@ export class ConnectionManager {
       try {
         const message = JSON.stringify(payload);
         console.log(`[CM RESUB] Resubscribing to ${symbol} from ${source}`);
-        // [DEBUGGER:connectionManager.js:140] Log individual resubscribe
-        console.log(`[DEBUGGER:connectionManager:resubscribeAll:140] resubscribing=true, symbol=${symbol}, source=${source}, payload=${JSON.stringify(payload)}`);
         this.ws.send(message);
       } catch (error) {
         console.error(`[CM ERROR] Failed to resubscribe to ${symbol}:`, error);
