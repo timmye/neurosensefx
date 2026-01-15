@@ -1,0 +1,257 @@
+Latest Data Compilation for Major Currency Weights
+1. Executive Summary
+This report aims to provide a comprehensive compilation of the latest available currency weight data for major global currencies. Utilizing authoritative sources such as the International Monetary Fund (IMF), the Bank for International Settlements (BIS), and various central banks, along with specific currency indices like the US Dollar Index (DXY) and the CFETS RMB Index, this analysis seeks to address the user's query for up-to-date information. It is important to note that obtaining a single, universally applicable set of currency weights is challenging due to the diverse methodologies employed by different institutions and the varying compositions of currency indices. The main findings of this report consist of a detailed compilation of the most recent currency weights for prominent currencies, sourced directly from the aforementioned reliable entities. This report concludes by emphasizing the critical importance of understanding the specific methodology underpinning each set of currency weights to ensure their appropriate interpretation and application in financial and economic analysis.
+2. Introduction: The Significance of Currency Weights
+Currency weights are fundamental components in the construction of various economic and financial indices designed to measure the relative value of a currency against a selection of other currencies.1 These indices, including trade-weighted indices (TWIs) and effective exchange rate (EER) indices, utilize these weights to reflect the proportional importance of each currency within the index's basket.2 The determination of these weights is often based on factors such as the volume of trade between countries, the size of their economies, or other pertinent criteria that signify the degree of economic interaction or influence.1
+Understanding currency weights is crucial for several key areas of economic and financial analysis. Firstly, they play a vital role in measuring international competitiveness. Fluctuations in trade-weighted exchange rates, which are directly influenced by the assigned currency weights, can serve as indicators of a country's ability to compete in the global export market.2 For instance, a country's trade-weighted index might show an appreciation if its currency strengthens against those of its major trading partners, potentially making its exports more expensive for foreign buyers.1 The Reserve Bank of New Zealand explicitly states that its Trade Weighted Index (TWI) is the preferred summary measure for capturing the medium-term effect of exchange rate changes on New Zealand's economy and inflation.1 This highlights the direct relevance of currency weights in assessing a nation's economic standing in the international arena. The relative weight of a trading partner's currency directly dictates the impact of its exchange rate movements on the overall index, thus shaping the assessment of the home country's competitiveness.
+Secondly, currency weights are essential in monetary policy formulation. Central banks often monitor trade-weighted indices to gauge the impact of exchange rate movements on domestic inflation and overall economic activity.1 The Reserve Bank of New Zealand's adoption of a Monetary Conditions Index (MCI) framework, which incorporates the exchange rate as a key variable, illustrates how these weights can indirectly influence monetary policy decisions.1 The weights assigned to different currencies within a trade-weighted index assist central banks in evaluating the aggregate pressure exerted on domestic prices due to fluctuations in exchange rates. For example, a higher weight assigned to a currency from a country experiencing high inflation would imply that a depreciation of the home currency against it could have a more pronounced effect on imported inflation.
+Thirdly, a grasp of currency weights is beneficial for investment decisions. Investors operating in international markets can leverage this knowledge to better evaluate the risks and potential returns associated with different currencies and economies.5 The existence of "Basket Indices," which often feature equally weighted currencies, suggests a simplified approach to currency exposure that can be used for diversification or hedging strategies.5 These indices allow investors to gain broad exposure to a mix of currencies, and the weighting scheme directly determines the extent of this exposure to each component currency.
+Finally, economists rely on currency weights for economic forecasting and analysis. These weights are integrated into various models aimed at predicting the effects of currency fluctuations on crucial macroeconomic indicators such as trade balances and Gross Domestic Product (GDP).1 The Bank for International Settlements (BIS) emphasizes that ideally, the weights used in effective exchange rate indices should be structured so that changes in cross rates do not affect a country's key macroeconomic aggregates, provided the real effective exchange rate remains constant.2 This underscores the sophisticated economic principles that underpin the construction of these weighting schemes. The accuracy of these weights is paramount for the reliability of economic models in forecasting trends and assessing the impact of currency movements on a nation's economic health.
+Given the significance of currency weights across these domains, this report aims to fulfill the user's request by providing a compilation of the latest available weight data for major global currencies, drawing upon information from leading international organizations and central banks.
+3. Methodology and Data Sources
+The compilation of the latest currency weight data for this report involved consulting a range of authoritative sources, including international financial institutions, central banks, and specific currency index providers.
+The International Monetary Fund (IMF) serves as a primary source for global economic and financial data, and its publications were thoroughly reviewed. The IMF's Direction of Trade Statistics (DOTS) offers insights into the value of merchandise exports and imports between countries, providing a foundation for understanding trade relationships.8 While DOTS primarily focuses on trade values, the IMF also publishes Effective Exchange Rate (EER) datasets, which are directly relevant to currency weights as they measure the value of a currency against a weighted average of other currencies.20 The IMF's role in international monetary cooperation necessitates the collection and dissemination of comprehensive trade and exchange rate data. Users should note that the IMF offers various datasets, each with its specific focus and update frequency. For currency weights, the EER dataset is the most pertinent, while DOTS can offer supporting context regarding trade flows. Furthermore, the IMF provides data on the currency composition of official foreign exchange reserves (COFER) 21, offering an indirect perspective on the importance of major currencies held by central banks worldwide. The IMF's announcement of a new data portal 8 suggests an ongoing commitment to enhancing data accessibility.
+The Bank for International Settlements (BIS) is another crucial source, providing extensive data on effective exchange rate indices and detailed explanations of their weighting methodologies.2 The BIS methodology is widely respected and uses manufacturing trade flows along with a double-weighting scheme to account for both direct bilateral trade and competition in third markets.2 The weights used by the BIS are time-varying and are typically updated every three years to reflect shifts in global trade patterns.2 The BIS also provides both broad and narrow effective exchange rate indices, catering to different analytical requirements by covering varying numbers of economies.2
+Central banks of countries with major currencies often publish their own trade-weighted indices, providing detailed information on the weights assigned to different currencies. The Reserve Bank of Australia (RBA) publishes the Trade-Weighted Index (TWI) for the Australian Dollar, including the specific weights of its constituent currencies.4 The RBA's TWI weights are updated annually, based on the composition of Australia's merchandise goods and services trade from the previous fiscal year.56 Similarly, the Bank of Canada publishes the Canadian Effective Exchange Rate (CEER) index, which replaced the CERI in 2018 and incorporates a broader range of currencies with weights updated annually based on competition in international trade.67 The European Central Bank (ECB) publishes effective exchange rates for the Euro, with weights based on trade in manufactured goods and services, updated every three years.2 The Reserve Bank of New Zealand (RBNZ) also publishes its own Trade-Weighted Index (TWI) for the New Zealand Dollar, with weights updated annually based on bilateral trade.1 The Bank of England publishes the Sterling Exchange Rate Index (ERI), with narrow and broad measures and annually updated weights.3 The Bank of Japan (BOJ) relies on the BIS's broad-based EER for the Japanese Yen.30 While the Swiss National Bank (SNB) does not have a dedicated TWI mentioned in the snippets, its currency's weight is considered by other institutions.2
+Finally, specific currency indices were examined. The US Dollar Index (DXY), although proprietary, provides weights for its constituent currencies.122 The CFETS RMB Index offers weights for the Chinese Yuan against a basket of currencies.40
+The process of data compilation involved extracting the latest currency weight information and the corresponding effective dates from these identified sources to provide the most current overview.
+4. Latest Currency Weight Data: A Comparative Compilation
+The following tables present a compilation of the latest currency weight data for the specified major currencies, sourced from various indices and institutions.
+Currency	Weight (%)
+Chinese renminbi (CNY)	29.4813
+United States dollar (USD)	11.2760
+Japanese yen (JPY)	10.1037
+European euro (EUR)	8.5669
+United Kingdom pound sterling (GBP)	3.1221
+Canadian dollar (CAD)	0.9561
+Swiss franc (CHF)	0.8195
+New Zealand dollar (NZD)	3.4054
+South Korean won	6.3184
+Indian rupee	4.5429
+Singapore dollar	4.2768
+Thai baht	3.0649
+Malaysian ringgit	2.9753
+Indonesian rupiah	2.8496
+New Taiwan dollar	2.8073
+Vietnamese dong	2.5401
+Hong Kong dollar	1.9312
+Philippines peso	0.9625
+Source: Reserve Bank of Australia (as of January 10, 2025) 56
+Currency	Weight
+United States dollar (USD)	0.1562
+Euro zone euro (EUR)	0.0917
+Japanese yen (JPY)	0.0551
+United Kingdom pound (GBP)	0.0388
+Australian dollar (AUD)	0.1840
+Canadian dollar (CAD)	0.0141
+Swiss franc (CHF)	Not available in snippet
+Chinese yuan (CNY)	0.2174
+Source: Reserve Bank of New Zealand (as of December 5, 2024) 64
+The Bank of Canada's CEER index includes the following currencies:
+●	Major Currencies Index: US dollar, euro, Japanese yen, British pound, Swiss franc, Australian dollar, Swedish krona.
+●	Other Important Trading Partners (OITP) Index: Brazilian real, Chinese renminbi, Hong Kong dollar, Indian rupee, Malaysian ringgit, Mexican peso, Norwegian krone, Peruvian new sol, South Korean won, Thai baht.
+Source: Bank of Canada (as of May 2, 2024) 67 Specific weight data is accessible on the Bank of Canada's website.
+Currency	Extended EER Group Weight (%)	Broad EER Group Weight (%)
+USD (United States)	19.87	15.98
+JPY (Japan)	4.55	3.66
+GBP (United Kingdom)	12.98	10.43
+AUD (Australia)	0.93	0.75
+CAD (Canada)	1.70	1.37
+CHF (Switzerland)	7.38	5.94
+NZD (New Zealand)	N/A	0.14
+CNY (China)	19.64	15.79
+Source: Deutsche Bundesbank (based on ECB data as of September 2023) 90
+Currency	Weight (%)
+USD	18.903
+EUR	17.902
+JPY	8.584
+GBP	2.705
+AUD	5.947
+CAD	2.402
+CHF	1.551
+NZD	0.00570
+Source: CFETS RMB Index (as of January 1, 2025) 40
+Currency	Weight (%)
+Euro (EUR)	41.10
+US Dollar (USD)	35.80
+Japanese Yen (JPY)	8.20
+Swiss Franc (CHF)	3.67
+Chinese Renminbi (CNH)	3.00
+Canadian Dollar (CAD)	2.93
+Australian Dollar (AUD)	2.79
+Source: Bloomberg Pound Index (as of June 28, 2019) 119
+Currency	Weight (%)
+Euro (EUR)	57.6
+Japanese Yen (JPY)	13.6
+British Pound (GBP)	11.9
+Canadian Dollar (CAD)	9.1
+Swedish Krona (SEK)	4.2
+Swiss Franc (CHF)	3.6
+Source: US Dollar Index (DXY) (as of May 2, 2025) 122
+5. Analysis of Findings: Divergences and Methodological Considerations
+The compiled data reveals notable variations in currency weights across different indices and sources. The weight assigned to a specific currency can differ significantly depending on the objective of the index. For instance, the Chinese Yuan holds a substantial weight in the Australian TWI 56 due to the strong trade relationship between the two countries, whereas its weight in the US Dollar Index (DXY) is zero as it is not a constituent currency.122 Similarly, the composition of the currency basket itself varies considerably across indices. The DXY, for example, includes the Swedish Krona but does not feature the Australian Dollar, New Zealand Dollar, or Chinese Yuan.122
+These variations are largely attributable to the different weighting methodologies employed. Trade-weighted approaches, as seen in the RBA and RBNZ TWIs 56, prioritize currencies based on the volume of trade conducted between the respective countries. The RBNZ's TWI currently uses a fully bilateral trade-weighted methodology 64, while it previously incorporated GDP in its weighting.4 Competition-based weights, utilized by the Bank of Canada's CEER index 67, take into account the competition faced by a country's exports in both domestic and international markets, including third-market competition.72 The BIS employs a double-weighting scheme in its EER indices, considering both import and export competition to provide a more comprehensive assessment of a currency's impact on trade.2
+The frequency with which currency weights are updated also has implications for the "latest" data. While some indices undergo annual revisions, such as the RBA TWI, RBNZ TWI, Bank of England ERI, and Bank of Canada CEER 56, others, like the BIS EER and ECB EER, are updated triennially.2 The CFETS RMB Index's recent calibration in January 2025 135 highlights that some indices may undergo more frequent adjustments in response to evolving trade dynamics. Users should always refer to the specific publication date of the weights to ensure the data's relevance for their analysis.
+The global landscape of trade and economic relationships is constantly evolving, necessitating periodic revisions of currency weights to accurately reflect these changes.2 The BIS's expansion of its EER basket to include a greater number of emerging market economies 2 exemplifies this adaptation to the increasing significance of these economies in international trade.
+6. Conclusion: Interpreting and Utilizing Currency Weight Data
+This report has provided a compilation of the latest available currency weight data for major global currencies, drawing from a variety of authoritative sources, including international organizations, central banks, and specific currency indices. The data presented highlights the diverse approaches to constructing and weighting these indices, reflecting the different objectives and methodologies of the compiling institutions.
+It is crucial to recognize that there is no single, universally applicable "correct" set of currency weights. The most appropriate data for a given analysis depends heavily on the specific analytical purpose.
+When interpreting and utilizing currency weight data, users should consider the following recommendations:
+●	Understand the index's objective: Determine whether the index is designed to measure a specific country's trade competitiveness, the value of a particular currency, or another economic concept. Applying the weights from the US Dollar Index (DXY), for instance, to analyze the trade competitiveness of the Australian Dollar would be inappropriate due to the DXY's focus on the US dollar against a basket of major developed market currencies.
+●	Consider the methodology: Understand how the weights are calculated and what factors are taken into account. Whether the weights are based on bilateral trade flows, overall economic size, or competitive dynamics will significantly influence their interpretation.
+●	Check the data's vintage: Ensure that the weights are based on the most recent available trade or economic data. Utilizing outdated weights can lead to inaccurate conclusions, particularly in the context of a rapidly evolving global economy.
+●	Use multiple sources for comparison: Comparing currency weights from different indices can offer a more comprehensive understanding of the relative importance of various currencies. For example, comparing the weight of the US dollar across different trade-weighted indices can provide insights into its global trade significance from various national perspectives.
+●	Align with the analytical goal: Select the index and the corresponding weights that best align with the specific analysis being conducted. For instance, for analyzing the impact of exchange rates on Australian trade, the Reserve Bank of Australia's TWI weights would be the most relevant. Conversely, for assessing the broad strength of the US Dollar in global markets, the Federal Reserve's broad index or the ICE DXY weights might be more suitable.
+Finally, it is essential for users to stay informed about the latest releases and updates from the respective organizations, as currency weights are subject to periodic revisions to reflect the dynamic nature of international trade and economic relationships. Subscribing to updates from central banks and international financial institutions can help ensure access to the most current and relevant data.
+7. Appendix: Comparison of Key Currency Weight Indices
+Index Name	Source	Base Currency (if applicable)	Weighting Methodology	Frequency of Update	Number of Currencies (approx.)	Notes
+Australian Dollar TWI	Reserve Bank of Australia	AUD	Bilateral trade in goods and services	Annually	18	Includes Swiss Franc since January 2025.
+New Zealand Dollar TWI	Reserve Bank of New Zealand	NZD	Fully bilateral trade-weighted	Annually	17	Weights based on direct bilateral trade in goods and services.
+Canadian Effective Exchange Rate (CEER)	Bank of Canada	CAD	Competition-based (import, export, third-market)	Annually	17	Replaced CERI in 2018, includes major currencies and other important trading partners.
+Euro Effective Exchange Rate (EER)	European Central Bank (via Deutsche Bundesbank)	EUR	Trade in manufactured goods and services, third-market	Triennially	41 (Broad Group)	Distinguishes between Extended and Broad EER Groups.
+CFETS RMB Index	China Foreign Exchange Trade System	CNY	Trade-weighted average, re-export trade factors	Regularly reviewed	25	Weights updated to reflect changes in trade patterns.
+Bloomberg Pound Index	Bloomberg	GBP	Trade and liquidity	Annually	8	Dynamically updated composition, considers both trading and liquidity.
+US Dollar Index (DXY)	ICE (Data from TradingEconomics.com)	USD	Trade-weighted average	Real-time	6	Dominated by the Euro's weight.
+Works cited
+1.	The Trade Weighted Index (TWI) measure of the effective exchange rate; Reserve Bank of New Zealand Bulletin, accessed on May 4, 2025, https://www.rbnz.govt.nz/-/media/141638eb21c74c2e933e2f19dd90c502.ashx?sc_lang=en
+2.	Effective exchange rates - overview | BIS Data Portal - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/statistics/eer.htm
+3.	Further details about Effective Exchange Rates data | Bank of England, accessed on May 4, 2025, https://www.bankofengland.co.uk/statistics/details/further-details-about-effective-exchange-rate-indices-data
+4.	Exchange rates and Trade Weighted Index (B1) - Reserve Bank of New Zealand, accessed on May 4, 2025, https://www.rbnz.govt.nz/statistics/series/exchange-and-interest-rates/exchange-rates-and-the-trade-weighted-index
+5.	Trading Basket Indices with Multipliers - Deriv, accessed on May 4, 2025, https://deriv.com/academy/lessons/trading-basket-indices-with-multipliers
+6.	Basket indices trading - Deriv, accessed on May 4, 2025, https://deriv.com/markets/derived-indices/basket-indices
+7.	The new BIS effective exchange rate indices, accessed on May 4, 2025, https://www.bis.org/publ/qtrpdf/r_qt0603e.pdf
+8.	Direction of Trade Statistics - IMF Data, accessed on May 4, 2025, https://data.imf.org/?sk=9d6028d4-f14a-464c-a2f2-59b2cd424b85&sid=1514498232936
+9.	IMF Direction of Trade Statistics, 1948-2021 - UK Data Service › Study, accessed on May 4, 2025, https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=4745&type=Data%20
+10.	IMF Direction of Trade Statistics, 1948-2021 - CESSDA Data Catalogue, accessed on May 4, 2025, https://datacatalogue.cessda.eu/detail?q=d93826e024d66850fbbe8b674b441394f52c7dd24e051bca6c6b1408ffac81b1
+11.	International Trade in Goods (by partner country) (IMTS) - IMF Data, accessed on May 4, 2025, https://data.imf.org/dot
+12.	[DOT] Direction of Trade Statistics (DOTS) - IMF - DB-nomics, accessed on May 4, 2025, https://db.nomics.world/IMF/DOT
+13.	Direction of Trade Statistics (DOTS) - UNCCD, accessed on May 4, 2025, https://www.unccd.int/resources/knowledge-sharing-system/direction-trade-statistics-dots
+14.	Direction of Trade Statistics (IMF) | Penn State University Libraries, accessed on May 4, 2025, https://libraries.psu.edu/databases/psu01648
+15.	Direction of trade statistics quarterly / - United Nations Digital Library System, accessed on May 4, 2025, https://digitallibrary.un.org/record/37671
+16.	Economics & Finance: Trade - LibGuides at IMF Library, accessed on May 4, 2025, https://researchguides.worldbankimflib.org/econfinimf/trade
+17.	Direction of Trade Statistics - IMF Data, accessed on May 4, 2025, https://data.imf.org/?sk=9d6028d4-f14a-464c-a2f2-59b2cd424b85
+18.	Direction of Trade Statistics - IMF Data, accessed on May 4, 2025, https://data.imf.org/?sk=9d6028d4f14a464ca2f259b2cd424b85
+19.	Fiscal Monitor - IMF Data, accessed on May 4, 2025, https://data.imf.org/FM
+20.	EER - IMF Data, accessed on May 4, 2025, https://data.imf.org/Datasets/EER
+21.	Currency Composition of Official Foreign Exchange Reserve - IMF Data, accessed on May 4, 2025, https://data.imf.org/?sk=e6a5f467-c14b-4aa8-9f6d-5a09ec4e62a4
+22.	SDR Valuation - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/external/np/fin/data/rms_sdrv.aspx
+23.	New currency weights for SDR valuation basket set by IMF - ABiQ, accessed on May 4, 2025, https://www.abiq.io/new-currency-weights-for-sdr-valuation-basket-set-by-imf/
+24.	What is the SDR? - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/en/About/Factsheets/Sheets/2023/special-drawing-rights-sdr
+25.	Special Drawing Rights - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/en/Topics/special-drawing-right
+26.	Data Home - International Monetary Fund (IMF), accessed on May 4, 2025, https://data.imf.org/
+27.	Primary Commodity Prices - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/en/Research/commodity-prices
+28.	Real Narrow Effective Exchange Rate for United States (RNUSBIS) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/RNUSBIS
+29.	China | Bank for International Settlements (BIS): Effective Exchange Rate Index - CEIC, accessed on May 4, 2025, https://www.ceicdata.com/en/china/bank-for-international-settlements-bis-effective-exchange-rate-index
+30.	Explanation of the Effective Exchange Rate (Nominal, Real) : 日本銀行 Bank of Japan, accessed on May 4, 2025, https://www.boj.or.jp/en/statistics/outline/exp/exrate02.htm
+31.	BIS Effective Exchange Rate Indices | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/release?rid=319
+32.	The new BIS effective exchange rate indices - IDEAS/RePEc, accessed on May 4, 2025, https://ideas.repec.org/a/bis/bisqtr/0603e.html
+33.	Real effective exchange rate index (2010 = 100) - Glossary | DataBank, accessed on May 4, 2025, https://databank.worldbank.org/metadataglossary/world-development-indicators/series/PX.REX.REER
+34.	Trade weights: Broad (XLSX), accessed on May 4, 2025, https://www.bis.org/statistics/eer/weightsb.xlsx
+35.	The New BIS Effective Exchange Rate Indices | Request PDF - ResearchGate, accessed on May 4, 2025, https://www.researchgate.net/publication/4736047_The_New_BIS_Effective_Exchange_Rate_Indices
+36.	Real effective exchange rate, Japan / Broad basket - BIS Data Portal, accessed on May 4, 2025, https://data.bis.org/topics/EER/BIS,WS_EER,1.0/M.R.B.JP
+37.	Real Effective Exchange Rates - The BIS methodology - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/ifc/events/6ifcconf/takats_pres.pdf
+38.	Broad versus narrow indices for the effective exchange rate of the euro, accessed on May 4, 2025, https://www.ecb.europa.eu/pub/pdf/other/mb200304_focus05.en.pdf
+39.	Dollars and exports: The effects of currency strength on international trade | CEPR, accessed on May 4, 2025, https://cepr.org/voxeu/columns/dollars-and-exports-effects-currency-strength-international-trade
+40.	China RMB Exchange Rate Index: CFETS Currency Basket ... - CEIC, accessed on May 4, 2025, https://www.ceicdata.com/en/china/exchange-rate-index/cn-rmb-exchange-rate-index-cfets-currency-basket
+41.	Real Broad Effective Exchange Rate for Japan (RBJPBIS) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/RBJPBIS
+42.	Japan Real Effective Exchange Rate Index: BIS: 2020=100: Broad - CEIC, accessed on May 4, 2025, https://www.ceicdata.com/en/japan/effective-exchange-rate-index/real-effective-exchange-rate-index-bis-2020100-broad
+43.	Broad Effective Exchange Rate for Japan (NBJPBIS) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/NBJPBIS
+44.	I Exchange rate statistics - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/statistics/tables_i_eer.pdf
+45.	Real Broad Effective Exchange Rate for Switzerland (RBCHBIS) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/RBCHBIS
+46.	Broad Effective Exchange Rate for Switzerland (NBCHBIS) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/NBCHBIS
+47.	Computation of the Real Effective Exchange Rate (REER) using the Bank for International Settlement (BIS) Methodology: A Case of Nigeria, accessed on May 4, 2025, https://www.cbn.gov.ng/out/2020/rsd/efr%20vol.%2057,%20no.%203%20september%202019%20computation%20of%20the%20real%20effectiveexchange%20rate%20(reer)%20using%20the%20bankfor%20international%20settlement%20(bis)%20methodology%20a%20case%20of%20nigeria.pdf
+48.	Policy Brief 10-2: Notes on Equilibrium Exchange Rates: January 2010, accessed on May 4, 2025, https://www.piie.com/sites/default/files/publications/pb/pb10-02.pdf
+49.	Real effective exchange rate, Switzerland / Broad basket - BIS Data Portal, accessed on May 4, 2025, https://data.bis.org/topics/EER/BIS,WS_EER,1.0/M.R.B.CH
+50.	Real effective exchange rates for 178 countries: a new database, accessed on May 4, 2025, https://www.bruegel.org/working-paper/real-effective-exchange-rates-178-countries-new-database
+51.	Evaluating Alternative Measures of the Real Effective Exchange Rate - Banque du Canada, accessed on May 4, 2025, https://www.banqueducanada.ca/wp-content/uploads/2010/05/wp98-20.pdf
+52.	Effective exchange rates - European Commission, accessed on May 4, 2025, https://ec.europa.eu/eurostat/cache/metadata/fr/tipser10_esms.htm
+53.	TIMELY MEASUREMENT OF REAL EFFECTIVE EXCHANGE RATES - Bruegel, accessed on May 4, 2025, https://www.bruegel.org/sites/default/files/wp_attachments/WP-2021-15-231221-1.pdf
+54.	The currency composition of foreign exchange reserves - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/publ/work828.pdf
+55.	Exchange Rates | RBA, accessed on May 4, 2025, https://www.rba.gov.au/statistics/frequency/exchange-rates.html
+56.	Weights for the TWI – 2024 | RBA, accessed on May 4, 2025, https://www.rba.gov.au/statistics/frequency/weights-twi.html
+57.	Exchange Rates Overview | RBA, accessed on May 4, 2025, https://www.rba.gov.au/exchange-rates-overview.html
+58.	SDDS - DQAF View : Australia - Exchange rates - Dissemination Standards Bulletin Board, accessed on May 4, 2025, https://dsbb.imf.org/sdds/dqaf-base/country/AUS/category/EXR00
+59.	Trade-Weighted Index - Australia - IBISWorld, accessed on May 4, 2025, https://www.ibisworld.com/au/bed/trade-weighted-index/89/
+60.	Australian - Dollar Trade-Weighted Index [TWI] | Series - MacroMicro, accessed on May 4, 2025, https://en.macromicro.me/series/5865/australian-dollar-trade-weighted-index
+61.	Trade-weighted effective exchange rate index - Wikipedia, accessed on May 4, 2025, https://en.wikipedia.org/wiki/Trade-weighted_effective_exchange_rate_index
+62.	Trade Weighted Index - YouTube, accessed on May 4, 2025, https://www.youtube.com/watch?v=KKhmxuXx5Ds
+63.	Australia Exchange Rate: RBA: Trade Weighted Index | Economic Indicators - CEIC, accessed on May 4, 2025, https://www.ceicdata.com/en/australia/exchange-rate/exchange-rate-rba-trade-weighted-index
+64.	Updated weights for Trade-Weighted Index - Reserve Bank of New ..., accessed on May 4, 2025, https://www.rbnz.govt.nz/hub/news/2024/12/updated-weights-for-trade-weighted-index
+65.	How to think about the exchange rate and inflation - Westpac IQ, accessed on May 4, 2025, https://www.westpaciq.com.au/economics/2024/12/real-twi-note-jan2025
+66.	Feature Article - Trade-Weighted Index: Method of Calculation - Australian Bureau of Statistics, accessed on May 4, 2025, https://www.abs.gov.au/Ausstats/abs@.nsf/7d12b0f6763c78caca257061001cc588/d4a22ad91e0348bfca256fd3007baf93!OpenDocument
+67.	Canadian Effective Exchange Rates - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/rates/exchange/canadian-effective-exchange-rates/
+68.	Statistics - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/rates/
+69.	Monetary conditions - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/rates/indicators/key-variables/monetary-conditions/
+70.	Exchange rates - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/rates/exchange/
+71.	Canadian Effective Exchange Rate index (CEER) - Cbonds, accessed on May 4, 2025, https://cbonds.com/indexes/82075/
+72.	A New Measure of the Canadian Effective Exchange Rate - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/2016/01/staff-discussion-paper-2016-1/
+73.	Canadian Effective Exchange Rate Index - Canada - IBISWorld, accessed on May 4, 2025, https://www.ibisworld.com/ca/bed/canadian-effective-exchange-rate-index/22/
+74.	A New Measure of the Canadian Effective Exchange Rate - IDEAS/RePEc, accessed on May 4, 2025, https://ideas.repec.org/p/bca/bocadp/16-1.html
+75.	Bank of Canada begins publishing daily data for new Canadian effective exchange rate (CEER) index, accessed on May 4, 2025, https://www.bankofcanada.ca/2017/09/bank-canada-begins-publishing-daily-data-ceer/
+76.	A New Measure of the Canadian Effective Exchange Rate, accessed on May 4, 2025, https://publications.gc.ca/collections/collection_2016/banque-bank-canada/FB3-6-2016-1-eng.pdf
+77.	A New Measure of the Canadian Effective Exchange Rate / | Canada Commons, accessed on May 4, 2025, https://canadacommons.ca/artifacts/1222753/a-new-measure-of-the-canadian-effective-exchange-rate/
+78.	Monetary Conditions Index (Mci): Meaning, Calculation - Investopedia, accessed on May 4, 2025, https://www.investopedia.com/terms/m/mci.asp
+79.	Monetary Policy Report - October 2022 - Canada.ca, accessed on May 4, 2025, https://www.canada.ca/content/dam/fpcc-cpac/documents/council-decisions/the-tfc/2022/c9-bank-of-canada-monetary-policy-report-2022-10-26.pdf
+80.	Canadian Dollar Currency Index— Indicateur par Charles - TradingView, accessed on May 4, 2025, https://fr.tradingview.com/script/MB2iLIvj-Canadian-Dollar-Currency-Index/
+81.	2021 Trade Report: Using currency movements to monitor agriculture and food performance, accessed on May 4, 2025, https://www.fcc-fac.ca/en/knowledge/economics/2021-trade-report-currency-movements
+82.	Canadian-Dollar Effective Exchange Rate Index (CERI) - SuperBrokers, accessed on May 4, 2025, https://www.superbrokers.ca/library/ceri
+83.	What is API Banking? Guide to API Banking for anyone - Monite, accessed on May 4, 2025, https://monite.com/blog/what-is-api-banking-guide-to-api-banking-for-anyone/
+84.	Currencyindex — Indicateurs et Stratégies - TradingView, accessed on May 4, 2025, https://fr.tradingview.com/scripts/currencyindex/?script_access=all
+85.	Background information on foreign exchange rates - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/rates/exchange/background-information-on-foreign-exchange-rates/
+86.	A New Effective Exchange Rate Index for the Canadian Dollar - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/wp-content/uploads/2010/06/ong.pdf
+87.	Historical Canadian-Dollar Effective Exchange Rate index - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/rates/exchange/ceri/
+88.	An Improved Equation for Predicting Canadian Non-Commodity Exports, accessed on May 4, 2025, https://publications.gc.ca/collections/collection_2017/banque-bank-canada/FB3-6-2017-1-eng.pdf
+89.	Daily nominal effective exchange rate of the euro - European Central Bank, accessed on May 4, 2025, https://www.ecb.europa.eu/stats/balance_of_payments_and_external/eer/html/index.en.html
+90.	www.bundesbank.de, accessed on May 4, 2025, https://www.bundesbank.de/resource/blob/810524/81d738aa11d184959368cf1e4fbf049b/472B63F073F071307366337C94F8C870/erlaeuterungen-data.pdf
+91.	Real Broad Effective Exchange Rate for Euro Area (RBXMBIS) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/RBXMBIS
+92.	Effective exchange rates - European Central Bank, accessed on May 4, 2025, https://www.ecb.europa.eu/mopo/eaec/eer/html/index.en.html
+93.	Exchange rates - Danmarks Nationalbank, accessed on May 4, 2025, https://www.nationalbanken.dk/en/what-we-do/stable-prices-monetary-policy-and-the-danish-economy/exchange-rates
+94.	The ECB's enhanced effective exchange rates and harmonised competitiveness indicators: An updated weighting scheme including trade in services - EconStor, accessed on May 4, 2025, https://www.econstor.eu/bitstream/10419/299592/1/1892328550.pdf
+95.	Trade-weighted euro at highest level since 2009 | S&P Global, accessed on May 4, 2025, https://www.spglobal.com/marketintelligence/en/mi/research-analysis/tradeweighted-euro-at-highest-level-since-2009.html
+96.	METHODOLOGICAL SHEET NOMINAL EFFECTIVE EXCHANGE RATE OF THE KORUNA I. Definition and content The nominal effective exchange rate, accessed on May 4, 2025, https://www.cnb.cz/docs/ARADY/MET_LIST/neer_en.pdf
+97.	Effective exchange rates of the euro | Deutsche Bundesbank, accessed on May 4, 2025, https://www.bundesbank.de/en/statistics/exchange-rates/effective-exchange-rates/-/effective-exchange-rates-of-the-euro-796156
+98.	An effective exchange rate index for the euro area - Bank of England, accessed on May 4, 2025, https://www.bankofengland.co.uk/-/media/boe/files/quarterly-bulletin/1999/an-effective-exchange-rate-index-for-the-euro-area.pdf
+99.	New Zealand dollar - Wikipedia, accessed on May 4, 2025, https://en.wikipedia.org/wiki/New_Zealand_dollar
+100.	NEW ZEALAND FINANCIAL MARKETS ASSOCIATION INC (“NZFMA”), accessed on May 4, 2025, https://www.nzfma.org/download/163055/NZTW%20Market%20Operating%20Rules%20%20and%20%20Principles%20V2022.pdf
+101.	RBNZ Stats Alert: Updated Weights For Trade-Weighted Index | Scoop News, accessed on May 4, 2025, https://www.scoop.co.nz/stories/BU2412/S00079/rbnz-stats-alert-updated-weights-for-trade-weighted-index.htm
+102.	NZDUSD Trading Guide: How to trade the NZD/USD - Plus500, accessed on May 4, 2025, https://www.plus500.com/en-ae/instruments/nzdusd/nzd-usd-trading-guide~1
+103.	Trade Weighted Index weights and trade volumes (B10) - Reserve ..., accessed on May 4, 2025, https://www.rbnz.govt.nz/statistics/series/exchange-and-interest-rates/trade-weighted-index-weights-and-trade-volumes
+104.	Updated weights for Trade-Weighted Index - Reserve Bank of New Zealand, accessed on May 4, 2025, https://www.rbnz.govt.nz/hub/news/2023/12/updated-weights-for-trade-weighted-index
+105.	Trade-Weighted Index - New Zealand - IBISWorld, accessed on May 4, 2025, https://www.ibisworld.com/nz/bed/trade-weighted-index/22/
+106.	Exchange and interest rates - Reserve Bank of New Zealand - Te Pūtea Matua, accessed on May 4, 2025, https://www.rbnz.govt.nz/statistics/series/exchange-and-interest-rates
+107.	RBNZ, accessed on May 4, 2025, https://statsnz.contentdm.oclc.org/digital/api/collection/p20045coll35/id/133/download
+108.	Annual reweighting of the sterling exchange rate index - Bank of England, accessed on May 4, 2025, https://www.bankofengland.co.uk/statistics/sterling-exchange-rate-index
+109.	Sterling effective exchange rate index: Monthly average (Jan 2005=100), accessed on May 4, 2025, https://www.ons.gov.uk/economy/nationalaccounts/balanceofpayments/timeseries/bk67/mret
+110.	Conditioning assumptions - Office for Budget Responsibility - OBR, accessed on May 4, 2025, https://obr.uk/forecasts-in-depth/the-economy-forecast/conditioning-assumptions/
+111.	SDDS - DQAF View : United Kingdom - Exchange rates - Dissemination Standards Bulletin Board, accessed on May 4, 2025, https://dsbb.imf.org/sddsplus/dqaf-base/country/GBR/category/EXR00
+112.	Sterling exchange rate index - ACT Wiki, accessed on May 4, 2025, https://wiki.treasurers.org/wiki/Sterling_exchange_rate_index
+113.	The New Sterling ERI - ResearchGate, accessed on May 4, 2025, https://www.researchgate.net/publication/228285031_The_New_Sterling_ERI
+114.	Library Note - Strength of the Pound Sterling: Economy and Investment - UK Parliament, accessed on May 4, 2025, http://researchbriefings.files.parliament.uk/documents/LLN-2016-0058/LLN-2016-0058.pdf
+115.	Sterling ERI weights - Bank of England, accessed on May 4, 2025, https://www.bankofengland.co.uk/-/media/boe/files/statistics/sterling-eri-weights/sterling-eri-weights.xlsx
+116.	The Shocks Matter: Improving Our Estimates of Exchange Rate Pass-Through, accessed on May 4, 2025, https://www.nber.org/system/files/working_papers/w24773/w24773.pdf
+117.	Effective Exchange Rate : 日本銀行 Bank of Japan, accessed on May 4, 2025, https://www.boj.or.jp/en/statistics/market/forex/jikko/index.htm
+118.	Explanation of the Effective Exchange Rate (Nominal, Real) : 日本銀行 Bank of Japan, accessed on May 4, 2025, https://www.boj.or.jp/en/statistics/outline/exp/exrate.htm
+119.	data.bloomberglp.com, accessed on May 4, 2025, https://data.bloomberglp.com/professional/sites/10/Bloomberg-Pound-Index-Fact-Sheet.pdf
+120.	On the weakness of the Swedish krona 1 Introduction, accessed on May 4, 2025, https://www.riksbank.se/globalassets/media/rapporter/pov/artiklar/engelska/2021/210319/2021_1-on-the-weakness-of-the-swedish-krona_er.pdf
+121.	Publication set Exchange rate indices | SNB data portal, accessed on May 4, 2025, https://data.snb.ch/en/publishingSet/WKI
+122.	United States Dollar - Quote - Chart - Historical Data - News, accessed on May 4, 2025, https://tradingeconomics.com/united-states/currency
+123.	US Dollar Index (DXY) Forecast, News and Analysis - FXStreet, accessed on May 4, 2025, https://www.fxstreet.com/currencies/us-dollar-index
+124.	U.S. Dollar Index - Wikipedia, accessed on May 4, 2025, https://en.wikipedia.org/wiki/U.S._Dollar_Index
+125.	ICE US Dollar Index (^DXY) - YCharts, accessed on May 4, 2025, https://ycharts.com/indices/%5EDXY
+126.	US Dollar Index Futures - ICE, accessed on May 4, 2025, https://www.ice.com/products/194/us-dollar-index-futures
+127.	US - Trade-Weighted US Dollar Index | MacroMicro, accessed on May 4, 2025, https://en.macromicro.me/charts/50/us-dollar
+128.	Foreign Exchange Rates - H.10 - Nominal/Real Indexes - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/releases/h10/summary/
+129.	Trade-Weighted Dollar: What It Is and How It Works - Investopedia, accessed on May 4, 2025, https://www.investopedia.com/terms/t/trade-weighteddollar.asp
+130.	Trade Weighted Dollar Index - Babypips.com, accessed on May 4, 2025, https://www.babypips.com/learn/forex/trade-weighted-dollar-index
+131.	The yuan has hit its highest since mid-October 2022 (using its trade-weighted value), accessed on May 4, 2025, https://www.forexlive.com/centralbank/the-yuan-has-hit-its-highest-since-mid-october-2022-using-its-trade-weighted-value-20250102/
+132.	The Fed - Foreign Exchange Rates - H.10 - Currency Weights - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/releases/h10/weights/default.htm
+133.	SGX Trade-Weighted CNY Index - Singapore Exchange (SGX), accessed on May 4, 2025, https://www.sgx.com/indices/products/cnxy
+134.	Chinese Yuan - Quote - Chart - Historical Data - News - Trading Economics, accessed on May 4, 2025, https://tradingeconomics.com/china/currency
+135.	www.ocbc.com, accessed on May 4, 2025, https://www.ocbc.com/iwov-resources/sg/ocbc/gbc/pdf/FX%20Outlook/DFO/FX%20Note%20-%20CFETS%20Calibration%203%20Jan%202025.pdf
+136.	Calculation Methodology of RMB Indices, accessed on May 4, 2025, http://27.115.79.80/dqs/fileDownLoad.do?mode=open&contentId=852&priority=0
+137.	The Interaction between CFETS RMB Index and USDCNY The Reasons Why the Singapore Economy Has Been, accessed on May 4, 2025, https://www.bochk.com/dam/investment/bocecon/SY2016007(en).pdf
+138.	China to adjust currency weighting in CFETS yuan basket in 2024 | The Mighty 790 KFGO, accessed on May 4, 2025, https://kfgo.com/2023/12/29/china-to-adjust-currency-weighting-in-cfets-yuan-basket-in-2024/
+139.	CFETS RMB Index by the end of October 2023, accessed on May 4, 2025, https://www.chinamoney.org.cn/english/bmkidxrud/20231101/2743069.html
+140.	CFETS - China Foreign Exchange Trade System, accessed on May 4, 2025, http://iftp.chinamoney.com.cn/english/bmkycvmqc/
+141.	Is this time different in China? | J.P. Morgan Private Bank Latin America, accessed on May 4, 2025, https://privatebank.jpmorgan.com/latam/en/insights/markets-and-investing/is-this-time-different-in-china
+142.	CNY Central Parity Rate - CFETS, accessed on May 4, 2025, https://www.chinamoney.org.cn/english/bmkcpr/

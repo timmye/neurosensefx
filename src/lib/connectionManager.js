@@ -75,11 +75,11 @@ export class ConnectionManager {
     };
   }
 
-  handleOpen() {
+  async handleOpen() {
     // [DEBUGGER:connectionManager.js:74] Log connection opened
     console.log(`[DEBUGGER:connectionManager:handleOpen:74] ws_opened=true, url=${this.url}, status=${this.status}, subscriptions_count=${this.subscriptions.size}, timestamp=${Date.now()}`);
     console.log('WebSocket connected'); this.status = 'connected'; this.reconnectAttempts = 0; this.reconnectDelay = 1000;
-    this.resubscribeAll(); this.notifyStatusChange();
+    await this.resubscribeAll(); this.notifyStatusChange();
   }
 
   handleClose() {
@@ -136,13 +136,17 @@ export class ConnectionManager {
     };
   }
 
-  resubscribeAll() {
+  async resubscribeAll() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.log('[CM RESUB] WebSocket not open, skipping resubscribeAll');
       return;
     }
     // [DEBUGGER:connectionManager.js:131] Log resubscribe all
     console.log(`[DEBUGGER:connectionManager:resubscribeAll:131] resubscribe_all=true, subscriptions_count=${this.subscriptions.size}, timestamp=${Date.now()}`);
+
+    const REQUEST_DELAY_MS = 400;
+    let index = 0;
+
     for (const [key] of this.subscriptions) {
       const [symbol, source] = key.split(':');
       const adr = this.subscriptionAdr.get(key) || 14;
@@ -156,6 +160,12 @@ export class ConnectionManager {
       } catch (error) {
         console.error(`[CM ERROR] Failed to resubscribe to ${symbol}:`, error);
       }
+
+      // Add delay between messages (except for the last one)
+      if (index < this.subscriptions.size - 1) {
+        await this.sleep(REQUEST_DELAY_MS);
+      }
+      index++;
     }
   }
 
@@ -177,6 +187,11 @@ export class ConnectionManager {
   }
 
   disconnect() { this.maxReconnects = 0; if (this.ws) this.ws.close(); }
+
+  // Helper: Promise-based delay for rate limiting
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
   // Add a status change callback
   addStatusCallback(callback) {

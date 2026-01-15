@@ -8,18 +8,19 @@ export const BASKET_DEFINITIONS = {
   'GBP': { pairs: ['EURGBP', 'GBPUSD', 'GBPJPY', 'GBPAUD', 'GBPCAD', 'GBPCHF', 'GBPNZD'], weights: [35, 30, 10, 8, 8, 5, 4] },
   'AUD': { pairs: ['EURAUD', 'AUDUSD', 'AUDJPY', 'GBPAUD', 'AUDCAD', 'AUDCHF', 'AUDNZD'], weights: [20, 25, 20, 10, 10, 5, 10] },
   'CAD': { pairs: ['EURCAD', 'USDCAD', 'CADJPY', 'GBPCAD', 'AUDCAD', 'CADCHF', 'NZDCAD'], weights: [15, 40, 10, 10, 10, 8, 7] },
-  'CHF': { pairs: ['EURCHF', 'USDCHF', 'CHFJPY', 'GBPCHF', 'CADCHF', 'NZDCHF'], weights: [40, 30, 10, 10, 5, 5] },
+  'CHF': { pairs: ['EURCHF', 'USDCHF', 'CHFJPY', 'GBPCHF', 'CADCHF', 'AUDCHF', 'NZDCHF'], weights: [30, 35, 16, 8, 5, 4, 2] },
   'NZD': { pairs: ['EURNZD', 'NZDUSD', 'NZDJPY', 'GBPNZD', 'NZDCAD', 'NZDCHF', 'AUDNZD'], weights: [15, 25, 15, 10, 10, 5, 20] },
 };
 
 // cTrader missing inverses: USDGBP, AUDGBP, CADGBP, CHFGBP, NZDGBP
+// Note: CHF basket now includes AUDCHF (7 pairs, consistent with other baskets)
 function getPairPrice(pair, priceMap) {
   const price = priceMap.get(pair);
   if (price) return price;
 
   // Try inverse pairs for cTrader compatibility
   const inverses = {
-    'USDGBP': 'GBPUSD', 'AUDGBP': 'GBPAUD', 'CADGBP': 'GBPCAD',
+    'EURGBP': 'GBPEUR', 'USDGBP': 'GBPUSD', 'AUDGBP': 'GBPAUD', 'CADGBP': 'GBPCAD',
     'CHFGBP': 'GBPCHF', 'NZDGBP': 'GBPNZD'
   };
   const inverse = inverses[pair];
@@ -43,7 +44,9 @@ export function calculateBasketValue(currency, priceMap) {
 
     const adjustedPrice = pair.startsWith(currency) ? price : (1 / price);
     const normalizedWeight = basket.weights[i] / totalWeight;
-    logSum += normalizedWeight * Math.log(adjustedPrice);
+    const logValue = Math.log(adjustedPrice);
+    const contribution = normalizedWeight * logValue;
+    logSum += contribution;
     availableWeight += basket.weights[i];
   }
 
@@ -92,4 +95,25 @@ export function getAllPairs() {
 // 50% threshold allows display to initialize before all pairs arrive (handles slow API responses)
 export function hasMinimumDailyOpens(state) {
   return state.dailyOpenPrices.size >= getAllPairs().length * 0.5;
+}
+
+// Validate calculation result for correctness
+// Returns: { valid: boolean, reason: string|null }
+export function validateCalculationResult(result) {
+  if (!result) {
+    return { valid: false, reason: 'Result is null or undefined' };
+  }
+  if (typeof result.value !== 'number' || !Number.isFinite(result.value)) {
+    return { valid: false, reason: 'Value must be a finite number' };
+  }
+  if (typeof result.coverage !== 'number') {
+    return { valid: false, reason: 'Coverage must be a number' };
+  }
+  if (result.coverage <= 0) {
+    return { valid: false, reason: 'Coverage must be greater than 0' };
+  }
+  if (result.coverage > 1) {
+    return { valid: false, reason: 'Coverage cannot exceed 1' };
+  }
+  return { valid: true, reason: null };
 }

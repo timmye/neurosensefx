@@ -1,0 +1,332 @@
+Analysis of Factors Influencing Daily Flows in Foreign Exchange Markets
+The global foreign exchange (FX) market stands as the largest financial marketplace worldwide, characterized by its decentralized structure and an extraordinary volume of daily trading, reaching trillions of dollars.1 Understanding the multifaceted factors that instigate the constant fluctuations in currency exchange rates is of paramount importance for financial professionals. This knowledge is crucial for effective risk management, the formulation of robust trading strategies, and a comprehensive grasp of international financial dynamics. This report aims to provide a detailed analysis of the factors that influence the daily flows of a specific currency basket. This basket comprises the major currencies traded globally, including the United States Dollar (USD), Euro (EUR), Japanese Yen (JPY), British Pound (GBP), Australian Dollar (AUD), Canadian Dollar (CAD), Swiss Franc (CHF), and New Zealand Dollar (NZD), along with the increasingly significant Chinese Yuan (CNY). The ultimate objective of this analysis is to develop a framework that allows for the observation and interpretation of the relative performance of each currency within this basket through the lens of chart data. This report will explore the key macroeconomic fundamentals that underpin currency valuations, the significant role of market sentiment and geopolitical events, various methodologies for constructing a representative currency basket, techniques for analyzing chart data to discern relative performance, and the essential data sources for tracking FX flows.
+Key Macroeconomic Factors Influencing Daily FX Flows
+Interest Rate Differentials and Expectations
+Interest rates, established by central banks, play a pivotal role in shaping currency valuations by influencing the attractiveness of holding a particular currency.2 Higher interest rates in a country can lead to an appreciation of its currency. This occurs because higher yields on deposits and bonds denominated in that currency attract foreign investment, thereby increasing the demand for it.3 For instance, when the US Federal Reserve raises interest rates, it often results in a stronger US dollar relative to other currencies.3 Conversely, lower interest rates can diminish a currency's appeal to foreign investors, potentially leading to capital outflows as investors seek higher returns elsewhere, causing the currency to depreciate.3
+Market expectations regarding future interest rate changes also exert a significant influence on currency values. Even the anticipation of an impending rate hike or cut can trigger immediate movements in currency values as traders proactively adjust their positions based on these expectations.3 Central banks utilize interest rates as a primary instrument to manage inflation and stabilize economic activity, which indirectly impacts currency exchange rates.4 The fundamental relationship between interest rates and currency valuation is often captured by the interest rate parity theory, which suggests that a higher domestic interest rate relative to a foreign country can lead to an appreciation of the domestic currency due to increased fund inflows.12
+Inflation Rates and Purchasing Power
+Inflation rates and currency values typically exhibit an inverse relationship. Lower inflation generally supports a stronger currency because it increases the purchasing power of that currency, making goods and services cheaper and more attractive to foreign investors.3 Conversely, higher inflation erodes a currency's purchasing power, making exports more expensive and potentially leading to a decrease in demand for that currency in the foreign exchange market.3 Central banks closely monitor inflation rates and often employ interest rate adjustments as a key tool to control inflationary pressures and maintain price stability, which in turn affects currency exchange rates.3 Inflation is a crucial determinant of a currency's value against another and a primary driver of exchange rates, as highlighted by the Purchasing Power Parity (PPP) theory, which provides a framework for comparing the relative value of different currencies based on their purchasing power in each respective country.20
+Economic Growth Indicators (GDP, Employment)
+Key economic indicators such as Gross Domestic Product (GDP) growth and unemployment rates serve as barometers of a nation's economic health and performance, significantly influencing the attractiveness of its currency to international investors.5 Strong GDP growth typically signals economic stability and attractive investment opportunities, leading to increased foreign investment and a higher demand for the country's currency, consequently causing it to appreciate.5 Similarly, low unemployment rates generally boost investor confidence in a nation's economy, further strengthening its currency due to positive market sentiment and increased overall economic activity.11 Successful economic development often results in currency appreciation, underscoring the positive correlation between economic prosperity and currency strength.25
+Trade Balance and Capital Flows
+A country's balance of trade, which measures the difference between the value of its exports and imports, significantly impacts the supply and demand dynamics of its currency in the foreign exchange markets.11 A trade surplus, where a country exports more than it imports, generally leads to increased demand for its goods and, consequently, its currency, causing appreciation as foreign buyers need to purchase the currency to pay for the exports.11 Conversely, a trade deficit, where imports exceed exports, typically results in less demand for the country's currency, potentially leading to depreciation as the country needs to sell its currency to buy foreign currencies to pay for the imports.11 Capital flows also play a crucial role, as investors may choose to invest in countries with higher interest rates or stronger economic growth, leading to increased demand for those countries' currencies.12
+Central Bank Policies and Monetary Interventions
+Central banks wield considerable influence over their national currencies through various tools and policies, including adjustments to interest rates, open market operations, and reserve requirements.2 They may also intervene directly in the foreign exchange market by buying or selling their own currency to stabilize its value, particularly during periods of high volatility or to achieve specific economic objectives.2 Unconventional monetary policies, such as Quantitative Easing (QE), where central banks inject liquidity into the economy by purchasing assets, can also lead to currency depreciation.11 Falling interest rates tend to weaken currencies, while rising interest rates generally strengthen them, illustrating a direct impact of central bank policy on exchange rates.9
+The Impact of Market Sentiment and Geopolitical Events on FX
+Risk-On/Risk-Off Sentiment
+Overall market sentiment, driven by investor psychology and perceptions of global risk, significantly influences short-term currency movements, often leading to heightened volatility.1 During periods of "risk-on" sentiment, investors are typically optimistic and more inclined to invest in higher-yielding, potentially riskier assets and currencies, often at the expense of safe-haven currencies.11 Conversely, the "risk-off" sentiment prevails during times of economic uncertainty or geopolitical instability, causing investors to become risk-averse and seek the relative safety of traditional safe-haven currencies such as the U.S. dollar, Swiss franc, and Japanese yen.11 Major market crises or unexpected global events can amplify these risk sentiments, resulting in large-scale and rapid shifts in currency valuations as fear and uncertainty dominate trading decisions.11
+Speculation and Market Positioning
+A substantial portion of daily foreign exchange flows is driven by speculation, where traders bet on future currency movements to profit from anticipated changes in exchange rates.3 These speculative activities can sometimes create self-fulfilling trends, where a widespread belief in a currency's appreciation or depreciation leads to trading behavior that ultimately drives its value in that direction, at least in the short term.11 Large institutional investors, with their significant trading volumes, play a crucial role in this, as their speculative positions can cause substantial market swings and influence currency valuations.23 Overall investor sentiment and the collective positioning of traders in the market can significantly affect currency values, as traders adjust their holdings based on news, rumors, technical analysis, or anticipated future events.11
+Political Stability and Elections
+Political stability within a country plays a critical role in influencing investor confidence and, consequently, the strength of its currency.1 Stable governments and predictable governance tend to build investor trust, attracting international investment and boosting the value of the domestic currency.11 Conversely, political turmoil, instability, or uncertainty can lead to a decrease in investor confidence, resulting in capital outflows and currency depreciation due to the perceived economic risks.1 Elections often introduce uncertainty about potential policy changes, which can cause temporary fluctuations in forex rates as markets anticipate the outcomes and their economic implications.1
+Geopolitical Tensions and Conflicts
+Geopolitical events, including wars, conflicts, trade disputes, and sanctions, can have a profound impact on foreign exchange markets, often triggering significant volatility and shifts in currency valuations.1 Geopolitical tensions typically drive investors towards safe-haven currencies like the U.S. dollar, Swiss franc, or Japanese yen, leading to increased demand and appreciation of these currencies.11 Trade agreements can boost currencies by enhancing economic prospects, while sanctions or trade wars can weaken them by disrupting trade flows and impacting national GDPs.11 Events such as the Russia-Ukraine war have demonstrated how geopolitical conflicts can cause surges in energy prices and fluctuations in national GDPs, subsequently affecting forex exchange rates.32
+Constructing a Representative Currency Basket
+Rationale for Currency Selection
+The user's objective is to observe the relative performance of a specific basket of currencies comprising the FX majors (USD, EUR, JPY, GBP, AUD, CAD, CHF, NZD) and the Chinese Yuan (CNY). These currencies represent the most actively traded and influential currencies in the global foreign exchange market, reflecting the economic activity of major industrialized and emerging economies.38 Including these currencies ensures that the basket captures a broad spectrum of global economic influences. The high liquidity of these currencies is also a critical factor, ensuring that the basket consists of currencies that can be easily traded and tracked using readily available chart data.40 The inclusion of the Chinese Yuan (CNY) acknowledges China's increasing prominence in the global economy and its growing significance in international trade and finance.31
+Methodologies for Weighting the Basket
+Several methodologies can be employed to assign weights to the currencies within the basket, each offering a different perspective on their relative importance.
+Trade Volume Weighting
+This method assigns weights to each currency based on the volume of international trade conducted by the respective countries.29 Trade weights can be derived from the share of a country's exports and imports with other nations in the basket or with the world, reflecting their economic interdependence.45 Data on international trade volumes can be obtained from sources like the IMF's Direction of Trade Statistics (DOTS) 50, the United Nations Comtrade database 55, and national statistical agencies.56 The Trade-weighted US dollar index serves as an example of this methodology, using trade data for weighting.46 Weighting by trade volume provides a measure of each currency's importance in global commerce.
+GDP Weighting
+This methodology assigns weights based on the size of the issuing countries' economies, typically measured by their Gross Domestic Product (GDP).60 GDP data can be sourced from organizations like the World Bank 69 and the IMF.85 The MSCI GDP Weighted Indexes are constructed using this approach.67 Weighting by GDP reflects the relative economic strength of each country.
+Equal Weighting
+A simple approach is to assign an equal weight to each currency in the basket.96 For a 9-currency basket, this would mean each currency receives a weight of 11.11%. While straightforward, this method does not account for the varying economic significance or trading volume of each currency.42
+Turnover Weighting
+This method weights currencies based on their trading volume in the global foreign exchange market, reflecting their liquidity and market activity.43 Data on FX turnover is available from the BIS Triennial Central Bank Survey 43 and reports from major FX trading hubs.100 Weighting by turnover emphasizes the most actively traded currencies.
+The following table summarizes the different weighting methodologies:
+
+Weighting Methodology	Description	Key Data Sources	Rationale for Use
+Trade Volume Weighting	Weights based on the volume of international trade conducted by the respective countries.	IMF DOTS 50, UN Comtrade 55, National Statistical Agencies 56	Reflects the importance of each currency in international commerce.
+GDP Weighting	Weights based on the size of the issuing countries' economies (Gross Domestic Product).	World Bank 69, IMF 85	Reflects the relative economic strength and influence of each country.
+Equal Weighting	Assigns an equal weight to each currency in the basket.	None	Provides a simple and unbiased measure of relative performance.
+Turnover Weighting	Weights based on the trading volume of each currency in the global FX market.	BIS Triennial Central Bank Survey 43, New York Fed Reports 100	Emphasizes the most actively traded currencies.
+Considerations for Rebalancing the Basket
+Periodically rebalancing the currency basket is essential to ensure that the weights remain reflective of the chosen methodology.39 The frequency of rebalancing can vary, with annual or semi-annual intervals being common.67 For trade-weighted indices, annual rebalancing aligns with the availability of updated trade data 46, while GDP-weighted indices are often rebalanced annually following the release of new GDP figures.61
+Utilizing Chart Data for Observing Relative Currency Performance
+Choosing Appropriate Chart Types
+Chart data provides a visual representation of currency movements over time, enabling the observation of relative performance. Line charts offer a clear view of the overall trend by connecting closing prices across different timeframes.113 Candlestick charts provide a more detailed view of price action within a specific period, displaying the open, high, low, and close prices, with colors indicating the direction of price movement.113 Bar charts (HLOC charts) offer similar information to candlesticks, allowing for the analysis of price ranges and opening/closing levels.56 The U.S. Dollar Index (USDX) chart serves as a useful benchmark for assessing the relative strength or weakness of the USD against a basket of other major currencies.117
+Selecting Optimal Timeframes for Daily Flow Analysis
+Choosing appropriate chart timeframes is crucial for analyzing daily FX flows. Intraday charts, such as 1-hour and 4-hour charts, are recommended for observing price movements and flows within a trading day, allowing for the identification of short-term trends and potential entry/exit points.125 Daily charts should also be incorporated to provide a broader perspective on the overall trend and identify significant support and resistance levels that may influence daily flows.127 Employing multiple timeframe analysis, examining the same currency pair or index across different timeframes (e.g., daily, 4-hour, 1-hour), can help align trend identification and refine entry/exit strategies.125
+Incorporating Technical Analysis Tools and Indicators
+Technical analysis tools and indicators can enhance the interpretation of currency basket charts. Moving Averages (MA) can smooth out price data and identify trend directions, as well as potential support and resistance areas.113 The Relative Strength Index (RSI) serves as an oscillator to gauge price momentum and identify potential overbought or oversold conditions.113 The Moving Average Convergence Divergence (MACD) can help identify trend changes and momentum shifts.160 Currency strength meters provide a quick visual representation of the relative strength and weakness of currencies within the basket.162 Relative Rotation Graphs (RRG) offer a sophisticated way to visualize the relative strength and momentum of multiple currencies simultaneously around a benchmark.171
+Data Sources for Tracking FX Flows and Currency Performance
+Real-Time and Historical Exchange Rate Data Providers
+A wide range of data providers offer real-time and historical exchange rate data. Key commercial providers include Bloomberg and Refinitiv.132 Popular online platforms such as XE.com, OANDA, and Wise provide accessible data with broad currency coverage.174 Trading platforms like MetaTrader 4/5, TradingView, and NinjaTrader often integrate data feeds with advanced charting tools.118
+Central Bank Publications and Statistics
+Central bank websites are primary sources for official exchange rates, monetary policy announcements, and economic data. Relevant central banks include the Federal Reserve 201, the European Central Bank 105, the Bank of Japan 106, the Bank of England 214, the Reserve Bank of Australia 49, the Bank of Canada 237, the Swiss National Bank 31, the People's Bank of China 31, and the Reserve Bank of New Zealand.31 The Federal Reserve's FRED database 201, the ECB's statistical data warehouse 217, and the Bank of England's data releases 232 are valuable resources.
+International Financial Institutions (IMF, World Bank, BIS)
+The IMF's Data Portal 44 and the World Bank's DataBank 69 are key sources for comprehensive economic and financial data. The BIS website 43 provides data on effective exchange rates and the Triennial Survey.
+Trade and Economic Data Sources
+Organizations such as the U.S. Census Bureau, Bureau of Economic Analysis, World Trade Organization, and OECD offer detailed data on international trade volumes, GDP, and other economic indicators.50
+Conclusion
+The daily flows in the foreign exchange market are influenced by a complex interplay of macroeconomic factors, market sentiment, and geopolitical events. Analyzing the relative performance of a currency basket requires careful construction, potentially using methodologies such as trade volume weighting, GDP weighting, equal weighting, or turnover weighting, each providing a unique perspective. Chart data, when combined with appropriate technical analysis tools and indicators, offers valuable insights into the trends and momentum of these currencies. A wide range of data sources, including commercial providers, central banks, and international financial institutions, are available to support this analysis. Understanding these dynamics and utilizing the appropriate tools and resources is essential for gaining a comprehensive view of the foreign exchange market and the relative performance of its constituent currencies. The dynamic and interconnected nature of the FX market necessitates continuous monitoring and a multi-faceted approach to effectively analyze daily currency flows and their relative performance.
+Works cited
+1.	How to mitigate exchange rate risk: a complete guide - Embat, accessed on May 4, 2025, https://www.embat.io/en/blog/how-to-mitigate-exchange-rate-risk-a-complete-guide-
+2.	The Role of Central Banks in the Foreign Exchange Market, accessed on May 4, 2025, https://baxiamarkets.com/central-banks
+3.	5 top factors that affect currency exchange rates - tastyfx, accessed on May 4, 2025, https://www.tastyfx.com/news/5-top-factors-that-affect-currency-exchange-rates/
+4.	Interest rates and the forex market: Currency pairs to watch - Equiti, accessed on May 4, 2025, https://www.equiti.com/sc-en/news/market-insights/interest-rates-and-the-forex-market-currency-pairs-to-watch/
+5.	How National Interest Rates Affect Currency Values and Exchange ..., accessed on May 4, 2025, https://www.investopedia.com/ask/answers/040315/how-do-changes-national-interest-rates-affect-currencys-value-and-exchange-rate.asp
+6.	How do interest rates and inflation affect forex? - IG, accessed on May 4, 2025, https://www.ig.com/en/trading-strategies/how-do-interest-rates-and-inflation-affect-forex-230117
+7.	Why Interest Rates Matter for Forex Traders - Investopedia, accessed on May 4, 2025, https://www.investopedia.com/articles/forex/08/interest-rates.asp
+8.	How Interest Rates Affect Forex Trading | Ox Securities, accessed on May 4, 2025, https://oxsecurities.com/how-interest-rates-affect-forex-trading/
+9.	Understanding Monetary Policy Impact on Trading - ThinkMarkets, accessed on May 4, 2025, https://www.thinkmarkets.com/en/trading-academy/forex/monetary-policy/
+10.	How Central Banks Shape Forex: Interest Rates, Policies & Impact - Blueberry Markets, accessed on May 4, 2025, https://blueberrymarkets.com/market-analysis/how-central-banks-impact-the-forex-market/
+11.	6 Key Factors Influencing Forex Rate Movements - PriceVision, accessed on May 4, 2025, https://pricevision.ai/blog/key-factors-influencing-forex-rate-movements/
+12.	FX Rates in Macro: A Clear, Brief Expert Guide - Number Analytics, accessed on May 4, 2025, https://www.numberanalytics.com/blog/fx-rates-macro-guide
+13.	3 Factors That Influence The Forex Market - CFI Trading, accessed on May 4, 2025, https://cfi.trade/en/sc/blog/forex/3-factors-that-influence-the-forex-market
+14.	4 Key Macroeconomic Factors that Affect FX Rates - Wallex, accessed on May 4, 2025, https://www.wallex.asia/en-sg/resources/articles/what-macroeconomic-factors-affect-fx-rates
+15.	Why do exchange rates fluctuate? | Western Union, accessed on May 4, 2025, https://www.westernunion.com/blog/en/us/what-causes-exchange-rates-to-change/
+16.	Why Do Exchange Rates Change - HSBC Expat, accessed on May 4, 2025, https://www.expat.hsbc.com/international-banking/what-makes-exchange-rates-move/
+17.	6 factors influencing exchange rates and what you can do about it | OFX (US), accessed on May 4, 2025, https://www.ofx.com/en-us/blog/exchange-rate-volatility-causes/
+18.	Inflation: Prices on the Rise - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/en/Publications/fandd/issues/Series/Back-to-Basics/Inflation
+19.	How does inflation affect exchange rates? | Privalgo, accessed on May 4, 2025, https://www.privalgo.co.uk/how-does-inflation-affect-exchange-rates/
+20.	Inflation & Exchange Rates: Currency Value Insights 2025, accessed on May 4, 2025, https://www.currencysolutions.com/insights/impact-of-inflation-on-currency-exchange-rates-2025/
+21.	How Does Inflation Affect the Exchange Rate Between Two Nations?, accessed on May 4, 2025, https://www.investopedia.com/ask/answers/022415/how-does-inflation-affect-exchange-rate-between-two-nations.asp
+22.	The Impact of the Inflation on the Performance of the US Dollar - QuantPedia, accessed on May 4, 2025, https://quantpedia.com/the-impact-of-the-inflation-on-the-performance-of-the-us-dollar/
+23.	How are exchange rates determined? | Western Union, accessed on May 4, 2025, https://www.westernunion.com/blog/en/us/how-are-currency-exchange-rates-determined/
+24.	How Exchange Rates Affect Your Business, accessed on May 4, 2025, https://www.delawareinc.com/blog/exchange-rates/
+25.	www.nber.org, accessed on May 4, 2025, https://www.nber.org/system/files/chapters/c8616/c8616.pdf
+26.	Exchange rates and recoveries from crises: The role of labour market institutions - CEPR, accessed on May 4, 2025, https://cepr.org/voxeu/columns/exchange-rates-and-recoveries-crises-role-labour-market-institutions
+27.	Understanding the Indirect Effects of Exchange Rates - Investopedia, accessed on May 4, 2025, https://www.investopedia.com/articles/forex/053115/understand-indirect-effects-exchange-rates.asp
+28.	Currency Fluctuations: How they Affect the Economy - Investopedia, accessed on May 4, 2025, https://www.investopedia.com/articles/forex/080613/effects-currency-fluctuations-economy.asp
+29.	How the Balance of Trade Affects Currency Exchange Rates, accessed on May 4, 2025, https://www.investopedia.com/ask/answers/041515/how-does-balance-trade-impact-currency-exchange-rates.asp
+30.	How central bank policies affect the forex market - Intertrader, accessed on May 4, 2025, https://www.intertrader.com/market-insight/central-bank-policies
+31.	The Fed, ECB, and More Explained: Central Bank FAQs for Forex Traders, accessed on May 4, 2025, https://www.forex.com/en-us/news-and-analysis/the-fed-ecb-and-more-explained-central-bank-faqs-for-forex-traders/
+32.	Geopolitical Events and Their Impact on Forex Markets - IFX Brokers, accessed on May 4, 2025, https://ifxbrokers.com/geopolitical-events-and-forex/
+33.	Geopolitics: Impact of Global Events on Forex Trading - ThinkMarkets, accessed on May 4, 2025, https://www.thinkmarkets.com/en/trading-academy/forex/geopolitics-impact/
+34.	What determines exchange rates? 5 influencing factors - Wise, accessed on May 4, 2025, https://wise.com/us/blog/factors-influencing-exchange-rates
+35.	What Is Geopolitical Risk In FX? | Financial Glossary - Equals Money, accessed on May 4, 2025, https://equalsmoney.com/financial-glossary/geopolitical-risk
+36.	How Global Events Affect the Forex Market - Investopedia, accessed on May 4, 2025, https://www.investopedia.com/articles/forex/11/international-events-affect-forex.asp
+37.	How geopolitical risk impacts forex trading, accessed on May 4, 2025, https://www.forex.com/ie/news-and-analysis/geopolitical-risks-in-forex-trading/
+38.	Currency basket explained: A portfolio diversification strategy - StockGro, accessed on May 4, 2025, https://www.stockgro.club/learn/intraday-trading/currency-basket/
+39.	Currency basket - Wikipedia, accessed on May 4, 2025, https://en.wikipedia.org/wiki/Currency_basket
+40.	Currency Basket: What is it & How Does it Work? | Share India, accessed on May 4, 2025, https://www.shareindia.com/knowledge-center/currency-trading/what-is-a-currency-basket
+41.	Currency Basket: What it is, How it Works, Example - Investopedia, accessed on May 4, 2025, https://www.investopedia.com/terms/c/currencybasket.asp
+42.	Currency Basket - Overview, How To Create, How To Use - Corporate Finance Institute, accessed on May 4, 2025, https://corporatefinanceinstitute.com/resources/foreign-exchange/currency-basket/
+43.	BIS 2022 Triennial Central Bank Survey of Foreign Exchange and OTC Derivatives Markets - Federal Reserve Bank of New York, accessed on May 4, 2025, https://www.newyorkfed.org/medialibrary/microsites/fxc/files/2022/BIS_2022_Triennial_Central_Bank_Survey.pdf
+44.	What is the SDR? - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/en/About/Factsheets/Sheets/2023/special-drawing-rights-sdr
+45.	Trade-weighted effective exchange rate index - Wikipedia, accessed on May 4, 2025, https://en.wikipedia.org/wiki/Trade-weighted_effective_exchange_rate_index
+46.	Trade-weighted US dollar index - Wikipedia, accessed on May 4, 2025, https://en.wikipedia.org/wiki/Trade-weighted_US_dollar_index
+47.	Trade-Weighted Exchange Rate - Overview, Calculation - Corporate Finance Institute, accessed on May 4, 2025, https://corporatefinanceinstitute.com/resources/economics/trade-weighted-exchange-rate/
+48.	The Fed - Foreign Exchange Rates - H.10 - Currency Weights, accessed on May 4, 2025, https://www.federalreserve.gov/releases/h10/weights/default.htm
+49.	Exchange Rates and their Measurement | Explainer | Education | RBA, accessed on May 4, 2025, https://www.rba.gov.au/education/resources/explainers/exchange-rates-and-their-measurement.html
+50.	Global Trade Websites & Data Sources - Economics Subject Guide - LibGuides at Babson College, accessed on May 4, 2025, https://libguides.babson.edu/economics/Trade
+51.	International Trade in Goods (by partner country) (IMTS) - IMF Data, accessed on May 4, 2025, https://data.imf.org/dot
+52.	Direction of Trade Statistics (DOTS) - UNCCD, accessed on May 4, 2025, https://www.unccd.int/resources/knowledge-sharing-system/direction-trade-statistics-dots
+53.	[DOT] Direction of Trade Statistics (DOTS) - IMF - DB-nomics, accessed on May 4, 2025, https://db.nomics.world/IMF/DOT
+54.	IMF Direction of Trade Statistics, 1948-2021 - CESSDA Data Catalogue, accessed on May 4, 2025, https://datacatalogue.cessda.eu/detail?q=d93826e024d66850fbbe8b674b441394f52c7dd24e051bca6c6b1408ffac81b1
+55.	UN Comtrade, accessed on May 4, 2025, https://comtrade.un.org/
+56.	Trade Data and Analysis - International Trade Administration, accessed on May 4, 2025, https://www.trade.gov/trade-data-analysis
+57.	International Trade Data Main Page - U.S. Census Bureau, accessed on May 4, 2025, https://www.census.gov/foreign-trade/data/
+58.	Foreign Trade: Data - Historical Series - U.S. Census Bureau, accessed on May 4, 2025, https://www.census.gov/foreign-trade/statistics/historical/index.html
+59.	DataWeb: U.S. Trade & Tariff Data, accessed on May 4, 2025, https://dataweb.usitc.gov/
+60.	www.marketvector.com, accessed on May 4, 2025, https://www.marketvector.com/gdp-index-concept#:~:text=While%20traditional%20regional%20or%20global,gross%20domestic%20product%20(GDP).
+61.	MSCI GDP Weighted Indices, accessed on May 4, 2025, https://www.msci.com/eqb/methodology/meth_docs/MSCI_GDP_Weighted_Index_Methdology_Feb2011.pdf
+62.	MSCI ACWI GDP Weighted Index (USD), accessed on May 4, 2025, https://www.msci.com/www/fact-sheet/msci-acwi-gdp-weighted-index/05770599
+63.	GDP Index Concept - MarketVector, accessed on May 4, 2025, https://www.marketvector.com/gdp-index-concept
+64.	Effective exchange rate index - Wikipedia, accessed on May 4, 2025, https://en.wikipedia.org/wiki/Effective_exchange_rate_index
+65.	FTSE GDP Weighted Indexes, accessed on May 4, 2025, https://research.ftserussell.com/products/downloads/gdp-weighted-paper.pdf
+66.	FTSE GDP Weighted Index Series: the Ground Rules - LSEG, accessed on May 4, 2025, https://www.lseg.com/content/dam/ftse-russell/en_us/documents/ground-rules/ftse-gdp-weighted-index-series-ground-rules.pdf
+67.	www.msci.com, accessed on May 4, 2025, https://www.msci.com/eqb/methodology/meth_docs/MSCI_GDP_Weighted_Index_Methdology_Feb2019.pdf
+68.	FTSE GDP Weighted Index Series - LSEG, accessed on May 4, 2025, https://www.lseg.com/en/ftse-russell/indices/gdp-weighted
+69.	Gross domestic product (GDP) - Our World in Data, accessed on May 4, 2025, https://ourworldindata.org/grapher/gdp-worldbank-constant-usd
+70.	GDP (current US$) - World Bank Data, accessed on May 4, 2025, https://data.worldbank.org/indicator/NY.GDP.MKTP.CD
+71.	Gross domestic product (GDP) - Our World in Data, accessed on May 4, 2025, https://ourworldindata.org/grapher/gdp-worldbank
+72.	Domestic Product (GDP) growth - Glossary | DataBank, accessed on May 4, 2025, https://databank.worldbank.org/metadataglossary/world-development-indicators/series/NY.GDP.MKTP.KD.ZG
+73.	GDP per capita - World Development Indicators | DataBank, accessed on May 4, 2025, https://databank.worldbank.org/indicator/NY.GDP.PCAP.CD/1ff4a498/Popular-Indicators
+74.	GDP per capita - Our World in Data, accessed on May 4, 2025, https://ourworldindata.org/grapher/gdp-per-capita-worldbank
+75.	GDP per capita, PPP (constant 2021 international $) - World Bank Data, accessed on May 4, 2025, https://data.worldbank.org/indicator/NY.GDP.PCAP.PP.KD
+76.	GDP per capita (current US$) - World Bank Data, accessed on May 4, 2025, https://data.worldbank.org/indicator/NY.GDP.PCAP.CD
+77.	GDP, PPP (current international $) - World Bank Data, accessed on May 4, 2025, https://data.worldbank.org/indicator/NY.GDP.MKTP.PP.CD
+78.	DataBank | The World Bank, accessed on May 4, 2025, https://databank.worldbank.org/
+79.	History - World Bank, accessed on May 4, 2025, https://www.worldbank.org/en/archive/history
+80.	World Bank Group Archives, accessed on May 4, 2025, https://www.worldbank.org/en/archive/home
+81.	World Bank Open Data | Data, accessed on May 4, 2025, https://data.worldbank.org/
+82.	World Bank Indicators - Trading Economics, accessed on May 4, 2025, https://tradingeconomics.com/country-list/index-wb-data.html
+83.	Indicators - World Bank Data, accessed on May 4, 2025, https://data.worldbank.org/indicator
+84.	World Development Indicators | DataBank, accessed on May 4, 2025, https://databank.worldbank.org/source/world-development-indicators
+85.	Gross Domestic Product | U.S. Bureau of Economic Analysis (BEA), accessed on May 4, 2025, https://www.bea.gov/data/gdp/gross-domestic-product
+86.	Economic indicators - U.S. Department of Commerce, accessed on May 4, 2025, https://www.commerce.gov/data-and-reports/economic-indicators
+87.	IMF Data, accessed on May 4, 2025, https://www.imf.org/en/Data
+88.	Data Home - International Monetary Fund (IMF), accessed on May 4, 2025, https://data.imf.org/
+89.	Where can I find Gross Domestic Product (GDP) data? - IMF DATA Help, accessed on May 4, 2025, https://datahelp.imf.org/knowledgebase/articles/485343-where-can-i-find-gross-domestic-product-gdp-data
+90.	IMF Archives - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/en/About/Archives
+91.	Data Home - IMF Data - International Monetary Fund (IMF), accessed on May 4, 2025, https://data.imf.org/?sk=7a51304b-6426-40c0-83dd-ca473ca1fd52
+92.	Public Finances in Modern History - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/external/datamapper/datasets/FPP
+93.	Historical Public Debt Database - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/external/datamapper/datasets/DEBT
+94.	International Monetary Fund data - European University Institute, accessed on May 4, 2025, https://www.eui.eu/Research/Library/ResearchGuides/Economics/Statistics/DataPortal/IMFdata
+95.	Datasets - IMF DataMapper, accessed on May 4, 2025, https://www.imf.org/external/datamapper/datasets
+96.	www.lseg.com, accessed on May 4, 2025, https://www.lseg.com/content/dam/ftse-russell/en_us/documents/ground-rules/russell-conscious-currency-index-series-ground-rules.pdf
+97.	Bloomberg Spot FX Indices Methodology, accessed on May 4, 2025, https://assets.bbhub.io/professional/sites/27/Bloomberg-Spot-FX-Index-Family-Methodology.pdf
+98.	FX Daily Exchange Volume & Open Interest - CME Group, accessed on May 4, 2025, https://www.cmegroup.com/market-data/browse-data/fx-volume.html
+99.	CLSMarketData | FX Alternative Datasets - CLS Group, accessed on May 4, 2025, https://www.cls-group.com/products/data/clsmarketdata/
+100.	Volume Survey - Foreign Exchange Committee - Federal Reserve Bank of New York, accessed on May 4, 2025, https://www.newyorkfed.org/fxc/fx-volume-survey
+101.	Data | FX Market Data and Reporting | CLS - CLS Group, accessed on May 4, 2025, https://www.cls-group.com/products/data/
+102.	Central Bank Survey of Foreign Exchange and Derivatives Market Activity - Catalog, accessed on May 4, 2025, https://catalog.data.gov/dataset/central-bank-survey-of-foreign-exchange-and-derivatives-market-activity
+103.	Triennial Surveys - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/stats_triennial_surveys/index.htm
+104.	Bank for International Settlements Triennial Survey - Western Michigan University, accessed on May 4, 2025, https://wmich.edu/economics/bank-international-settlements-triennial-survey
+105.	BIS Triennial Survey of Foreign Exchange and Over-The-Counter Interest Rate Derivatives Markets in April 2022 – UK Data | Bank of England, accessed on May 4, 2025, https://www.bankofengland.co.uk/news/2022/october/bis-triennial-survey-of-foreign-exchange-and-over-the-counter-interest-rate-derivatives-markets
+106.	Central Bank Survey of Foreign Exchange and Derivatives Market Activity - 日本銀行, accessed on May 4, 2025, https://www.boj.or.jp/en/statistics/bis/deri/index.htm
+107.	Triennial Central Bank Survey | Deutsche Bundesbank, accessed on May 4, 2025, https://www.bundesbank.de/en/statistics/banks-and-other-financial-corporations/banks/triennial-central-bank-survey/triennial-central-bank-survey-804372
+108.	Triennial Central Bank Survey of foreign exchange and Over-the-counter (OTC) derivatives markets in 2022, accessed on May 4, 2025, https://www.bis.org/statistics/rpfx22.htm
+109.	BIS Triennial FX and OTC survey - European Central Bank, accessed on May 4, 2025, https://www.ecb.europa.eu/paym/groups/pdf/fxcg/2022/20221207/Item_4_Presentation_by_BIS.pdf
+110.	Revised currency baskets - Central Bank of Iceland, accessed on May 4, 2025, https://cb.is/statistics/official-exchange-rate/revised-currency-baskets/
+111.	Review of the Method of Valuation of the SDR - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/en/Publications/Policy-Papers/Issues/2022/05/16/Review-of-the-Method-of-Valuation-of-the-SDR-517967
+112.	How Are Indexes Constructed - MSCI, accessed on May 4, 2025, https://www.msci.com/our-solutions/indexes/making-complex-simple/how-are-indexes-constructed
+113.	Forex Charts for Beginners: How to Read Forex Charts | IG ..., accessed on May 4, 2025, https://www.ig.com/en/forex/fx-need-to-knows/forex-trading-charts
+114.	Types of Forex Charts (And How to Read Them) - Blueberry Markets, accessed on May 4, 2025, https://blueberrymarkets.com/market-analysis/types-of-forex-charts-and-how-to-read-them/
+115.	How to Read Forex Charts | Forex Chart Analysis | IG International, accessed on May 4, 2025, https://www.ig.com/en/trading-strategies/how-to-read-forex-charts-200720
+116.	How To Read Charts In Forex | FXCM Markets, accessed on May 4, 2025, https://www.fxcm.com/markets/insights/learn-forex-charts/
+117.	Alternate U.S. Dollar Index Chart - Shadow Government Statistics, accessed on May 4, 2025, https://www.shadowstats.com/alternate_data/dollar-index-charts
+118.	DXY Dollar Index - Currency Exchange Rate Live Price Chart - Trading Economics, accessed on May 4, 2025, https://tradingeconomics.com/dxy:cur
+119.	DXY — U.S. Dollar Index Chart — TradingView, accessed on May 4, 2025, https://www.tradingview.com/symbols/TVC-DXY/
+120.	US Dollar Index (DXY) Forecast, News and Analysis - FXStreet, accessed on May 4, 2025, https://www.fxstreet.com/currencies/us-dollar-index
+121.	US Dollar Index Futures - Investing.com India, accessed on May 4, 2025, https://in.investing.com/currencies/us-dollar-index
+122.	Technical Analysis of U.S. Dollar Currency Index (ICEUS:DXY) - TradingView, accessed on May 4, 2025, https://www.tradingview.com/symbols/ICEUS-DXY/technicals/
+123.	www.ice.com, accessed on May 4, 2025, https://www.ice.com/publicdocs/futures_us/ICE_Dollar_Index_FAQ.pdf
+124.	What Is the U.S. Dollar Index (USDX) and How to Trade It, accessed on May 4, 2025, https://www.investopedia.com/terms/u/usdx.asp
+125.	How To Choose The Best Time Frame For Trading (Step-by-Step) - NewTrading, accessed on May 4, 2025, https://www.newtrading.io/timeframes-trading/
+126.	Choosing the Right Timeframe for Day Trading | Market Pulse - FXOpen UK, accessed on May 4, 2025, https://fxopen.com/blog/en/choosing-the-right-timeframe-for-day-trading/
+127.	Should You Use The 4-Hour Or Daily Time Frame (or Both)?, accessed on May 4, 2025, https://dailypriceaction.com/blog/4-hour-or-daily-time-frame/
+128.	1-Hour Forex Interval Chart API - Financial Modeling Prep, accessed on May 4, 2025, https://site.financialmodelingprep.com/developer/docs/stable/forex-intraday-1-hour
+129.	(PDF) Determine Intraday Trading Currency's Trend Framework Evidence From Machine Learning Techniques - ResearchGate, accessed on May 4, 2025, https://www.researchgate.net/publication/382310666_Determine_Intraday_Trading_Currency's_Trend_Framework_Evidence_From_Machine_Learning_Techniques
+130.	Forex Technical Analysis | Autochartist | OANDA, accessed on May 4, 2025, https://www.oanda.com/us-en/trading/tools/technical-analysis/
+131.	42 Chart Patterns for Effective Intraday, Swing & F&O Trading - Strike, accessed on May 4, 2025, https://www.strike.money/technical-analysis/chart-patterns
+132.	Foreign Exchange - Pricing and Market Data - LSEG, accessed on May 4, 2025, https://www.lseg.com/en/data-analytics/financial-data/pricing-and-market-data/fx-pricing-data
+133.	Analysis of the Intraday Effects of Economic Releases on the Currency Market - KIT, accessed on May 4, 2025, https://methods.stat.kit.edu/download/Wavelet-final_submitted.pdf
+134.	An Intraday Analysis of the Effectiveness of Foreign Exchange Intervention | Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/wp-content/uploads/2010/05/wp99-4.pdf
+135.	Analysis of Intraday Financial Market Using ML and Neural Networks for GBP/USD Currency Pair Price Forecasting - SciTePress, accessed on May 4, 2025, https://www.scitepress.org/Papers/2024/123867/123867.pdf
+136.	PDF - Computational learning techniques for intraday FX trading using popular technical indicators, accessed on May 4, 2025, https://www.jbs.cam.ac.uk/wp-content/uploads/2020/08/wp0030-1.pdf
+137.	1-Minute Forex Interval Chart API - Financial Modeling Prep, accessed on May 4, 2025, https://site.financialmodelingprep.com/developer/docs/stable/forex-intraday-1-min
+138.	An Intraday Analysis of the Effectiveness of Foreign Exchange Intervention - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/1999/02/working-paper-1999-4/
+139.	High frequency financial datasets for empirical analyses: two applied cases - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/ifc/events/ifc_8thconf/ifc_8thconf_54pres.pdf
+140.	The benefits of using large high frequency financial datasets for empirical analyses: Two applied cases, accessed on May 4, 2025, https://www.bis.org/ifc/publ/ifcb43_zj.pdf
+141.	Intraday high-frequency FX trading with adaptive neuro-fuzzy inference systems - CiteSeerX, accessed on May 4, 2025, https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=6a2b335bb90a22152b3cb6f964b147354a0e296a
+142.	Detecting intraday periodicities with application to high frequency exchange rates - University of Texas at Austin, accessed on May 4, 2025, http://www.la.utexas.edu/hinich/files/Economics/Cycles-FX.pdf
+143.	Forex Timeframes Explained: Learn When You Should Trade FX | IG International, accessed on May 4, 2025, https://www.ig.com/en/trading-strategies/what-are-the-best-timeframes-in-forex-trading--210805
+144.	Multiple Time Frames: How to Use Them In Your Trading - Investopedia, accessed on May 4, 2025, https://www.investopedia.com/articles/trading/07/timeframes.asp
+145.	Trading Multiple Time Frames in FX - Investopedia, accessed on May 4, 2025, https://www.investopedia.com/articles/forex/08/multiple-timeframe.asp
+146.	What is the Best Time Frame for Forex Trading? - Blueberry Markets, accessed on May 4, 2025, https://blueberrymarkets.com/academy/the-best-time-frame-for-forex-trading/
+147.	What Time Frame Is Best For Trading Forex? - Daily Price Action, accessed on May 4, 2025, https://dailypriceaction.com/blog/what-time-frame-is-best-for-trading-forex/
+148.	Trade with 3 Time Frames: A Multi-Timeframe Analysis Strategy for Forex | LiteFinance, accessed on May 4, 2025, https://www.litefinance.org/blog/for-beginners/trading-strategies/trading-3-time-frames/
+149.	How To Use 1 & 4 hour Chart Time-Frames to Confirm Daily Chart Signals, accessed on May 4, 2025, https://www.learntotradethemarket.com/forex-trading-strategies/how-to-use-1-4-hour-charts-to-confirm-daily-chart-signals
+150.	What is the Best Timeframe for Day Trading!? - YouTube, accessed on May 4, 2025, https://www.youtube.com/watch?v=r_9FaM_Z8fs
+151.	Here's My Daily Trading Routine That I've Used For 10+ Years - Learn To Trade The Market, accessed on May 4, 2025, https://www.learntotradethemarket.com/forex-trading-strategies/daily-trading-routine-nial-fuller
+152.	What Time Frame is Best for Intraday, Option & Swing Trading? - Learn Moneysukh, accessed on May 4, 2025, https://learn.moneysukh.com/best-time-frame-for-intraday-option-swing-trading/
+153.	3 Best Time Frames For Day Trading Forex (intraday trading secrets & multiple time frame analysis) - YouTube, accessed on May 4, 2025, https://www.youtube.com/watch?v=qjpTooNMhE4
+154.	How To Select Your Trading Time Frame - myespresso.com, accessed on May 4, 2025, https://www.myespresso.com/bootcamp/module/trade-management-risk-management/selecting-timeframe-in-trading
+155.	Best Time Frames For Day Trading Futures, accessed on May 4, 2025, https://optimusfutures.com/blog/best-time-frames-for-day-trading-futures/
+156.	What's The Best Day To Analyze Your Charts? - Daily Price Action, accessed on May 4, 2025, https://dailypriceaction.com/blog/analyze-forex-charts/
+157.	What Are The Best Chart Time Frames To Trade, accessed on May 4, 2025, https://www.learntotradethemarket.com/forex-trading-strategies/best-chart-time-frames-to-trade
+158.	What is Multiple Time Frame Analysis (MTFA) in Forex Trading? - Admiral Markets, accessed on May 4, 2025, https://admiralmarkets.com/education/articles/forex-analysis/mtfa-multiple-time-frame-analysis-in-forex-trading
+159.	What Time Frame Is Best for Trading Forex? - Babypips.com, accessed on May 4, 2025, https://www.babypips.com/learn/forex/time-frame-breakdown
+160.	How To Predict Forex Movements | IG International, accessed on May 4, 2025, https://www.ig.com/en/trading-strategies/how-to-predict-forex-movements-200717
+161.	How To Use Moving Averages - Moving Average Trading 101 - Tradeciety, accessed on May 4, 2025, https://tradeciety.com/how-to-use-moving-averages
+162.	Currencystrength — Indicateurs et Stratégies - TradingView, accessed on May 4, 2025, https://fr.tradingview.com/scripts/currencystrength/
+163.	Decision support tool for manual currency trading using Relative Strength Index Indicator, accessed on May 4, 2025, https://www.researchgate.net/publication/322634813_Decision_support_tool_for_manual_currency_trading_using_Relative_Strength_Index_Indicator
+164.	Currency Heatmap: Visualize Relative Strength in the Forex Market, accessed on May 4, 2025, https://www.actionforex.com/markets/currency-heat-map/
+165.	Live Currency Strength Meter - Switch Markets, accessed on May 4, 2025, https://www.switchmarkets.com/tools/live-currency-strength-meter
+166.	Currency Strength Meter - Live Strength Indicator, accessed on May 4, 2025, https://currencystrengthmeter.org/
+167.	Currency Strength Meter by MarketMilk™ - FX Market Snapshot, accessed on May 4, 2025, https://marketmilk.babypips.com/currency-strength
+168.	Scripts Search Results for "Currency Strength" - TradingView, accessed on May 4, 2025, https://www.tradingview.com/scripts/search/Currency%20Strength/
+169.	FX Meter - Currency Strength - Apps on Google Play, accessed on May 4, 2025, https://play.google.com/store/apps/details?id=com.blacktowerinvestments.fxmeter
+170.	Chart Advisor: Visualizing Relative Strength - Interactive Brokers, accessed on May 4, 2025, https://www.interactivebrokers.com/campus/traders-insight/securities/macro/chart-advisor-visualizing-relative-strength/
+171.	How to show "currency rotation" on a Relative Rotation Graph. - StockCharts.com, accessed on May 4, 2025, https://stockcharts.com/articles/rrg/2016/06/how-to-show-currency-rotation-on-a-relative-rotation-graph.html
+172.	Historical Market Data Sources | IBKR Quant, accessed on May 4, 2025, https://www.interactivebrokers.com/campus/ibkr-quant-news/historical-market-data-sources/
+173.	Real-time data solutions - LSEG, accessed on May 4, 2025, https://www.lseg.com/en/data-analytics/market-data/data-feeds
+174.	Free Currency Charts - Historical Currency Rates - XE.com, accessed on May 4, 2025, https://www.xe.com/currencycharts/
+175.	Historical Rates Tables - USD - XE.com, accessed on May 4, 2025, https://www.xe.com/currencytables/?from=USD
+176.	British Pound to US Dollar Exchange Rate Chart - XE.com, accessed on May 4, 2025, https://www.xe.com/nl/currencycharts/?from=GBP&to=USD
+177.	US Dollar to Canadian Dollar Exchange Rate Chart - XE.com, accessed on May 4, 2025, https://www.xe.com/currencycharts/?from=USD&to=CAD
+178.	US Dollar to Swiss Franc Exchange Rate Chart - XE.com, accessed on May 4, 2025, https://www.xe.com/currencycharts/?from=USD&to=CHF
+179.	US Dollar to Chinese Yuan Renminbi Exchange Rate Chart - XE.com, accessed on May 4, 2025, https://www.xe.com/currencycharts/?from=USD&to=CNY
+180.	Currency Converter | Foreign Exchange Rates - Oanda, accessed on May 4, 2025, https://www.oanda.com/currency-converter/en/
+181.	Forex Rates Accuracy | Real Time FX Data - Oanda, accessed on May 4, 2025, https://www.oanda.com/foreign-exchange-data-services/en/exchange-rates-api/api-accuracy/
+182.	US dollar to Euros Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/usd-to-eur-rate/history
+183.	Euro to US dollars Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/eur-to-usd-rate/history
+184.	US dollar to Japanese yen Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/us/currency-converter/usd-to-jpy-rate/history
+185.	US dollar to British pounds sterling Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/usd-to-gbp-rate/history
+186.	British pound sterling to US dollars Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/gbp-to-usd-rate/history
+187.	Australian dollar to US dollars Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/aud-to-usd-rate/history
+188.	US dollar to Australian dollars Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/us/currency-converter/usd-to-aud-rate/history
+189.	US dollar to Canadian dollars Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/usd-to-cad-rate/history
+190.	Canadian dollar to US dollars Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/cad-to-usd-rate/history
+191.	Swiss franc to US dollars Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/chf-to-usd-rate/history
+192.	US dollar to Swiss francs Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/usd-to-chf-rate/history
+193.	US dollar to New Zealand dollars Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/us/currency-converter/usd-to-nzd-rate/history
+194.	Chinese yuan rmb to US dollars Exchange Rate History | Currency Converter - Wise, accessed on May 4, 2025, https://wise.com/gb/currency-converter/cny-to-usd-rate/history
+195.	Adv. Guide: Currency Carry Trade for High Returns - Number Analytics, accessed on May 4, 2025, https://www.numberanalytics.com/blog/advanced-currency-carry-trade-high-returns
+196.	Forex Historical Data Feed :: Dukascopy Bank SA, accessed on May 4, 2025, https://www.dukascopy.com/swiss/english/marketwatch/historical/
+197.	Currency Indices — Overview and Quotes - TradingView, accessed on May 4, 2025, https://www.tradingview.com/markets/currencies/indices-all/
+198.	Live Forex Charts - FXStreet, accessed on May 4, 2025, https://www.fxstreet.com/rates-charts/chart
+199.	Currency - Indices | S&P Dow Jones Indices, accessed on May 4, 2025, https://www.spglobal.com/spdji/en/index-family/other-strategies/currency/
+200.	Market Data Providers & Real-Time Data Feed - NinjaTrader, accessed on May 4, 2025, https://ninjatrader.com/trading-platform/customize/market-data-brokerage-options/
+201.	Federal Reserve Economic Data | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/
+202.	Data - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/data.htm
+203.	United States Fed Funds Interest Rate - Trading Economics, accessed on May 4, 2025, https://tradingeconomics.com/united-states/interest-rate
+204.	Consumer Credit Historical Data - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/releases/g19/hist/
+205.	H15 - Data Download Program - Choose - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/datadownload/Choose.aspx?rel=H15
+206.	Federal Funds Effective Rate (FEDFUNDS) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/FEDFUNDS
+207.	Recent balance sheet trends - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/monetarypolicy/bst_recenttrends.htm
+208.	Foreign Exchange Rates - H.10 - Country Data - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/releases/h10/hist/
+209.	Foreign Exchange Rates - G.5 - May 01, 2025 - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/releases/g5/current/
+210.	U.S. Dollars to Euro Spot Exchange Rate (DEXUSEU) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/DEXUSEU
+211.	Foreign Exchange Rates - H.10 - April 28, 2025 - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/releases/h10/current/
+212.	Foreign Exchange Rates - H.10 - April 28, 2025 - Federal Reserve Board, accessed on May 4, 2025, https://www.federalreserve.gov/releases/h10/hist/dat00_sz.htm
+213.	Exchange Rates | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/categories/15
+214.	U.S. / U.K. Foreign Exchange Rate in the United Kingdom (USUKFXUKM) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/USUKFXUKM
+215.	U.S. Dollars to Australian Dollar Spot Exchange Rate (DEXUSAL) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/DEXUSAL
+216.	Nominal Broad U.S. Dollar Index (DTWEXBGS) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/DTWEXBGS
+217.	Effective exchange rates - European Central Bank, accessed on May 4, 2025, https://www.ecb.europa.eu/mopo/eaec/eer/html/index.en.html
+218.	US dollar (USD) - European Central Bank, accessed on May 4, 2025, https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-usd.en.html
+219.	Euro foreign exchange reference rates - European Central Bank, accessed on May 4, 2025, https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html
+220.	Pound sterling (GBP) - European Central Bank, accessed on May 4, 2025, https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-gbp.en.html
+221.	Euro US Dollar Exchange Rate - EUR/USD - Quote - Chart - Historical Data - News, accessed on May 4, 2025, https://tradingeconomics.com/euro-area/currency
+222.	ECB foreign exchange reference rates - Národná banka Slovenska, accessed on May 4, 2025, https://nbs.sk/en/statistics/exchange-rates/ecb-foreign-exchange-reference-rates/
+223.	European Central Bank exchange rates - Lietuvos bankas, accessed on May 4, 2025, https://www.lb.lt/en/currency?currency=GBP&class=Eu&type=day
+224.	Exchange rates | ECB Data Portal, accessed on May 4, 2025, https://data.ecb.europa.eu/main-figures/ecb-interest-rates-and-exchange-rates/exchange-rates
+225.	Currency converter - ECB Data Portal, accessed on May 4, 2025, https://data.ecb.europa.eu/currency-converter
+226.	Euro Exchange Rates | Central Bank of Ireland, accessed on May 4, 2025, https://www.centralbank.ie/statistics/interest-rates-exchange-rates/exchange-rates
+227.	Results of BIS International Locational Banking Statistics and International Consolidated Banking Statistics in Japan - 日本銀行, accessed on May 4, 2025, https://www.boj.or.jp/en/statistics/bis/ibs/index.htm
+228.	Annual reweighting of the sterling exchange rate index | Bank of ..., accessed on May 4, 2025, https://www.bankofengland.co.uk/statistics/sterling-exchange-rate-index
+229.	British Pound - Quote - Chart - Historical Data - News - Trading Economics, accessed on May 4, 2025, https://tradingeconomics.com/united-kingdom/currency
+230.	Daily spot exchange rates against Sterling - Bank of England, accessed on May 4, 2025, https://www.bankofengland.co.uk/boeapps/database/Rates.asp?Travel=NIxAZx&into=GBP
+231.	United Kingdom Interest Rate - Trading Economics, accessed on May 4, 2025, https://tradingeconomics.com/united-kingdom/interest-rate
+232.	Exchange rates | Bank of England, accessed on May 4, 2025, https://www.bankofengland.co.uk/statistics/exchange-rates
+233.	Exchange Rates | RBA, accessed on May 4, 2025, https://www.rba.gov.au/statistics/frequency/exchange-rates.html
+234.	Australian Dollar - Quote - Chart - Historical Data - News - Trading Economics, accessed on May 4, 2025, https://tradingeconomics.com/australia/currency
+235.	RBA Official cash rate | Policy rate Australian Central Bank - global-rates.com, accessed on May 4, 2025, https://www.global-rates.com/en/interest-rates/central-banks/1/australian-rba-official-cash-rate/
+236.	Australia Interest Rate - Trading Economics, accessed on May 4, 2025, https://tradingeconomics.com/australia/interest-rate
+237.	Daily exchange rates - Bank of Canada, accessed on May 4, 2025, https://www.bankofcanada.ca/rates/exchange/daily-exchange-rates/
+238.	CNY Central Parity Rate - CFETS, accessed on May 4, 2025, https://www.shibor.org/english/bmkcpr/
+239.	Commodity Terms of Trade - IMF Data, accessed on May 4, 2025, https://data.imf.org/commoditytermsoftrade
+240.	Representative Exchange Rates for Selected Currencies - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/external/np/fin/data/rms_rep.aspx
+241.	SDRs per Currency unit and Currency units per SDR -- last five days - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/external/np/fin/data/rms_five.aspx
+242.	Exchange Rates incl. Effective Ex. Rates - IMF Data, accessed on May 4, 2025, https://data.imf.org/regular.aspx?key=61545850
+243.	codeforIATI/imf-exchangerates: Dataset of exchange rates from the IMF. Use with caution as some reprocessing was necessary. - GitHub, accessed on May 4, 2025, https://github.com/codeforIATI/imf-exchangerates
+244.	ER - IMF Data, accessed on May 4, 2025, https://data.imf.org/en/datasets/IMF.STA:ER
+245.	Exchange Rate Archives by Month - International Monetary Fund (IMF), accessed on May 4, 2025, https://www.imf.org/external/np/fin/data/param_rms_mth.aspx
+246.	Exchange rates and prices - World Development Indicators | The World Bank, accessed on May 4, 2025, https://wdi.worldbank.org/table/4.16
+247.	What are the main criticisms of the World Bank and the IMF? - Bretton Woods Project, accessed on May 4, 2025, https://www.brettonwoodsproject.org/2019/06/what-are-the-main-criticisms-of-the-world-bank-and-the-imf/
+248.	Exchange Rates | Data - World Bank DataBank, accessed on May 4, 2025, https://databank.worldbank.org/databases/exchange-rates
+249.	Effective exchange rates - overview | BIS Data Portal - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/statistics/eer.htm
+250.	Real Broad Effective Exchange Rate for United States (RBUSBIS) | FRED | St. Louis Fed, accessed on May 4, 2025, https://fred.stlouisfed.org/series/RBUSBIS
+251.	Bank for International Settlements - Wikipedia, accessed on May 4, 2025, https://en.wikipedia.org/wiki/Bank_for_International_Settlements
+252.	BIS Data Portal | Bank for International Settlements, accessed on May 4, 2025, https://data.bis.org/
+253.	History - archive collections - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/about/archive.htm
+254.	Quality of the BIS international financial statistics, accessed on May 4, 2025, https://www.imf.org/external/pubs/ft/bop/2002/02-76.pdf
+255.	United States - Cross-border Loans From BIS Reporting Banks - 2025 Data 2026 Forecast 1995-2024 Historical, accessed on May 4, 2025, https://tradingeconomics.com/united-states/01_cross-border-loans-from-bis-reporting-banks-wb-data.html
+256.	Long series for Central bank total assets from the BIS - jamelsaadaoui.com, accessed on May 4, 2025, https://www.jamelsaadaoui.com/long-series-for-central-bank-total-assets-from-the-bis/
+257.	BIS data sources: International Banking Statistics, accessed on May 4, 2025, https://www.nber.org/sites/default/files/2020-11/Hale_BIS.pptx.pdf
+258.	Currency movements drive reserve composition - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/publ/qtrpdf/r_qt1412e.htm
+259.	Going with the FX flow - CLS Group, accessed on May 4, 2025, https://www.cls-group.com/media/addcji41/20190510-cuemacro-going-with-the-fx-flow.pdf
+260.	Information flows in foreign exchange markets: dissecting customer currency trades - Bank for International Settlements, accessed on May 4, 2025, https://www.bis.org/publ/work405.pdf
+261.	Datasets - OECD, accessed on May 4, 2025, https://www.oecd.org/en/data/datasets.html
+262.	OECD - Wikipedia, accessed on May 4, 2025, https://en.wikipedia.org/wiki/OECD
+263.	OECD archives, accessed on May 4, 2025, https://www.oecd.org/en/about/oecd-archives.html
+264.	OECD Data Explorer - European University Institute, accessed on May 4, 2025, https://www.eui.eu/Research/Library/ResearchGuides/Economics/Statistics/DataPortal/OECD
+265.	OECD Data Explorer, accessed on May 4, 2025, https://data-explorer.oecd.org/
+266.	Research and Development Statistics - OECD, accessed on May 4, 2025, https://www.oecd.org/en/data/datasets/research-and-development-statistics.html
+267.	Data | OECD, accessed on May 4, 2025, https://www.oecd.org/en/data.html
+268.	Real-time historical dataset for the OECD - Dallasfed.org, accessed on May 4, 2025, https://www.dallasfed.org/research/international/oecd

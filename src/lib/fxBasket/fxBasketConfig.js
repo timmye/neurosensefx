@@ -42,4 +42,18 @@ export function getConfig(overrides = {}) {
   return { ...defaultConfig, ...overrides };
 }
 
+export const STATE_CONFIG = {
+  colors: {
+    waiting: '#F59E0B',
+    error: '#EF4444',
+    ready: '#10B981'
+  },
+  messages: {
+    waiting: (progress) => `Initializing... (${progress.received}/${progress.total} pairs)`,
+    error: (missing) => `Unable to initialize - missing ${missing.length} pairs`,
+    timeout: 'Initialization timeout - some pairs failed to arrive'
+  },
+  timeout: 30000
+};
+
 export const fxBasketConfig = defaultConfig;
