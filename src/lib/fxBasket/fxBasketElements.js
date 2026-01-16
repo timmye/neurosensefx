@@ -4,6 +4,12 @@
 
 import { renderPixelPerfectLine } from '../dayRangeCore.js';
 
+export function measureTextHeight(ctx, config) {
+  ctx.font = config.fonts.basketLabel;
+  const metrics = ctx.measureText('EUR');
+  return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+}
+
 export function renderBaseline(ctx, y, width, config) {
   ctx.save();
   ctx.strokeStyle = config.colors.baseline;
@@ -31,21 +37,34 @@ export function renderBasketMarker(ctx, basket, y, width, config) {
   ctx.restore();
 }
 
-export function renderBasketLabel(ctx, basket, y, width, config) {
+export function renderBasketLabel(ctx, basket, y, width, config, position = 'standard') {
   const { padding } = config.positioning;
 
   ctx.save();
   ctx.font = config.fonts.basketLabel;
   ctx.fillStyle = config.colors.text;
   ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
-  ctx.fillText(basket.currency, padding, y);
 
-  ctx.font = config.fonts.basketValue;
-  ctx.textAlign = 'right';
+  // Calculate inward offset for collision avoidance
+  ctx.font = config.fonts.basketLabel;
+  const currencyWidth = ctx.measureText('XXX').width; // Max 3-char currency
+  const offset = currencyWidth + 8; // Move inward by currency width + gap
 
-  const pct = basket.changePercent;
-  ctx.fillText(`${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`, width - padding, y);
+  if (position === 'inward') {
+    // Move both labels inward toward centerline
+    ctx.textAlign = 'left';
+    ctx.fillText(basket.currency, padding + offset, y);
+    ctx.font = config.fonts.basketValue;
+    ctx.textAlign = 'right';
+    ctx.fillText(`${basket.changePercent > 0 ? '+' : ''}${basket.changePercent.toFixed(2)}`, width - padding - offset, y);
+  } else {
+    // Standard: labels on opposite sides at edge
+    ctx.textAlign = 'left';
+    ctx.fillText(basket.currency, padding, y);
+    ctx.font = config.fonts.basketValue;
+    ctx.textAlign = 'right';
+    ctx.fillText(`${basket.changePercent > 0 ? '+' : ''}${basket.changePercent.toFixed(2)}`, width - padding, y);
+  }
   ctx.restore();
 }
 
@@ -53,7 +72,7 @@ export function renderWaitingState(ctx, progress, config, dimensions) {
   const { width, height } = dimensions;
   const { received, total } = progress;
 
-  ctx.fillStyle = '#1F2937';
+  ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, width, height);
 
   const barWidth = (width - 40) * (received / total);
@@ -73,7 +92,7 @@ export function renderErrorState(ctx, missingPairs, config, dimensions) {
   const centerY = height / 2 - 40;
   const size = 30;
 
-  ctx.fillStyle = '#1F2937';
+  ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, width, height);
 
   ctx.strokeStyle = '#EF4444';
@@ -104,4 +123,30 @@ export function renderErrorState(ctx, missingPairs, config, dimensions) {
   ctx.fillStyle = '#FFFFFF';
   ctx.font = '14px monospace';
   ctx.fillText('Retry', centerX, centerY + 135);
+}
+
+export function detectClusters(basketPositions, textHeight) {
+  const positions = basketPositions.map((bp, i) => ({ ...bp, index: i })).sort((a, b) => a.y - b.y);
+  const clusters = [];
+  let current = [positions[0]];
+
+  for (let i = 1; i < positions.length; i++) {
+    positions[i].y - positions[i - 1].y < textHeight ? current.push(positions[i]) : (current.length > 1 && clusters.push(current), current = [positions[i]]);
+  }
+
+  current.length > 1 && clusters.push(current);
+  return clusters;
+}
+
+export function calculateLabelPositions(basketPositions, textHeight) {
+  const clusters = detectClusters(basketPositions, textHeight);
+  const result = new Array(basketPositions.length).fill('standard');
+
+  clusters.forEach(cluster => {
+    cluster.forEach((pos, i) => {
+      result[pos.index] = i % 2 === 0 ? 'standard' : 'inward';
+    });
+  });
+
+  return result;
 }

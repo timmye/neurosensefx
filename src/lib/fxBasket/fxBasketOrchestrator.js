@@ -3,7 +3,7 @@
 // All functions <15 lines
 
 import { BasketState } from './fxBasketStateMachine.js';
-import { renderBaseline, renderBasketMarker, renderBasketLabel, renderWaitingState, renderErrorState } from './fxBasketElements.js';
+import { renderBaseline, renderBasketMarker, renderBasketLabel, renderWaitingState, renderErrorState, calculateLabelPositions, measureTextHeight } from './fxBasketElements.js';
 import { renderStatusMessage } from '../canvasStatusRenderer.js';
 import { getConfig } from './fxBasketConfig.js';
 
@@ -49,10 +49,21 @@ function renderReadyState(ctx, baskets, config, dimensions) {
 
   renderBaseline(ctx, baselineY, width, config);
 
-  basketValues.forEach(basket => {
-    const y = mapValueToY(basket.normalized, renderHeight, rangeMin, rangeMax, verticalPadding);
-    renderBasketMarker(ctx, basket, y, width, config);
-    renderBasketLabel(ctx, basket, y, width, config);
+  // Measure actual text height for collision detection
+  const textHeight = measureTextHeight(ctx, config);
+
+  // Calculate Y positions for collision detection
+  const basketPositions = basketValues.map(basket => ({
+    y: mapValueToY(basket.normalized, renderHeight, rangeMin, rangeMax, verticalPadding),
+    basket
+  }));
+
+  // Calculate label positions to avoid collisions
+  const labelPositions = calculateLabelPositions(basketPositions, textHeight);
+
+  basketPositions.forEach((bp, i) => {
+    renderBasketMarker(ctx, bp.basket, bp.y, width, config);
+    renderBasketLabel(ctx, bp.basket, bp.y, width, config, labelPositions[i]);
   });
 }
 
