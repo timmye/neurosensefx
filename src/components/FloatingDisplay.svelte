@@ -79,12 +79,12 @@
         inertia: true
       })
       .on('tap', () => workspaceActions.bringToFront(display.id));
-    connectionManager.connect();
-    unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, dataCallback, 14, source);
     const unsubscribeStatus = connectionManager.addStatusCallback(() => {
       connectionStatus = connectionManager.status;
     });
     connectionStatus = connectionManager.status;
+    connectionManager.connect();
+    unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, dataCallback, 14, source);
     freshnessCheckInterval = setInterval(checkDataFreshness, 5000);
     return () => {
       if (unsubscribe) unsubscribe();

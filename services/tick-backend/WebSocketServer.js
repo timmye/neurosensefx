@@ -68,12 +68,20 @@ class WebSocketServer {
 
     async handleMessage(ws, message) {
         let data;
+        // Parse JSON - separate try-catch for parse errors
         try {
-            // [DEBUGGER:WebSocketServer.js:73] Log raw message for debugging
-            console.log(`[DEBUGGER:WebSocketServer:handleMessage:73] raw_message_type=${typeof message}, length=${message?.length}, content=${message}, timestamp=${Date.now()}`);
-
             data = JSON.parse(message);
-            console.log(`[DEBUGGER:WebSocketServer:handleMessage:76] parsed_data=${JSON.stringify(data)}, has_symbol=${!!data.symbol}, has_type=${!!data.type}`);
+        } catch (parseError) {
+            console.error('[WebSocketServer] JSON parse error:', parseError.message);
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: 'Invalid message format.',
+                symbol: 'system'
+            });
+        }
+
+        // Process message - separate try-catch for processing errors
+        try {
             console.log(`[DEBUG] WebSocketServer received message: ${JSON.stringify(data)}`);
             if (data.symbol) {
                 console.log(`[SYMBOL_TRACE | WebSocketServer] Received initial request from client for symbol: ${data.symbol}`);
@@ -85,7 +93,7 @@ class WebSocketServer {
                 case 'get_symbol_data_package':
                 case 'subscribe':
                     if (data.type === 'subscribe' && data.symbols) {
-                        await this.handleSubscribe(ws, data.symbols[0], 14, data.source || 'ctrader'); // Use first symbol, default 14 days
+                        await this.handleSubscribe(ws, data.symbols[0], 14, data.source || 'ctrader');
                     } else {
                         await this.handleSubscribe(ws, data.symbol, data.adrLookbackDays, data.source || 'ctrader');
                     }
@@ -96,16 +104,13 @@ class WebSocketServer {
                 default:
                     console.warn(`Unknown message type: ${data.type}`);
             }
-        } catch (error) {
-            // [DEBUGGER:WebSocketServer.js:99] Log parse error details
-            console.error('[DEBUGGER:WebSocketServer:handleMessage:99] parse_error=true, error_message=' + error.message + ', error_stack=' + error.stack);
-            console.error('[DEBUGGER:WebSocketServer:handleMessage:100] raw_message=' + message + ', message_type=' + typeof message);
-            console.error('[DEBUGGER:WebSocketServer:handleMessage:101] data_object=' + JSON.stringify(data) + ', data_type=' + typeof data);
+        } catch (processingError) {
+            console.error(`[WebSocketServer] Processing error for ${data.symbol || 'unknown'}:`, processingError.message);
             this.sendToClient(ws, {
                 type: 'error',
-                message: 'Invalid message format.',
-                symbol: 'system',
-                originalType: data?.type || null
+                message: processingError.message || 'Processing failed',
+                symbol: data.symbol || 'system',
+                originalType: data.type
             });
         }
     }

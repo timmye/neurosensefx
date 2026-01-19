@@ -98,9 +98,7 @@ export class ConnectionManager {
 
   handleClose() {
     this.status = 'disconnected'; this.notifyStatusChange();
-    // Clear stale subscriptions to prevent memory leak on reconnect
-    this.subscriptions.clear();
-    this.subscriptionAdr.clear();
+    // Subscriptions persist across reconnections for resubscribeAll() to restore
     if (this.reconnectAttempts < this.maxReconnects) this.scheduleReconnect();
   }
 
@@ -198,7 +196,9 @@ export class ConnectionManager {
         console.error(`[CM ERROR] Failed to send request for ${symbol}:`, error);
       }
     } else {
-      console.warn(`[CM DEFER] SKIPPED - WebSocket not ready for ${symbol}, state: ${this.ws?.readyState}`);
+      // Queue request for when connection opens (similar to subscribeAndRequest)
+      console.warn(`[CM DEFER] Queueing coordinated request for ${symbol}, WebSocket state: ${this.ws?.readyState}`);
+      this.pendingSubscriptions.push({ symbol, adr, source });
     }
   }
 

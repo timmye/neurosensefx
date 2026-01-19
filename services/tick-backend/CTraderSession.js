@@ -13,10 +13,16 @@ class CTraderSession extends EventEmitter {
         this.accessToken = process.env.CTRADER_ACCESS_TOKEN;
         this.clientId = process.env.CTRADER_CLIENT_ID;
         this.clientSecret = process.env.CTRADER_CLIENT_SECRET;
-        
+
         this.symbolMap = new Map();
         this.reverseSymbolMap = new Map();
         this.symbolInfoCache = new Map();
+
+        // Reconnection support
+        this.reconnectAttempts = 0;
+        this.maxReconnects = 5;
+        this.reconnectDelay = 1000;
+        this.reconnectTimeout = null;
     }
 
     /**
@@ -137,6 +143,9 @@ class CTraderSession extends EventEmitter {
             await this.loadAllSymbols();
             console.log('[DEBUG] Starting heartbeat');
             this.startHeartbeat();
+            // Reset reconnection attempts on successful connection
+            this.reconnectAttempts = 0;
+            this.reconnectDelay = 1000;
             console.log('[DEBUG] Emitting connected event');
             this.emit('connected', Array.from(this.symbolMap.keys()));
             console.log('[DEBUG] CTraderSession.connect() completed successfully');
@@ -156,6 +165,24 @@ class CTraderSession extends EventEmitter {
             console.log('[DEBUG] Closing connection in handleDisconnect');
             this.connection.close();
         }
+        // Attempt reconnection with exponential backoff
+        if (this.reconnectAttempts < this.maxReconnects) {
+            this.scheduleReconnect();
+        }
+    }
+
+    scheduleReconnect() {
+        const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
+        console.log(`[DEBUG] Scheduling reconnect attempt ${this.reconnectAttempts + 1}/${this.maxReconnects} in ${delay}ms`);
+        this.reconnectTimeout = setTimeout(async () => {
+            this.reconnectAttempts++;
+            try {
+                await this.connect();
+            } catch (error) {
+                console.error('[ERROR] Reconnect attempt failed:', error);
+                // handleDisconnect will be called again, scheduling next attempt
+            }
+        }, delay);
     }
 
     async loadAllSymbols() {
@@ -280,6 +307,14 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
     }
 
     disconnect() {
+        // Clear reconnect timeout to prevent reconnection after explicit disconnect
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        // Set maxReconnects to 0 to prevent handleDisconnect from scheduling reconnect
+        this.maxReconnects = 0;
+
         if (this.connection) {
             try {
                 if (typeof this.connection.close === 'function') {
@@ -295,10 +330,6 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
-        }
-        if (this.reconnectTimeout) {
-            clearTimeout(this.reconnectTimeout);
-            this.reconnectTimeout = null;
         }
     }
 }

@@ -20,6 +20,12 @@ class TradingViewSession extends EventEmitter {
         this.sessionId = null;
         this.subscriptions = new Map(); // symbol -> { d1ChartSession, m1ChartSession, adr, lastCandle }
         this.unsubscribe = null;
+
+        // Reconnection support
+        this.reconnectAttempts = 0;
+        this.maxReconnects = 5;
+        this.reconnectDelay = 1000;
+        this.reconnectTimeout = null;
     }
 
     async connect(sessionId) {
@@ -33,12 +39,16 @@ class TradingViewSession extends EventEmitter {
                 this.handleEvent(event);
             });
 
+            // Reset reconnection attempts on successful connection
+            this.reconnectAttempts = 0;
+            this.reconnectDelay = 1000;
+
             console.log('[TradingView] Connected');
             this.emit('connected');
 
         } catch (error) {
             console.error('[TradingView] Connection failed:', error.message);
-            this.emit('error', error);
+            this.handleDisconnect(error);
             throw error;
         }
     }
@@ -319,12 +329,45 @@ class TradingViewSession extends EventEmitter {
     }
 
     async disconnect() {
+        // Clear reconnect timeout to prevent reconnection after explicit disconnect
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        // Set maxReconnects to 0 to prevent handleDisconnect from scheduling reconnect
+        this.maxReconnects = 0;
+
         if (this.client) {
             if (this.unsubscribe) this.unsubscribe();
             await this.client.close();
             this.client = null;
         }
         this.subscriptions.clear();
+    }
+
+    handleDisconnect(error = null) {
+        console.log('[TradingView] handleDisconnect() called');
+        if (error) console.error('[TradingView] connection failed:', error);
+        this.emit('disconnected');
+
+        // Attempt reconnection with exponential backoff
+        if (this.reconnectAttempts < this.maxReconnects) {
+            this.scheduleReconnect();
+        }
+    }
+
+    scheduleReconnect() {
+        const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
+        console.log(`[TradingView] Scheduling reconnect attempt ${this.reconnectAttempts + 1}/${this.maxReconnects} in ${delay}ms`);
+        this.reconnectTimeout = setTimeout(async () => {
+            this.reconnectAttempts++;
+            try {
+                await this.connect(this.sessionId);
+            } catch (error) {
+                console.error('[TradingView] Reconnect attempt failed:', error);
+                // handleDisconnect will be called again if connect fails, scheduling next attempt
+            }
+        }, delay);
     }
 }
 

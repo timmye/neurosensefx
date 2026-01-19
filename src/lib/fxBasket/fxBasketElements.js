@@ -27,7 +27,7 @@ export function renderBaseline(ctx, y, width, config) {
 
 export function renderBasketMarker(ctx, basket, y, width, config) {
   const { markerWidth } = config.positioning;
-  const barWidth = 48;
+  const barWidth = 36;
   const barX = (width / 2) - (barWidth / 2);
   const isPositive = basket.normalized >= 100;
 
