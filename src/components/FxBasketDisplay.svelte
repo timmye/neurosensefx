@@ -196,9 +196,9 @@
 
   function setupConnectionMonitoring() {
     const unsubscribeStatus = connectionManager.addStatusCallback(() => {
-      connectionStatus = connectionManager.status;
+      connectionStatus = connectionManager.displayStatus;
     });
-    connectionStatus = connectionManager.status;
+    connectionStatus = connectionManager.displayStatus;
     freshnessCheckInterval = setInterval(() => checkDataFreshness(connectionStatus, () => refreshConnection(connectionManager, connectionStatus)), 5000);
     return unsubscribeStatus;
   }

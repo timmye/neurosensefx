@@ -80,9 +80,9 @@
       })
       .on('tap', () => workspaceActions.bringToFront(display.id));
     const unsubscribeStatus = connectionManager.addStatusCallback(() => {
-      connectionStatus = connectionManager.status;
+      connectionStatus = connectionManager.displayStatus;
     });
-    connectionStatus = connectionManager.status;
+    connectionStatus = connectionManager.displayStatus;
     connectionManager.connect();
     unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, dataCallback, 14, source);
     freshnessCheckInterval = setInterval(checkDataFreshness, 5000);

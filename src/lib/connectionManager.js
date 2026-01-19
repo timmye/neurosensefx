@@ -283,4 +283,52 @@ export class ConnectionManager {
       }
     });
   }
+
+  // User-facing display status derived from internal state
+  get displayStatus() {
+    return this.#getDisplayStatus();
+  }
+
+  #isPermanentlyDisconnected() {
+    return this.status === 'disconnected' && this.reconnectAttempts >= this.maxReconnects;
+  }
+
+  #getDisplayStatus() {
+    if (this.#isPermanentlyDisconnected()) {
+      return this.subscriptions.size > 0 ? 'Connection failed' : 'Idle';
+    }
+    if (this.status === 'error') {
+      return 'Connection error';
+    }
+    if (this.status === 'connecting') {
+      return this.#getConnectingStatus();
+    }
+    if (this.status === 'disconnected' && this.reconnectAttempts > 0) {
+      return this.#getReconnectingStatus();
+    }
+    if (this.status === 'connected') {
+      return this.#getConnectedStatus();
+    }
+    if (this.status === 'disconnected') {
+      return this.subscriptions.size > 0 ? 'Disconnected' : 'Idle';
+    }
+    return 'Unknown';
+  }
+
+  #getConnectingStatus() {
+    if (this.reconnectAttempts === 0) return 'Connecting...';
+    return `Reconnecting... (${this.reconnectAttempts}/${this.maxReconnects})`;
+  }
+
+  #getReconnectingStatus() {
+    const delay = Math.round(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1) / 1000);
+    return `Reconnecting in ${delay}s (${this.reconnectAttempts}/${this.maxReconnects})`;
+  }
+
+  #getConnectedStatus() {
+    if (this.subscriptions.size === 0) return 'Connected (idle)';
+    const count = this.subscriptions.size;
+    const suffix = count === 1 ? 'subscription' : 'subscriptions';
+    return `Connected (${count} ${suffix})`;
+  }
 }
