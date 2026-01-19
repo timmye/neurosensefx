@@ -54,6 +54,6 @@ tick arrives (real-time)
 
 **Batch initialization:** Single `initializeBaselinesFromDailyOpens()` call handles all baskets from same daily open snapshot. Simpler than per-basket logic, consistent across all currencies.
 
-**50% coverage threshold:** Allows baseline initialization with partial data. Handles slow/stale API responses where not all 30 pairs arrive immediately.
+**100% coverage requirement:** All pairs must be available for basket calculation. Ensures accurate weighting—partial coverage would skew results since weights aren't re-normalized.
 
 **30-second fallback timeout:** If daily opens never arrive (API failure), fallback to runtime baseline prevents broken display. Matches user attention span for graceful degradation.

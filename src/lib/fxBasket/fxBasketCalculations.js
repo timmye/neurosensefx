@@ -52,8 +52,8 @@ export function calculateBasketValue(currency, priceMap) {
 
   const coverage = availableWeight / totalWeight;
 
-  // Require at least 50% coverage by weight for meaningful values
-  if (coverage < 0.5) return null;
+  // Require 100% coverage - complete basket or nothing
+  if (coverage < 1.0) return null;
 
   // CRITICAL FIX: Do NOT scale by coverage (TradingView doesn't scale)
   // The logSum is already weighted correctly; scaling causes extreme values
@@ -91,10 +91,10 @@ export function getAllPairs() {
   return Array.from(pairSet);
 }
 
-// Check if state has minimum daily opens for baseline initialization
-// 50% threshold allows display to initialize before all pairs arrive (handles slow API responses)
+// Check if state has all daily opens for baseline initialization
+// Requires 100% of pairs for accurate basket calculation
 export function hasMinimumDailyOpens(state) {
-  return state.dailyOpenPrices.size >= getAllPairs().length * 0.5;
+  return state.dailyOpenPrices.size >= getAllPairs().length;
 }
 
 // Validate calculation result for correctness

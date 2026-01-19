@@ -3,6 +3,7 @@
 // All functions <15 lines, DPR-aware rendering
 
 import { renderPixelPerfectLine } from '../dayRangeCore.js';
+import { ZONE_COLORS, BASKET_ZONES } from './fxBasketConfig.js';
 
 export function measureTextHeight(ctx, config) {
   ctx.font = config.fonts.basketLabel;
@@ -29,12 +30,25 @@ export function renderBasketMarker(ctx, basket, y, width, config) {
   const { markerWidth } = config.positioning;
   const barWidth = 36;
   const barX = (width / 2) - (barWidth / 2);
-  const isPositive = basket.normalized >= 100;
+
+  // Use zone color based on daily range
+  const range = Math.abs(basket.changePercent || 0);
+  const zoneColor = getZoneColor(basket.currency, range);
 
   ctx.save();
-  ctx.fillStyle = isPositive ? config.colors.positive : config.colors.negative;
+  ctx.fillStyle = zoneColor;
   ctx.fillRect(barX, y - markerWidth / 2, barWidth, markerWidth);
   ctx.restore();
+}
+
+function getZoneColor(currency, range) {
+  const zones = BASKET_ZONES[currency];
+  if (!zones) return ZONE_COLORS.NORMAL;
+
+  if (range < zones.quiet) return ZONE_COLORS.QUIET;
+  if (range < zones.normal) return ZONE_COLORS.NORMAL;
+  if (range < zones.active) return ZONE_COLORS.ACTIVE;
+  return ZONE_COLORS.EXTREME;
 }
 
 export function renderBasketLabel(ctx, basket, y, width, config, position = 'standard') {

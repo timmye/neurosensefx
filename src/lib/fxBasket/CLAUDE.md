@@ -21,7 +21,7 @@ FX basket calculations, state management, and rendering for currency strength di
 - `updatePrice(pair, price, state, isDailyOpen)` - Route to dailyOpenPrices (true) or prices (false), recalculate affected baskets
 - `initializeBaselinesFromDailyOpens(state)` - Calculate baselineLog from daily opens, call after symbolDataPackage
 - `updateAllBaskets(state)` - Recalculate all baskets from current prices (fallback)
-- `hasMinimumDailyOpens(state)` - Check if sufficient daily opens available (50% threshold)
+- `hasMinimumDailyOpens(state)` - Check if all daily opens available (100% required)
 
 **From `fxBasketCalculations.js`:**
 - `calculateBasketValue(currency, priceMap)` - Calculate ln-weighted basket value with coverage
