@@ -1,30 +1,29 @@
 # src/lib/fxBasket/
 
-## Overview
-
 FX basket calculations, state management, and rendering for currency strength display.
 
-## Index
+## Files
 
-| File | Contents (WHAT) | Read When (WHEN) |
-| ---- | --------------- | ---------------- |
-| `fxBasketCalculations.js` | Basket definitions, ln-weighted calculations, inverse pair handling, daily opens threshold | Implementing basket calculations, understanding formula, adding currency baskets |
-| `fxBasketData.js` | State management, price updates (dual Map), baseline initialization | Managing basket state, routing daily opens vs current prices |
+| File | What | When to read |
+| ---- | ---- | ------------ |
+| `basketAdrCalculations.js` | ADR boundary calculations for basket zones | Computing ADR levels, zone coloring |
+| `fxBasketCalculations.js` | Ln-weighted basket calculations, inverse pairs | Implementing basket formulas, adding currencies |
 | `fxBasketConfig.js` | Visual configuration (colors, fonts, positioning) | Customizing basket display appearance |
+| `fxBasketConnection.js` | WebSocket connection management for basket data | Debugging basket data feeds |
+| `fxBasketDebug.js` | Debug utilities for basket state inspection | Debugging basket calculations |
+| `fxBasketElements.js` | Canvas element creation for basket display | Extending basket visual elements |
+| `fxBasketManager.js` | Basket state manager | Managing basket lifecycle |
 | `fxBasketOrchestrator.js` | Canvas rendering coordination, fixed baseline at 100wt | Rendering basket display, debugging visual issues |
-| `test-fxBasket.js` | Unit tests for basket functionality | Verifying calculations, testing baseline initialization |
+| `fxBasketProcessor.js` | Data processing for basket updates | Processing incoming price data |
+| `fxBasketStateMachine.js` | Basket state machine transitions | Understanding basket state flow |
+| `fxBasketStore.js` | Svelte store for basket state | Integrating basket with components |
+| `fxBasketSubscription.js` | Symbol subscription management | Adding basket symbols to subscriptions |
+| `fxBasketValidation.js` | Basket data validation utilities | Validating basket calculations |
+| `README.md` | FX Basket architecture and design | Understanding basket system design |
 
-## Key Exports
+## Test Files
 
-**From `fxBasketData.js`:**
-- `initializeState(anchorTime)` - Create new basket state with dual Maps (dailyOpenPrices, prices)
-- `updatePrice(pair, price, state, isDailyOpen)` - Route to dailyOpenPrices (true) or prices (false), recalculate affected baskets
-- `initializeBaselinesFromDailyOpens(state)` - Calculate baselineLog from daily opens, call after symbolDataPackage
-- `updateAllBaskets(state)` - Recalculate all baskets from current prices (fallback)
-- `hasMinimumDailyOpens(state)` - Check if all daily opens available (100% required)
-
-**From `fxBasketCalculations.js`:**
-- `calculateBasketValue(currency, priceMap)` - Calculate ln-weighted basket value with coverage
-- `normalizeToBaseline(currentLog, baselineLog)` - Convert to 100wt baseline
-- `getAllPairs()` - Get all 30 unique FX pairs
-- `BASKET_DEFINITIONS` - Currency basket pairs and weights
+| File | What | When to read |
+| ---- | ---- | ------------ |
+| `test-basket-adr.js` | ADR calculation unit tests | Testing basket ADR functionality |
+| `test-fxBasket.js` | Basket calculation unit tests | Verifying basket calculations |

@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   export let show = false;
   const dispatch = createEventDispatcher();
 
@@ -8,12 +8,25 @@
   const handleCancel = () => dispatch('cancel');
   const handleOverlayClick = () => dispatch('cancel');
   const handleModalClick = (e) => e.stopPropagation();
+
+  function handleKeydown(e) {
+    if (e.key === 'Escape') handleCancel();
+  }
+
+  onMount(() => {
+    if (show) {
+      const btn = document.querySelector('.workspace-modal button');
+      btn?.focus();
+    }
+  });
 </script>
 
 {#if show}
-<div class="modal-overlay" on:click={handleOverlayClick}>
-  <div class="workspace-modal" on:click={handleModalClick}>
-    <h2>Workspace Controls</h2>
+<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" on:click={handleOverlayClick} on:keydown={handleKeydown}>
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="workspace-modal" role="document" on:click={handleModalClick} on:keydown={(e) => e.stopPropagation()}>
+    <h2 id="modal-title">Workspace Controls</h2>
     <div class="modal-buttons">
       <button class="export-btn" on:click={handleExport}>📤 Export</button>
       <button class="import-btn" on:click={handleImport}>📥 Import</button>

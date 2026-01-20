@@ -1,25 +1,14 @@
 ---
 name: codebase-analysis
-description: Invoke IMMEDIATELY via python script when user requests codebase analysis, architecture review, security assessment, or quality evaluation. Do NOT explore first - the script orchestrates exploration.
+description: Invoke IMMEDIATELY via python script when user requests codebase understanding, architecture comprehension, or repository orientation. Do NOT explore first - the script orchestrates exploration.
 ---
 
 # Codebase Analysis
 
+Understanding-focused skill that builds foundational comprehension of codebase structure, patterns, flows, decisions, and context. Serves as foundation for downstream analysis skills (problem-analysis, refactor, etc.).
+
 When this skill activates, IMMEDIATELY invoke the script. The script IS the workflow.
 
-## Invocation
+Invoke:
 
-```bash
-python3 scripts/analyze.py \
-  --step-number 1 \
-  --total-steps 6 \
-  --thoughts "Starting analysis. User request: <describe what user asked to analyze>"
-```
-
-| Argument        | Required | Description                               |
-| --------------- | -------- | ----------------------------------------- |
-| `--step-number` | Yes      | Current step (starts at 1)                |
-| `--total-steps` | Yes      | Minimum 6; adjust as script instructs     |
-| `--thoughts`    | Yes      | Accumulated state from all previous steps |
-
-Do NOT explore or analyze first. Run the script and follow its output.
+<invoke working-dir=".claude/skills/scripts" cmd="python3 -m skills.codebase_analysis.analyze --step 1 --total-steps 4" />

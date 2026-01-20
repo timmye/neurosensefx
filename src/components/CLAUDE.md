@@ -1,11 +1,14 @@
 # src/components/
 
+Svelte UI components for the workspace and visualization displays.
+
 ## Files
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
 | `Workspace.svelte` | Drag-drop workspace container with persistence | Implementing workspace features, debugging persistence |
 | `FloatingDisplay.svelte` | Floating display component with interact.js | Modifying displays, debugging drag/resize |
+| `FxBasketDisplay.svelte` | FX Basket currency pair visualization | Implementing FX pair display |
 | `PriceMarkerManager.svelte` | Price marker UI management | Adding marker features |
 | `WorkspaceModal.svelte` | Workspace configuration dialog | Modifying workspace settings UI |
 | `Workspace.css` | Workspace component styles | Styling workspace components |

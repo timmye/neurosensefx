@@ -1,16 +1,12 @@
-# skills/problem-analysis/
+# problem-analysis/
 
-## Overview
+Root cause identification skill. IMMEDIATELY invoke the script -- do NOT explore first.
 
-Structured problem analysis skill. IMMEDIATELY invoke the script - do NOT explore first.
+## Files
 
-## Index
+| File        | What                                  | When to read               |
+| ----------- | ------------------------------------- | -------------------------- |
+| `SKILL.md`  | Skill invocation, phases, principles  | Using this skill           |
+| `README.md` | Design rationale, invisible knowledge | Understanding why it works |
 
-| File/Directory         | Contents          | Read When          |
-| ---------------------- | ----------------- | ------------------ |
-| `SKILL.md`             | Invocation        | Using this skill   |
-| `scripts/thinkdeep.py` | Complete workflow | Debugging behavior |
-
-## Key Point
-
-The script IS the workflow. It handles decomposition, solution generation, critique, verification, and synthesis. Do NOT analyze before invoking. Run the script and obey its output.
+Python code: `scripts/skills/problem_analysis/analyze.py`

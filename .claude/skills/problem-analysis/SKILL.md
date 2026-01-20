@@ -1,25 +1,15 @@
 ---
 name: problem-analysis
-description: Invoke IMMEDIATELY via python script for structured problem analysis and decision reasoning. Do NOT explore first - the script orchestrates the workflow.
+description: Invoke IMMEDIATELY via python script when user requests problem analysis or root cause investigation. Do NOT explore first - the script orchestrates the investigation.
 ---
 
 # Problem Analysis
 
-When this skill activates, IMMEDIATELY invoke the script. The script IS the workflow.
+Root cause identification skill. Identifies WHY a problem occurs, NOT how to fix
+it.
 
 ## Invocation
 
-```bash
-python3 scripts/thinkdeep.py \
-  --step 1 \
-  --total-steps 6 \
-  --thoughts "Problem: <describe>"
-```
+<invoke working-dir=".claude/skills/scripts" cmd="python3 -m skills.problem_analysis.analyze --step 1 --total-steps 5" />
 
-| Argument        | Required | Description                               |
-| --------------- | -------- | ----------------------------------------- |
-| `--step`        | Yes      | Current step (starts at 1)                |
-| `--total-steps` | Yes      | Minimum 6; adjust as script instructs     |
-| `--thoughts`    | Yes      | Accumulated state from all previous steps |
-
-Do NOT analyze or explore first. Run the script and follow its output.
+Do NOT explore or analyze first. Run the script and follow its output.

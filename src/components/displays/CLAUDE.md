@@ -1,9 +1,10 @@
 # src/components/displays/
 
+Specialized display component subtypes.
+
 ## Files
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
-| `DayRangeMeter.svelte` | Day Range visualization display | Implementing Day Range UI |
-| `MarketProfile.svelte` | Market Profile visualization display | Implementing Market Profile UI |
-| `PriceLadder.svelte` | Price ladder display component | Adding price ladder features |
+| `DisplayCanvas.svelte` | Canvas-based display rendering container | Implementing canvas displays |
+| `DisplayHeader.svelte` | Display header with status and controls | Adding header features |

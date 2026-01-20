@@ -29,7 +29,8 @@
 </script>
 
 <!-- 20px invisible trigger zone -->
-<div class="trigger-zone" on:mouseenter={handleTriggerEnter}></div>
+<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<div class="trigger-zone" role="presentation" on:mouseenter={handleTriggerEnter}></div>
 
 <!-- 40px visible header display -->
 {#if showHeader}

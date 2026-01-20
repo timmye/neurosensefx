@@ -80,9 +80,9 @@
       })
       .on('tap', () => workspaceActions.bringToFront(display.id));
     const unsubscribeStatus = connectionManager.addStatusCallback(() => {
-      connectionStatus = connectionManager.displayStatus;
+      connectionStatus = connectionManager.status;
     });
-    connectionStatus = connectionManager.displayStatus;
+    connectionStatus = connectionManager.status;
     connectionManager.connect();
     unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, dataCallback, 14, source);
     freshnessCheckInterval = setInterval(checkDataFreshness, 5000);
@@ -136,7 +136,7 @@
   }
   </script>
 <div class="floating-display" bind:this={element} data-display-id={display.id}
-     tabindex="0" role="application" aria-label="{display.symbol} display"
+     tabindex="0" role="region" aria-label="{display.symbol} display"
      on:focus={handleFocus}
      on:keydown={handleKeydown}
      style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};
@@ -180,7 +180,7 @@
 </div>
 <style>
   .floating-display{position:absolute;background:#1a1a1a;border:1px solid #333;border-radius:4px;overflow:hidden;user-select:none;outline:none;transition:border-color .2s ease,box-shadow .2s ease}
-  .floating-display:focus,.floating-display.focused{border-color:#4a9eff;box-shadow:0 0 8px rgba(74,158,255,.4)}
+  .floating-display:focus{border-color:#4a9eff;box-shadow:0 0 8px rgba(74,158,255,.4)}
   .floating-display:focus-visible{border-color:#4a9eff;box-shadow:0 0 12px rgba(74,158,255,.6);outline:2px solid rgba(74,158,255,.3);outline-offset:2px}
     .resize-handle{position:absolute;right:0;bottom:0;width:16px;height:16px;background:linear-gradient(135deg,transparent 50%,#555 50%);cursor:se-resize;opacity:.6;transition:opacity .2s ease}
   .resize-handle:hover{opacity:1}

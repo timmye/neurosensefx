@@ -3,6 +3,7 @@ const path = require('path');
 const moment = require('moment');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { CTraderConnection } = require('../../libs/cTrader-Layer/build/entry/node/main');
+const { HealthMonitor } = require('./HealthMonitor');
 
 class CTraderSession extends EventEmitter {
     constructor() {
@@ -18,10 +19,13 @@ class CTraderSession extends EventEmitter {
         this.reverseSymbolMap = new Map();
         this.symbolInfoCache = new Map();
 
+        this.healthMonitor = new HealthMonitor('ctrader');
+
         // Reconnection support
         this.reconnectAttempts = 0;
-        this.maxReconnects = 5;
         this.reconnectDelay = 1000;
+        this.maxReconnectDelay = 60000;
+        this.shouldReconnect = true;
         this.reconnectTimeout = null;
     }
 
@@ -117,7 +121,8 @@ class CTraderSession extends EventEmitter {
             }
 
             if (tickData) {
-                // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
+                this.healthMonitor.recordTick();
+
                 console.log(`[DEBUG_TRACE | CTraderSession] Emitting processed tick:`, JSON.stringify(tickData));
                 this.emit('tick', tickData);
             }
@@ -143,7 +148,8 @@ class CTraderSession extends EventEmitter {
             await this.loadAllSymbols();
             console.log('[DEBUG] Starting heartbeat');
             this.startHeartbeat();
-            // Reset reconnection attempts on successful connection
+            this.healthMonitor.start();
+
             this.reconnectAttempts = 0;
             this.reconnectDelay = 1000;
             console.log('[DEBUG] Emitting connected event');
@@ -159,28 +165,30 @@ class CTraderSession extends EventEmitter {
     handleDisconnect(error = null) {
         console.log('[DEBUG] CTraderSession.handleDisconnect() called');
         if(error) console.error('CTraderSession connection failed:', error);
+        this.healthMonitor.stop();
         this.stopHeartbeat();
         this.emit('disconnected');
         if (this.connection) {
             console.log('[DEBUG] Closing connection in handleDisconnect');
             this.connection.close();
         }
-        // Attempt reconnection with exponential backoff
-        if (this.reconnectAttempts < this.maxReconnects) {
+        if (this.shouldReconnect) {
             this.scheduleReconnect();
         }
     }
 
     scheduleReconnect() {
-        const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
-        console.log(`[DEBUG] Scheduling reconnect attempt ${this.reconnectAttempts + 1}/${this.maxReconnects} in ${delay}ms`);
+        const delay = Math.min(
+            this.reconnectDelay * Math.pow(2, this.reconnectAttempts),
+            this.maxReconnectDelay
+        );
+        console.log(`[DEBUG] Scheduling reconnect attempt ${this.reconnectAttempts + 1} in ${delay}ms`);
         this.reconnectTimeout = setTimeout(async () => {
             this.reconnectAttempts++;
             try {
                 await this.connect();
             } catch (error) {
                 console.error('[ERROR] Reconnect attempt failed:', error);
-                // handleDisconnect will be called again, scheduling next attempt
             }
         }, delay);
     }
@@ -307,13 +315,11 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
     }
 
     disconnect() {
-        // Clear reconnect timeout to prevent reconnection after explicit disconnect
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = null;
         }
-        // Set maxReconnects to 0 to prevent handleDisconnect from scheduling reconnect
-        this.maxReconnects = 0;
+        this.shouldReconnect = false;
 
         if (this.connection) {
             try {
@@ -331,6 +337,18 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
         }
+    }
+
+    async reconnect() {
+        console.log('[CTraderSession] Manual reinit requested');
+        this.shouldReconnect = true;
+        this.healthMonitor.stop();
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        await this.disconnect();
+        await this.connect();
     }
 }
 

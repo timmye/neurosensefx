@@ -41,21 +41,21 @@ export function createKeyboardHandler(workspaceActions) {
 
   function handleKeydown(event) {
     // Alt+A: Create cTrader display
-    if (event.altKey && event.key === 'a') {
+    if (event.altKey && event.key.toLowerCase() === 'a') {
       event.preventDefault();
       handleCreateDisplay('ctrader');
       return;
     }
 
     // Alt+B: Create FX Basket display
-    if (event.altKey && event.key === 'b') {
+    if (event.altKey && event.key.toLowerCase() === 'b') {
       event.preventDefault();
       workspaceActions.addDisplay('FX_BASKET', null, 'ctrader');
       return;
     }
 
     // Alt+T: Create TradingView display
-    if (event.altKey && event.key === 't') {
+    if (event.altKey && event.key.toLowerCase() === 't') {
       event.preventDefault();
       handleCreateTradingViewDisplay();
       return;

@@ -1,14 +1,14 @@
 # src/
 
+Frontend Svelte application.
+
 ## Files
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
 | `App.svelte` | Main application entry point | Understanding app initialization, routing |
+| `index.html` | HTML template with Vite mount | Debugging DOM issues |
 | `main.js` | Application bootstrap | Debugging startup issues |
-| `README.md` | Frontend-specific documentation | Understanding frontend architecture |
-| `ARCHITECTURE.md` | System architecture documentation | Understanding component interactions |
-| `CONTRACT.md` | Component contracts and interfaces | Developing new components |
 
 ## Subdirectories
 
@@ -19,3 +19,4 @@
 | `stores/` | Svelte state management | Working with application state |
 | `tests/` | Unit and E2E tests | Writing, running tests |
 | `docs/` | Frontend design documentation | Understanding design decisions |
+| `public/` | Static assets | Adding images, fonts, static files |

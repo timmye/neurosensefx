@@ -101,6 +101,9 @@ class WebSocketServer {
                 case 'unsubscribe':
                     if (data.symbols) this.handleUnsubscribe(ws, data.symbols);
                     break;
+                case 'reinit':
+                    this.handleReinit(ws, data);
+                    break;
                 default:
                     console.warn(`Unknown message type: ${data.type}`);
             }
@@ -260,7 +263,25 @@ class WebSocketServer {
             this.sendToClient(ws, { type: 'error', message: `Failed to get TradingView data for ${symbolName}: ${error.message}`, symbol: symbolName });
         }
     }
-    
+
+    async handleReinit(ws, data) {
+        const source = data.source || 'all';
+        console.log(`[WebSocketServer] Reinit requested for: ${source}`);
+
+        if (source === 'ctrader' || source === 'all') {
+            await this.cTraderSession.reconnect();
+        }
+        if (source === 'tradingview' || source === 'all') {
+            await this.tradingViewSession.reconnect();
+        }
+
+        this.sendToClient(ws, {
+            type: 'reinit_started',
+            source,
+            timestamp: Date.now()
+        });
+    }
+
     handleUnsubscribe(ws, symbols) {
         const clientSubs = this.clientSubscriptions.get(ws);
         if (!clientSubs) return;

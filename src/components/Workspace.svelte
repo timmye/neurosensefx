@@ -5,19 +5,17 @@
   import WorkspaceModal from './WorkspaceModal.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { createKeyboardHandler } from '../lib/keyboardHandler.js';
+  import { ConnectionManager } from '../lib/connectionManager.js';
+  import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
   import './Workspace.css';
 
   let keyboardHandler;
   let fileInput;
+  let connectionManager;
 
-  // Export/Import functions using workspace actions
   function exportWorkspace() {
-    try {
-      workspaceActions.exportWorkspace();
-      console.log('✅ Workspace export initiated');
-    } catch (error) {
-      console.error('❌ Failed to export workspace:', error);
-    }
+    workspaceActions.exportWorkspace();
+    console.log('✅ Workspace export initiated');
   }
 
   function importWorkspace() {
@@ -27,19 +25,11 @@
   async function handleFileChange(event) {
     const file = event.target.files[0];
     if (file) {
-      try {
-        console.log('📥 Importing workspace...');
-        await workspaceActions.importWorkspace(file);
-        console.log('✅ Workspace imported successfully');
-      } catch (error) {
-        console.error('❌ Failed to import workspace:', error);
-      } finally {
-        event.target.value = ''; // Reset input
-      }
+      await workspaceActions.importWorkspace(file);
+      event.target.value = '';
     }
   }
 
-  // Workspace dialog state and functions
   let showWorkspaceModal = false;
 
   function showWorkspaceDialog() {
@@ -60,42 +50,56 @@
     showWorkspaceModal = false;
   }
 
+  function reinitAll() {
+    if (connectionManager?.ws?.readyState === WebSocket.OPEN) {
+      connectionManager.ws.send(JSON.stringify({ type: 'reinit', source: 'all' }));
+      console.log('[Workspace] Reinit requested for: all (cTrader + TradingView)');
+    } else {
+      console.warn('[Workspace] Cannot reinit: WebSocket not connected. Status:', connectionManager?.status || 'unknown');
+      alert('Cannot reinit: Backend not connected. Please wait for connection.');
+    }
+  }
+
   function handleKeydown(event) {
-    // Alt+W: Workspace controls
     if (event.altKey && event.key.toLowerCase() === 'w') {
       event.preventDefault();
       showWorkspaceDialog();
       return;
     }
-    // Delegate other keyboard shortcuts to keyboardHandler (Alt+A, Alt+T, ESC)
+    if (event.altKey && event.key.toLowerCase() === 'r') {
+      event.preventDefault();
+      reinitAll();
+      return;
+    }
     keyboardHandler?.handleKeydown(event);
   }
 
   onMount(() => {
-    // Initialize keyboard handler
     keyboardHandler = createKeyboardHandler(workspaceActions);
+    connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
+    connectionManager.connect();
 
-    // Initialize workspace (no automatic display creation)
+    // Listen for reinit confirmation from backend
+    const systemCallback = (d) => {
+      if (d.type === 'reinit_started') {
+        console.log(`[Workspace] ✅ Backend acknowledged reinit for: ${d.source}`);
+      }
+    };
+    // Add callback for system messages (no backend subscription needed)
+    connectionManager.subscriptions.set('__SYSTEM__', new Set([systemCallback]));
+
     workspacePersistence.loadFromStorage();
     workspacePersistence.saveToStorage();
-
-    // Ensure workspace can receive keyboard events
     const workspaceEl = document.querySelector('.workspace');
-    if (workspaceEl) {
-      workspaceEl.focus();
-      console.log('[WORKSPACE] Workspace focused and ready for keyboard shortcuts');
-    }
-
-    console.log('[WORKSPACE] Workspace initialized - use Alt+A (cTrader) or Alt+T (TradingView) to create displays');
+    if (workspaceEl) workspaceEl.focus();
+    console.log('[WORKSPACE] Ready - Alt+A (cTrader), Alt+T (TV), Alt+R (reinit all)');
   });
 
   onDestroy(() => {
     keyboardHandler?.cleanup();
-    console.log('[WORKSPACE] Workspace cleaned up');
   });
 </script>
 
-<!-- Hidden file input for import -->
 <input
   type="file"
   accept=".json"
@@ -108,7 +112,7 @@
   <div class="flow-layer"></div>
   <div class="flow-layer"></div>
   <div class="flow-layer"></div>
-  <div class="workspace" role="main" tabindex="0" on:keydown={handleKeydown}>
+  <div class="workspace" role="region" tabindex="0" aria-label="Workspace" on:keydown={handleKeydown}>
     {#each Array.from($workspaceStore.displays.values()) as display (display.id)}
       {#if display.symbol === 'FX_BASKET'}
         <FxBasketDisplay {display} />
@@ -119,11 +123,9 @@
   </div>
 </div>
 
-<!-- Workspace Modal -->
 <WorkspaceModal
   bind:show={showWorkspaceModal}
   on:export={handleExportClick}
   on:import={handleImportClick}
   on:cancel={handleModalCancel}
 />
-

@@ -37,8 +37,8 @@ export class ConnectionManager {
       try {
         const d = JSON.parse(e.data);
 
-        // Handle system-level messages (status, ready, global errors)
-        if (d.type === 'status' || d.type === 'ready' || (d.type === 'error' && d.symbol === 'system')) {
+        // Handle system-level messages (status, ready, reinit, global errors)
+        if (d.type === 'status' || d.type === 'ready' || d.type === 'reinit_started' || (d.type === 'error' && d.symbol === 'system')) {
           // Broadcast system messages to all subscriptions
           this.subscriptions.forEach((callbacks, key) => {
             if (callbacks && callbacks.size > 0) {

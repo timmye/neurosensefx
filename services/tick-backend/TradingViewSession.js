@@ -12,19 +12,22 @@ const EventEmitter = require('events');
 const { connect } = require('tradingview-ws');
 const randomstring = require('randomstring');
 const moment = require('moment');
+const { HealthMonitor } = require('./HealthMonitor');
 
 class TradingViewSession extends EventEmitter {
     constructor() {
         super();
         this.client = null;
         this.sessionId = null;
-        this.subscriptions = new Map(); // symbol -> { d1ChartSession, m1ChartSession, adr, lastCandle }
+        this.subscriptions = new Map();
         this.unsubscribe = null;
 
-        // Reconnection support
+        this.healthMonitor = new HealthMonitor('tradingview');
+
         this.reconnectAttempts = 0;
-        this.maxReconnects = 5;
         this.reconnectDelay = 1000;
+        this.maxReconnectDelay = 60000;
+        this.shouldReconnect = true;
         this.reconnectTimeout = null;
     }
 
@@ -39,7 +42,8 @@ class TradingViewSession extends EventEmitter {
                 this.handleEvent(event);
             });
 
-            // Reset reconnection attempts on successful connection
+            this.healthMonitor.start();
+
             this.reconnectAttempts = 0;
             this.reconnectDelay = 1000;
 
@@ -103,6 +107,8 @@ class TradingViewSession extends EventEmitter {
                         // Always update last candle and emit tick for live price
                         const latest = parsedD1[parsedD1.length - 1];
                         data.lastCandle = latest;
+
+                        this.healthMonitor.recordTick();
 
                         this.emit('tick', {
                             type: 'tick',
@@ -329,13 +335,11 @@ class TradingViewSession extends EventEmitter {
     }
 
     async disconnect() {
-        // Clear reconnect timeout to prevent reconnection after explicit disconnect
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = null;
         }
-        // Set maxReconnects to 0 to prevent handleDisconnect from scheduling reconnect
-        this.maxReconnects = 0;
+        this.shouldReconnect = false;
 
         if (this.client) {
             if (this.unsubscribe) this.unsubscribe();
@@ -345,27 +349,41 @@ class TradingViewSession extends EventEmitter {
         this.subscriptions.clear();
     }
 
+    async reconnect() {
+        console.log('[TradingViewSession] Manual reinit requested');
+        this.shouldReconnect = true;
+        this.healthMonitor.stop();
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        await this.disconnect();
+        await this.connect(this.sessionId);
+    }
+
     handleDisconnect(error = null) {
         console.log('[TradingView] handleDisconnect() called');
         if (error) console.error('[TradingView] connection failed:', error);
+        this.healthMonitor.stop();
         this.emit('disconnected');
 
-        // Attempt reconnection with exponential backoff
-        if (this.reconnectAttempts < this.maxReconnects) {
+        if (this.shouldReconnect) {
             this.scheduleReconnect();
         }
     }
 
     scheduleReconnect() {
-        const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
-        console.log(`[TradingView] Scheduling reconnect attempt ${this.reconnectAttempts + 1}/${this.maxReconnects} in ${delay}ms`);
+        const delay = Math.min(
+            this.reconnectDelay * Math.pow(2, this.reconnectAttempts),
+            this.maxReconnectDelay
+        );
+        console.log(`[TradingView] Scheduling reconnect attempt ${this.reconnectAttempts + 1} in ${delay}ms`);
         this.reconnectTimeout = setTimeout(async () => {
             this.reconnectAttempts++;
             try {
                 await this.connect(this.sessionId);
             } catch (error) {
                 console.error('[TradingView] Reconnect attempt failed:', error);
-                // handleDisconnect will be called again if connect fails, scheduling next attempt
             }
         }, delay);
     }

@@ -1,11 +1,21 @@
 ---
 name: doc-sync
-description: Synchronizes CLAUDE.md navigation indexes and README.md architecture docs across a repository. Use when asked to "sync docs", "update CLAUDE.md files", "ensure documentation is in sync", "audit documentation", or when documentation maintenance is needed after code changes.
+description: Synchronizes docs across a repository. Use when user asks to sync docs.
 ---
 
 # Doc Sync
 
-Maintains the CLAUDE.md navigation hierarchy and optional README.md architecture docs across a repository. This skill is self-contained and performs all documentation work directly.
+Maintains the CLAUDE.md navigation hierarchy and README.md invisible knowledge
+docs across a repository. This skill is self-contained and performs all
+documentation work directly.
+
+## Documentation Conventions
+
+For authoritative CLAUDE.md and README.md format specification:
+
+<file working-dir=".claude" uri="conventions/documentation.md" />
+
+The conventions/ directory contains all universal documentation standards.
 
 ## Scope Resolution
 
@@ -18,138 +28,6 @@ Determine scope FIRST:
 | "update CLAUDE.md for parser.py"                        | FILE: single file's parent directory      |
 
 For REPOSITORY-WIDE scope, perform a full audit. For narrower scopes, operate only within the specified boundary.
-
-## CLAUDE.md Format Specification
-
-### Index Format
-
-Use tabular format with What and When columns:
-
-```markdown
-## Files
-
-| File        | What                           | When to read                              |
-| ----------- | ------------------------------ | ----------------------------------------- |
-| `cache.rs`  | LRU cache with O(1) operations | Implementing caching, debugging evictions |
-| `errors.rs` | Error types and Result aliases | Adding error variants, handling failures  |
-
-## Subdirectories
-
-| Directory   | What                          | When to read                              |
-| ----------- | ----------------------------- | ----------------------------------------- |
-| `config/`   | Runtime configuration loading | Adding config options, modifying defaults |
-| `handlers/` | HTTP request handlers         | Adding endpoints, modifying request flow  |
-```
-
-### Column Guidelines
-
-- **File/Directory**: Use backticks around names: `cache.rs`, `config/`
-- **What**: Factual description of contents (nouns, not actions)
-- **When to read**: Task-oriented triggers using action verbs (implementing, debugging, modifying, adding, understanding)
-- At least one column must have content; empty cells use `-`
-
-### Trigger Quality Test
-
-Given task "add a new validation rule", can an LLM scan the "When to read" column and identify the right file?
-
-### ROOT vs SUBDIRECTORY CLAUDE.md
-
-**ROOT CLAUDE.md:**
-
-```markdown
-# [Project Name]
-
-[One sentence: what this is]
-
-## Files
-
-| File | What | When to read |
-| ---- | ---- | ------------ |
-
-## Subdirectories
-
-| Directory | What | When to read |
-| --------- | ---- | ------------ |
-
-## Build
-
-[Copy-pasteable command]
-
-## Test
-
-[Copy-pasteable command]
-
-## Development
-
-[Setup instructions, environment requirements, workflow notes]
-```
-
-**SUBDIRECTORY CLAUDE.md:**
-
-```markdown
-# [directory-name]/
-
-## Files
-
-| File | What | When to read |
-| ---- | ---- | ------------ |
-
-## Subdirectories
-
-| Directory | What | When to read |
-| --------- | ---- | ------------ |
-```
-
-**Critical constraint:** Subdirectory CLAUDE.md files are PURE INDEX. No prose, no overview sections, no architectural explanations. Those belong in README.md.
-
-## README.md Specification
-
-### Creation Criteria (Invisible Knowledge Test)
-
-Create README.md ONLY when the directory contains knowledge NOT visible from reading the code:
-
-- Multiple components interact through non-obvious contracts or protocols
-- Design tradeoffs were made that affect how code should be modified
-- The directory's structure encodes domain knowledge (e.g., processing order matters)
-- Failure modes or edge cases aren't apparent from reading individual files
-- There are "rules" developers must follow that aren't enforced by the compiler/linter
-
-**DO NOT create README.md when:**
-
-- The directory is purely organizational (just groups related files)
-- Code is self-explanatory with good function/module docs
-- You'd be restating what CLAUDE.md index entries already convey
-
-### Content Test
-
-For each sentence in README.md, ask: "Could a developer learn this by reading the source files?"
-
-- If YES: delete the sentence
-- If NO: keep it
-
-README.md earns its tokens by providing INVISIBLE knowledge: the reasoning behind the code, not descriptions of the code.
-
-### README.md Structure
-
-```markdown
-# [Component Name]
-
-## Overview
-
-[One paragraph: what problem this solves, high-level approach]
-
-## Architecture
-
-[How sub-components interact; data flow; key abstractions]
-
-## Design Decisions
-
-[Tradeoffs made and why; alternatives considered]
-
-## Invariants
-
-[Rules that must be maintained; constraints not enforced by code]
-```
 
 ## Workflow
 
@@ -196,9 +74,26 @@ Content that MUST be moved from CLAUDE.md to README.md:
 - Architecture explanations or diagrams
 - Design decision documentation
 - Component interaction descriptions
-- Overview sections with prose (in subdirectory CLAUDE.md files)
+- Overview sections with prose (beyond one sentence)
 - Invariants or rules documentation
 - Any "why" explanations beyond simple triggers
+- Key Invariants sections
+- Dependencies sections (explanatory -- index can note dependencies exist)
+- Constraints sections
+- Purpose sections with prose (beyond one sentence)
+- Any bullet-point lists explaining rationale
+
+Content that MAY stay in CLAUDE.md (operational sections):
+
+- Build commands specific to this directory
+- Test commands specific to this directory
+- Regeneration/sync commands (e.g., protobuf regeneration)
+- Deploy commands
+- Other copy-pasteable procedural commands
+
+**Test:** Ask "is this explaining WHY or telling HOW?" Explanatory content
+(architecture, decisions, rationale) goes to README.md. Operational content
+(commands, procedures) stays in CLAUDE.md.
 
 Migration process:
 
@@ -219,23 +114,26 @@ For each directory needing work:
 4. Write "When to read" column: action-oriented triggers
 5. If README.md exists, include it in the Files table
 
-**Creating README.md (only when warranted):**
+**Creating README.md (when invisible knowledge exists):**
 
-1. Verify invisible knowledge criteria are met
-2. Document architecture, design decisions, invariants
+1. Verify invisible knowledge exists (semantic trigger, not structural)
+2. Document architecture, design decisions, invariants, tradeoffs
 3. Apply the content test: remove anything visible from code
-4. Keep under ~500 tokens
+4. Keep as concise as possible while capturing all invisible knowledge
+5. Must be self-contained: do not reference external authoritative sources
 
 ### Phase 5: Verification
 
 After all updates complete, verify:
 
 1. Every directory in scope has CLAUDE.md
-2. All CLAUDE.md files use table-based index format
+2. All CLAUDE.md files use table-based index format (pure navigation)
 3. No drift remains (files <-> index entries match)
-4. No misplaced content in CLAUDE.md (architecture docs moved to README.md)
+4. No misplaced content in CLAUDE.md (explanatory prose moved to README.md)
 5. README.md files are indexed in their parent CLAUDE.md
-6. Subdirectory CLAUDE.md files contain no prose/overview sections
+6. CLAUDE.md contains only: one-sentence overview + tabular index + operational sections
+7. README.md exists wherever invisible knowledge was identified
+8. README.md files are self-contained (no external authoritative references)
 
 ## Output Format
 
@@ -254,19 +152,28 @@ After all updates complete, verify:
 ### Verification
 - Directories audited: [count]
 - CLAUDE.md coverage: [count]/[total] (100%)
+- CLAUDE.md format: [count] pure index / [count] needed migration
 - Drift detected: [count] entries fixed
-- Content migrations: [count] (architecture docs moved to README.md)
-- README.md files: [count] (only where warranted)
+- Content migrations: [count] (prose moved to README.md)
+- README.md files: [count] (wherever invisible knowledge exists)
+- Self-contained: [YES/NO] (no external authoritative references)
 ```
 
 ## Exclusions
 
-DO NOT index:
+DO NOT create CLAUDE.md for:
 
-- Generated files (dist/, build/, _.generated._, compiled outputs)
+- Generated files directories (dist/, build/, compiled outputs)
 - Vendored dependencies (node_modules/, vendor/, third_party/)
 - Git internals (.git/)
 - IDE/editor configs (.idea/, .vscode/ unless project-specific settings)
+- **Stub directories** (contain only `.gitkeep` or no code files) - these do not
+  require CLAUDE.md until code is added
+
+DO NOT index (skip these files in CLAUDE.md):
+
+- Generated files (_.generated._, compiled outputs)
+- Vendored dependency files
 
 DO index:
 
