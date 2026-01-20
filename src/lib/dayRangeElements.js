@@ -74,7 +74,7 @@ function renderPriceMarker(ctx, item, axisX, priceScale, symbolData) {
   drawPriceMarker(ctx, axisX, y, label, item.color);
 }
 
-export function drawPriceMarker(ctx, x, y, label, color, showBackground = false) {
+export function drawPriceMarker(ctx, x, y, label, color, showBackground = false, textAlign = 'left', subtitle = null) {
   // Draw marker line
   ctx.strokeStyle = color;
   ctx.lineWidth = LINE_WIDTHS.priceMarker;
@@ -83,27 +83,53 @@ export function drawPriceMarker(ctx, x, y, label, color, showBackground = false)
   ctx.lineTo(x + 12, y);
   ctx.stroke();
 
+  // Set font for text measurements
+  ctx.font = `${FONT_SIZES.price}px monospace`;
+
+  // Calculate text position based on alignment
+  const labelOffset = textAlign === 'right' ? -5 : 15;
+  const textX = x + labelOffset;
+
   // Draw background if enabled
   if (showBackground) {
-    ctx.font = `${FONT_SIZES.price}px monospace`;
     const textWidth = ctx.measureText(label).width;
-    const fontHeight = 12;
+    const subtitleWidth = subtitle ? ctx.measureText(subtitle).width : 0;
+    const maxTextWidth = Math.max(textWidth, subtitleWidth);
+    const lineHeight = FONT_SIZES.price * 1.0;
+    const totalHeight = subtitle ? lineHeight * 2 + 2 : lineHeight * 0.7;
     const padding = 3;
-    const backgroundHeight = fontHeight * 0.7;
 
     ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
-    ctx.fillRect(
-      x + 15 - padding,
-      y - backgroundHeight / 2,
-      textWidth + padding * 2,
-      backgroundHeight
-    );
+
+    if (textAlign === 'right') {
+      ctx.fillRect(
+        textX - padding - maxTextWidth,
+        y - totalHeight / 2,
+        maxTextWidth + padding * 2,
+        totalHeight
+      );
+    } else {
+      ctx.fillRect(
+        textX - padding,
+        y - totalHeight / 2,
+        maxTextWidth + padding * 2,
+        totalHeight
+      );
+    }
   }
 
   // Draw label
   ctx.fillStyle = color;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = textAlign;
   ctx.font = `${FONT_SIZES.price}px monospace`;
-  ctx.fillText(label, x + 15, y);
+
+  if (subtitle) {
+    const lineHeight = FONT_SIZES.price * 1.0;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, textX, y - lineHeight / 2);
+    ctx.fillText(subtitle, textX, y + lineHeight / 2);
+  } else {
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, textX, y);
+  }
 }

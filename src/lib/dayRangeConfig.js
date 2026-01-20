@@ -23,7 +23,7 @@ export const defaultConfig = {
     currentPrice: 'bold 46px monospace',
     priceLabels: '20px monospace',
     percentageLabels: '10px sans-serif',
-    statusMessages: '12px monospace',
+    statusMessages: '16px monospace',
     uiElements: '12px monospace',
     uiSymbol: '14px monospace',
     uiVizIndicator: '10px monospace',

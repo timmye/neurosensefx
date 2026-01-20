@@ -12,8 +12,8 @@ export const COLORS = {
 };
 
 export const FONT_SIZES = {
-  price: 10,
-  percent: 9,
+  price: 16,
+  percent: 16,
   status: 12
 };
 

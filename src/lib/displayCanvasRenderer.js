@@ -185,23 +185,31 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
     const startY = priceScale(deltaInfo.startPrice);
     const currentY = priceScale(deltaInfo.currentPrice);
 
+    // Calculate ADR axis position (same as Day Range Meter)
+    const dayRangeConfig = getConfig({ positioning: { adrAxisX: width * 0.75 } });
+    let axisX = dayRangeConfig.positioning.adrAxisX;
+    if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {
+      axisX = width * axisX;
+    }
+
     ctx.strokeStyle = '#FFD700';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 3]);
     ctx.beginPath();
-    ctx.moveTo(50, startY);
-    ctx.lineTo(50, currentY);
+    ctx.moveTo(axisX, startY);
+    ctx.lineTo(axisX, currentY);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    drawPriceMarker(ctx, 35, startY, `${formattedStartPrice}`, '#FFD700', true);
-    drawPriceMarker(ctx, 35, currentY, `${formattedCurrentPrice} (${deltaPips})`, '#FFD700', true);
+    drawPriceMarker(ctx, axisX, startY, formattedStartPrice, '#FFD700', true, 'right');
+    drawPriceMarker(ctx, axisX, currentY, formattedCurrentPrice, '#FFD700', true, 'right', `(${deltaPips})`);
 
     // Setup font for percentage text
-    ctx.font = config.fonts?.statusMessages || '12px monospace';
-    ctx.textAlign = 'left';
+    ctx.font = config.fonts?.statusMessages || '16px monospace';
+    ctx.textAlign = 'right';
     const midY = (startY + currentY) / 2;
     const percentText = `${deltaPercent}%`;
+    const percentX = axisX - 5;
 
     // Draw background for percentage text
     const textWidth = ctx.measureText(percentText).width;
@@ -211,7 +219,7 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
 
     ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
     ctx.fillRect(
-      55 - padding,
+      percentX - padding - textWidth,
       midY - backgroundHeight / 2,
       textWidth + padding * 2,
       backgroundHeight
@@ -219,7 +227,7 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
 
     // Draw percentage text
     ctx.fillStyle = '#FFD700';
-    ctx.fillText(percentText, 55, midY);
+    ctx.fillText(percentText, percentX, midY);
   } catch (error) {
     console.error('[DISPLAY_CANVAS_RENDERER] Error rendering price delta:', error);
   }
