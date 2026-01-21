@@ -14,6 +14,15 @@ const randomstring = require('randomstring');
 const moment = require('moment');
 const { HealthMonitor } = require('./HealthMonitor');
 
+// FIRST PRINCIPLES: Estimate pip data from price for TradingView (no API access)
+// TradingView doesn't provide pipPosition, so we estimate from price magnitude
+function estimatePipData(price) {
+    if (price > 10000) return { pipPosition: 0, pipSize: 1, pipetteSize: 0.1 };       // Crypto/stocks
+    if (price > 1000) return { pipPosition: 1, pipSize: 0.1, pipetteSize: 0.01 };     // Gold (XAUUSD)
+    if (price > 10) return { pipPosition: 2, pipSize: 0.01, pipetteSize: 0.001 };     // JPY pairs
+    return { pipPosition: 4, pipSize: 0.0001, pipetteSize: 0.00001 };                 // Most forex pairs
+}
+
 class TradingViewSession extends EventEmitter {
     constructor() {
         super();
@@ -224,6 +233,9 @@ class TradingViewSession extends EventEmitter {
         // Falls back to last D1 close if no M1 bars today yet
         const todaysOpen = todaysM1Candles.length > 0 ? todaysM1Candles[0].open : data.lastCandle.close;
 
+        // FIRST PRINCIPLES: Estimate pip data from price for proper bucket alignment
+        const pipData = estimatePipData(data.lastCandle.close);
+
         this.emit('candle', {
             type: 'symbolDataPackage',
             source: 'tradingview',
@@ -232,6 +244,9 @@ class TradingViewSession extends EventEmitter {
             high: data.lastCandle.high,
             low: data.lastCandle.low,
             current: data.lastCandle.close,
+            pipPosition: pipData.pipPosition,
+            pipSize: pipData.pipSize,
+            pipetteSize: pipData.pipetteSize,
             projectedAdrHigh: todaysOpen + (adr / 2),  // Centered on today's open
             projectedAdrLow: todaysOpen - (adr / 2),
             initialMarketProfile: todaysM1Candles  // Only today's M1 bars for TPO calculation

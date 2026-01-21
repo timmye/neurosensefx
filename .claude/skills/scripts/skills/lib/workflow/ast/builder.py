@@ -13,6 +13,8 @@ W.guidance("forbidden", W.text("X"), W.text("Y")) reads naturally without
 list literal syntax. Builder collects varargs into children list internally.
 """
 
+from typing import List, Union
+
 from skills.lib.workflow.ast.nodes import (
     Node,
     Document,
@@ -41,15 +43,16 @@ class ASTBuilder:
         -> Document(children=[HeaderNode(...), TextNode("Action")])
     """
 
-    def __init__(self, nodes: list[Node] | None = None):
+    def __init__(self, nodes: Union[List[Node], None] = None):
         """Initialize builder with optional accumulated nodes."""
         self._nodes = nodes if nodes is not None else []
 
     def text(self, content: str) -> 'ASTBuilder':
         """Add text node and return new builder."""
-        return ASTBuilder(self._nodes + [TextNode(content)])
+        nodes = self._nodes if isinstance(self._nodes, list) else list(self._nodes)
+        return ASTBuilder(nodes + [TextNode(content)])
 
-    def code(self, content: str, language: str | None = None) -> 'ASTBuilder':
+    def code(self, content: str, language: Union[str, None] = None) -> 'ASTBuilder':
         """Add code node and return new builder."""
         return ASTBuilder(self._nodes + [CodeNode(content, language)])
 
@@ -72,7 +75,7 @@ class ASTBuilder:
         script: str,
         step: int,
         total: int,
-        title: str | None = None
+        title: Union[str, None] = None
     ) -> 'ASTBuilder':
         """Add header node and return new builder."""
         return ASTBuilder(self._nodes + [HeaderNode(script, step, total, title)])
@@ -81,7 +84,7 @@ class ASTBuilder:
         """Add actions node and return new builder."""
         return ASTBuilder(self._nodes + [ActionsNode(list(children))])
 
-    def command(self, directive: str, cmd: str | None = None) -> 'ASTBuilder':
+    def command(self, directive: str, cmd: Union[str, None] = None) -> 'ASTBuilder':
         """Add command node and return new builder."""
         return ASTBuilder(self._nodes + [CommandNode(directive, cmd)])
 
@@ -93,7 +96,7 @@ class ASTBuilder:
         self,
         agent: str,
         *instruction: Node,
-        model: str | None = None
+        model: Union[str, None] = None
     ) -> 'ASTBuilder':
         """Add dispatch node and return new builder."""
         return ASTBuilder(
@@ -110,9 +113,9 @@ class ASTBuilder:
         total: int,
         title: str,
         actions: list[str],
-        brief: str | None = None,
-        next_title: str | None = None,
-        invoke_after: str | None = None,
+        brief: Union[str, None] = None,
+        next_title: Union[str, None] = None,
+        invoke_after: Union[str, None] = None,
     ) -> 'ASTBuilder':
         """Add text output node for plain text workflows."""
         return ASTBuilder(self._nodes + [TextOutputNode(step, total, title, actions, brief, next_title, invoke_after)])

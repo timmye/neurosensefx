@@ -15,7 +15,7 @@ dict. Standard Python pattern for discriminated unions.
 """
 
 from dataclasses import dataclass
-from typing import Union
+from typing import Dict, List, Tuple, Union
 
 
 @dataclass(frozen=True)
@@ -28,7 +28,7 @@ class TextNode:
 class CodeNode:
     """Code block with optional language tag."""
     content: str
-    language: str | None = None
+    language: Union[str, None] = None
 
 
 @dataclass(frozen=True)
@@ -46,8 +46,8 @@ class RawNode:
 class ElementNode:
     """Generic XML element with attributes and children."""
     tag: str
-    attrs: dict[str, str]
-    children: list['Node']
+    attrs: Dict[str, str]
+    children: List['Node']
 
 
 @dataclass(frozen=True)
@@ -56,41 +56,41 @@ class HeaderNode:
     script: str
     step: int
     total: int
-    title: str | None = None
+    title: Union[str, None] = None
 
 
 @dataclass(frozen=True)
 class ActionsNode:
     """Container for current action content."""
-    children: list['Node']
+    children: List['Node']
 
 
 @dataclass(frozen=True)
 class CommandNode:
     """Workflow command directive."""
     directive: str
-    cmd: str | None = None
+    cmd: Union[str, None] = None
 
 
 @dataclass(frozen=True)
 class RoutingNode:
     """Conditional routing with multiple branches."""
-    branches: list[tuple[str, list['Node']]]
+    branches: List[Tuple[str, List['Node']]]
 
 
 @dataclass(frozen=True)
 class DispatchNode:
     """Sub-agent dispatch instruction."""
     agent: str
-    model: str | None
-    instruction: list['Node']
+    model: Union[str, None]
+    instruction: List['Node']
 
 
 @dataclass(frozen=True)
 class GuidanceNode:
     """Guidance block (forbidden, constraints, principles)."""
     kind: str
-    children: list['Node']
+    children: List['Node']
 
 
 @dataclass(frozen=True)
@@ -105,10 +105,10 @@ class TextOutputNode:
     step: int
     total: int
     title: str
-    actions: list[str]
-    brief: str | None = None
-    next_title: str | None = None
-    invoke_after: str | None = None
+    actions: List[str]
+    brief: Union[str, None] = None
+    next_title: Union[str, None] = None
+    invoke_after: Union[str, None] = None
 
 
 Node = Union[
@@ -135,4 +135,4 @@ class Document:
     Mixing container and content types in same union would require
     special-case matching. Separate types keep renderer logic clean.
     """
-    children: list[Node]
+    children: List[Node]

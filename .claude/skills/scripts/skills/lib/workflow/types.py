@@ -5,7 +5,15 @@ Explicit, composable abstractions over stringly-typed dicts and parameter groups
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Literal, Protocol, TypeAlias
+from typing import Any, Callable, Dict, List, Literal, Protocol, Union
+import sys
+
+# Python 3.9 compatibility: TypeAlias was added in Python 3.10
+# Fallback: just use string annotation for < 3.10
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    TypeAlias = type  # Fallback: use type itself
 
 
 class ResourceProvider(Protocol):
@@ -126,7 +134,7 @@ class Mode(Enum):
     CODE = "code"
 
 
-PHASE_TO_MODE: dict[Phase, Mode] = {
+PHASE_TO_MODE: Dict[Phase, Mode] = {
     Phase.DESIGN_REVIEW: Mode.DESIGN,
     Phase.DIFF_REVIEW: Mode.CODE,
     Phase.CODEBASE_REVIEW: Mode.CODE,
@@ -160,7 +168,7 @@ class TerminalRouting:
     pass
 
 
-Routing = LinearRouting | BranchRouting | TerminalRouting
+Routing = Union[LinearRouting, BranchRouting, TerminalRouting]
 
 
 # =============================================================================
@@ -183,7 +191,7 @@ class BranchCommand:
     if_fail: str
 
 
-NextCommand = FlatCommand | BranchCommand | None
+NextCommand = Union[FlatCommand, BranchCommand, None]
 """Union type for step routing.
 
 - FlatCommand: Non-branching step, single next command
@@ -199,7 +207,7 @@ class Dispatch:
     agent: AgentRole
     script: str
     total_steps: int
-    context_vars: dict[str, str] = field(default_factory=dict)
+    context_vars: Dict[str, str] = field(default_factory=dict)
     free_form: bool = False
 
 
@@ -219,7 +227,7 @@ class QRState:
 
     iteration: int = 1
     state: LoopState = LoopState.INITIAL
-    status: QRStatus | None = None
+    status: Union[QRStatus, None] = None
 
     @property
     def failed(self) -> bool:
@@ -261,10 +269,10 @@ class GateConfig:
 
     qr_name: str
     work_step: int
-    pass_step: int | None
+    pass_step: Union[int, None]
     pass_message: str
     self_fix: bool
-    fix_target: AgentRole | None = None
+    fix_target: Union[AgentRole, None] = None
 
 
 # DEPRECATED: Use StepDef from core.py for new skills
@@ -273,11 +281,11 @@ class Step:
     """Step configuration for workflow."""
 
     title: str
-    actions: list[str]
+    actions: List[str]
     routing: Routing = field(default_factory=LinearRouting)
-    dispatch: Dispatch | None = None
-    gate: GateConfig | None = None
-    phase: str | None = None
+    dispatch: Union[Dispatch, None] = None
+    gate: Union[GateConfig, None] = None
+    phase: Union[str, None] = None
 
 
 # DEPRECATED: Use Workflow from core.py for new skills
@@ -287,7 +295,7 @@ class WorkflowDefinition:
 
     name: str
     script: str
-    steps: dict[int, Step]
+    steps: Dict[int, Step]
     description: str = ""
 
 
@@ -304,7 +312,7 @@ class StepGuidance:
     """
 
     title: str
-    actions: list[str]
+    actions: List[str]
     next_hint: str = ""
     phase: str = ""
     # Additional fields can be added without breaking existing handlers
@@ -312,7 +320,7 @@ class StepGuidance:
 
 # Type alias for step handler functions
 # Handlers receive step context and return guidance
-StepHandler: TypeAlias = Callable[..., dict | StepGuidance]
+StepHandler: TypeAlias = Callable[..., Union[dict, StepGuidance]]
 """Step handler function signature.
 
 Args:

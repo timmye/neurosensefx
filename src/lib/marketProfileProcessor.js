@@ -1,5 +1,6 @@
 // Market Profile Data Processor - Crystal Clarity Compliant
 // Framework-first: Pure data processing, no rendering logic
+// DOMAIN CONCEPT: Price discretization - separate continuous ticks from discrete buckets
 
 import { formatPrice } from './priceFormat.js';
 
@@ -68,25 +69,6 @@ function calculateAdaptiveBucketSize(m1Bars, defaultBucketSize, symbolData) {
   return finalBucketSize;
 }
 
-export function updateProfileWithTick(lastProfile, tickData) {
-  if (!lastProfile || !tickData.bid) {
-    return lastProfile;
-  }
-
-  const updatedProfile = [...lastProfile];
-  const tickPrice = tickData.bid;
-
-  const existingLevel = updatedProfile.find(level => level.price === tickPrice);
-  if (existingLevel) {
-    existingLevel.tpo += 1;
-  } else {
-    updatedProfile.push({ price: tickPrice, tpo: 1 });
-    updatedProfile.sort((a, b) => a.price - b.price);
-  }
-
-  return updatedProfile;
-}
-
 export function generatePriceLevels(low, high, bucketSize = 0.00001, symbolData = null) {
   const levels = [];
   let currentPrice = Math.floor(low / bucketSize) * bucketSize;
@@ -109,6 +91,34 @@ export function generatePriceLevels(low, high, bucketSize = 0.00001, symbolData 
   }
 
   return levels;
+}
+
+// DOMAIN CONCEPT: Price discretization for tick updates
+// Maps continuous tick prices to discrete bucket levels
+// This ensures TPO aggregation occurs on properly quantized price levels
+export function updateProfileWithTick(lastProfile, tickData, bucketSize, symbolData) {
+  if (!lastProfile || !tickData.bid) {
+    return lastProfile;
+  }
+
+  const updatedProfile = [...lastProfile];
+  const tickPrice = tickData.bid;
+
+  // DOMAIN CONCEPT: Discretization - map continuous to discrete
+  // Align tick to bucket boundary using same logic as generatePriceLevels
+  const bucketBoundary = Math.floor(tickPrice / bucketSize) * bucketSize;
+  const pipPosition = symbolData?.pipPosition ?? 4;
+  const discreteLevel = parseFloat(formatPrice(bucketBoundary, pipPosition));
+
+  const existingLevel = updatedProfile.find(level => level.price === discreteLevel);
+  if (existingLevel) {
+    existingLevel.tpo += 1;
+  } else {
+    updatedProfile.push({ price: discreteLevel, tpo: 1 });
+    updatedProfile.sort((a, b) => a.price - b.price);
+  }
+
+  return updatedProfile;
 }
 
 export function calculatePointOfControl(profile) {

@@ -13,8 +13,9 @@
   export let display;
   let element, interactable, connectionManager, canvasRef;
   let connectionStatus = 'disconnected', lastData = null, lastMarketProfileData = null;
+  let marketProfileBucketSize = null; // DOMAIN CONCEPT: Store bucket size for tick discretization
   let formattedSymbol = formatSymbol(display.symbol);
-  let source = display.source || 'ctrader';
+  let source; // Reactive, set below
   let priceMarkers = [], selectedMarker = null;
   let hoverPrice = null;
   let deltaInfo = null;
@@ -24,6 +25,25 @@
   $: currentDisplay = $workspaceStore.displays.get(display.id);
   $: showMarketProfile = currentDisplay?.showMarketProfile || false;
   $: selectedMarker = currentDisplay?.selectedMarker || null;
+  $: source = display.source || 'ctrader';
+
+  // Detect symbol/source changes and clear stale data, resubscribe
+  $: if (display.symbol && source && connectionManager && dataCallback) {
+    const newSymbol = formatSymbol(display.symbol);
+    const newSource = source;
+    const currentFormatted = formattedSymbol;
+    const currentSource = source;
+
+    if (newSymbol !== currentFormatted || newSource !== currentSource) {
+      console.log(`[SYMBOL_CHANGE] ${currentFormatted}:${currentSource} → ${newSymbol}:${newSource}`);
+      lastData = null;
+      lastMarketProfileData = null;
+      marketProfileBucketSize = null; // Clear bucket size on symbol change
+      formattedSymbol = newSymbol;
+      if (unsubscribe) unsubscribe();
+      unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, dataCallback, 14, source);
+    }
+  }
   onMount(() => {
   connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
     // Define data callback for reuse in refresh
@@ -35,11 +55,15 @@
         } else if (result?.type === 'error' && !isConnectionRelated(result.message)) {
           canvasRef?.renderError(`BACKEND_ERROR: ${result.message}`);
         }
+        // DOMAIN CONCEPT: Price discretization for Market Profile
         if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
           const bucketSize = getBucketSizeForSymbol(formattedSymbol, data, marketProfileConfig.bucketMode);
+          marketProfileBucketSize = bucketSize; // Store for tick discretization
           lastMarketProfileData = buildInitialProfile(data.initialMarketProfile, bucketSize, data);
-        } else if (data.type === 'tick' && lastMarketProfileData) {
-          lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data);
+        } else if (data.type === 'tick' && lastMarketProfileData && marketProfileBucketSize) {
+          // DOMAIN CONCEPT: Discretize tick to bucket before TPO aggregation
+          // This prevents fragmentation by aligning continuous ticks to discrete levels
+          lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data, marketProfileBucketSize, lastData);
         }
       } catch (error) {
         canvasRef?.renderError(`JSON_PARSE_ERROR: ${error.message}`);
@@ -111,6 +135,7 @@
       // Clear existing data to force reload
       lastData = null;
       lastMarketProfileData = null;
+      marketProfileBucketSize = null; // Clear bucket size on refresh
 
       // Force fresh subscription regardless of connection state
       // subscribeAndRequest will queue request if not OPEN, and resubscribeAll() will replay on open
