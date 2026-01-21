@@ -58,13 +58,18 @@
         // DOMAIN CONCEPT: Price discretization for Market Profile
         if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
           const bucketSize = getBucketSizeForSymbol(formattedSymbol, data, marketProfileConfig.bucketMode);
-          marketProfileBucketSize = bucketSize; // Store for tick discretization
-          lastMarketProfileData = buildInitialProfile(data.initialMarketProfile, bucketSize, data);
-        } else if (data.type === 'tick' && lastMarketProfileData && marketProfileBucketSize) {
-          // DOMAIN CONCEPT: Discretize tick to bucket before TPO aggregation
-          // This prevents fragmentation by aligning continuous ticks to discrete levels
-          lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data, marketProfileBucketSize, lastData);
+          const { profile, actualBucketSize } = buildInitialProfile(data.initialMarketProfile, bucketSize, data);
+          lastMarketProfileData = profile;
+          marketProfileBucketSize = actualBucketSize; // Store ACTUAL bucket size for tick discretization
         }
+        // DISABLED: M1-only mode for consistency (see /docs/market-profile-tick-data-performance-analysis.md)
+        // Tick-based profile updates removed to prevent profile jumps and data model mismatch
+        // To re-enable for testing: uncomment this block
+        // else if (data.type === 'tick' && lastMarketProfileData && marketProfileBucketSize) {
+        //   // DOMAIN CONCEPT: Discretize tick to bucket before TPO aggregation
+        //   // This prevents fragmentation by aligning continuous ticks to discrete levels
+        //   lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data, marketProfileBucketSize, lastData);
+        // }
       } catch (error) {
         canvasRef?.renderError(`JSON_PARSE_ERROR: ${error.message}`);
       }

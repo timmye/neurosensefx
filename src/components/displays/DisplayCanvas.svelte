@@ -119,7 +119,7 @@
     }
   }
 
-  $: if (ctx && (data || connectionStatus || showMarketProfile || priceMarkers || selectedMarker || hoverPrice || deltaInfo)) {
+  $: if (ctx && (data || marketProfileData || connectionStatus || showMarketProfile || priceMarkers || selectedMarker || hoverPrice || deltaInfo)) {
     render();
   }
 

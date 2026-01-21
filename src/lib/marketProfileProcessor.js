@@ -15,7 +15,7 @@ export function processMarketProfileData(data, lastProfile = null) {
 
 export function buildInitialProfile(m1Bars, bucketSize = 0.00001, symbolData = null) {
   if (!m1Bars || m1Bars.length === 0) {
-    return [];
+    return { profile: [], actualBucketSize: bucketSize };
   }
 
   // Calculate adaptive bucket size based on actual price range
@@ -38,7 +38,7 @@ export function buildInitialProfile(m1Bars, bucketSize = 0.00001, symbolData = n
 
   console.log(`[MARKET_PROFILE] Built profile with ${profile.length} levels from ${m1Bars.length} M1 bars (bucket size: ${adaptiveBucketSize})`);
 
-  return profile;
+  return { profile, actualBucketSize: adaptiveBucketSize };
 }
 
 // Calculate adaptive bucket size to prevent memory overflow
