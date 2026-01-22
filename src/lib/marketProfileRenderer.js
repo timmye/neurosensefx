@@ -3,7 +3,8 @@
 // Uses EXACT same rendering methods as Day Range Meter for 100% compliance
 
 import { renderStatusMessage, renderErrorMessage } from './canvasStatusRenderer.js';
-import { calculatePointOfControl, calculateValueArea } from './marketProfileProcessor.js';
+import { calculatePointOfControl } from './marketProfile/pointOfControl.js';
+import { calculateValueArea } from './marketProfile/valueArea.js';
 import { calculateAdaptiveScale } from './dayRangeCalculations.js';
 import { createPriceScale } from './dayRangeRenderingUtils.js';
 import { setupCanvas, renderPixelPerfectLine, setupTextRendering } from './dayRangeCore.js';

@@ -1,5 +1,8 @@
 const WebSocket = require('ws');
 const { DataRouter } = require('./DataRouter');
+const { MarketProfileService } = require('./MarketProfileService');
+
+console.log('[WebSocketServer] FILE LOADED - v2.0 with M1 bar subscription support');
 
 class WebSocketServer {
     constructor(port, cTraderSession, tradingViewSession) {
@@ -9,21 +12,34 @@ class WebSocketServer {
         this.clientSubscriptions = new Map();
         this.backendSubscriptions = new Map(); // key: "symbol:source", value: Set<ws>
         this.pendingRequests = new Map(); // key: "symbol:adr", value: {promise, clients[]}
+        this.m1BarSubscriptions = new Set(); // Track symbols subscribed to M1 bars
 
         this.currentBackendStatus = 'disconnected';
         this.currentAvailableSymbols = [];
 
         this.dataRouter = new DataRouter(this);
+        this.marketProfileService = new MarketProfileService();
 
         this.wss.on('connection', (ws) => this.handleConnection(ws));
 
-        // cTrader event handlers
         this.cTraderSession.on('tick', (tick) => this.dataRouter.routeFromCTrader(tick));
-        this.cTraderSession.on('connected', (symbols) => this.updateBackendStatus('connected', null, symbols));
+        this.cTraderSession.on('connected', (symbols) => {
+            this.updateBackendStatus('connected', null, symbols);
+            // Reset MarketProfile sequences to prevent drift after reconnection
+            if (symbols && Array.isArray(symbols)) {
+                symbols.forEach(symbol => {
+                    this.marketProfileService.resetSequence(symbol);
+                });
+            }
+        });
         this.cTraderSession.on('disconnected', () => this.updateBackendStatus('disconnected'));
         this.cTraderSession.on('error', (error) => this.updateBackendStatus('error', error.message));
+        this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar));
+        this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.delta, data.seq));
+        this.marketProfileService.on('profileError', (data) => this.dataRouter.routeProfileError(data.symbol, data.error, data.message));
 
         // TradingView event handlers
+        this.tradingViewSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar));
         this.tradingViewSession.on('tick', (tick) => this.dataRouter.routeFromTradingView(tick));
         this.tradingViewSession.on('candle', (candle) => this.dataRouter.routeFromTradingView(candle));
         this.tradingViewSession.on('connected', () => console.log('[TradingView] Backend connected'));
@@ -175,6 +191,7 @@ class WebSocketServer {
                 });
 
                 // Register subscriptions for all waiting clients
+                console.log(`[WebSocketServer] Registering subscriptions for ${clients.length} clients`);
                 clients.forEach(client => {
                     const clientSubs = this.clientSubscriptions.get(client);
                     if (clientSubs && !clientSubs.has(symbolName)) {
@@ -192,6 +209,19 @@ class WebSocketServer {
                             this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
                                 console.error(`Failed to subscribe to ticks for ${symbolName}:`, err);
                             });
+                        }
+
+                        // Subscribe to M1 bars for Market Profile updates (only once per symbol)
+                        const m1Key = `${symbolName}:ctrader`;
+                        if (!this.m1BarSubscriptions.has(m1Key)) {
+                            this.m1BarSubscriptions.add(m1Key);
+                            console.log(`[WebSocketServer] Subscribing to M1 bars for ${symbolName}`);
+                            this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
+                                console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err);
+                            });
+                            // Initialize Market Profile service for this symbol
+                            console.log(`[WebSocketServer] Initializing Market Profile for ${symbolName}`);
+                            this.marketProfileService.subscribeToSymbol(symbolName);
                         }
                     }
                 });
@@ -254,6 +284,16 @@ class WebSocketServer {
                 this.backendSubscriptions.set(key, symbolSubscribers);
             }
             symbolSubscribers.add(ws);  // Client added BEFORE subscribeToSymbol
+
+            // Subscribe to M1 bars for Market Profile updates (only once per symbol)
+            const m1Key = `${symbolName}:tradingview`;
+            if (!this.m1BarSubscriptions.has(m1Key)) {
+                this.m1BarSubscriptions.add(m1Key);
+                console.log(`[WebSocketServer] Subscribing to M1 bars for ${symbolName} (TradingView)`);
+                // Initialize Market Profile service for this symbol
+                console.log(`[WebSocketServer] Initializing Market Profile for ${symbolName} (TradingView)`);
+                this.marketProfileService.subscribeToSymbol(symbolName);
+            }
 
             // NOW subscribe - candle will reach the client
             await this.tradingViewSession.subscribeToSymbol(symbolName, adrLookbackDays);

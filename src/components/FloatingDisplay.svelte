@@ -4,7 +4,7 @@
   import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { processSymbolData, getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
-  import { buildInitialProfile, updateProfileWithTick } from '../lib/marketProfileProcessor.js';
+  import { buildInitialProfile } from '../lib/marketProfileProcessor.js';
   import { getBucketSizeForSymbol } from '../lib/displayDataProcessor.js';
   import { marketProfileConfig } from '../lib/marketProfileConfig.js';
   import DisplayHeader from './displays/DisplayHeader.svelte';
@@ -13,7 +13,7 @@
   export let display;
   let element, interactable, connectionManager, canvasRef;
   let connectionStatus = 'disconnected', lastData = null, lastMarketProfileData = null;
-  let marketProfileBucketSize = null; // DOMAIN CONCEPT: Store bucket size for tick discretization
+  let lastProfileSeq = 0;
   let formattedSymbol = formatSymbol(display.symbol);
   let source; // Reactive, set below
   let priceMarkers = [], selectedMarker = null;
@@ -38,7 +38,7 @@
       console.log(`[SYMBOL_CHANGE] ${currentFormatted}:${currentSource} → ${newSymbol}:${newSource}`);
       lastData = null;
       lastMarketProfileData = null;
-      marketProfileBucketSize = null; // Clear bucket size on symbol change
+      lastProfileSeq = 0;
       formattedSymbol = newSymbol;
       if (unsubscribe) unsubscribe();
       unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, dataCallback, 14, source);
@@ -55,21 +55,18 @@
         } else if (result?.type === 'error' && !isConnectionRelated(result.message)) {
           canvasRef?.renderError(`BACKEND_ERROR: ${result.message}`);
         }
-        // DOMAIN CONCEPT: Price discretization for Market Profile
         if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
           const bucketSize = getBucketSizeForSymbol(formattedSymbol, data, marketProfileConfig.bucketMode);
           const { profile, actualBucketSize } = buildInitialProfile(data.initialMarketProfile, bucketSize, data);
           lastMarketProfileData = profile;
-          marketProfileBucketSize = actualBucketSize; // Store ACTUAL bucket size for tick discretization
         }
-        // DISABLED: M1-only mode for consistency (see /docs/market-profile-tick-data-performance-analysis.md)
-        // Tick-based profile updates removed to prevent profile jumps and data model mismatch
-        // To re-enable for testing: uncomment this block
-        // else if (data.type === 'tick' && lastMarketProfileData && marketProfileBucketSize) {
-        //   // DOMAIN CONCEPT: Discretize tick to bucket before TPO aggregation
-        //   // This prevents fragmentation by aligning continuous ticks to discrete levels
-        //   lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data, marketProfileBucketSize, lastData);
-        // }
+        else if (data.type === 'profileUpdate' && data.delta) {
+          applyProfileDelta(lastMarketProfileData, data.delta, data.seq);
+        }
+        else if (data.type === 'profileError' && data.symbol === formattedSymbol) {
+          console.warn(`[MarketProfile] Profile error: ${data.message}`);
+          canvasRef?.renderError(`PROFILE_ERROR: ${data.message}`);
+        }
       } catch (error) {
         canvasRef?.renderError(`JSON_PARSE_ERROR: ${error.message}`);
       }
@@ -137,10 +134,9 @@
         unsubscribe = null;
       }
 
-      // Clear existing data to force reload
       lastData = null;
       lastMarketProfileData = null;
-      marketProfileBucketSize = null; // Clear bucket size on refresh
+      lastProfileSeq = 0;
 
       // Force fresh subscription regardless of connection state
       // subscribeAndRequest will queue request if not OPEN, and resubscribeAll() will replay on open
@@ -162,6 +158,53 @@
     if (e.altKey && e.key.toLowerCase() === 'm') {
       e.preventDefault();
       workspaceActions.toggleMarketProfile(display.id);
+    }
+  }
+
+  function applyProfileDelta(profile, delta, seq) {
+    if (!profile) return;
+
+    if (seq !== lastProfileSeq + 1) {
+      console.warn(`[MarketProfile] Sequence gap: expected ${lastProfileSeq + 1}, got ${seq}`);
+      requestFullProfile();
+      return;
+    }
+
+    lastProfileSeq = seq;
+
+    if (delta.added) {
+      delta.added.forEach(level => {
+        const existing = profile.find(p => p.price === level.price);
+        if (!existing) {
+          profile.push({ price: level.price, tpo: level.tpo });
+        }
+      });
+    }
+
+    if (delta.updated) {
+      delta.updated.forEach(level => {
+        const existing = profile.find(p => p.price === level.price);
+        if (existing) {
+          existing.tpo = level.tpo;
+        }
+      });
+    }
+
+    profile.sort((a, b) => a.price - b.price);
+  }
+
+  function requestFullProfile() {
+    if (connectionManager && dataCallback) {
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+
+      lastData = null;
+      lastMarketProfileData = null;
+      lastProfileSeq = 0;
+
+      unsubscribe = connectionManager.subscribeAndRequest(formattedSymbol, dataCallback, 14, source);
     }
   }
   </script>

@@ -82,11 +82,26 @@ class CTraderSession extends EventEmitter {
                     bid: price,
                     ask: price,
                     timestamp: timestamp,
-                    // pipPosition integration fields
                     pipPosition: symbolInfo.pipPosition,
                     pipSize: symbolInfo.pipSize,
                     pipetteSize: symbolInfo.pipetteSize,
                 };
+
+                console.log(`[CTraderSession] M1 bar received for ${symbolName}:`, {
+                    open: this.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaOpen), symbolInfo.digits),
+                    high: this.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaHigh), symbolInfo.digits),
+                    low: this.calculatePrice(Number(latestBar.low), symbolInfo.digits),
+                    close: price,
+                    timestamp: timestamp
+                });
+                this.emit('m1Bar', {
+                    symbol: symbolName,
+                    open: this.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaOpen), symbolInfo.digits),
+                    high: this.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaHigh), symbolInfo.digits),
+                    low: this.calculatePrice(Number(latestBar.low), symbolInfo.digits),
+                    close: price,
+                    timestamp: timestamp
+                });
             }
             else if (event.bid != null && event.ask != null) {
                 // 🔧 CRITICAL FIX: Require BOTH bid AND ask to be valid to create a tick
@@ -312,6 +327,21 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
     async unsubscribeFromTicks(symbolName) {
         const symbolId = this.symbolMap.get(symbolName);
         if (symbolId) await this.connection.sendCommand('ProtoOAUnsubscribeSpotsReq', { ctidTraderAccountId: this.ctidTraderAccountId, symbolId: [symbolId] });
+    }
+
+    async subscribeToM1Bars(symbolName) {
+        const symbolId = this.symbolMap.get(symbolName);
+        if (symbolId) {
+            console.log(`[CTraderSession] Sending ProtoOASubscribeLiveTrendbarReq for ${symbolName} (symbolId: ${symbolId}, period: M1)`);
+            await this.connection.sendCommand('ProtoOASubscribeLiveTrendbarReq', {
+                ctidTraderAccountId: this.ctidTraderAccountId,
+                symbolId: symbolId,
+                period: 'M1'
+            });
+            console.log(`[CTraderSession] ProtoOASubscribeLiveTrendbarReq sent successfully for ${symbolName}`);
+        } else {
+            console.warn(`[CTraderSession] Cannot subscribe to M1 bars for ${symbolName}: symbolId not found`);
+        }
     }
 
     disconnect() {

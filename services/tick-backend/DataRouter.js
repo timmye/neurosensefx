@@ -50,6 +50,31 @@ class DataRouter {
         this.broadcastToClients(message, candle.symbol, 'tradingview');
     }
 
+    routeProfileUpdate(symbol, delta, seq) {
+        const message = {
+            type: 'profileUpdate',
+            symbol,
+            delta,
+            seq
+        };
+        // Broadcast to both cTrader and TradingView subscribers
+        // since MarketProfileService doesn't track which source a symbol uses
+        this.broadcastToClients(message, symbol, 'ctrader');
+        this.broadcastToClients(message, symbol, 'tradingview');
+    }
+
+    routeProfileError(symbol, error, message) {
+        const error_message = {
+            type: 'profileError',
+            symbol,
+            error,
+            message
+        };
+        // Broadcast to both cTrader and TradingView subscribers
+        this.broadcastToClients(error_message, symbol, 'ctrader');
+        this.broadcastToClients(error_message, symbol, 'tradingview');
+    }
+
     /**
      * Broadcast message to clients subscribed to a symbol from a specific source
      * @param {Object} message - Message to broadcast

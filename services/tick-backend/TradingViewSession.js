@@ -158,6 +158,17 @@ class TradingViewSession extends EventEmitter {
                             data.m1Candles.push(...parsedM1);
                         }
 
+                        // Emit m1Bar event for real-time Market Profile updates (crypto support)
+                        const latest = parsedM1[parsedM1.length - 1];
+                        this.emit('m1Bar', {
+                            symbol,
+                            open: latest.open,
+                            high: latest.high,
+                            low: latest.low,
+                            close: latest.close,
+                            timestamp: latest.time * 1000  // Convert to milliseconds
+                        });
+
                         console.log(`[TradingView] Accumulated ${data.m1Candles.length} M1 candles for ${symbol}`);
                     }
                 }
