@@ -35,7 +35,7 @@ class WebSocketServer {
         this.cTraderSession.on('disconnected', () => this.updateBackendStatus('disconnected'));
         this.cTraderSession.on('error', (error) => this.updateBackendStatus('error', error.message));
         this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar));
-        this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.delta, data.seq));
+        this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.profile));
         this.marketProfileService.on('profileError', (data) => this.dataRouter.routeProfileError(data.symbol, data.error, data.message));
 
         // TradingView event handlers

@@ -10,6 +10,7 @@ export class ConnectionManager {
     this.pendingSubscriptions = []; // Queue for subscriptions before WebSocket ready
     this.reconnectAttempts = 0; this.maxReconnects = 5; this.reconnectDelay = 1000;
     this.status = 'disconnected';
+    this.connecting = false; // Prevent duplicate connection attempts
     // Support multiple callbacks instead of single callback
     this.statusCallbacks = new Set();
   }
@@ -28,11 +29,13 @@ export class ConnectionManager {
 
   connect() {
     if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.connecting) return; // Already connecting, prevent duplicate
+    this.connecting = true;
     this.ws = new WebSocket(this.url); this.status = 'connecting';
     this.notifyStatusChange();
     this.ws.onopen = () => this.handleOpen();
     this.ws.onclose = () => this.handleClose();
-    this.ws.onerror = (e) => { console.error('WebSocket error:', e); this.status = 'error'; this.notifyStatusChange(); };
+    this.ws.onerror = (e) => { console.error('WebSocket error:', e); this.connecting = false; this.status = 'error'; this.notifyStatusChange(); };
     this.ws.onmessage = (e) => {
       try {
         const d = JSON.parse(e.data);
@@ -74,6 +77,7 @@ export class ConnectionManager {
 
   async handleOpen() {
     console.log('WebSocket connected');
+    this.connecting = false;
     this.status = 'connected';
     this.reconnectAttempts = 0;
     this.reconnectDelay = 1000;
@@ -97,6 +101,7 @@ export class ConnectionManager {
   }
 
   handleClose() {
+    this.connecting = false;
     this.status = 'disconnected'; this.notifyStatusChange();
     // Subscriptions persist across reconnections for resubscribeAll() to restore
     if (this.reconnectAttempts < this.maxReconnects) this.scheduleReconnect();
@@ -224,6 +229,12 @@ export class ConnectionManager {
     let index = 0;
 
     for (const [key] of this.subscriptions) {
+      // Check WebSocket state before each send (state may change during loop)
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[CM RESUB] WebSocket closed during resubscribeAll, stopping');
+        break;
+      }
+
       const [symbol, source] = key.split(':');
       const adr = this.subscriptionAdr.get(key) || 14;
       const payload = { type: 'get_symbol_data_package', symbol, adrLookbackDays: adr, source };

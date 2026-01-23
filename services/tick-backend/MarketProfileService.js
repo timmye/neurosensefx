@@ -74,8 +74,9 @@ class MarketProfileService extends EventEmitter {
     const seq = (this.sequenceNumbers.get(symbol) || 0) + 1;
     this.sequenceNumbers.set(symbol, seq);
 
-    console.log(`[MarketProfileService] Emitting profileUpdate for ${symbol}: seq=${seq}, added=${delta.added.length}, updated=${delta.updated.length}`);
-    this.emit('profileUpdate', { symbol, delta, seq });
+    const fullProfile = this.getFullProfile(symbol);
+    console.log(`[MarketProfileService] Emitting profileUpdate for ${symbol}: seq=${seq}, levels=${fullProfile.levels.length}`);
+    this.emit('profileUpdate', { symbol, profile: fullProfile, seq });
   }
 
   generatePriceLevels(low, high, bucketSize) {
@@ -110,4 +111,16 @@ class MarketProfileService extends EventEmitter {
   }
 }
 
-module.exports = { MarketProfileService };
+// Export bucket size calculator for TradingViewSession
+function calculateBucketSizeForSymbol(symbol) {
+  if (symbol.includes('BTC') || symbol.includes('ETH')) {
+    return 1; // $1 buckets for crypto
+  } else if (symbol.includes('US30') || symbol.includes('NAS100')) {
+    return 1; // 1 point buckets for indices
+  } else if (symbol.includes('XAU') || symbol.includes('XAG')) {
+    return 0.01; // 0.01 buckets for metals
+  }
+  return 0.0001; // Default for forex
+}
+
+module.exports = { MarketProfileService, calculateBucketSizeForSymbol };
