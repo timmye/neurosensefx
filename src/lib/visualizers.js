@@ -6,7 +6,7 @@ import { register } from './visualizationRegistry.js';
 import { renderDayRange as renderDayRangeOrchestrated } from './dayRangeOrchestrator.js';
 import { getConfig } from './dayRangeConfig.js';
 import { renderStatusMessage, renderErrorMessage } from './canvasStatusRenderer.js';
-import { renderMarketProfile } from './marketProfileRenderer.js';
+import { renderMarketProfile } from './marketProfile/orchestrator.js';
 
 // Export the refactored renderDayRange function
 export function renderDayRange(ctx, d, s) {
