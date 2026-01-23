@@ -5,11 +5,12 @@ export function buildInitialProfile(m1Bars, bucketSize = 0.00001, symbolData = n
     return { profile: [], actualBucketSize: bucketSize };
   }
 
-  const adaptiveBucketSize = calculateAdaptiveBucketSize(m1Bars, bucketSize, symbolData);
+  // Use backend-provided bucketSize directly (no adaptive calculation)
+  // This ensures frontend and backend use identical bucket sizes
   const priceMap = new Map();
 
   m1Bars.forEach(bar => {
-    const range = generatePriceLevels(bar.low, bar.high, adaptiveBucketSize, symbolData);
+    const range = generatePriceLevels(bar.low, bar.high, bucketSize, symbolData);
     range.forEach(price => {
       priceMap.set(price, (priceMap.get(price) || 0) + 1);
     });
@@ -19,29 +20,9 @@ export function buildInitialProfile(m1Bars, bucketSize = 0.00001, symbolData = n
     .map(([price, tpo]) => ({ price, tpo }))
     .sort((a, b) => a.price - b.price);
 
-  console.log(`[MARKET_PROFILE] Built profile with ${profile.length} levels from ${m1Bars.length} M1 bars (bucket size: ${adaptiveBucketSize})`);
+  console.log(`[MARKET_PROFILE] Built profile with ${profile.length} levels from ${m1Bars.length} M1 bars (bucket size: ${bucketSize})`);
 
-  return { profile, actualBucketSize: adaptiveBucketSize };
-}
-
-function calculateAdaptiveBucketSize(m1Bars, defaultBucketSize, symbolData) {
-  let globalLow = Infinity;
-  let globalHigh = -Infinity;
-
-  for (const bar of m1Bars) {
-    if (bar.low < globalLow) globalLow = bar.low;
-    if (bar.high > globalHigh) globalHigh = bar.high;
-  }
-
-  const priceRange = globalHigh - globalLow;
-  const targetLevelCount = 1500;
-  const adaptiveBucketSize = priceRange / targetLevelCount;
-  const minBucketSize = defaultBucketSize;
-  const finalBucketSize = Math.max(adaptiveBucketSize, minBucketSize);
-
-  console.log(`[MARKET_PROFILE] Price range: ${globalLow.toFixed(2)} - ${globalHigh.toFixed(2)} (${priceRange.toFixed(2)}), adaptive bucket: ${finalBucketSize}`);
-
-  return finalBucketSize;
+  return { profile, actualBucketSize: bucketSize };
 }
 
 export function generatePriceLevels(low, high, bucketSize = 0.00001, symbolData = null) {

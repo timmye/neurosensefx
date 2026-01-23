@@ -45,17 +45,18 @@ class DataRouter {
             // Also include current for symbolDataPackage
             ...(candle.current !== undefined && { current: candle.current }),
             // Include initialMarketProfile for Market Profile data
-            ...(candle.initialMarketProfile !== undefined && { initialMarketProfile: candle.initialMarketProfile })
+            ...(candle.initialMarketProfile !== undefined && { initialMarketProfile: candle.initialMarketProfile }),
+            // Include bucketSize for Market Profile
+            ...(candle.bucketSize !== undefined && { bucketSize: candle.bucketSize })
         };
         this.broadcastToClients(message, candle.symbol, 'tradingview');
     }
 
-    routeProfileUpdate(symbol, delta, seq) {
+    routeProfileUpdate(symbol, profile) {
         const message = {
             type: 'profileUpdate',
             symbol,
-            delta,
-            seq
+            profile
         };
         // Broadcast to both cTrader and TradingView subscribers
         // since MarketProfileService doesn't track which source a symbol uses

@@ -35,7 +35,13 @@
       "Bash(lsof:*)",
       "Bash(npm run test:browser-logs:*)",
       "Bash(npm run status:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(echo:*)",
+      "Bash(~/.bashrc)",
+      "Bash(source:*)",
+      "Bash(export PATH:*)",
+      "Bash(hash:*)",
+      "Bash(claude --version)"
     ],
     "deny": [],
     "ask": []

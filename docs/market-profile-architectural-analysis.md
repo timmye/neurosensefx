@@ -136,30 +136,33 @@ IDEAL (CORRECT):
 
 ---
 
-### Issue #2: No Incremental Update Model
+### Issue #2: Incremental Update Model Exists But Is Fundamentally Flawed
 
-**Problem:** Only "build from scratch" exists.
+**Problem:** An incremental update function exists (`updateProfileWithTick`) but is **intentionally disabled** due to architectural issues.
 
 ```javascript
-// CURRENT: Only this function exists
-export function buildInitialProfile(m1Bars) {
-  m1Bars.forEach(bar => {
-    const range = generatePriceLevels(bar.low, bar.high, bucketSize, symbolData);
-    range.forEach(price => {
-      priceMap.set(price, (priceMap.get(price) || 0) + 1);
-    });
-  });
+// EXISTS: updateProfileWithTick() at lines 99-122
+export function updateProfileWithTick(lastProfile, tickData, bucketSize, symbolData) {
+  // ... does incremental tick update
 }
 
-// MISSING: No incremental update function
-// Should exist:
-// export function updateProfile(existingProfile, newBars) { ... }
+// DISABLED in FloatingDisplay.svelte (lines 65-72):
+// DISABLED: M1-only mode for consistency
+// else if (data.type === 'tick' && lastMarketProfileData && marketProfileBucketSize) {
+//   lastMarketProfileData = updateProfileWithTick(lastMarketProfileData, data, marketProfileBucketSize, lastData);
+// }
 ```
 
-**Why it matters:**
-- Current function designed for **batch processing**
-- Not designed for **streaming updates**
-- Our "fix" misuses batch function for streaming
+**Why it's disabled:**
+- Tick-based updates cause **profile jumps** when discretizing continuous prices
+- **Data model mismatch**: Ticks are continuous, Market Profile requires discrete buckets
+- Still processes in **frontend** (wrong layer problem remains)
+- **Adaptive bucket size** requires full dataset anyway
+
+**Why this matters:**
+- The existing function proves incremental updates are **technically possible**
+- But the **architectural issues** (wrong layer, adaptive bucket) make it impractical
+- Simply re-enabling it would patch symptoms, not fix root causes
 
 ---
 
@@ -208,10 +211,10 @@ function calculateAdaptiveBucketSize(m1Bars, defaultBucketSize, symbolData) {
 | **Right layer** | Backend processes, frontend renders | Frontend processes TPOs | ❌ Wrong responsibility |
 
 **Line count analysis:**
-- `buildInitialProfile`: 27 lines
-- `calculateAdaptiveBucketSize`: 25 lines
-- `calculateValueArea`: 76 lines ← **Major violation**
-- `updateProfileWithTick`: 23 lines
+- `buildInitialProfile`: 26 lines (16-42)
+- `calculateAdaptiveBucketSize`: 25 lines (45-70)
+- `calculateValueArea`: 76 lines (134-210) ← **Major violation**
+- `updateProfileWithTick`: 23 lines (99-122) ← Exists but disabled due to architectural issues
 
 ---
 
@@ -236,11 +239,14 @@ else if (data.type === 'm1Bar' && lastMarketProfileData) {
 
 | Aspect | Problem |
 |--------|---------|
-| **Rebuild cost** | O(n) where n grows throughout the day (100+ bars by afternoon) |
+| **Existing function** | `updateProfileWithTick()` already exists but is disabled for good reasons |
+| **Profile jumps** | Tick discretization causes artificial profile fragmentation |
 | **Adaptive bucket** | Would need to recalculate on each update OR use stale bucket size |
 | **Wrong layer** | Still doing aggregation in frontend instead of backend |
 | **Data duplication** | Caching all M1 bars in memory (backend already has them) |
 | **Complexity** | Added cache management, deduplication logic |
+
+**Note:** An incremental update function (`updateProfileWithTick`) already exists at lines 99-122 of `marketProfileProcessor.js`, but it is intentionally disabled because tick-based updates cause profile jumps and data inconsistencies. Simply re-enabling it would not address the architectural issues.
 
 ### What We're Actually Fixing
 
@@ -463,10 +469,10 @@ function applyProfileDelta(profile, delta) {
 
 ### Phase 4: Cleanup (1 hour)
 
-- [ ] Delete `buildInitialProfile()` from frontend
-- [ ] Delete `updateProfileWithTick()` from frontend
-- [ ] Remove tick processing code (already disabled)
-- [ ] Update `marketProfileProcessor.js` to only contain rendering helpers
+- [ ] Move `buildInitialProfile()` to backend (becomes part of MarketProfileService)
+- [ ] Remove or keep `updateProfileWithTick()` - no longer needed with backend delta updates
+- [ ] Remove disabled tick processing code from FloatingDisplay.svelte
+- [ ] Update `marketProfileProcessor.js` to only contain rendering helpers (value area, POC calculation)
 
 ### Phase 5: Testing (2 hours)
 
@@ -491,13 +497,15 @@ function applyProfileDelta(profile, delta) {
 We identified 4 major problems:
 
 1. **Wrong layer for computation** - Frontend doing backend work
-2. **No incremental update model** - Only "build from scratch" exists
+2. **Incremental update model is flawed** - `updateProfileWithTick()` exists but is disabled due to data model mismatches
 3. **Adaptive bucket size incompatibility** - Requires full dataset
 4. **Crystal Clarity violations** - Functions too long, wrong responsibilities
 
 ### The Proposed "Fix"
 
 Streaming M1 bars and rebuilding in frontend is **automating a broken architecture**, not fixing it.
+
+**Note:** An incremental update function (`updateProfileWithTick`) already exists but is disabled. Simply re-enabling it would not solve the architectural issues (wrong layer, adaptive bucket incompatibility).
 
 ### The Real Fix
 

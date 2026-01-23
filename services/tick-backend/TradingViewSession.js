@@ -13,6 +13,7 @@ const { connect } = require('tradingview-ws');
 const randomstring = require('randomstring');
 const moment = require('moment');
 const { HealthMonitor } = require('./HealthMonitor');
+const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
 
 // FIRST PRINCIPLES: Estimate pip data from price for TradingView (no API access)
 // TradingView doesn't provide pipPosition, so we estimate from price magnitude
@@ -246,6 +247,7 @@ class TradingViewSession extends EventEmitter {
 
         // FIRST PRINCIPLES: Estimate pip data from price for proper bucket alignment
         const pipData = estimatePipData(data.lastCandle.close);
+        const bucketSize = calculateBucketSizeForSymbol(symbol);
 
         this.emit('candle', {
             type: 'symbolDataPackage',
@@ -260,7 +262,8 @@ class TradingViewSession extends EventEmitter {
             pipetteSize: pipData.pipetteSize,
             projectedAdrHigh: todaysOpen + (adr / 2),  // Centered on today's open
             projectedAdrLow: todaysOpen - (adr / 2),
-            initialMarketProfile: todaysM1Candles  // Only today's M1 bars for TPO calculation
+            initialMarketProfile: todaysM1Candles,  // Only today's M1 bars for TPO calculation
+            bucketSize  // Bucket size for Market Profile alignment
         });
 
         data.initialSent = true;
