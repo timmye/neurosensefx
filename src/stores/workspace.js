@@ -252,20 +252,21 @@ const persistence = {
     }
   },
 
-  saveToStorage: () => {
-    try {
-      workspaceStore.subscribe(state => {
-        const data = {
-          displays: Array.from(state.displays.entries()),
-          nextZIndex: state.nextZIndex
-        };
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('workspace-state', JSON.stringify(data));
-        }
-      });
-    } catch (error) {
-      console.warn('Failed to save workspace to storage:', error);
+  initPersistence: () => {
+    if (typeof localStorage === 'undefined') {
+      return () => {};
     }
+    return workspaceStore.subscribe(state => {
+      const data = {
+        displays: Array.from(state.displays.entries()),
+        nextZIndex: state.nextZIndex
+      };
+      try {
+        localStorage.setItem('workspace-state', JSON.stringify(data));
+      } catch (error) {
+        console.warn('Failed to save workspace to storage:', error);
+      }
+    });
   }
 };
 

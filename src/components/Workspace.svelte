@@ -12,6 +12,7 @@
   let keyboardHandler;
   let fileInput;
   let connectionManager;
+  let unsubscribePersistence;
 
   function exportWorkspace() {
     workspaceActions.exportWorkspace();
@@ -75,6 +76,11 @@
   }
 
   onMount(() => {
+    // Persistence must load before connection: WebSocket messages would overwrite restored state with empty workspace
+    workspacePersistence.loadFromStorage();
+    unsubscribePersistence = workspacePersistence.initPersistence();
+
+    // Then setup keyboard and connection
     keyboardHandler = createKeyboardHandler(workspaceActions);
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
     connectionManager.connect();
@@ -88,8 +94,6 @@
     // Add callback for system messages (no backend subscription needed)
     connectionManager.subscriptions.set('__SYSTEM__', new Set([systemCallback]));
 
-    workspacePersistence.loadFromStorage();
-    workspacePersistence.saveToStorage();
     const workspaceEl = document.querySelector('.workspace');
     if (workspaceEl) workspaceEl.focus();
     console.log('[WORKSPACE] Ready - Alt+A (cTrader), Alt+T (TV), Alt+R (reinit all)');
@@ -97,6 +101,7 @@
 
   onDestroy(() => {
     keyboardHandler?.cleanup();
+    unsubscribePersistence?.();
   });
 </script>
 
