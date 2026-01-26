@@ -182,6 +182,23 @@ const actions = {
         nextZIndex: data.workspace.nextZIndex || 1
       }));
 
+      // IMPORTANT: Restore price markers to localStorage BEFORE adding displays
+      // This ensures PriceMarkerManager.onMount() can load them when displays mount
+      if (data.priceMarkers) {
+        for (const [key, value] of Object.entries(data.priceMarkers)) {
+          localStorage.setItem(key, JSON.stringify(value));
+        }
+      }
+
+      // Also restore price markers from display objects to localStorage
+      // This ensures markers embedded in displays are properly persisted
+      for (const [id, display] of displays) {
+        if (display.priceMarkers && display.priceMarkers.length > 0) {
+          const symbolKey = `price-markers-${display.symbol}`;
+          localStorage.setItem(symbolKey, JSON.stringify(display.priceMarkers));
+        }
+      }
+
       // Add displays in batches to avoid rate limiting
       for (let i = 0; i < displays.length; i += batchSize) {
         const batch = displays.slice(i, i + batchSize);
@@ -197,13 +214,6 @@ const actions = {
         // Wait before next batch (but not after the last batch)
         if (i + batchSize < displays.length) {
           await new Promise(resolve => setTimeout(resolve, batchDelay));
-        }
-      }
-
-      // Restore price markers to localStorage after displays loaded
-      if (data.priceMarkers) {
-        for (const [key, value] of Object.entries(data.priceMarkers)) {
-          localStorage.setItem(key, JSON.stringify(value));
         }
       }
 

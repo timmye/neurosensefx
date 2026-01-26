@@ -3,11 +3,12 @@
   import { workspaceStore, workspaceActions } from '../stores/workspace.js';
   import { createPriceMarkerInteraction } from '../lib/priceMarkerInteraction.js';
   import { loadMarkers, saveMarkers } from '../stores/priceMarkerPersistence.js';
+  import { formatSymbol } from '../lib/displayDataProcessor.js';
 
   export let display;
   export let lastData;
   export let canvasRef;
-  export let formattedSymbol;
+  export let formattedSymbol = undefined; // Optional, computed locally if not provided
 
   // Expose these to parent component
   export let priceMarkers = [];
@@ -17,10 +18,15 @@
 
   let priceMarkerInteraction = null;
 
+  // Compute formattedSymbol from display.symbol to avoid undefined during mount
+  $: localFormattedSymbol = display.symbol ? formatSymbol(display.symbol) : '';
+
   // Initialize price markers when component mounts
   onMount(() => {
     // Load saved markers and set in workspace
-    priceMarkers = loadMarkers(formattedSymbol);
+    const symbol = localFormattedSymbol || formattedSymbol;
+    if (!symbol) return;
+    priceMarkers = loadMarkers(symbol);
     workspaceActions.setDisplayPriceMarkers(display.id, priceMarkers);
 
     // Initialize interaction system after a short delay
@@ -62,7 +68,10 @@
   $: currentDisplay = $workspaceStore.displays.get(display.id);
   $: if (currentDisplay?.priceMarkers) {
     priceMarkers = currentDisplay.priceMarkers;
-    saveMarkers(formattedSymbol, priceMarkers);
+    const symbol = localFormattedSymbol || formattedSymbol;
+    if (symbol) {
+      saveMarkers(symbol, priceMarkers);
+    }
   }
   $: if (currentDisplay?.selectedMarker) selectedMarker = currentDisplay.selectedMarker;
 

@@ -93,7 +93,7 @@
   <DisplayCanvas bind:this={canvasRef} data={lastData} marketProfileData={lastMarketProfileData} {showMarketProfile}
     width={display.size.width} height={display.size.height} {connectionStatus} symbol={formattedSymbol}
     priceMarkers={priceMarkers} {selectedMarker} hoverPrice={hoverPrice} deltaInfo={deltaInfo} onResize={() => {}} />
-  <PriceMarkerManager {display} {lastData} {canvasRef} symbol={formattedSymbol}
+  <PriceMarkerManager {display} {lastData} {canvasRef} {formattedSymbol}
     bind:priceMarkers bind:selectedMarker bind:hoverPrice bind:deltaInfo />
   <div class="resize-handle"></div>
 </div>
