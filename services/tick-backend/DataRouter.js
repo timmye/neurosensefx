@@ -2,6 +2,8 @@
  * DataRouter - Routes data from cTrader and TradingView to clients
  * Parallel feeds, no aggregation - just simple routing
  */
+const { buildCTraderMessage, buildTradingViewMessage } = require('./utils/MessageBuilder');
+
 class DataRouter {
     constructor(webSocketServer) {
         this.wsServer = webSocketServer;
@@ -12,11 +14,7 @@ class DataRouter {
      * @param {Object} tick - cTrader tick data
      */
     routeFromCTrader(tick) {
-        const message = {
-            type: 'tick',
-            source: 'ctrader',
-            ...tick
-        };
+        const message = buildCTraderMessage(tick);
         this.broadcastToClients(message, tick.symbol, 'ctrader');
     }
 
@@ -25,30 +23,7 @@ class DataRouter {
      * @param {Object} candle - TradingView candle data (can be tick or symbolDataPackage)
      */
     routeFromTradingView(candle) {
-        // Handle both tick events and symbolDataPackage events
-        const price = candle.price || candle.current;
-        const message = {
-            type: candle.type || 'tick',
-            source: 'tradingview',
-            symbol: candle.symbol,
-            price: price,
-            timestamp: candle.timestamp,
-            // Include additional fields for symbolDataPackage
-            ...(candle.open !== undefined && { open: candle.open }),
-            ...(candle.high !== undefined && { high: candle.high }),
-            ...(candle.low !== undefined && { low: candle.low }),
-            ...(candle.projectedAdrHigh !== undefined && { projectedAdrHigh: candle.projectedAdrHigh }),
-            ...(candle.projectedAdrLow !== undefined && { projectedAdrLow: candle.projectedAdrLow }),
-            // CRITICAL: Include pipPosition and pipSize
-            ...(candle.pipPosition !== undefined && { pipPosition: candle.pipPosition }),
-            ...(candle.pipSize !== undefined && { pipSize: candle.pipSize }),
-            // Also include current for symbolDataPackage
-            ...(candle.current !== undefined && { current: candle.current }),
-            // Include initialMarketProfile for Market Profile data
-            ...(candle.initialMarketProfile !== undefined && { initialMarketProfile: candle.initialMarketProfile }),
-            // Include bucketSize for Market Profile
-            ...(candle.bucketSize !== undefined && { bucketSize: candle.bucketSize })
-        };
+        const message = buildTradingViewMessage(candle);
         this.broadcastToClients(message, candle.symbol, 'tradingview');
     }
 
@@ -83,8 +58,7 @@ class DataRouter {
      * @param {string} source - Data source ('ctrader' or 'tradingview')
      */
     broadcastToClients(message, symbol, source) {
-        const key = `${symbol}:${source}`;
-        const symbolSubscribers = this.wsServer.backendSubscriptions.get(key);
+        const symbolSubscribers = this.wsServer.subscriptionManager.getSubscribedClients(symbol, source);
         if (!symbolSubscribers) return;
 
         let jsonMessage;

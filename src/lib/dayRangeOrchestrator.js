@@ -4,7 +4,7 @@
 import { renderAdrAxis, renderCenterLine, renderAdrBoundaryLines } from './dayRangeCore.js';
 import { validateMarketData, createDayRangeConfig, createPriceScale, renderBackground, createMappedData } from './dayRangeRenderingUtils.js';
 import { calculateAdaptiveScale, calculateDayRangePercentage } from './dayRangeCalculations.js';
-import { renderCurrentPrice, renderOpenPrice, renderHighLowMarkers } from './priceMarkerRenderer.js';
+import { renderCurrentPrice, renderOpenPrice, renderHighLowMarkers, renderPreviousDayOHLC } from './priceMarkerRenderer.js';
 import { renderPercentageMarkers } from './percentageMarkerRenderer.js';
 
 export function renderDayRange(ctx, d, s, getConfig, options = {}) {
@@ -91,6 +91,7 @@ function renderPriceElementsExceptCurrent(ctx, config, priceScale, d, s) {
   // Render all price markers EXCEPT current price
   renderOpenPrice(ctx, config, axisX, priceScale, d.open, d);
   renderHighLowMarkers(ctx, config, axisX, priceScale, mappedData, d);
+  renderPreviousDayOHLC(ctx, config, axisX, priceScale, d.prevDayOHLC, d);
 }
 
 function renderPercentageElements(ctx, config, d, adaptiveScale, height, width) {

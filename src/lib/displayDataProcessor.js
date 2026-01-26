@@ -44,7 +44,16 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     source: data.source || 'ctrader',
     previousPrice: data.current || data.price || data.bid || data.ask || data.initialPrice || data.todaysOpen || 1.0,
     direction: 'neutral',
-    initialMarketProfile: data.initialMarketProfile || null
+    initialMarketProfile: data.initialMarketProfile || null,
+    ...(data.prevDayOpen !== undefined || data.prevDayHigh !== undefined ||
+      data.prevDayLow !== undefined || data.prevDayClose !== undefined ? {
+      prevDayOHLC: {
+        open: data.prevDayOpen,
+        high: data.prevDayHigh,
+        low: data.prevDayLow,
+        close: data.prevDayClose
+      }
+    } : {})
   } : data.type === 'tick' && data.symbol === formattedSymbol ? {
     high: Math.max(lastData?.high || 0, data.high || data.ask || data.bid || 0),
     low: Math.min(lastData?.low || Infinity, data.low || data.bid || data.ask || Infinity),
@@ -60,7 +69,8 @@ export function processSymbolData(data, formattedSymbol, lastData) {
     direction: getDirection(
       data.price || data.bid || data.ask || lastData?.current || 1.0,
       lastData?.current || lastData?.previousPrice || 1.0
-    )
+    ),
+    ...(lastData?.prevDayOHLC ? { prevDayOHLC: lastData.prevDayOHLC } : {})
   } : null;
 
   if (displayData) {

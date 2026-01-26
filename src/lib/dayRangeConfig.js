@@ -15,7 +15,8 @@ export const defaultConfig = {
     sessionRange: 'rgba(59, 130, 246, 0.3)',
     boundaryLine: '#854be8',
     percentageLabels: '#9CA3AF',
-    markers: '#374151'
+    markers: '#374151',
+    previousDay: '#414141' // Dark gray for previous day markers
   },
 
   // Typography

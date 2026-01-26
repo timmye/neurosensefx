@@ -122,3 +122,45 @@ export function renderHoverPreview(ctx, config, axisX, priceScale, hoverPrice) {
     dashed: true
   });
 }
+
+// Render previous day OHLC markers (Open, High, Low, Close)
+export function renderPreviousDayOHLC(ctx, config, axisX, priceScale, prevOHLC, symbolData) {
+  if (!prevOHLC) return;
+  const color = config.colors.previousDay || '#414141';
+  const axisXLeft = 0; // Position at very left edge of canvas (off-canvas OK)
+
+  const dpr = window.devicePixelRatio || 1;
+
+  const render = (price, label) => {
+    if (!price) return;
+    const y = priceScale(price);
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1 / dpr;
+    ctx.setLineDash([6 / dpr, 4 / dpr]);
+
+    // Draw marker line
+    ctx.beginPath();
+    ctx.moveTo(axisXLeft, y);
+    ctx.lineTo(axisXLeft + 10 / dpr, y);
+    ctx.stroke();
+
+    // Draw left-aligned text label
+    const text = label;
+    // Price display commented out, kept for future use
+    // const text = `${label}: ${formatPriceForDisplay(price, symbolData)}`;
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = color;
+    ctx.fillText(text, axisXLeft + 15 / dpr, y);
+
+    ctx.restore();
+  };
+
+  render(prevOHLC.open, 'PO');
+  render(prevOHLC.high, 'PH');
+  render(prevOHLC.low, 'PL');
+  render(prevOHLC.close, 'PC');
+}

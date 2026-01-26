@@ -171,22 +171,43 @@ const actions = {
       });
 
       const data = JSON.parse(text);
+      const displays = Array.from(data.workspace.displays || []);
+      const batchSize = 5;
+      const batchDelay = 200; // ms
 
-      // Restore price markers to localStorage
+      // Clear existing displays first
+      workspaceStore.update(state => ({
+        ...state,
+        displays: new Map(),
+        nextZIndex: data.workspace.nextZIndex || 1
+      }));
+
+      // Add displays in batches to avoid rate limiting
+      for (let i = 0; i < displays.length; i += batchSize) {
+        const batch = displays.slice(i, i + batchSize);
+
+        workspaceStore.update(state => {
+          const newDisplays = new Map(state.displays);
+          for (const [id, display] of batch) {
+            newDisplays.set(id, display);
+          }
+          return { ...state, displays: newDisplays };
+        });
+
+        // Wait before next batch (but not after the last batch)
+        if (i + batchSize < displays.length) {
+          await new Promise(resolve => setTimeout(resolve, batchDelay));
+        }
+      }
+
+      // Restore price markers to localStorage after displays loaded
       if (data.priceMarkers) {
         for (const [key, value] of Object.entries(data.priceMarkers)) {
           localStorage.setItem(key, JSON.stringify(value));
         }
       }
 
-      // Update workspace state
-      workspaceStore.update(state => ({
-        ...state,
-        displays: new Map(data.workspace.displays || []),
-        nextZIndex: data.workspace.nextZIndex || 1
-      }));
-
-      console.log('✅ Workspace imported successfully');
+      console.log(`✅ Workspace imported successfully (${displays.length} displays)`);
     } catch (error) {
       console.error('❌ Failed to import workspace:', error);
     }

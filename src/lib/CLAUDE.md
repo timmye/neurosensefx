@@ -10,18 +10,23 @@
 | `symbolData.js` | Symbol data cache and management | Working with symbol-specific data |
 | `connectionSetup.js` | Connection initialization logic | Setting up new connections |
 
-## Day Range Visualization
+## Day Range Rendering
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
 | `dayRange.js` | Day Range visualization orchestrator | Implementing Day Range features |
-| `dayRangeCore.js` | Day Range core calculations | Modifying day range logic |
-| `dayRangeCalculations.js` | ADR boundary, price level calculations | Adding calculation types, fixing formula errors |
-| `dayRangeConfig.js` | Day Range configuration constants | Modifying display parameters |
 | `dayRangeElements.js` | Canvas element creation and management | Extending day range visual elements |
 | `dayRangeRenderingUtils.js` | Rendering utility functions | Adding rendering helpers |
 | `dayRangeOrchestrator.js` | Day Range update coordination | Understanding render cycle |
 | `dayRangeMarkers.js` | Price marker rendering for day range | Debugging marker display |
+
+## Day Range Calculations
+
+| File | What | When to read |
+| ---- | ---- | ------------ |
+| `dayRangeCore.js` | Day Range core calculations | Modifying day range logic |
+| `dayRangeCalculations.js` | ADR boundary, price level calculations | Adding calculation types, fixing formula errors |
+| `dayRangeConfig.js` | Day Range configuration constants | Modifying display parameters |
 
 ## Market Profile Visualization
 
@@ -37,7 +42,7 @@
 | ---- | ---- | ------------ |
 | `priceMarkerBase.js` | Price marker data model and state | Understanding marker state management |
 | `priceMarkerCoordinates.js` | Price to canvas coordinate conversion | Fixing positioning issues |
-| `priceMarkerRenderer.js` | Price marker drawing logic | Customizing marker appearance |
+| `priceMarkerRenderer.js` | Price marker drawing logic | Customizing marker appearance, adding historical price markers |
 | `priceMarkerInteraction.js` | Marker drag, drop, click handlers | Implementing marker interactions |
 | `priceMarkerDropdown.js` | Marker configuration UI | Adding marker options |
 | `priceScale.js` | Price axis scaling calculations | Fixing scale issues |

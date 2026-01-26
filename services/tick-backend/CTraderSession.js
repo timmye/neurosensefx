@@ -1,10 +1,17 @@
 const EventEmitter = require('events');
 const path = require('path');
-const moment = require('moment');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { CTraderConnection } = require('../../libs/cTrader-Layer/build/entry/node/main');
 const { HealthMonitor } = require('./HealthMonitor');
+const { ReconnectionManager } = require('./utils/ReconnectionManager');
+const { CTraderSymbolLoader } = require('./CTraderSymbolLoader');
+const { CTraderDataProcessor } = require('./CTraderDataProcessor');
+const { CTraderEventHandler } = require('./CTraderEventHandler');
 
+/**
+ * CTrader Session - Main orchestration for cTrader connection.
+ * Delegates symbol loading, data processing, and event handling to focused modules.
+ */
 class CTraderSession extends EventEmitter {
     constructor() {
         super();
@@ -15,205 +22,110 @@ class CTraderSession extends EventEmitter {
         this.clientId = process.env.CTRADER_CLIENT_ID;
         this.clientSecret = process.env.CTRADER_CLIENT_SECRET;
 
-        this.symbolMap = new Map();
-        this.reverseSymbolMap = new Map();
-        this.symbolInfoCache = new Map();
+        this.symbolLoader = null;
+        this.dataProcessor = null;
+        this.eventHandler = null;
 
         this.healthMonitor = new HealthMonitor('ctrader');
-
-        // Reconnection support
-        this.reconnectAttempts = 0;
-        this.reconnectDelay = 1000;
-        this.maxReconnectDelay = 60000;
+        this.reconnection = new ReconnectionManager(60000, 1000);
         this.shouldReconnect = true;
-        this.reconnectTimeout = null;
-    }
-
-    /**
-     * Calculates the actual price from a raw integer value based on cTrader's documentation.
-     * @param {number} rawValue The raw integer price from the API.
-     * @param {number} digits The number of decimal places for the symbol.
-     * @returns {number} The correctly calculated and rounded price.
-     */
-    calculatePrice(rawValue, digits) {
-        if (typeof rawValue !== 'number') return 0;
-        const price = rawValue / 100000.0;
-        return Number(price.toFixed(digits));
     }
 
     async connect() {
-        console.log('[DEBUG] CTraderSession.connect() called');
-        
-        if (this.connection) {
-            console.log('[DEBUG] Closing existing connection');
-            this.connection.close();
-        }
-        
-        console.log('[DEBUG] Creating new CTraderConnection');
+        if (this.connection) this.connection.close();
+
         this.connection = new CTraderConnection({
             host: process.env.HOST,
             port: Number(process.env.PORT),
         });
 
-        console.log('[DEBUG] Setting up event listeners');
-        this.connection.on('PROTO_OA_SPOT_EVENT', async (event) => {
-            // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
-            console.log(`[DEBUG_TRACE | CTraderSession] Raw ProtoOASpotEvent received:`, JSON.stringify(event));
+        this.symbolLoader = new CTraderSymbolLoader(this.connection, this.ctidTraderAccountId);
+        this.dataProcessor = new CTraderDataProcessor(this.connection, this.ctidTraderAccountId, this.symbolLoader);
+        this.eventHandler = new CTraderEventHandler(this.dataProcessor, this.healthMonitor);
 
+        this.setupEventListeners();
+        await this.connection.open();
+        await this.authenticate();
+        await this.symbolLoader.loadAllSymbols();
+        this.startHeartbeat();
+        this.healthMonitor.start();
+        this.reconnection.reset();
+        this.emit('connected', this.symbolLoader.getAllSymbolNames());
+    }
+
+    setupEventListeners() {
+        this.connection.on('PROTO_OA_SPOT_EVENT', async (event) => {
             const symbolId = Number(event.symbolId);
             if (!symbolId) return;
 
-            const symbolName = this.reverseSymbolMap.get(symbolId);
+            const symbolName = this.symbolLoader.getSymbolName(symbolId);
             if (!symbolName) return;
 
-            const symbolInfo = await this.getFullSymbolInfo(symbolId);
+            const symbolInfo = await this.symbolLoader.getFullSymbolInfo(symbolId);
             if (!symbolInfo) return;
 
             let tickData = null;
+            let m1Bar = null;
 
             if (event.trendbar && event.trendbar.length > 0) {
-                const latestBar = event.trendbar[event.trendbar.length - 1];
-                const closePriceRaw = Number(latestBar.low) + Number(latestBar.deltaClose);
-                const price = this.calculatePrice(closePriceRaw, symbolInfo.digits);
-                const timestamp = latestBar.utcTimestampInMinutes ? Number(latestBar.utcTimestampInMinutes) * 60 * 1000 : Date.now();
-
-                tickData = {
-                    symbol: symbolName,
-                    bid: price,
-                    ask: price,
-                    timestamp: timestamp,
-                    pipPosition: symbolInfo.pipPosition,
-                    pipSize: symbolInfo.pipSize,
-                    pipetteSize: symbolInfo.pipetteSize,
-                };
-
-                console.log(`[CTraderSession] M1 bar received for ${symbolName}:`, {
-                    open: this.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaOpen), symbolInfo.digits),
-                    high: this.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaHigh), symbolInfo.digits),
-                    low: this.calculatePrice(Number(latestBar.low), symbolInfo.digits),
-                    close: price,
-                    timestamp: timestamp
-                });
-                this.emit('m1Bar', {
-                    symbol: symbolName,
-                    open: this.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaOpen), symbolInfo.digits),
-                    high: this.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaHigh), symbolInfo.digits),
-                    low: this.calculatePrice(Number(latestBar.low), symbolInfo.digits),
-                    close: price,
-                    timestamp: timestamp
-                });
-            }
-            else if (event.bid != null && event.ask != null) {
-                // 🔧 CRITICAL FIX: Require BOTH bid AND ask to be valid to create a tick
-                // This prevents artificial ticks where ask=fallback=bid when ask is null
-                const bidRaw = Number(event.bid);
-                const askRaw = Number(event.ask);
-                const timestamp = event.timestamp ? Number(event.timestamp) : Date.now();
-
-                // Additional validation to ensure both values are valid numbers and realistic for FX
-                if (isFinite(bidRaw) && isFinite(askRaw) && bidRaw > 0 && askRaw > 0) {
-                    const bidPrice = this.calculatePrice(bidRaw, symbolInfo.digits);
-                    const askPrice = this.calculatePrice(askRaw, symbolInfo.digits);
-
-                    // Ensure ask > bid for valid FX market data
-                    if (askPrice > bidPrice) {
-                        tickData = {
-                            symbol: symbolName,
-                            bid: bidPrice,
-                            ask: askPrice,
-                            timestamp: timestamp,
-                            // pipPosition integration fields
-                            pipPosition: symbolInfo.pipPosition,
-                            pipSize: symbolInfo.pipSize,
-                            pipetteSize: symbolInfo.pipetteSize,
-                        };
-                    } else {
-                        console.log(`[DEBUG_TRACE | CTraderSession] Skipping tick - ask (${askPrice}) <= bid (${bidPrice})`);
-                    }
-                } else {
-                    console.log(`[DEBUG_TRACE | CTraderSession] Skipping tick - invalid numeric values: bid=${bidRaw}, ask=${askRaw}`);
-                }
+                const result = this.eventHandler.processTrendbarEvent(event, symbolName, symbolInfo);
+                m1Bar = result.m1Bar;
+                tickData = result.tick;
+            } else if (event.bid != null && event.ask != null) {
+                tickData = this.eventHandler.processSpotEvent(event, symbolName, symbolInfo);
             }
 
             if (tickData) {
                 this.healthMonitor.recordTick();
-
-                console.log(`[DEBUG_TRACE | CTraderSession] Emitting processed tick:`, JSON.stringify(tickData));
                 this.emit('tick', tickData);
             }
+
+            if (m1Bar) {
+                this.emit('m1Bar', m1Bar);
+            }
         });
-        
+
         this.connection.on('close', () => {
             console.log('[DEBUG] CTraderConnection closed');
             this.handleDisconnect();
         });
+
         this.connection.on('error', (err) => {
             console.error('[ERROR] CTraderConnection error:', err);
             this.handleDisconnect(err);
         });
-
-        try {
-            console.log('[DEBUG] Opening connection');
-            await this.connection.open();
-            console.log('[DEBUG] Sending application auth request');
-            await this.connection.sendCommand('ProtoOAApplicationAuthReq', { clientId: this.clientId, clientSecret: this.clientSecret });
-            console.log('[DEBUG] Sending account auth request');
-            await this.connection.sendCommand('ProtoOAAccountAuthReq', { ctidTraderAccountId: this.ctidTraderAccountId, accessToken: this.accessToken });
-            console.log('[DEBUG] Loading symbols');
-            await this.loadAllSymbols();
-            console.log('[DEBUG] Starting heartbeat');
-            this.startHeartbeat();
-            this.healthMonitor.start();
-
-            this.reconnectAttempts = 0;
-            this.reconnectDelay = 1000;
-            console.log('[DEBUG] Emitting connected event');
-            this.emit('connected', Array.from(this.symbolMap.keys()));
-            console.log('[DEBUG] CTraderSession.connect() completed successfully');
-        } catch (error) {
-            console.error('[ERROR] CTraderSession.connect() failed:', error);
-            this.handleDisconnect(error);
-            throw error; // Re-throw to allow caller to handle
-        }
     }
-    
+
+    async authenticate() {
+        await this.connection.sendCommand('ProtoOAApplicationAuthReq', {
+            clientId: this.clientId,
+            clientSecret: this.clientSecret
+        });
+        await this.connection.sendCommand('ProtoOAAccountAuthReq', {
+            ctidTraderAccountId: this.ctidTraderAccountId,
+            accessToken: this.accessToken
+        });
+    }
+
     handleDisconnect(error = null) {
         console.log('[DEBUG] CTraderSession.handleDisconnect() called');
-        if(error) console.error('CTraderSession connection failed:', error);
+        if (error) console.error('CTraderSession connection failed:', error);
         this.healthMonitor.stop();
         this.stopHeartbeat();
         this.emit('disconnected');
+
         if (this.connection) {
             console.log('[DEBUG] Closing connection in handleDisconnect');
             this.connection.close();
         }
+
         if (this.shouldReconnect) {
             this.scheduleReconnect();
         }
     }
 
     scheduleReconnect() {
-        const delay = Math.min(
-            this.reconnectDelay * Math.pow(2, this.reconnectAttempts),
-            this.maxReconnectDelay
-        );
-        console.log(`[DEBUG] Scheduling reconnect attempt ${this.reconnectAttempts + 1} in ${delay}ms`);
-        this.reconnectTimeout = setTimeout(async () => {
-            this.reconnectAttempts++;
-            try {
-                await this.connect();
-            } catch (error) {
-                console.error('[ERROR] Reconnect attempt failed:', error);
-            }
-        }, delay);
-    }
-
-    async loadAllSymbols() {
-        const response = await this.connection.sendCommand('ProtoOASymbolsListReq', { ctidTraderAccountId: this.ctidTraderAccountId });
-        response.symbol.forEach(s => {
-            this.symbolMap.set(s.symbolName, Number(s.symbolId));
-            this.reverseSymbolMap.set(Number(s.symbolId), s.symbolName);
-        });
+        this.reconnection.scheduleReconnect(() => this.connect());
     }
 
     startHeartbeat() {
@@ -227,110 +139,28 @@ class CTraderSession extends EventEmitter {
         if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     }
 
-async getFullSymbolInfo(symbolId) {
-    if (this.symbolInfoCache.has(symbolId)) {
-        return this.symbolInfoCache.get(symbolId);
-    }
-    const response = await this.connection.sendCommand('ProtoOASymbolByIdReq', { ctidTraderAccountId: this.ctidTraderAccountId, symbolId: [symbolId] });
-    if (!response.symbol || response.symbol.length === 0) {
-        throw new Error(`Failed to fetch full details for symbol ID ${symbolId}`);
-    }
-    const fullInfo = response.symbol[0];
-    
-    const processedInfo = {
-        symbolName: fullInfo.symbolName,
-        digits: Number(fullInfo.digits),
-        pipPosition: Number(fullInfo.pipPosition),    // ← ADD THIS
-        pipSize: Math.pow(10, -fullInfo.pipPosition),   // ← ADD THIS
-        pipetteSize: Math.pow(10, -(fullInfo.pipPosition + 1)) // ← ADD THIS
-    };
-    this.symbolInfoCache.set(symbolId, processedInfo);
-    return processedInfo;
-}
-
-async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
-    const symbolId = this.symbolMap.get(symbolName);
-    if (!symbolId) throw new Error(`Symbol not found in map: ${symbolName}`);
-    
-    const symbolInfo = await this.getFullSymbolInfo(symbolId);
-    const { digits } = symbolInfo;
-
-    const to = moment.utc().valueOf();
-    const fromDaily = moment.utc().subtract(adrLookbackDays + 5, 'days').valueOf();
-    const fromIntraday = moment.utc().startOf('day').valueOf();
-
-    const [dailyBarsData, intradayBarsData] = await Promise.all([
-        this.connection.sendCommand('ProtoOAGetTrendbarsReq', { ctidTraderAccountId: this.ctidTraderAccountId, symbolId, period: 'D1', fromTimestamp: fromDaily, toTimestamp: to }),
-        this.connection.sendCommand('ProtoOAGetTrendbarsReq', { ctidTraderAccountId: this.ctidTraderAccountId, symbolId, period: 'M1', fromTimestamp: fromIntraday, toTimestamp: to })
-    ]);
-
-    if (!dailyBarsData.trendbar || dailyBarsData.trendbar.length < 2) throw new Error(`Not enough daily bars for ADR calculation on ${symbolName}`);
-
-    const dailyBars = dailyBarsData.trendbar;
-    const adrBars = dailyBars.slice(Math.max(0, dailyBars.length - 1 - adrLookbackDays), dailyBars.length - 1);
-    const adrRanges = adrBars.map(bar => this.calculatePrice(Number(bar.deltaHigh) || 0, digits));
-    const adr = adrRanges.length > 0 ? adrRanges.reduce((sum, range) => sum + range, 0) / adrRanges.length : 0;
-    
-    let todaysOpen, todaysHigh, todaysLow, initialPrice, initialMarketProfile;
-
-    const m1Bars = intradayBarsData.trendbar;
-
-    if (!m1Bars || m1Bars.length === 0) {
-        const lastDailyBar = dailyBars[dailyBars.length - 1];
-        todaysOpen = this.calculatePrice(Number(lastDailyBar.low) + Number(lastDailyBar.deltaOpen), digits);
-        todaysHigh = this.calculatePrice(Number(lastDailyBar.low) + Number(lastDailyBar.deltaHigh), digits);
-        todaysLow = this.calculatePrice(Number(lastDailyBar.low), digits);
-        initialPrice = this.calculatePrice(Number(lastDailyBar.low) + Number(lastDailyBar.deltaClose), digits);
-        initialMarketProfile = [];
-    } else {
-        const processedM1Bars = m1Bars.map(bar => ({
-            open: this.calculatePrice(Number(bar.low) + Number(bar.deltaOpen), digits),
-            high: this.calculatePrice(Number(bar.low) + Number(bar.deltaHigh), digits),
-            low: this.calculatePrice(Number(bar.low), digits),
-            close: this.calculatePrice(Number(bar.low) + Number(bar.deltaClose), digits),
-            timestamp: Number(bar.utcTimestampInMinutes) * 60 * 1000
-        }));
-
-        todaysOpen = processedM1Bars[0].open;
-        todaysHigh = Math.max(...processedM1Bars.map(b => b.high));
-        todaysLow = Math.min(...processedM1Bars.map(b => b.low));
-        initialPrice = processedM1Bars[processedM1Bars.length - 1].close;
-        initialMarketProfile = processedM1Bars;
-    }
-
-    const finalPackage = {
-        symbol: symbolName,
-        digits,
-        adr,
-        todaysOpen,
-        todaysHigh,
-        todaysLow,
-        projectedAdrHigh: todaysOpen + (adr / 2),
-        projectedAdrLow: todaysOpen - (adr / 2),
-        initialPrice,
-        initialMarketProfile,
-        pipPosition: symbolInfo.pipPosition,        // ← ADD THIS
-        pipSize: symbolInfo.pipSize,               // ← ADD THIS
-        pipetteSize: symbolInfo.pipetteSize        // ← ADD THIS
-    };
-    
-    return finalPackage;
-}
-
     async subscribeToTicks(symbolName) {
-        const symbolId = this.symbolMap.get(symbolName);
+        const symbolId = this.symbolLoader.getSymbolId(symbolName);
         if (symbolId) {
-            await this.connection.sendCommand('ProtoOASubscribeSpotsReq', { ctidTraderAccountId: this.ctidTraderAccountId, symbolId: [symbolId] });
+            await this.connection.sendCommand('ProtoOASubscribeSpotsReq', {
+                ctidTraderAccountId: this.ctidTraderAccountId,
+                symbolId: [symbolId]
+            });
         }
     }
-    
+
     async unsubscribeFromTicks(symbolName) {
-        const symbolId = this.symbolMap.get(symbolName);
-        if (symbolId) await this.connection.sendCommand('ProtoOAUnsubscribeSpotsReq', { ctidTraderAccountId: this.ctidTraderAccountId, symbolId: [symbolId] });
+        const symbolId = this.symbolLoader.getSymbolId(symbolName);
+        if (symbolId) {
+            await this.connection.sendCommand('ProtoOAUnsubscribeSpotsReq', {
+                ctidTraderAccountId: this.ctidTraderAccountId,
+                symbolId: [symbolId]
+            });
+        }
     }
 
     async subscribeToM1Bars(symbolName) {
-        const symbolId = this.symbolMap.get(symbolName);
+        const symbolId = this.symbolLoader.getSymbolId(symbolName);
         if (symbolId) {
             console.log(`[CTraderSession] Sending ProtoOASubscribeLiveTrendbarReq for ${symbolName} (symbolId: ${symbolId}, period: M1)`);
             await this.connection.sendCommand('ProtoOASubscribeLiveTrendbarReq', {
@@ -344,11 +174,12 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
         }
     }
 
+    async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
+        return this.dataProcessor.getSymbolDataPackage(symbolName, adrLookbackDays);
+    }
+
     disconnect() {
-        if (this.reconnectTimeout) {
-            clearTimeout(this.reconnectTimeout);
-            this.reconnectTimeout = null;
-        }
+        this.reconnection.cancelReconnect();
         this.shouldReconnect = false;
 
         if (this.connection) {
@@ -363,6 +194,7 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
             }
             this.connection = null;
         }
+
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
@@ -373,10 +205,7 @@ async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
         console.log('[CTraderSession] Manual reinit requested');
         this.shouldReconnect = true;
         this.healthMonitor.stop();
-        if (this.reconnectTimeout) {
-            clearTimeout(this.reconnectTimeout);
-            this.reconnectTimeout = null;
-        }
+        this.reconnection.cancelReconnect();
         await this.disconnect();
         await this.connect();
     }

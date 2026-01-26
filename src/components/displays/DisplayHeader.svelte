@@ -1,5 +1,5 @@
 <script>
-  export let symbol, connectionStatus, showMarketProfile, onClose, onFocus, onRefresh, initiallyVisible = true, source = 'ctrader';
+  export let symbol, connectionStatus, showMarketProfile, onClose, onFocus, onRefresh, initiallyVisible = false, source = 'ctrader';
 
   let showHeader = initiallyVisible;
   let hideTimeout = null;
@@ -9,6 +9,12 @@
   function handleTriggerEnter() {
     clearTimeout(hideTimeout);
     showHeader = true;
+  }
+
+  function handleTriggerLeave() {
+    hideTimeout = setTimeout(() => {
+      showHeader = false;
+    }, 800);
   }
 
   function handleHeaderEnter() {
@@ -30,7 +36,7 @@
 
 <!-- 20px invisible trigger zone -->
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-<div class="trigger-zone" role="presentation" on:mouseenter={handleTriggerEnter}></div>
+<div class="trigger-zone" role="presentation" on:mouseenter={handleTriggerEnter} on:mouseleave={handleTriggerLeave}></div>
 
 <!-- 40px visible header display -->
 {#if showHeader}

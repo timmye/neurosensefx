@@ -1,21 +1,22 @@
 const WebSocket = require('ws');
 const { DataRouter } = require('./DataRouter');
 const { MarketProfileService } = require('./MarketProfileService');
+const { SubscriptionManager } = require('./SubscriptionManager');
+const { RequestCoordinator } = require('./RequestCoordinator');
+const { StatusBroadcaster } = require('./StatusBroadcaster');
 
-console.log('[WebSocketServer] FILE LOADED - v2.0 with M1 bar subscription support');
+console.log('[WebSocketServer] FILE LOADED - v3.0 with sub-managers');
 
 class WebSocketServer {
     constructor(port, cTraderSession, tradingViewSession) {
         this.wss = new WebSocket.Server({ port });
         this.cTraderSession = cTraderSession;
         this.tradingViewSession = tradingViewSession;
-        this.clientSubscriptions = new Map();
-        this.backendSubscriptions = new Map(); // key: "symbol:source", value: Set<ws>
-        this.pendingRequests = new Map(); // key: "symbol:adr", value: {promise, clients[]}
-        this.m1BarSubscriptions = new Set(); // Track symbols subscribed to M1 bars
 
-        this.currentBackendStatus = 'disconnected';
-        this.currentAvailableSymbols = [];
+        // Initialize sub-managers
+        this.subscriptionManager = new SubscriptionManager();
+        this.requestCoordinator = new RequestCoordinator(this);
+        this.statusBroadcaster = new StatusBroadcaster(this);
 
         this.dataRouter = new DataRouter(this);
         this.marketProfileService = new MarketProfileService();
@@ -24,16 +25,15 @@ class WebSocketServer {
 
         this.cTraderSession.on('tick', (tick) => this.dataRouter.routeFromCTrader(tick));
         this.cTraderSession.on('connected', (symbols) => {
-            this.updateBackendStatus('connected', null, symbols);
-            // Reset MarketProfile sequences to prevent drift after reconnection
+            this.statusBroadcaster.broadcastStatus('connected', null, symbols);
             if (symbols && Array.isArray(symbols)) {
                 symbols.forEach(symbol => {
                     this.marketProfileService.resetSequence(symbol);
                 });
             }
         });
-        this.cTraderSession.on('disconnected', () => this.updateBackendStatus('disconnected'));
-        this.cTraderSession.on('error', (error) => this.updateBackendStatus('error', error.message));
+        this.cTraderSession.on('disconnected', () => this.statusBroadcaster.broadcastStatus('disconnected'));
+        this.cTraderSession.on('error', (error) => this.statusBroadcaster.broadcastStatus('error', error.message));
         this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar));
         this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.profile));
         this.marketProfileService.on('profileError', (data) => this.dataRouter.routeProfileError(data.symbol, data.error, data.message));
@@ -47,39 +47,13 @@ class WebSocketServer {
         this.tradingViewSession.on('error', (error) => console.error('[TradingView] Backend error:', error));
     }
 
-    updateBackendStatus(status, message = null, availableSymbols = []) {
-        this.currentBackendStatus = status;
-        if (availableSymbols && availableSymbols.length > 0) {
-            this.currentAvailableSymbols = availableSymbols;
-        }
-
-        const statusData = { type: 'status', status, availableSymbols: this.currentAvailableSymbols, symbol: 'system' };
-        if (message) statusData.message = message;
-        this.broadcastToAll(statusData);
-
-        if (status === 'connected') {
-            this.broadcastToAll({ type: 'ready', availableSymbols: this.currentAvailableSymbols, symbol: 'system' });
-        }
-    }
-
     handleConnection(ws) {
         console.log('Client connected');
-        this.clientSubscriptions.set(ws, new Set());
         ws.on('message', (message) => this.handleMessage(ws, message));
         ws.on('close', () => this.handleClose(ws));
         ws.on('error', (error) => console.error('Client WebSocket error:', error));
-        
-        // Send initial connection status immediately upon connection
-        this.sendToClient(ws, {
-            type: 'status',
-            status: this.currentBackendStatus,
-            availableSymbols: this.currentAvailableSymbols,
-            symbol: 'system'
-        });
 
-        if (this.currentBackendStatus === 'connected') {
-            this.sendToClient(ws, { type: 'ready', availableSymbols: this.currentAvailableSymbols, symbol: 'system' });
-        }
+        this.statusBroadcaster.sendInitialStatus(ws);
     }
 
     async handleMessage(ws, message) {
@@ -118,7 +92,7 @@ class WebSocketServer {
                     if (data.symbols) this.handleUnsubscribe(ws, data.symbols);
                     break;
                 case 'reinit':
-                    this.handleReinit(ws, data);
+                    await this.handleReinit(ws, data);
                     break;
                 default:
                     console.warn(`Unknown message type: ${data.type}`);
@@ -135,173 +109,35 @@ class WebSocketServer {
     }
 
     async handleSubscribe(ws, symbolName, adrLookbackDays = 14, source = 'ctrader') {
-        // Route to appropriate backend based on source
-        if (source === 'tradingview') {
-            return this.handleTradingViewSubscribe(ws, symbolName, adrLookbackDays);
-        }
-
-        // cTrader subscription (default)
-        // Only validate symbol name format (not presence in symbolMap to avoid race condition)
-        // Let cTrader API handle invalid symbols - it will return an error if the symbol doesn't exist
         if (!symbolName || typeof symbolName !== 'string' || symbolName.trim().length === 0) {
             return this.sendToClient(ws, { type: 'error', message: `Invalid symbol name: ${symbolName}`, symbol: symbolName });
         }
 
-        // Check if request is already in flight
-        const requestKey = `${symbolName}:${adrLookbackDays}`;
+        // Add client subscription first
+        const isFirstSubscriber = this.subscriptionManager.addClientSubscription(symbolName, source, ws);
 
-        if (this.pendingRequests.has(requestKey)) {
-            const pending = this.pendingRequests.get(requestKey);
-            pending.clients.push(ws);
-            console.log(`[COALESCE] Joining pending request for ${requestKey} (${pending.clients.length} clients)`);
-            return pending.promise;
-        }
+        // Subscribe to M1 bars if first subscription for this symbol
+        if (!this.subscriptionManager.hasM1BarSubscription(symbolName, source)) {
+            this.subscriptionManager.addBackendSubscription(symbolName, source);
+            console.log(`[WebSocketServer] Subscribing to M1 bars for ${symbolName} (${source})`);
+            this.marketProfileService.subscribeToSymbol(symbolName);
 
-        // Create new pending request with retry logic for rate limiting
-        const clients = [ws];
-        const MAX_RETRIES = 3;
-        const INITIAL_RETRY_DELAY_MS = 500;
-
-        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-        const fetchWithRetry = async (retries = 0) => {
-            try {
-                const data = await this.cTraderSession.getSymbolDataPackage(symbolName, adrLookbackDays);
-                console.log(`[COALESCE] Sending ${requestKey} to ${clients.length} clients${retries > 0 ? ` (after ${retries} retries)` : ''}`);
-                console.log(`[E2E_TRACE | WebSocketServer] Sending package with ${data.initialMarketProfile.length} profile entries.`);
-
-                clients.forEach(client => {
-                    this.sendToClient(client, {
-                        type: 'symbolDataPackage',
-                        source: 'ctrader',
-                        symbol: data.symbol,
-                        digits: data.digits,
-                        adr: data.adr,
-                        todaysOpen: data.todaysOpen,
-                        todaysHigh: data.todaysHigh,
-                        todaysLow: data.todaysLow,
-                        projectedAdrHigh: data.projectedAdrHigh,
-                        projectedAdrLow: data.projectedAdrLow,
-                        initialPrice: data.initialPrice,
-                        initialMarketProfile: data.initialMarketProfile || [],
-                        pipPosition: data.pipPosition,
-                        pipSize: data.pipSize,
-                        pipetteSize: data.pipetteSize
-                    });
+            if (source === 'ctrader') {
+                this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
+                    console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err);
                 });
-
-                // Register subscriptions for all waiting clients
-                console.log(`[WebSocketServer] Registering subscriptions for ${clients.length} clients`);
-                clients.forEach(client => {
-                    const clientSubs = this.clientSubscriptions.get(client);
-                    if (clientSubs && !clientSubs.has(symbolName)) {
-                        clientSubs.add(symbolName);
-
-                        const key = `${symbolName}:ctrader`;
-                        let symbolSubscribers = this.backendSubscriptions.get(key);
-                        if (!symbolSubscribers) {
-                            symbolSubscribers = new Set();
-                            this.backendSubscriptions.set(key, symbolSubscribers);
-                        }
-                        symbolSubscribers.add(client);
-
-                        if (symbolSubscribers.size === 1) {
-                            this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
-                                console.error(`Failed to subscribe to ticks for ${symbolName}:`, err);
-                            });
-                        }
-
-                        // Subscribe to M1 bars for Market Profile updates (only once per symbol)
-                        const m1Key = `${symbolName}:ctrader`;
-                        if (!this.m1BarSubscriptions.has(m1Key)) {
-                            this.m1BarSubscriptions.add(m1Key);
-                            console.log(`[WebSocketServer] Subscribing to M1 bars for ${symbolName}`);
-                            this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
-                                console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err);
-                            });
-                            // Initialize Market Profile service for this symbol
-                            console.log(`[WebSocketServer] Initializing Market Profile for ${symbolName}`);
-                            this.marketProfileService.subscribeToSymbol(symbolName);
-                        }
-                    }
-                });
-
-                this.pendingRequests.delete(requestKey);
-                return data;
-            } catch (error) {
-                const isRateLimit = error.errorCode === 'REQUEST_FREQUENCY_EXCEEDED';
-                const isBlocked = error.errorCode === 'BLOCKED_PAYLOAD_TYPE';
-
-                // Retry on rate limit or blocked payload errors
-                if ((isRateLimit || isBlocked) && retries < MAX_RETRIES) {
-                    const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, retries);
-                    const errorType = isRateLimit ? 'Rate limit' : 'Blocked payload';
-                    console.log(`[COALESCE] ${errorType} for ${requestKey}, retry ${retries + 1}/${MAX_RETRIES} after ${delayMs}ms`);
-                    await sleep(delayMs);
-                    return fetchWithRetry(retries + 1);
-                }
-
-                console.error(`[COALESCE] Failed ${requestKey} after ${retries} retries:`, error);
-                this.pendingRequests.delete(requestKey);
-
-                // Only send error to client if it's a rate limit issue (blocked is expected for some pairs)
-                if (isRateLimit) {
-                    clients.forEach(client => {
-                        this.sendToClient(client, {
-                            type: 'error',
-                            message: `Failed to get data for ${symbolName}: ${error.message || error.description}`,
-                            symbol: symbolName
-                        });
-                    });
-                }
-
-                throw error;
             }
-        };
-
-        const promise = fetchWithRetry();
-        this.pendingRequests.set(requestKey, { promise, clients });
-        return promise;
-    }
-
-    async handleTradingViewSubscribe(ws, symbolName, adrLookbackDays = 14) {
-        if (!symbolName) {
-            return this.sendToClient(ws, { type: 'error', message: `Invalid symbol: ${symbolName}` });
         }
 
-        try {
-            // Add client to subscriptions FIRST
-            // This ensures the client receives the candle emitted during subscribeToSymbol()
-            const clientSubs = this.clientSubscriptions.get(ws);
-            if (clientSubs && !clientSubs.has(symbolName)) {
-                clientSubs.add(symbolName);
-            }
-
-            const key = `${symbolName}:tradingview`;
-            let symbolSubscribers = this.backendSubscriptions.get(key);
-            if (!symbolSubscribers) {
-                symbolSubscribers = new Set();
-                this.backendSubscriptions.set(key, symbolSubscribers);
-            }
-            symbolSubscribers.add(ws);  // Client added BEFORE subscribeToSymbol
-
-            // Subscribe to M1 bars for Market Profile updates (only once per symbol)
-            const m1Key = `${symbolName}:tradingview`;
-            if (!this.m1BarSubscriptions.has(m1Key)) {
-                this.m1BarSubscriptions.add(m1Key);
-                console.log(`[WebSocketServer] Subscribing to M1 bars for ${symbolName} (TradingView)`);
-                // Initialize Market Profile service for this symbol
-                console.log(`[WebSocketServer] Initializing Market Profile for ${symbolName} (TradingView)`);
-                this.marketProfileService.subscribeToSymbol(symbolName);
-            }
-
-            // NOW subscribe - candle will reach the client
-            await this.tradingViewSession.subscribeToSymbol(symbolName, adrLookbackDays);
-
-        } catch (error) {
-            console.error(`Failed to get TradingView data for ${symbolName}:`, error);
-            this.sendToClient(ws, { type: 'error', message: `Failed to get TradingView data for ${symbolName}: ${error.message}`, symbol: symbolName });
+        // Subscribe to ticks if first subscriber for cTrader
+        if (isFirstSubscriber && source === 'ctrader') {
+            this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
+                console.error(`Failed to subscribe to ticks for ${symbolName}:`, err);
+            });
         }
+
+        // Delegate request handling
+        return this.requestCoordinator.handleRequest(symbolName, adrLookbackDays, source, ws);
     }
 
     async handleReinit(ws, data) {
@@ -323,50 +159,25 @@ class WebSocketServer {
     }
 
     handleUnsubscribe(ws, symbols) {
-        const clientSubs = this.clientSubscriptions.get(ws);
-        if (!clientSubs) return;
-
         for (const symbolName of symbols) {
-            if (clientSubs.has(symbolName)) {
-                clientSubs.delete(symbolName);
+            const emptyKeys = this.subscriptionManager.removeClientSubscription(ws, symbolName);
 
-                // Check both sources for the symbol
-                const ctraderKey = `${symbolName}:ctrader`;
-                const tradingviewKey = `${symbolName}:tradingview`;
-
-                for (const key of [ctraderKey, tradingviewKey]) {
-                    const symbolSubscribers = this.backendSubscriptions.get(key);
-                    if (symbolSubscribers && symbolSubscribers.has(ws)) {
-                        symbolSubscribers.delete(ws);
-                        if (symbolSubscribers.size === 0) {
-                            // Unsubscribe from appropriate backend
-                            if (key === ctraderKey) {
-                                this.cTraderSession.unsubscribeFromTicks(symbolName);
-                            }
-                            this.backendSubscriptions.delete(key);
-                        }
-                    }
+            // Unsubscribe from backend if no more subscribers
+            for (const key of emptyKeys) {
+                const [symbol, source] = key.split(':');
+                if (source === 'ctrader') {
+                    this.cTraderSession.unsubscribeFromTicks(symbolName);
                 }
             }
         }
     }
 
     sendToClient(ws, data) {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(data));
-        }
-    }
-
-    broadcastToAll(data) {
-        this.wss.clients.forEach(client => this.sendToClient(client, data));
+        this.statusBroadcaster.sendToClient(ws, data);
     }
     
     broadcastTick(tick) {
-        // E2E_DEBUG: Keep for end-to-end diagnosis until production deployment.
         console.log(`[DEBUG_TRACE | WebSocketServer] Broadcasting tick to subscribers:`, JSON.stringify(tick));
-
-        // Note: broadcastTick is now handled by DataRouter for both sources
-        // This method is kept for compatibility but delegates to DataRouter
         if (tick.source === 'tradingview') {
             this.dataRouter.routeFromTradingView(tick);
         } else {
@@ -376,18 +187,14 @@ class WebSocketServer {
 
     handleClose(ws) {
         console.log('Client disconnected');
-        this.handleUnsubscribe(ws, Array.from(this.clientSubscriptions.get(ws) || []));
-        this.clientSubscriptions.delete(ws);
+        const subscriptions = this.subscriptionManager.removeClient(ws);
 
-        // Ensure ws is removed from all backendSubscriptions Sets (memory leak fix)
-        for (const [key, subscribers] of this.backendSubscriptions) {
-            if (subscribers.has(ws)) {
-                subscribers.delete(ws);
-                if (subscribers.size === 0) {
-                    this.backendSubscriptions.delete(key);
-                    // Unsubscribe from backend if cTrader key
-                    if (key.endsWith(':ctrader')) {
-                        const symbol = key.split(':')[0];
+        // Unsubscribe from backends if no more subscribers
+        for (const symbol of subscriptions) {
+            for (const source of ['ctrader', 'tradingview']) {
+                const clients = this.subscriptionManager.getSubscribedClients(symbol, source);
+                if (!clients || clients.size === 0) {
+                    if (source === 'ctrader') {
                         this.cTraderSession.unsubscribeFromTicks(symbol);
                     }
                 }
