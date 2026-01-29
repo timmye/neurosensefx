@@ -24,6 +24,12 @@ function getDirection(currentPrice, prevPrice) {
 }
 
 export function processSymbolData(data, formattedSymbol, lastData) {
+  // Debug logging for TWAP messages
+  if (data.type === 'twapUpdate') {
+    console.log('[displayDataProcessor] Received twapUpdate:', JSON.stringify(data));
+    console.log('[displayDataProcessor] formattedSymbol:', formattedSymbol);
+  }
+
   if (data.type === 'error') {
     return { type: 'error', message: data.message };
   }
@@ -53,6 +59,12 @@ export function processSymbolData(data, formattedSymbol, lastData) {
         low: data.prevDayLow,
         close: data.prevDayClose
       }
+    } : {}),
+    // Preserve TWAP data from lastData if it exists
+    ...(lastData?.twap !== undefined ? {
+      twap: lastData.twap,
+      twapContributions: lastData.twapContributions,
+      twapUpdatedAt: lastData.twapUpdatedAt
     } : {})
   } : data.type === 'tick' && data.symbol === formattedSymbol ? {
     high: Math.max(lastData?.high || 0, data.high || data.ask || data.bid || 0),
@@ -70,7 +82,18 @@ export function processSymbolData(data, formattedSymbol, lastData) {
       data.price || data.bid || data.ask || lastData?.current || 1.0,
       lastData?.current || lastData?.previousPrice || 1.0
     ),
-    ...(lastData?.prevDayOHLC ? { prevDayOHLC: lastData.prevDayOHLC } : {})
+    ...(lastData?.prevDayOHLC ? { prevDayOHLC: lastData.prevDayOHLC } : {}),
+    // Preserve TWAP data from lastData if it exists
+    ...(lastData?.twap !== undefined ? {
+      twap: lastData.twap,
+      twapContributions: lastData.twapContributions,
+      twapUpdatedAt: lastData.twapUpdatedAt
+    } : {})
+  } : data.type === 'twapUpdate' ? {
+    ...lastData,
+    twap: data.data.twapValue,
+    twapContributions: data.data.contributions,
+    twapUpdatedAt: data.data.timestamp
   } : null;
 
   if (displayData) {

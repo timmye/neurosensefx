@@ -51,6 +51,26 @@ class DataRouter {
         this.broadcastToClients(error_message, symbol, 'tradingview');
     }
 
+    routeTwapUpdate(symbol, data, source) {
+        const message = {
+            type: 'twapUpdate',
+            symbol,
+            source, // Add source for frontend routing
+            data
+        };
+        console.log(`[DataRouter] routeTwapUpdate called for ${symbol}:${source}:`, JSON.stringify(message));
+
+        try {
+            // Broadcast to both cTrader and TradingView subscribers
+            // since TWAPService doesn't track which source a symbol uses
+            console.log(`[DataRouter] About to call broadcastToClients for ${source}`);
+            this.broadcastToClients(message, symbol, source);
+            console.log(`[DataRouter] TWAP update broadcast complete for ${symbol}:${source}`);
+        } catch (error) {
+            console.error(`[DataRouter] Error in routeTwapUpdate for ${symbol}:${source}:`, error);
+        }
+    }
+
     /**
      * Broadcast message to clients subscribed to a symbol from a specific source
      * @param {Object} message - Message to broadcast
@@ -59,7 +79,11 @@ class DataRouter {
      */
     broadcastToClients(message, symbol, source) {
         const symbolSubscribers = this.wsServer.subscriptionManager.getSubscribedClients(symbol, source);
-        if (!symbolSubscribers) return;
+        console.log(`[DataRouter] broadcastToClients for ${symbol}:${source}, subscribers: ${symbolSubscribers?.size || 0}`);
+        if (!symbolSubscribers) {
+            console.log(`[DataRouter] No subscribers for ${symbol}:${source}, skipping broadcast`);
+            return;
+        }
 
         let jsonMessage;
         try {

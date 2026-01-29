@@ -73,7 +73,9 @@ class RequestCoordinator {
 
         const attemptFetch = async (retries = 0) => {
             try {
+                console.log(`[DEBUGGER:RequestCoordinator:fetchWithRetry:76] Attempting fetch for symbol=${symbol}, adrLookbackDays=${adrLookbackDays}, retry=${retries}`);
                 const data = await this.wsServer.cTraderSession.getSymbolDataPackage(symbol, adrLookbackDays);
+                console.log(`[DEBUGGER:RequestCoordinator:fetchWithRetry:78] Fetch SUCCESS for ${symbol}, got data with ${data.initialMarketProfile?.length || 0} profile entries`);
                 console.log(`[COALESCE] Sending ${requestKey} to ${clients.length} clients${retries > 0 ? ` (after ${retries} retries)` : ''}`);
                 console.log(`[E2E_TRACE | RequestCoordinator] Sending package with ${data.initialMarketProfile.length} profile entries.`);
 
@@ -94,7 +96,29 @@ class RequestCoordinator {
      * @param {Array} clients - Clients to send to
      */
     sendDataToClients(data, clients) {
-        clients.forEach(client => {
+        console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:97] Called with symbol=${data.symbol}, clients=${clients.length}, source=${data.source || 'ctrader'}`);
+        // Determine source from data package
+        const source = data.source || 'ctrader';
+
+        // After receiving symbolDataPackage, initialize TWAP from history
+        if (data.initialMarketProfile) {
+            console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:102] Initializing TWAP for ${data.symbol}:${source} with ${data.initialMarketProfile.length} bars`);
+            try {
+                console.log(`[RequestCoordinator] About to initialize TWAP for ${data.symbol}:${source}`);
+                this.wsServer.twapService.initializeFromHistory(
+                    data.symbol,
+                    data.initialMarketProfile,
+                    source
+                );
+                console.log(`[RequestCoordinator] TWAP initialized for ${data.symbol}:${source}`);
+            } catch (error) {
+                console.error(`[RequestCoordinator] TWAP initialization failed for ${data.symbol}:`, error);
+                // Continue sending data to clients even if TWAP init fails
+            }
+        }
+
+        clients.forEach((client, index) => {
+            console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:117] Sending symbolDataPackage to client ${index + 1}/${clients.length} for symbol=${data.symbol}`);
             this.wsServer.sendToClient(client, {
                 type: 'symbolDataPackage',
                 source: 'ctrader',
@@ -117,6 +141,7 @@ class RequestCoordinator {
                 ...(data.prevDayClose !== undefined && { prevDayClose: data.prevDayClose })
             });
         });
+        console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:139] Completed sending to all ${clients.length} clients`);
     }
 
     /**

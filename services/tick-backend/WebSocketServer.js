@@ -1,14 +1,15 @@
 const WebSocket = require('ws');
 const { DataRouter } = require('./DataRouter');
 const { MarketProfileService } = require('./MarketProfileService');
+const { TwapService } = require('./TwapService');
 const { SubscriptionManager } = require('./SubscriptionManager');
 const { RequestCoordinator } = require('./RequestCoordinator');
 const { StatusBroadcaster } = require('./StatusBroadcaster');
 
-console.log('[WebSocketServer] FILE LOADED - v3.0 with sub-managers');
+console.log('[WebSocketServer] FILE LOADED - Modular architecture with sub-managers');
 
 class WebSocketServer {
-    constructor(port, cTraderSession, tradingViewSession) {
+    constructor(port, cTraderSession, tradingViewSession, twapService = null) {
         this.wss = new WebSocket.Server({ port });
         this.cTraderSession = cTraderSession;
         this.tradingViewSession = tradingViewSession;
@@ -20,6 +21,7 @@ class WebSocketServer {
 
         this.dataRouter = new DataRouter(this);
         this.marketProfileService = new MarketProfileService();
+        this.twapService = twapService || new TwapService();
 
         this.wss.on('connection', (ws) => this.handleConnection(ws));
 
@@ -35,11 +37,14 @@ class WebSocketServer {
         this.cTraderSession.on('disconnected', () => this.statusBroadcaster.broadcastStatus('disconnected'));
         this.cTraderSession.on('error', (error) => this.statusBroadcaster.broadcastStatus('error', error.message));
         this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar));
+        this.cTraderSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'ctrader'));
         this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.profile));
         this.marketProfileService.on('profileError', (data) => this.dataRouter.routeProfileError(data.symbol, data.error, data.message));
+        this.twapService.on('twapUpdate', (data) => this.dataRouter.routeTwapUpdate(data.symbol, data, data.source || 'ctrader'));
 
         // TradingView event handlers
         this.tradingViewSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar));
+        this.tradingViewSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'tradingview'));
         this.tradingViewSession.on('tick', (tick) => this.dataRouter.routeFromTradingView(tick));
         this.tradingViewSession.on('candle', (candle) => this.dataRouter.routeFromTradingView(candle));
         this.tradingViewSession.on('connected', () => console.log('[TradingView] Backend connected'));
@@ -72,11 +77,11 @@ class WebSocketServer {
 
         // Process message - separate try-catch for processing errors
         try {
-            console.log(`[DEBUG] WebSocketServer received message: ${JSON.stringify(data)}`);
+            console.log(`[DEBUGGER:WebSocketServer:handleMessage:82] Received message: ${JSON.stringify(data)}`);
             if (data.symbol) {
-                console.log(`[SYMBOL_TRACE | WebSocketServer] Received initial request from client for symbol: ${data.symbol}`);
+                console.log(`[DEBUGGER:WebSocketServer:handleMessage:84] Symbol request: ${data.symbol}, type: ${data.type}, adrLookbackDays: ${data.adrLookbackDays}, source: ${data.source || 'ctrader'}`);
             } else if (data.symbols) {
-                console.log(`[SYMBOL_TRACE | WebSocketServer] Received subscribe request for symbols: ${data.symbols.join(', ')}`);
+                console.log(`[DEBUGGER:WebSocketServer:handleMessage:86] Symbols subscribe request: ${data.symbols.join(', ')}, type: ${data.type}`);
             }
 
             switch (data.type) {
@@ -109,12 +114,15 @@ class WebSocketServer {
     }
 
     async handleSubscribe(ws, symbolName, adrLookbackDays = 14, source = 'ctrader') {
+        console.log(`[DEBUGGER:WebSocketServer:handleSubscribe:117] Called with symbol=${symbolName}, adrLookbackDays=${adrLookbackDays}, source=${source}`);
         if (!symbolName || typeof symbolName !== 'string' || symbolName.trim().length === 0) {
+            console.log(`[DEBUGGER:WebSocketServer:handleSubscribe:119] Invalid symbol name: ${symbolName}`);
             return this.sendToClient(ws, { type: 'error', message: `Invalid symbol name: ${symbolName}`, symbol: symbolName });
         }
 
         // Add client subscription first
         const isFirstSubscriber = this.subscriptionManager.addClientSubscription(symbolName, source, ws);
+        console.log(`[DEBUGGER:WebSocketServer:handleSubscribe:124] isFirstSubscriber=${isFirstSubscriber}`);
 
         // Subscribe to M1 bars if first subscription for this symbol
         if (!this.subscriptionManager.hasM1BarSubscription(symbolName, source)) {

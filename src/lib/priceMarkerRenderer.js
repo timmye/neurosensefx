@@ -169,3 +169,22 @@ export function renderPreviousDayOHLC(ctx, config, axisX, priceScale, prevOHLC, 
   render(prevOHLC.low, 'PL');
   render(prevOHLC.close, 'PC');
 }
+
+// Render TWAP (Time-Weighted Average Price) marker
+export function renderTwapMarker(ctx, config, axisX, priceScale, twapPrice, symbolData) {
+  // Explicit null/undefined check before rendering
+  if (twapPrice === null || twapPrice === undefined || typeof twapPrice !== 'number' || isNaN(twapPrice)) {
+    return;
+  }
+
+  const formattedPrice = formatPriceForDisplay(twapPrice, symbolData);
+  const twapY = priceScale(twapPrice);
+  const color = config.colors.twapMarker;
+
+  renderMarkerLine(ctx, twapY, axisX, color, 2, 12, {
+    // text: `TWAP: ${formattedPrice}`,
+    // textColor: color,
+    // textFont: config.fonts.priceLabels,
+    dashed: true
+  });
+}

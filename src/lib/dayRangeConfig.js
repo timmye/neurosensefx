@@ -16,7 +16,8 @@ export const defaultConfig = {
     boundaryLine: '#854be8',
     percentageLabels: '#9CA3AF',
     markers: '#374151',
-    previousDay: '#414141' // Dark gray for previous day markers
+    previousDay: '#414141', // Dark gray for previous day markers
+    twapMarker: '#10b981' // Emerald green for TWAP marker
   },
 
   // Typography
@@ -52,7 +53,8 @@ export const defaultConfig = {
     },
     boundaryLines: true,
     dprAwareRendering: true,
-    professionalTypography: true
+    professionalTypography: true,
+    twapMarker: true // Enable/disable TWAP display
   },
 
   // Progressive disclosure parameters
