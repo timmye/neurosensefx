@@ -114,12 +114,17 @@ export function renderUserPriceMarkers(ctx, config, axisX, priceScale, markers, 
 }
 
 // Render Alt+hover preview line at hover price
-export function renderHoverPreview(ctx, config, axisX, priceScale, hoverPrice) {
+export function renderHoverPreview(ctx, config, axisX, priceScale, hoverPrice, symbolData) {
   if (!hoverPrice) return;
 
   const hoverY = priceScale(hoverPrice);
+  const formattedPrice = formatPriceForDisplay(hoverPrice, symbolData);
+
   renderMarkerLine(ctx, hoverY, axisX, 'rgba(255, 255, 255, 0.5)', 2, 80, {
-    dashed: true
+    dashed: true,
+    text: formattedPrice,
+    textColor: 'rgba(255, 255, 255, 0.8)',
+    textFont: config.fonts.priceLabels
   });
 }
 

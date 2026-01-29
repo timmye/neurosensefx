@@ -101,8 +101,6 @@ export function renderWithRenderer(renderer, ctx, data, config, displayType, mar
 
 // Render price markers - delegates to specialized price marker renderers
 export function renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hoverPrice, width, height) {
-  if (!priceMarkers || priceMarkers.length === 0) return;
-
   // We need market data to create a price scale
   if (!data) {
     console.warn('[DISPLAY_CANVAS_RENDERER] Cannot render price markers without market data');
@@ -126,7 +124,7 @@ export function renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hove
 
     // Render hover preview if hovering with Alt key
     if (hoverPrice) {
-      renderHoverPreview(ctx, config, axisX, priceScale, hoverPrice);
+      renderHoverPreview(ctx, config, axisX, priceScale, hoverPrice, data);
     }
   } catch (error) {
     console.error('[DISPLAY_CANVAS_RENDERER] Error rendering price markers:', error);
