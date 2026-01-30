@@ -4,17 +4,13 @@ console.log('[DEBUG] 1. Executing backend server.js');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
-console.log('[DEBUG] 2. Requiring CTraderSession...');
 const { CTraderSession } = require('./CTraderSession');
-console.log('[DEBUG] 3. CTraderSession required successfully.');
-
-console.log('[DEBUG] 3.5. Requiring TradingViewSession...');
 const { TradingViewSession } = require('./TradingViewSession');
-console.log('[DEBUG] 3.6. TradingViewSession required successfully.');
-
-console.log('[DEBUG] 4. Requiring WebSocketServer...');
 const { WebSocketServer } = require('./WebSocketServer');
-console.log('[DEBUG] 5. WebSocketServer required successfully.');
+
+// Create TwapService first (needed by both WebSocketServer and TradingViewSession)
+const { TwapService } = require('./TwapService');
+const twapService = new TwapService();
 
 // Environment-aware port configuration
 const port = process.env.WS_PORT || (process.env.NODE_ENV === 'production' ? 8081 : 8080);
@@ -29,17 +25,9 @@ console.log(`🚀 Backend WebSocket Port: ${port}`);
 console.log(`📡 WebSocket URL: ws://localhost:${port}`);
 console.log(`📊 TradingView Session: ${tradingViewSessionId ? 'authenticated' : 'unauthenticated (limited)'}`);
 
-console.log('[DEBUG] 6. Instantiating CTraderSession...');
 const session = new CTraderSession();
-console.log('[DEBUG] 7. CTraderSession instantiated successfully.');
-
-console.log('[DEBUG] 7.5. Instantiating TradingViewSession...');
-const tradingViewSession = new TradingViewSession();
-console.log('[DEBUG] 7.6. TradingViewSession instantiated successfully.');
-
-console.log('[DEBUG] 8. Instantiating WebSocketServer...');
-const wsServer = new WebSocketServer(port, session, tradingViewSession);
-console.log('[DEBUG] 9. WebSocketServer instantiated successfully.');
+const tradingViewSession = new TradingViewSession(twapService);
+const wsServer = new WebSocketServer(port, session, tradingViewSession, twapService);
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
@@ -53,10 +41,9 @@ process.on('SIGINT', async () => {
 });
 
 // Initiate the cTrader session connection when the backend starts
-console.log('[DEBUG] 10. Calling session.connect()...');
 session.connect()
     .then(() => {
-        console.log('[DEBUG] 11. session.connect() completed successfully.');
+        console.log('[DEBUG] cTrader session connected successfully.');
     })
     .catch((error) => {
         console.error('[ERROR] Failed to connect to cTrader:', error);
@@ -65,14 +52,12 @@ session.connect()
     });
 
 // Initiate the TradingView session connection
-console.log('[DEBUG] 10.5. Calling tradingViewSession.connect()...');
 tradingViewSession.connect(tradingViewSessionId)
     .then(() => {
-        console.log('[DEBUG] 11.5. tradingViewSession.connect() completed successfully.');
+        console.log('[DEBUG] TradingView session connected successfully.');
     })
     .catch((error) => {
         console.error('[ERROR] Failed to connect to TradingView:', error);
         console.log('[INFO] Starting backend in degraded mode without TradingView connection...');
         // Continue running - graceful degradation
     });
-console.log('[DEBUG] 12. session.connect() called. Script execution continuing.');

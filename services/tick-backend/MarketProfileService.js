@@ -32,14 +32,11 @@ class MarketProfileService extends EventEmitter {
   }
 
   onM1Bar(symbol, bar) {
-    console.log(`[MarketProfileService] onM1Bar called for ${symbol}:`, bar);
     const profile = this.profiles.get(symbol);
     if (!profile) {
       console.warn(`[MarketProfileService] No profile found for ${symbol}`);
       return;
     }
-
-    console.log(`[MarketProfileService] Profile levels: ${profile.levels.size}, MAX: ${this.MAX_LEVELS}, bucketSize: ${profile.bucketSize}`);
 
     if (profile.levels.size >= this.MAX_LEVELS) {
       console.warn(`[MarketProfile] ${symbol} exceeded ${this.MAX_LEVELS} levels`);
@@ -75,7 +72,6 @@ class MarketProfileService extends EventEmitter {
     this.sequenceNumbers.set(symbol, seq);
 
     const fullProfile = this.getFullProfile(symbol);
-    console.log(`[MarketProfileService] Emitting profileUpdate for ${symbol}: seq=${seq}, levels=${fullProfile.levels.length}`);
     this.emit('profileUpdate', { symbol, profile: fullProfile, seq });
   }
 

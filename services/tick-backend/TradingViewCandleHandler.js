@@ -5,9 +5,10 @@
 const { TradingViewDataPackageBuilder } = require('./TradingViewDataPackageBuilder');
 
 class TradingViewCandleHandler {
-    constructor(healthMonitor, calculateBucketSizeForSymbol) {
+    constructor(healthMonitor, calculateBucketSizeForSymbol, twapService = null) {
         this.healthMonitor = healthMonitor;
         this.packageBuilder = new TradingViewDataPackageBuilder(calculateBucketSizeForSymbol);
+        this.twapService = twapService;
     }
 
     /**
@@ -114,6 +115,15 @@ class TradingViewCandleHandler {
         const dataPackage = this.packageBuilder.buildDataPackage(
             symbol, todaysOpen, adr, todaysM1Candles, previousDay, data.lastCandle, estimatePipDataFn
         );
+
+        // Initialize TWAP from historical M1 candles before sending to client
+        if (this.twapService && todaysM1Candles.length > 0) {
+            try {
+                this.twapService.initializeFromHistory(symbol, data.m1Candles, 'tradingview');
+            } catch (error) {
+                console.error(`[TradingViewCandleHandler] TWAP initialization failed for ${symbol}:`, error);
+            }
+        }
 
         emitFn('candle', dataPackage);
         this.packageBuilder.markDataPackageSent(data);

@@ -17,7 +17,7 @@ const { TradingViewCandleHandler, estimatePipData } = require('./TradingViewCand
 const { TradingViewSubscriptionManager } = require('./TradingViewSubscriptionManager');
 
 class TradingViewSession extends EventEmitter {
-    constructor() {
+    constructor(twapService = null) {
         super();
         this.client = null;
         this.sessionId = null;
@@ -29,7 +29,7 @@ class TradingViewSession extends EventEmitter {
         this.shouldReconnect = true;
 
         const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
-        this.candleHandler = new TradingViewCandleHandler(this.healthMonitor, calculateBucketSizeForSymbol);
+        this.candleHandler = new TradingViewCandleHandler(this.healthMonitor, calculateBucketSizeForSymbol, twapService);
         this.candleHandler.setEmitter(this.emit.bind(this));
         this.subscriptionManager = null;
     }

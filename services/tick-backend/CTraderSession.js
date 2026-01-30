@@ -162,15 +162,11 @@ class CTraderSession extends EventEmitter {
     async subscribeToM1Bars(symbolName) {
         const symbolId = this.symbolLoader.getSymbolId(symbolName);
         if (symbolId) {
-            console.log(`[CTraderSession] Sending ProtoOASubscribeLiveTrendbarReq for ${symbolName} (symbolId: ${symbolId}, period: M1)`);
             await this.connection.sendCommand('ProtoOASubscribeLiveTrendbarReq', {
                 ctidTraderAccountId: this.ctidTraderAccountId,
                 symbolId: symbolId,
                 period: 'M1'
             });
-            console.log(`[CTraderSession] ProtoOASubscribeLiveTrendbarReq sent successfully for ${symbolName}`);
-        } else {
-            console.warn(`[CTraderSession] Cannot subscribe to M1 bars for ${symbolName}: symbolId not found`);
         }
     }
 
