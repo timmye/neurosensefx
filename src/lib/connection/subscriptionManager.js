@@ -59,6 +59,12 @@ export class SubscriptionManager {
   dispatch(message) {
     const isSystem = message.type === 'status' || message.type === 'ready' ||
       message.type === 'reinit_started' || (message.type === 'error' && message.symbol === 'system');
+
+    // Log profileUpdate messages for E2E test verification
+    if (message.type === 'profileUpdate') {
+      console.log(`[SubscriptionManager] profileUpdate dispatch for ${message.symbol} (${message.source}), seq=${message.seq}, levels=${message.profile.levels.length}`);
+    }
+
     if (isSystem) {
       this.subscriptions.forEach((callbacks) => {
         callbacks.forEach((cb) => {

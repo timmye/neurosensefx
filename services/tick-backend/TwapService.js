@@ -5,6 +5,7 @@ class TwapService extends EventEmitter {
     super();
     this.twapState = new Map(); // symbol -> { sum, count, twap, sessionStart, lastUpdate, source }
     this.symbolSources = new Map(); // symbol -> source (ctrader or tradingview)
+    this.lastBarTimestamps = new Map(); // Track last processed bar timestamp per symbol for deduplication
   }
 
   // Initialize TWAP from historical M1 bars (for mid-session joins)
@@ -62,6 +63,14 @@ class TwapService extends EventEmitter {
       this.emit('error', { symbol, error: 'Invalid bar data structure', code: 'INVALID_BAR_DATA', bar });
       return;
     }
+
+    // Deduplication: Skip if we've already processed this bar (same timestamp)
+    const lastTimestamp = this.lastBarTimestamps.get(`${symbol}:${source}`);
+    if (lastTimestamp === bar.timestamp) {
+      console.log(`[TwapService] Skipping duplicate bar for ${symbol}:${source} at ${new Date(bar.timestamp).toISOString()}`);
+      return;
+    }
+    this.lastBarTimestamps.set(`${symbol}:${source}`, bar.timestamp);
 
     // Initialize if needed
     if (!this.twapState.has(symbol)) {

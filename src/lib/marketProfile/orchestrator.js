@@ -12,7 +12,7 @@ import { getConfig } from '../dayRangeConfig.js';
 
 export function renderMarketProfile(ctx, data, config) {
   if (!data || data.length === 0) {
-    renderStatusMessage(ctx, "No Market Profile Data");
+    renderStatusMessage(ctx, "No Market Profile Data", { width: config?.width || 300, height: config?.height || 300 });
     return;
   }
 
@@ -20,7 +20,7 @@ export function renderMarketProfile(ctx, data, config) {
     const { width, height } = config;
 
     if (!validateMarketData(config.marketData, ctx, { width, height })) {
-      renderStatusMessage(ctx, "No Market Profile Data");
+      renderStatusMessage(ctx, "No Market Profile Data", { width, height });
       return;
     }
 
@@ -33,6 +33,9 @@ export function renderMarketProfile(ctx, data, config) {
 
     const maxTpo = calculateMaxTpo(data);
     const tpoScale = calculateTpoScale(maxTpo, dimensions.marketProfileWidth);
+
+    console.log(`[DEBUGGER:orchestrator:34-35] maxTpo=${maxTpo}, marketProfileWidth=${dimensions.marketProfileWidth}, tpoScale=${tpoScale.toFixed(4)}`);
+    console.log(`[DEBUGGER:orchestrator:34-35] data.length=${data.length}, sample levels:`, data.slice(0, 3).map(d => ({price: d.price, tpo: d.tpo})));
 
     const poc = computePOC(data);
     const valueArea = calculateValueArea(data);

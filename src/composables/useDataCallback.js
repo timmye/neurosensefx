@@ -22,8 +22,24 @@ export function useDataCallback() {
           lastDataRef.value,
           lastMarketProfileDataRef.value
         );
-        if (profileResult.lastMarketProfileData !== undefined) {
+        console.log('[useDataCallback] profileResult:', {
+          hasLastMarketProfileData: profileResult.lastMarketProfileData !== undefined,
+          lastMarketProfileDataLength: profileResult.lastMarketProfileData?.length || 0,
+          lastMarketProfileDataRefValueBefore: lastMarketProfileDataRef.value,
+          lastMarketProfileDataRefValueBeforeLength: lastMarketProfileDataRef.value?.length || 0,
+          hasError: !!profileResult.error
+        });
+        // Only update if we have new profile data (not undefined/null)
+        // and it's different from the current value
+        if (profileResult.lastMarketProfileData !== undefined &&
+            profileResult.lastMarketProfileData !== null) {
           lastMarketProfileDataRef.value = profileResult.lastMarketProfileData;
+          console.log('[useDataCallback] Updated lastMarketProfileDataRef.value:', {
+            length: lastMarketProfileDataRef.value?.length || 0,
+            isFirstItem: lastMarketProfileDataRef.value?.[0]
+          });
+        } else {
+          console.log('[useDataCallback] Skipped update (no new profile data)');
         }
         if (profileResult.error) {
           canvasRef?.renderError(profileResult.error);

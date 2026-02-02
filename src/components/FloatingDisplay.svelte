@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
@@ -60,10 +60,22 @@
     const lastDataRef = { value: null }, lastProfileRef = { value: null };
     const dataCallback = createCallback(formattedSymbol, lastDataRef, lastProfileRef, canvasRef);
 
-    webSocketSub.subscribe(formattedSymbol, source, (data) => {
+    webSocketSub.subscribe(formattedSymbol, source, async (data) => {
       dataCallback(data);
+      const beforeLastData = lastData;
+      const beforeLastProfile = lastMarketProfileData;
       lastData = lastDataRef.value;
       lastMarketProfileData = lastProfileRef.value;
+      console.log('[FloatingDisplay] Updated component variables:', {
+        formattedSymbol,
+        lastDataChanged: beforeLastData !== lastData,
+        lastMarketProfileDataChanged: beforeLastProfile !== lastMarketProfileData,
+        hasLastData: !!lastData,
+        hasLastMarketProfileData: !!lastMarketProfileData,
+        lastMarketProfileDataLength: lastMarketProfileData?.length || 0,
+        lastProfileRefValue: lastProfileRef.value
+      });
+      await tick();
     }, 14);
 
     interactable = createInteractConfig(element, {

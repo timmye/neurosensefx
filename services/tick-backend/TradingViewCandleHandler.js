@@ -5,10 +5,11 @@
 const { TradingViewDataPackageBuilder } = require('./TradingViewDataPackageBuilder');
 
 class TradingViewCandleHandler {
-    constructor(healthMonitor, calculateBucketSizeForSymbol, twapService = null) {
+    constructor(healthMonitor, calculateBucketSizeForSymbol, twapService = null, marketProfileService = null) {
         this.healthMonitor = healthMonitor;
         this.packageBuilder = new TradingViewDataPackageBuilder(calculateBucketSizeForSymbol);
         this.twapService = twapService;
+        this.marketProfileService = marketProfileService;
     }
 
     /**
@@ -122,6 +123,16 @@ class TradingViewCandleHandler {
                 this.twapService.initializeFromHistory(symbol, data.m1Candles, 'tradingview');
             } catch (error) {
                 console.error(`[TradingViewCandleHandler] TWAP initialization failed for ${symbol}:`, error);
+            }
+        }
+
+        // Initialize Market Profile from today's M1 candles before sending to client
+        if (this.marketProfileService && todaysM1Candles.length > 0) {
+            try {
+                const bucketSize = this.packageBuilder.calculateBucketSizeForSymbol(symbol);
+                this.marketProfileService.initializeFromHistory(symbol, todaysM1Candles, bucketSize, 'tradingview');
+            } catch (error) {
+                console.error(`[TradingViewCandleHandler] Market Profile initialization failed for ${symbol}:`, error);
             }
         }
 

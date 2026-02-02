@@ -119,8 +119,23 @@
     }
   }
 
-  $: if (ctx && (data || marketProfileData || connectionStatus || showMarketProfile || priceMarkers || selectedMarker || hoverPrice || deltaInfo)) {
-    render();
+  $: {
+    // Force-read all dependencies to ensure tracking
+    const _ctx = ctx;
+    const _data = data;
+    const _marketProfileData = marketProfileData;
+    const _connectionStatus = connectionStatus;
+    const _showMarketProfile = showMarketProfile;
+    const _priceMarkers = priceMarkers;
+    const _selectedMarker = selectedMarker;
+    const _hoverPrice = hoverPrice;
+    const _deltaInfo = deltaInfo;
+
+    if (_ctx && (_data || _marketProfileData || _connectionStatus ||
+        _showMarketProfile || _priceMarkers || _selectedMarker ||
+        _hoverPrice || _deltaInfo)) {
+      render();
+    }
   }
 
   export function getContext() { return ctx; }

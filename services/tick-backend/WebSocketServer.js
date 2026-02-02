@@ -9,7 +9,7 @@ const { StatusBroadcaster } = require('./StatusBroadcaster');
 console.log('[WebSocketServer] FILE LOADED - Modular architecture with sub-managers');
 
 class WebSocketServer {
-    constructor(port, cTraderSession, tradingViewSession, twapService = null) {
+    constructor(port, cTraderSession, tradingViewSession, twapService = null, marketProfileService = null) {
         this.wss = new WebSocket.Server({ port });
         this.cTraderSession = cTraderSession;
         this.tradingViewSession = tradingViewSession;
@@ -20,7 +20,7 @@ class WebSocketServer {
         this.statusBroadcaster = new StatusBroadcaster(this);
 
         this.dataRouter = new DataRouter(this);
-        this.marketProfileService = new MarketProfileService();
+        this.marketProfileService = marketProfileService || new MarketProfileService();
         this.twapService = twapService || new TwapService();
 
         this.wss.on('connection', (ws) => this.handleConnection(ws));
@@ -38,7 +38,7 @@ class WebSocketServer {
         this.cTraderSession.on('error', (error) => this.statusBroadcaster.broadcastStatus('error', error.message));
         this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar));
         this.cTraderSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'ctrader'));
-        this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.profile));
+        this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.profile, data.source || 'ctrader'));
         this.marketProfileService.on('profileError', (data) => this.dataRouter.routeProfileError(data.symbol, data.error, data.message));
         this.twapService.on('twapUpdate', (data) => this.dataRouter.routeTwapUpdate(data.symbol, data, data.source || 'ctrader'));
 
@@ -124,24 +124,25 @@ class WebSocketServer {
         const isFirstSubscriber = this.subscriptionManager.addClientSubscription(symbolName, source, ws);
         console.log(`[DEBUGGER:WebSocketServer:handleSubscribe:124] isFirstSubscriber=${isFirstSubscriber}`);
 
-        // Subscribe to M1 bars if first subscription for this symbol
+        // CRITICAL: cTrader requires spot (ticks) subscription BEFORE M1 bars subscription
+        // Subscribe to ticks first if first subscriber for cTrader
+        if (isFirstSubscriber && source === 'ctrader') {
+            this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
+                console.error(`Failed to subscribe to ticks for ${symbolName}:`, err);
+            });
+        }
+
+        // Subscribe to M1 bars if first subscription for this symbol (AFTER ticks for cTrader)
         if (!this.subscriptionManager.hasM1BarSubscription(symbolName, source)) {
             this.subscriptionManager.addBackendSubscription(symbolName, source);
             console.log(`[WebSocketServer] Subscribing to M1 bars for ${symbolName} (${source})`);
-            this.marketProfileService.subscribeToSymbol(symbolName);
+            this.marketProfileService.subscribeToSymbol(symbolName, source);
 
             if (source === 'ctrader') {
                 this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
                     console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err);
                 });
             }
-        }
-
-        // Subscribe to ticks if first subscriber for cTrader
-        if (isFirstSubscriber && source === 'ctrader') {
-            this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
-                console.error(`Failed to subscribe to ticks for ${symbolName}:`, err);
-            });
         }
 
         // Delegate request handling

@@ -27,16 +27,17 @@ class DataRouter {
         this.broadcastToClients(message, candle.symbol, 'tradingview');
     }
 
-    routeProfileUpdate(symbol, profile) {
+    routeProfileUpdate(symbol, profile, source) {
+        console.log(`[DataRouter] routeProfileUpdate: ${symbol} (${source}), levels=${profile.levels.length}`);
         const message = {
             type: 'profileUpdate',
             symbol,
+            source,
             profile
         };
-        // Broadcast to both cTrader and TradingView subscribers
-        // since MarketProfileService doesn't track which source a symbol uses
-        this.broadcastToClients(message, symbol, 'ctrader');
-        this.broadcastToClients(message, symbol, 'tradingview');
+        console.log(`[DataRouter] About to call broadcastToClients for ${source}`);
+        this.broadcastToClients(message, symbol, source);
+        console.log(`[DataRouter] Profile update broadcast complete for ${symbol}:${source}`);
     }
 
     routeProfileError(symbol, error, message) {
@@ -46,7 +47,7 @@ class DataRouter {
             error,
             message
         };
-        // Broadcast to both cTrader and TradingView subscribers
+        console.log(`[DataRouter] routeProfileError: ${symbol} - ${error}: ${message}`);
         this.broadcastToClients(error_message, symbol, 'ctrader');
         this.broadcastToClients(error_message, symbol, 'tradingview');
     }

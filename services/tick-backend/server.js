@@ -8,9 +8,11 @@ const { CTraderSession } = require('./CTraderSession');
 const { TradingViewSession } = require('./TradingViewSession');
 const { WebSocketServer } = require('./WebSocketServer');
 
-// Create TwapService first (needed by both WebSocketServer and TradingViewSession)
+// Create services first (needed by WebSocketServer and TradingViewSession)
 const { TwapService } = require('./TwapService');
+const { MarketProfileService } = require('./MarketProfileService');
 const twapService = new TwapService();
+const marketProfileService = new MarketProfileService();
 
 // Environment-aware port configuration
 const port = process.env.WS_PORT || (process.env.NODE_ENV === 'production' ? 8081 : 8080);
@@ -26,8 +28,8 @@ console.log(`📡 WebSocket URL: ws://localhost:${port}`);
 console.log(`📊 TradingView Session: ${tradingViewSessionId ? 'authenticated' : 'unauthenticated (limited)'}`);
 
 const session = new CTraderSession();
-const tradingViewSession = new TradingViewSession(twapService);
-const wsServer = new WebSocketServer(port, session, tradingViewSession, twapService);
+const tradingViewSession = new TradingViewSession(twapService, marketProfileService);
+const wsServer = new WebSocketServer(port, session, tradingViewSession, twapService, marketProfileService);
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {

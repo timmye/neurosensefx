@@ -22,12 +22,19 @@ export function drawValueArea(ctx, valueArea, priceScale, startX, width) {
 export function drawBars(ctx, data, priceScale, tpoScale, startX) {
   const maxTpo = Math.max(...data.map(d => d.tpo));
 
-  data.forEach((level) => {
+  console.log(`[DEBUGGER:rendering:22-29] drawBars: maxTpo=${maxTpo}, tpoScale=${tpoScale.toFixed(4)}`);
+  console.log(`[DEBUGGER:rendering:22-29] data.length=${data.length}`);
+
+  data.forEach((level, idx) => {
     const intensity = level.tpo / maxTpo;
     const x = startX;
     const y = priceScale(level.price);
     const barWidth = Math.max(level.tpo * tpoScale, 1);
     const color = getIntensityColor(getIntensityLevel(intensity));
+
+    if (idx < 3 || idx === data.length - 1) {
+      console.log(`[DEBUGGER:rendering:22-29] level[${idx}]: price=${level.price}, tpo=${level.tpo}, barWidth=${barWidth.toFixed(2)}px, intensity=${intensity.toFixed(2)}`);
+    }
 
     ctx.fillStyle = color;
     ctx.fillRect(x, y, barWidth, 2);

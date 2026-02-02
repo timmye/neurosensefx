@@ -2,6 +2,8 @@
  * RequestCoordinator - Handles request coalescing and retry logic
  * Manages pending requests to avoid duplicate API calls
  */
+const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
+
 class RequestCoordinator {
     constructor(wsServer, fetchTimeout = 30000) {
         this.wsServer = wsServer;
@@ -100,11 +102,10 @@ class RequestCoordinator {
         // Determine source from data package
         const source = data.source || 'ctrader';
 
-        // After receiving symbolDataPackage, initialize TWAP from history
+        // After receiving symbolDataPackage, initialize TWAP and Market Profile from history
         if (data.initialMarketProfile) {
-            console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:102] Initializing TWAP for ${data.symbol}:${source} with ${data.initialMarketProfile.length} bars`);
+            console.log(`[RequestCoordinator] Initializing TWAP for ${data.symbol}:${source} with ${data.initialMarketProfile.length} bars`);
             try {
-                console.log(`[RequestCoordinator] About to initialize TWAP for ${data.symbol}:${source}`);
                 this.wsServer.twapService.initializeFromHistory(
                     data.symbol,
                     data.initialMarketProfile,
@@ -113,7 +114,20 @@ class RequestCoordinator {
                 console.log(`[RequestCoordinator] TWAP initialized for ${data.symbol}:${source}`);
             } catch (error) {
                 console.error(`[RequestCoordinator] TWAP initialization failed for ${data.symbol}:`, error);
-                // Continue sending data to clients even if TWAP init fails
+            }
+
+            console.log(`[RequestCoordinator] Initializing Market Profile for ${data.symbol}:${source} with ${data.initialMarketProfile.length} bars`);
+            try {
+                const bucketSize = calculateBucketSizeForSymbol(data.symbol);
+                this.wsServer.marketProfileService.initializeFromHistory(
+                    data.symbol,
+                    data.initialMarketProfile,
+                    bucketSize,
+                    source
+                );
+                console.log(`[RequestCoordinator] Market Profile initialized for ${data.symbol}:${source}`);
+            } catch (error) {
+                console.error(`[RequestCoordinator] Market Profile initialization failed for ${data.symbol}:`, error);
             }
         }
 
