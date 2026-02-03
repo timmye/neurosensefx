@@ -30,7 +30,17 @@ class CTraderSocket {
         return __classPrivateFieldGet(this, _CTraderSocket_port, "f");
     }
     connect() {
-        const socket = tls.connect(__classPrivateFieldGet(this, _CTraderSocket_port, "f"), __classPrivateFieldGet(this, _CTraderSocket_host, "f"), this.onOpen);
+        const socket = tls.connect({
+            host: __classPrivateFieldGet(this, _CTraderSocket_host, "f"),
+            port: __classPrivateFieldGet(this, _CTraderSocket_port, "f"),
+            servername: __classPrivateFieldGet(this, _CTraderSocket_host, "f"),
+            timeout: 10000
+        });
+        socket.on("secureConnect", () => {
+            if (this.onOpen && typeof this.onOpen === 'function') {
+                this.onOpen();
+            }
+        });
         socket.on("data", this.onData);
         socket.on("end", this.onClose);
         socket.on("error", this.onError);

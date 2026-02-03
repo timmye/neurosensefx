@@ -21,8 +21,19 @@ export class CTraderSocket {
     }
 
     public connect (): void {
-        // @ts-ignore
-        const socket = tls.connect(this.#port, this.#host, this.onOpen);
+        const socket = tls.connect({
+            host: this.#host,
+            port: this.#port,
+            servername: this.#host,
+            timeout: 10000
+        });
+
+        // Use secureConnect event instead of callback to ensure proper binding
+        socket.on("secureConnect", () => {
+            if (this.onOpen && typeof this.onOpen === 'function') {
+                this.onOpen();
+            }
+        });
 
         socket.on("data", this.onData);
         socket.on("end", this.onClose);

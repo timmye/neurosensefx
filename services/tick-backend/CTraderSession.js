@@ -44,7 +44,20 @@ class CTraderSession extends EventEmitter {
         this.eventHandler = new CTraderEventHandler(this.dataProcessor, this.healthMonitor);
 
         this.setupEventListeners();
-        await this.connection.open();
+
+        // Add timeout to detect hanging connection
+        const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('cTrader connection timeout after 10 seconds')), 10000)
+        );
+
+        try {
+            await Promise.race([this.connection.open(), timeout]);
+        } catch (error) {
+            console.error('[CTraderSession] Connection failed:', error.message);
+            this.emit('disconnected');
+            throw error;
+        }
+
         await this.authenticate();
         await this.symbolLoader.loadAllSymbols();
         this.startHeartbeat();
