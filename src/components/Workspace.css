@@ -1,10 +1,3 @@
-/* ============================================
-   Dynamic Background Visualization
-   ============================================
-   3 flow layers creating ambient motion with radial gradients
-   Purpose: Add dynamic visual interest to gaps between symbols
-   ============================================ */
-
 .workspace-container {
   position: fixed;
   inset: 0;
@@ -13,93 +6,10 @@
   isolation: isolate;
 }
 
-/* Base flow layer - positioned 150% size, offset -25% (extends beyond viewport) */
-.workspace-container .flow-layer {
-  position: absolute;
-  top: -25%;
-  left: -25%;
-  width: 150%;
-  height: 150%;
-  opacity: 0.25;
-  pointer-events: none;
-  will-change: transform; /* GPU hint for smooth animation */
-}
-
-/* Flow Layer 1: Indigo radial gradient (center) */
-.workspace-container .flow-layer:nth-child(1) {
-  background: radial-gradient(rgb(79, 70, 229) 0%, transparent 40%);
-  filter: blur(50px);
-  animation: 27.3s ease-in-out 0s infinite normal none running perlinMove1;
-}
-
-/* Flow Layer 2: Blue radial gradient offset to bottom-right (30% 70%) */
-.workspace-container .flow-layer:nth-child(2) {
-  background: radial-gradient(at 30% 70%, rgb(59, 130, 246) 0%, transparent 35%);
-  filter: blur(45px);
-  animation: 31.7s ease-in-out -11.2s infinite normal none running perlinMove2;
-}
-
-/* Flow Layer 3: Purple radial gradient offset to top-left (70% 30%) */
-.workspace-container .flow-layer:nth-child(3) {
-  background: radial-gradient(at 70% 30%, rgb(99, 102, 241) 0%, transparent 38%);
-  filter: blur(55px);
-  animation: 23.9s ease-in-out -7.8s infinite normal none running perlinMove3;
-}
-
 /* Main workspace container (holds trader displays) */
 .workspace {
   position: relative;
   height: 100%;
   width: 100%;
   outline: none;
-}
-
-/* ============================================
-   Flow Layer Animations
-   - Each has unique path and scale curve
-   - translate3d() for GPU acceleration
-   - Negative delays create offset start times
-   ============================================ */
-
-@keyframes perlinMove1 {
-  0%, 100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  33% {
-    transform: translate3d(30px, -50px, 0) scale(1.1); /* Move right-down, grow */
-  }
-  66% {
-    transform: translate3d(-20px, 20px, 0) scale(0.9); /* Move left-up, shrink */
-  }
-}
-
-@keyframes perlinMove2 {
-  0%, 100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  33% {
-    transform: translate3d(-40px, 30px, 0) scale(1.2); /* Move left-down, grow more */
-  }
-  66% {
-    transform: translate3d(25px, -30px, 0) scale(0.8); /* Move right-up, shrink more */
-  }
-}
-
-@keyframes perlinMove3 {
-  0%, 100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  33% {
-    transform: translate3d(35px, 25px, 0) scale(0.85); /* Move right-down, shrink */
-  }
-  66% {
-    transform: translate3d(-25px, -40px, 0) scale(1.15); /* Move left-up, grow */
-  }
-}
-
-/* Accessibility: Respect user motion preferences - disables animations */
-@media (prefers-reduced-motion: reduce) {
-  .workspace-container .flow-layer {
-    animation: none;
-  }
 }

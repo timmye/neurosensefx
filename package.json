@@ -17,6 +17,7 @@
   "dependencies": {
     "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
     "interactjs": "^1.10.27",
+    "three": "0.160.0",
     "svelte": "^4.2.7",
     "ws": "^8.18.3"
   },
