@@ -79,8 +79,9 @@ function renderLowMarker(ctx, axisX, priceScale, todayLow, symbolData, config) {
 export function renderUserPriceMarkers(ctx, config, axisX, priceScale, markers, selectedMarker, symbolData) {
   if (!markers || markers.length === 0) return;
 
-  const dpr = window.devicePixelRatio || 1;
-  const markerLength = 24 / dpr;
+  // Context is already scaled by ctx.scale(dpr, dpr) in setupCanvas()
+  // So use logical pixels directly
+  const markerLength = 24;
 
   markers.forEach(marker => {
     const markerY = priceScale(marker.price);
@@ -92,7 +93,7 @@ export function renderUserPriceMarkers(ctx, config, axisX, priceScale, markers, 
 
     ctx.save();
     ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth / dpr;
+    ctx.lineWidth = lineWidth;
     ctx.globalAlpha = alpha;
 
     ctx.beginPath();
@@ -134,21 +135,21 @@ export function renderPreviousDayOHLC(ctx, config, axisX, priceScale, prevOHLC, 
   const color = config.colors.previousDay || '#414141';
   const axisXLeft = 0; // Position at very left edge of canvas (off-canvas OK)
 
-  const dpr = window.devicePixelRatio || 1;
-
+  // Context is already scaled by ctx.scale(dpr, dpr) in setupCanvas()
+  // So use logical pixels directly
   const render = (price, label) => {
     if (!price) return;
     const y = priceScale(price);
 
     ctx.save();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1 / dpr;
-    ctx.setLineDash([6 / dpr, 4 / dpr]);
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
 
     // Draw marker line
     ctx.beginPath();
     ctx.moveTo(axisXLeft, y);
-    ctx.lineTo(axisXLeft + 10 / dpr, y);
+    ctx.lineTo(axisXLeft + 10, y);
     ctx.stroke();
 
     // Draw left-aligned text label
@@ -159,7 +160,7 @@ export function renderPreviousDayOHLC(ctx, config, axisX, priceScale, prevOHLC, 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;
-    ctx.fillText(text, axisXLeft + 15 / dpr, y);
+    ctx.fillText(text, axisXLeft + 15, y);
 
     ctx.restore();
   };

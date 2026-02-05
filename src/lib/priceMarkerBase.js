@@ -16,20 +16,20 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
     emphasizePips = false,
     pipPosition = null
   } = config;
-  const dpr = window.devicePixelRatio || 1;
-
+  // Context is already scaled by ctx.scale(dpr, dpr) in setupCanvas()
+  // So use logical pixels directly for all drawing operations
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = lineWidth / dpr;
+  ctx.lineWidth = lineWidth;
 
   if (dashed) {
-    ctx.setLineDash([6 / dpr, 4 / dpr]);
+    ctx.setLineDash([6, 4]);
   }
 
   // Draw marker line
   ctx.beginPath();
-  ctx.moveTo(axisX - markerLength / dpr, y);
-  ctx.lineTo(axisX + markerLength / dpr, y);
+  ctx.moveTo(axisX - markerLength, y);
+  ctx.lineTo(axisX + markerLength, y);
   ctx.stroke();
 
   // Draw text label if provided
@@ -115,8 +115,10 @@ export function formatPriceForDisplay(price, dataOrSymbolData) {
 }
 
 // Scale for device pixel ratio
+// Note: Context is already scaled by ctx.scale(dpr, dpr) in setupCanvas()
+// So font sizes should use logical pixels directly
 function scaleForDPR(value) {
-  return value / (window.devicePixelRatio || 1);
+  return value;
 }
 
 // Render price with emphasis

@@ -100,7 +100,9 @@ function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height,
 
   // Add semi-transparent background for DR% text
   const textMetrics = ctx.measureText(label);
-  const textX = ctx.canvas.width - 5;
+  // canvas.width is physical pixels, need logical pixels
+  const dpr = window.devicePixelRatio || 1;
+  const textX = (ctx.canvas.width / dpr) - 5;
   const backgroundPadding = 3;
   const backgroundOpacity = 0.6;
 
@@ -123,13 +125,14 @@ function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height,
 
 // Render marker line with label
 function renderPercentageMarkerLine(ctx, axisX, y, label, side, colors) {
-  const dpr = window.devicePixelRatio || 1;
-  const markerLength = 8 / dpr;
-  const labelOffset = 12 / dpr;
+  // Context is already scaled by ctx.scale(dpr, dpr) in setupCanvas()
+  // So use logical pixels directly
+  const markerLength = 8;
+  const labelOffset = 12;
 
   ctx.save();
   ctx.strokeStyle = colors.markers;
-  ctx.lineWidth = 1 / dpr;
+  ctx.lineWidth = 1;
   renderPixelPerfectLine(ctx, axisX - markerLength, y, axisX + markerLength, y);
 
   ctx.fillStyle = colors.percentageLabels;
