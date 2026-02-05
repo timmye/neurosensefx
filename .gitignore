@@ -194,14 +194,16 @@ vitest-results/
 
 # Debug Infrastructure - Prevent Canvas Drift Debug Bloat
 test*.html
-test*.js
+debug-test*.js
 debug*.html
 debug*.js
 diagnose*.js
 manual*.js
 validate*.js
 interactjs*.js
-canvas*.js
+canvas-debug*.js
+canvas-test*.js
+canvas-drift*.js
 *_ANALYSIS.md
 *_DIAGNOSTIC*.md
 *_INVESTIGATION.md
@@ -210,10 +212,10 @@ canvas*.js
 *_VALIDATION*.md
 *COMPREHENSIVE*.md
 src/lib/diagnostics/
-e2e/
+/e2e/
 
 # Debug script patterns
-test-*.js
+debug-test-*.js
 debug-*.js
 *-debug.js
 *-drift*.js

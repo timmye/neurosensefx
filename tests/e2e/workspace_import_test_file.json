@@ -1,0 +1,998 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2026-01-26T01:51:52.143Z",
+  "workspace": {
+    "displays": [
+      [
+        "display-1768209468517-aatkmgoq9",
+        {
+          "id": "display-1768209468517-aatkmgoq9",
+          "symbol": "USDJPY",
+          "source": "ctrader",
+          "created": 1768209468517,
+          "position": {
+            "x": 260,
+            "y": 30
+          },
+          "size": {
+            "width": 220,
+            "height": 350
+          },
+          "zIndex": 1848,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": [
+            {
+              "id": "marker-1769390506558-czqvmqjyv",
+              "type": {
+                "name": "small",
+                "color": "#ffffff",
+                "size": 2,
+                "opacity": 1
+              },
+              "price": 154.83,
+              "displayId": "display-1768209468517-aatkmgoq9",
+              "timestamp": 1769390506558
+            }
+          ]
+        }
+      ],
+      [
+        "display-1767739493053-y63jlitby",
+        {
+          "id": "display-1767739493053-y63jlitby",
+          "symbol": "EURUSD",
+          "source": "ctrader",
+          "created": 1767739493053,
+          "position": {
+            "x": 500,
+            "y": 30
+          },
+          "size": {
+            "width": 220,
+            "height": 350
+          },
+          "zIndex": 1771,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767661392678-08a9cjcce",
+        {
+          "id": "display-1767661392678-08a9cjcce",
+          "symbol": "US02Y",
+          "source": "tradingview",
+          "created": 1767661392678,
+          "position": {
+            "x": 1660,
+            "y": 30
+          },
+          "size": {
+            "width": 220,
+            "height": 170
+          },
+          "zIndex": 1761,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767661418031-7mmx12t0p",
+        {
+          "id": "display-1767661418031-7mmx12t0p",
+          "symbol": "US10Y",
+          "source": "tradingview",
+          "created": 1767661418031,
+          "position": {
+            "x": 1660,
+            "y": 210
+          },
+          "size": {
+            "width": 220,
+            "height": 170
+          },
+          "zIndex": 1759,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1768206176077-09qdz5czn",
+        {
+          "id": "display-1768206176077-09qdz5czn",
+          "symbol": "US30Y",
+          "source": "tradingview",
+          "created": 1768206176077,
+          "position": {
+            "x": 1660,
+            "y": 390
+          },
+          "size": {
+            "width": 220,
+            "height": 160
+          },
+          "zIndex": 1426,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767661405360-lyajrihv9",
+        {
+          "id": "display-1767661405360-lyajrihv9",
+          "symbol": "XAUUSD",
+          "source": "ctrader",
+          "created": 1767661405360,
+          "position": {
+            "x": 1180,
+            "y": 570
+          },
+          "size": {
+            "width": 220,
+            "height": 350
+          },
+          "zIndex": 1823,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767738028976-5hgqowtth",
+        {
+          "id": "display-1767738028976-5hgqowtth",
+          "symbol": "WTI",
+          "source": "ctrader",
+          "created": 1767738028976,
+          "position": {
+            "x": 940,
+            "y": 570
+          },
+          "size": {
+            "width": 220,
+            "height": 174
+          },
+          "zIndex": 1825,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767738960689-0fztzb2e7",
+        {
+          "id": "display-1767738960689-0fztzb2e7",
+          "symbol": "DE02Y",
+          "source": "tradingview",
+          "created": 1767738960689,
+          "position": {
+            "x": 1420,
+            "y": 30
+          },
+          "size": {
+            "width": 220,
+            "height": 170
+          },
+          "zIndex": 1763,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767739029418-5zwnakd37",
+        {
+          "id": "display-1767739029418-5zwnakd37",
+          "symbol": "US30",
+          "source": "ctrader",
+          "created": 1767739029418,
+          "position": {
+            "x": 700,
+            "y": 570
+          },
+          "size": {
+            "width": 220,
+            "height": 170
+          },
+          "zIndex": 1803,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767739136253-ppmmwzbzk",
+        {
+          "id": "display-1767739136253-ppmmwzbzk",
+          "symbol": "AU10Y",
+          "source": "tradingview",
+          "created": 1767739136253,
+          "position": {
+            "x": 1180,
+            "y": 210
+          },
+          "size": {
+            "width": 220,
+            "height": 170
+          },
+          "zIndex": 1739,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767739183601-k98layulg",
+        {
+          "id": "display-1767739183601-k98layulg",
+          "symbol": "DE10Y",
+          "source": "tradingview",
+          "created": 1767739183601,
+          "position": {
+            "x": 1420,
+            "y": 210
+          },
+          "size": {
+            "width": 220,
+            "height": 170
+          },
+          "zIndex": 1444,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767739221129-2hqheui9y",
+        {
+          "id": "display-1767739221129-2hqheui9y",
+          "symbol": "JP02Y",
+          "source": "tradingview",
+          "created": 1767739221129,
+          "position": {
+            "x": 940,
+            "y": 30
+          },
+          "size": {
+            "width": 220,
+            "height": 170
+          },
+          "zIndex": 1842,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": [
+            {
+              "id": "marker-1769391403311-1apn4ojxr",
+              "type": {
+                "name": "small",
+                "color": "#ffffff",
+                "size": 2,
+                "opacity": 1
+              },
+              "price": 1.25,
+              "displayId": "display-1767739221129-2hqheui9y",
+              "timestamp": 1769391403311
+            }
+          ]
+        }
+      ],
+      [
+        "display-1767739234143-x7ltxr0m5",
+        {
+          "id": "display-1767739234143-x7ltxr0m5",
+          "symbol": "JP10Y",
+          "source": "tradingview",
+          "created": 1767739234143,
+          "position": {
+            "x": 940,
+            "y": 210
+          },
+          "size": {
+            "width": 220,
+            "height": 160
+          },
+          "zIndex": 1844,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": [
+            {
+              "id": "marker-1769391402479-uvhq4kf2y",
+              "type": {
+                "name": "small",
+                "color": "#ffffff",
+                "size": 2,
+                "opacity": 1
+              },
+              "price": 2.2187,
+              "displayId": "display-1767739234143-x7ltxr0m5",
+              "timestamp": 1769391402479
+            }
+          ]
+        }
+      ],
+      [
+        "display-1767739301773-dkoz1v04w",
+        {
+          "id": "display-1767739301773-dkoz1v04w",
+          "symbol": "DXY",
+          "source": "tradingview",
+          "created": 1767739301773,
+          "position": {
+            "x": 1420,
+            "y": 570
+          },
+          "size": {
+            "width": 220,
+            "height": 350
+          },
+          "zIndex": 1809,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767855940526-qcmdhf6tt",
+        {
+          "id": "display-1767855940526-qcmdhf6tt",
+          "symbol": "AU03Y",
+          "source": "tradingview",
+          "created": 1767855940526,
+          "position": {
+            "x": 1180,
+            "y": 30
+          },
+          "size": {
+            "width": 220,
+            "height": 170
+          },
+          "zIndex": 1735,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1768206216257-ufyo0g16l",
+        {
+          "id": "display-1768206216257-ufyo0g16l",
+          "symbol": "DE30Y",
+          "source": "tradingview",
+          "created": 1768206216257,
+          "position": {
+            "x": 1420,
+            "y": 390
+          },
+          "size": {
+            "width": 220,
+            "height": 160
+          },
+          "zIndex": 1765,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1768206242971-fjlcwzqi7",
+        {
+          "id": "display-1768206242971-fjlcwzqi7",
+          "symbol": "JP30Y",
+          "source": "tradingview",
+          "created": 1768206242971,
+          "position": {
+            "x": 940,
+            "y": 390
+          },
+          "size": {
+            "width": 220,
+            "height": 160
+          },
+          "zIndex": 1846,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": [
+            {
+              "id": "marker-1769391401030-2khw3eqli",
+              "type": {
+                "name": "small",
+                "color": "#ffffff",
+                "size": 2,
+                "opacity": 1
+              },
+              "price": 3.611,
+              "displayId": "display-1768206242971-fjlcwzqi7",
+              "timestamp": 1769391401030
+            }
+          ]
+        }
+      ],
+      [
+        "display-1768206246457-1l235gba3",
+        {
+          "id": "display-1768206246457-1l235gba3",
+          "symbol": "AU30Y",
+          "source": "tradingview",
+          "created": 1768206246457,
+          "position": {
+            "x": 1180,
+            "y": 390
+          },
+          "size": {
+            "width": 220,
+            "height": 160
+          },
+          "zIndex": 1743,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1768206312066-pvjqz2p9i",
+        {
+          "id": "display-1768206312066-pvjqz2p9i",
+          "symbol": "EURCHF",
+          "source": "ctrader",
+          "created": 1768206312066,
+          "position": {
+            "x": 470,
+            "y": 570
+          },
+          "size": {
+            "width": 220,
+            "height": 350
+          },
+          "zIndex": 1819,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1768208978523-34xs4fp2f",
+        {
+          "id": "display-1768208978523-34xs4fp2f",
+          "symbol": "AUDCHF",
+          "source": "ctrader",
+          "created": 1768208978523,
+          "position": {
+            "x": 10,
+            "y": 760
+          },
+          "size": {
+            "width": 230,
+            "height": 160
+          },
+          "zIndex": 1815,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1768211432834-zxb28xs7n",
+        {
+          "id": "display-1768211432834-zxb28xs7n",
+          "symbol": "DAX",
+          "source": "tradingview",
+          "created": 1768211432834,
+          "position": {
+            "x": 700,
+            "y": 750
+          },
+          "size": {
+            "width": 220,
+            "height": 176
+          },
+          "zIndex": 1775,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1767661348298-f4ao6fqyo",
+        {
+          "id": "display-1767661348298-f4ao6fqyo",
+          "symbol": "BTCUSD",
+          "source": "ctrader",
+          "created": 1767661348298,
+          "position": {
+            "x": 1660,
+            "y": 570
+          },
+          "size": {
+            "width": 220,
+            "height": 350
+          },
+          "zIndex": 1834,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": [
+            {
+              "id": "marker-1769390432608-lf85mbdt5",
+              "type": {
+                "name": "small",
+                "color": "#ffffff",
+                "size": 2,
+                "opacity": 1
+              },
+              "price": 87227.6,
+              "displayId": "display-1767661348298-f4ao6fqyo",
+              "timestamp": 1769390432608
+            }
+          ]
+        }
+      ],
+      [
+        "display-1768544114840-vvhiaezt0",
+        {
+          "id": "display-1768544114840-vvhiaezt0",
+          "symbol": "FX_BASKET",
+          "source": "ctrader",
+          "created": 1768544114840,
+          "position": {
+            "x": 740,
+            "y": 30
+          },
+          "size": {
+            "width": 180,
+            "height": 170
+          },
+          "zIndex": 1716,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1768550540112-wrq2lz534",
+        {
+          "id": "display-1768550540112-wrq2lz534",
+          "symbol": "EURGBP",
+          "source": "ctrader",
+          "created": 1768550540112,
+          "position": {
+            "x": 700,
+            "y": 400
+          },
+          "size": {
+            "width": 220,
+            "height": 170
+          },
+          "zIndex": 1818,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1768783864933-8i1gh83j8",
+        {
+          "id": "display-1768783864933-8i1gh83j8",
+          "symbol": "AUDUSD",
+          "source": "ctrader",
+          "created": 1768783864933,
+          "position": {
+            "x": 20,
+            "y": 30
+          },
+          "size": {
+            "width": 220,
+            "height": 350
+          },
+          "zIndex": 1827,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1768819627472-fcxp5am7n",
+        {
+          "id": "display-1768819627472-fcxp5am7n",
+          "symbol": "USDCHF",
+          "source": "ctrader",
+          "created": 1768819627472,
+          "position": {
+            "x": 240,
+            "y": 570
+          },
+          "size": {
+            "width": 220,
+            "height": 350
+          },
+          "zIndex": 1751,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1769038638422-rxf5hyn53",
+        {
+          "id": "display-1769038638422-rxf5hyn53",
+          "symbol": "EURAUD",
+          "source": "ctrader",
+          "created": 1769038638422,
+          "position": {
+            "x": 470,
+            "y": 400
+          },
+          "size": {
+            "width": 220,
+            "height": 160
+          },
+          "zIndex": 1753,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1769043413552-i9pt8tinv",
+        {
+          "id": "display-1769043413552-i9pt8tinv",
+          "symbol": "AUS200",
+          "source": "ctrader",
+          "created": 1769043413552,
+          "position": {
+            "x": 940,
+            "y": 760
+          },
+          "size": {
+            "width": 220,
+            "height": 160
+          },
+          "zIndex": 1731,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1769382412439-gni7iulzb",
+        {
+          "id": "display-1769382412439-gni7iulzb",
+          "symbol": "AUDJPY",
+          "source": "ctrader",
+          "created": 1769382412440,
+          "position": {
+            "x": 10,
+            "y": 400
+          },
+          "size": {
+            "width": 220,
+            "height": 350
+          },
+          "zIndex": 1817,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "priceMarkers": []
+        }
+      ]
+    ],
+    "nextZIndex": 1849
+  },
+  "priceMarkers": {
+    "price-markers-US02Y": [
+      {
+        "id": "marker-1768208761503-yfhyq0zmw",
+        "type": {
+          "name": "normal",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 3.5262000000000002,
+        "displayId": "display-1767661392678-08a9cjcce",
+        "timestamp": 1768208761504
+      },
+      {
+        "id": "marker-1768548559768-r2l6cccmr",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 3.5635000000000003,
+        "displayId": "display-1767661392678-08a9cjcce",
+        "timestamp": 1768548559768
+      }
+    ],
+    "price-markers-US30Y": [
+      {
+        "id": "marker-1768548563191-6ytknihd8",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 4.7979,
+        "displayId": "display-1768206176077-09qdz5czn",
+        "timestamp": 1768548563191
+      },
+      {
+        "id": "marker-1768887026930-3ejl35oo0",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 4.8836,
+        "displayId": "display-1768206176077-09qdz5czn",
+        "timestamp": 1768887026930
+      }
+    ],
+    "price-markers-XAUUSD": [
+      {
+        "id": "marker-1768977722333-1wcat8xoi",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 4862.900000000001,
+        "displayId": "display-1767661405360-lyajrihv9",
+        "timestamp": 1768977722333
+      },
+      {
+        "id": "marker-1768977781630-z50294vs2",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 4850.1,
+        "displayId": "display-1767661405360-lyajrihv9",
+        "timestamp": 1768977781630
+      },
+      {
+        "id": "marker-1768977807409-o0r9ppor0",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 4814.3,
+        "displayId": "display-1767661405360-lyajrihv9",
+        "timestamp": 1768977807409
+      }
+    ],
+    "price-markers-BTCUSD": [
+      {
+        "id": "marker-1767738007365-qtz015xfp",
+        "type": {
+          "name": "normal",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 93760,
+        "displayId": "display-1767661348298-f4ao6fqyo",
+        "timestamp": 1767738007365
+      },
+      {
+        "id": "marker-1767743571630-sn3ecllm4",
+        "type": {
+          "name": "normal",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 95109.20000000001,
+        "displayId": "display-1767661348298-f4ao6fqyo",
+        "timestamp": 1767743571630
+      },
+      {
+        "id": "marker-1767919438025-dey17f1y4",
+        "type": {
+          "name": "big",
+          "color": "#ff6b35",
+          "size": 4,
+          "opacity": 1
+        },
+        "price": 91142,
+        "displayId": "display-1767661348298-f4ao6fqyo",
+        "timestamp": 1767919438025
+      },
+      {
+        "id": "marker-1769059978733-vrg3eblio",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 90284.5,
+        "displayId": "display-1767661348298-f4ao6fqyo",
+        "timestamp": 1769059978733
+      }
+    ],
+    "price-markers-AUS200": [],
+    "price-markers-DXYU": [],
+    "price-markers-JP02Y": [
+      {
+        "id": "marker-1768548539471-rav1ptzbu",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 1.2018,
+        "displayId": "display-1767739221129-2hqheui9y",
+        "timestamp": 1768548539471
+      }
+    ],
+    "price-markers-EURUSD": [],
+    "price-markers-EURCHF": [
+      {
+        "id": "marker-1768208862949-522ejlyu5",
+        "type": {
+          "name": "normal",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 0.9299999999999999,
+        "displayId": "display-1768206312066-pvjqz2p9i",
+        "timestamp": 1768208862949
+      }
+    ],
+    "price-markers-SOX": [],
+    "price-markers-WTI": [],
+    "price-markers-EURGBP": [],
+    "price-markers-FATCOIN": [],
+    "price-markers-DE02Y": [],
+    "price-markers-AU30Y": [],
+    "price-markers-USOIL": [],
+    "price-markers-AU03Y": [],
+    "price-markers-DE10Y": [
+      {
+        "id": "marker-1768208755347-vtu1b4xm8",
+        "type": {
+          "name": "normal",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 2.8258,
+        "displayId": "display-1767739183601-k98layulg",
+        "timestamp": 1768208755347
+      }
+    ],
+    "price-markers-SP500": [],
+    "price-markers-AU10Y": [],
+    "price-markers-AUDUSD": [],
+    "price-markers-US10Y": [
+      {
+        "id": "marker-1768208760190-3kn77l55m",
+        "type": {
+          "name": "normal",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 4.1965,
+        "displayId": "display-1767661418031-7mmx12t0p",
+        "timestamp": 1768208760190
+      },
+      {
+        "id": "marker-1768208802400-0pvsl8cu5",
+        "type": {
+          "name": "big",
+          "color": "#ff6b35",
+          "size": 4,
+          "opacity": 1
+        },
+        "price": 4.2013,
+        "displayId": "display-1767661418031-7mmx12t0p",
+        "timestamp": 1768208802400
+      },
+      {
+        "id": "marker-1768548561479-wr1kp361n",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 4.1677,
+        "displayId": "display-1767661418031-7mmx12t0p",
+        "timestamp": 1768548561479
+      }
+    ],
+    "price-markers-JP10Y": [
+      {
+        "id": "marker-1768548541262-07t1z4d39",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 2.1854,
+        "displayId": "display-1767739234143-x7ltxr0m5",
+        "timestamp": 1768548541262
+      }
+    ],
+    "price-markers-DAX": [],
+    "price-markers-USDJPY": [],
+    "price-markers-DXY": [
+      {
+        "id": "marker-1768210656847-9q5xkegkc",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 98.8,
+        "displayId": "display-1767739301773-dkoz1v04w",
+        "timestamp": 1768210656847
+      }
+    ],
+    "price-markers-AUDJPY": [],
+    "price-markers-DE30Y": [],
+    "price-markers-JP30Y": [],
+    "price-markers-DE40": [],
+    "price-markers-GOLD": [],
+    "price-markers-EURAUD": [
+      {
+        "id": "marker-1769041506081-uugizr73r",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 1.7273999999999998,
+        "displayId": "display-1769038638422-rxf5hyn53",
+        "timestamp": 1769041506081
+      }
+    ],
+    "price-markers-USTECH": [],
+    "price-markers-USDCHF": [],
+    "price-markers-US30": [
+      {
+        "id": "marker-1768887488241-s3altjdo8",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 48901.4,
+        "displayId": "display-1767739029418-5zwnakd37",
+        "timestamp": 1768887488241
+      }
+    ],
+    "price-markers-AUDCHF": [
+      {
+        "id": "marker-1769041486361-hc1o8vyz1",
+        "type": {
+          "name": "small",
+          "color": "#ffffff",
+          "size": 2,
+          "opacity": 1
+        },
+        "price": 0.5378999999999999,
+        "displayId": "display-1768208978523-34xs4fp2f",
+        "timestamp": 1769041486361
+      }
+    ]
+  }
+}
