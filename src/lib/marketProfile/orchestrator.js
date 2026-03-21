@@ -84,17 +84,22 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   const prices = profile.map(l => l.price);
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
+  const priceRange = maxPrice - minPrice || 1;
 
   // Create adaptive scale for proper price-to-Y mapping
   const adaptiveScale = {
     min: minPrice,
     max: maxPrice,
-    range: maxPrice - minPrice || 1,
+    range: priceRange,
     isProgressive: false
   };
 
-  // Use same price scale creation as full market profile
-  const priceScale = createPriceScale({}, adaptiveScale, height);
+  // Custom price scale for mini profile - NO padding, bars extend to edges
+  // Maps maxPrice → 0 (top), minPrice → height-1 (just above bottom border)
+  const priceScale = (price) => {
+    const normalized = (maxPrice - price) / priceRange;
+    return Math.round(normalized * (height - 1));
+  };
 
   // Calculate TPO range
   const maxTpo = Math.max(...profile.map(l => l.tpo));

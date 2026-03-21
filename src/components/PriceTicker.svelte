@@ -81,7 +81,7 @@
     if (canvasRef && lastMarketProfileData) {
       renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
         width: 37.5,
-        height: 60,
+        height: 80,
         pipPosition: pipPosition,
         currentPrice,
         openPrice
@@ -96,7 +96,7 @@
       console.log('[PriceTicker] Rendering market profile for', formattedSymbol, 'levels:', lastMarketProfileData.length);
       renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
         width: 37.5,
-        height: 60,
+        height: 80,
         pipPosition: pipPosition,
         currentPrice,
         openPrice
@@ -275,7 +275,7 @@
 
   .chart-canvas {
     width: 37.5px;
-    height: 60px;
+    height: 80px;
     display: block;
   }
 
@@ -416,7 +416,7 @@
 
   <!-- Column 2: Mini Market Profile -->
   <div class="chart-column">
-    <canvas bind:this={canvasRef} class="chart-canvas" width="37.5" height="60"></canvas>
+    <canvas bind:this={canvasRef} class="chart-canvas" width="37.5" height="80"></canvas>
   </div>
 
   <!-- Column 3: Session Stats -->
