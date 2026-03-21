@@ -75,10 +75,18 @@ export class SubscriptionManager {
     }
     const key = message.source ? this.makeKey(message.symbol, message.source) : message.symbol;
     const callbacks = this.subscriptions.get(key);
+
+    if (message.type === 'profileUpdate') {
+      console.log(`[SubscriptionManager] Looking for key '${key}', found callbacks:`, callbacks?.size || 0);
+      console.log(`[SubscriptionManager] All subscription keys:`, Array.from(this.subscriptions.keys()));
+    }
+
     if (callbacks) {
       callbacks.forEach((cb) => {
         try { cb(message); } catch (e) { console.error(`Callback error for ${key}:`, e); }
       });
+    } else if (message.type === 'profileUpdate') {
+      console.warn(`[SubscriptionManager] No callbacks found for profileUpdate ${message.symbol} (${message.source}), key='${key}'`);
     }
   }
 

@@ -2,6 +2,7 @@
   import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';
   import FloatingDisplay from './FloatingDisplay.svelte';
   import FxBasketDisplay from './FxBasketDisplay.svelte';
+  import PriceTicker from './PriceTicker.svelte';
   import BackgroundShader from './BackgroundShader.svelte';
   import WorkspaceModal from './WorkspaceModal.svelte';
   import { onMount, onDestroy } from 'svelte';
@@ -77,6 +78,10 @@
   }
 
   onMount(() => {
+    // Expose workspace actions and store to window for testing/debugging
+    window.workspaceActions = workspaceActions;
+    window.workspaceStore = workspaceStore;
+
     // Persistence must load before connection: WebSocket messages would overwrite restored state with empty workspace
     workspacePersistence.loadFromStorage();
     unsubscribePersistence = workspacePersistence.initPersistence();
@@ -93,11 +98,11 @@
       }
     };
     // Add callback for system messages (no backend subscription needed)
-    connectionManager.subscriptions.set('__SYSTEM__', new Set([systemCallback]));
+    connectionManager.subscriptionManager.subscriptions.set('__SYSTEM__', new Set([systemCallback]));
 
     const workspaceEl = document.querySelector('.workspace');
     if (workspaceEl) workspaceEl.focus();
-    console.log('[WORKSPACE] Ready - Alt+A (cTrader), Alt+T (TV), Alt+R (reinit all)');
+    console.log('[WORKSPACE] Ready - Alt+A (cTrader), Alt+T (TV), Alt+I (Ticker), Alt+R (reinit all)');
   });
 
   onDestroy(() => {
@@ -118,7 +123,9 @@
   <BackgroundShader />
   <div class="workspace" role="region" tabindex="0" aria-label="Workspace" on:keydown={handleKeydown}>
     {#each Array.from($workspaceStore.displays.values()) as display (display.id)}
-      {#if display.symbol === 'FX_BASKET'}
+      {#if display.type === 'priceTicker'}
+        <PriceTicker ticker={display} />
+      {:else if display.symbol === 'FX_BASKET'}
         <FxBasketDisplay {display} />
       {:else}
         <FloatingDisplay {display} />

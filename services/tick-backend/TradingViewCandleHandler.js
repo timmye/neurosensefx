@@ -129,7 +129,8 @@ class TradingViewCandleHandler {
         // Initialize Market Profile from today's M1 candles before sending to client
         if (this.marketProfileService && todaysM1Candles.length > 0) {
             try {
-                const bucketSize = this.packageBuilder.calculateBucketSizeForSymbol(symbol);
+                const currentPrice = data.lastCandle?.close || todaysM1Candles[todaysM1Candles.length - 1]?.close;
+                const bucketSize = this.packageBuilder.calculateBucketSizeForSymbol(symbol, currentPrice);
                 this.marketProfileService.initializeFromHistory(symbol, todaysM1Candles, bucketSize, 'tradingview');
             } catch (error) {
                 console.error(`[TradingViewCandleHandler] Market Profile initialization failed for ${symbol}:`, error);

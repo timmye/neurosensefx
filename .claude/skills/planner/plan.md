@@ -594,7 +594,7 @@ previousDay: '#D1D5DB'
      percentageLabels: '#9CA3AF',
 -    markers: '#374151'
 +    markers: '#374151',
-+    previousDay: '#D1D5DB' // Muted gray for previous day markers
++    previousDay: '#D1D5DB' // Gray indicates historical/reference data (less prominent than current day)
    },
 
 ```diff
@@ -618,7 +618,7 @@ previousDay: '#D1D5DB'
 +export function renderPreviousDayOHLC(ctx, config, axisX, priceScale, prevOHLC, symbolData) {
 +  if (!prevOHLC) return;
 +  const color = config.colors.previousDay || '#9CA3AF';
-+  const axisXLeft = axisX * 0.2; // Position at ~15% from left (axisX param is width * 0.75)
++  const axisXLeft = axisX * 0.2; // Position markers at 15% from left (opposite side from current day markers at 75% from right)
 +
 +  const render = (price, label) => price && renderMarkerLine(
 +    ctx, priceScale(price), axisXLeft, color, 1, 10,
@@ -626,7 +626,7 @@ previousDay: '#D1D5DB'
 +      text: `${label}: ${formatPriceForDisplay(price, symbolData)}`,
 +      textColor: color,
 +      textFont: '14px monospace',
-+      dashed: true
++      dashed: true // Dashed lines distinguish historical data from current day (solid lines)
 +    }
 +  );
 +

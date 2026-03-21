@@ -3,7 +3,7 @@
 import interact from 'interactjs';
 
 export function createInteractConfig(element, callbacks) {
-  const { onDragMove, onResizeMove, onTap } = callbacks;
+  const { onDragMove, onResizeMove, onTap, resizable = true } = callbacks;
 
   const interactable = interact(element)
     .draggable({
@@ -15,7 +15,10 @@ export function createInteractConfig(element, callbacks) {
       ],
       onmove: onDragMove
     })
-    .resizable({
+    .on('tap', onTap);
+
+  if (resizable && onResizeMove) {
+    interactable.resizable({
       edges: { right: true, bottom: true },
       listeners: { move: onResizeMove },
       modifiers: [
@@ -27,8 +30,8 @@ export function createInteractConfig(element, callbacks) {
         })
       ],
       inertia: true
-    })
-    .on('tap', onTap);
+    });
+  }
 
   return interactable;
 }

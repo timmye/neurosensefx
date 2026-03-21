@@ -19,6 +19,13 @@ export function createKeyboardHandler(workspaceActions) {
     }
   }
 
+  function handleCreatePriceTicker() {
+    const symbol = prompt('Enter symbol for Price Ticker:');
+    if (symbol) {
+      workspaceActions.addPriceTicker(symbol.replace('/', '').trim().toUpperCase(), null, 'tradingview');
+    }
+  }
+
   function handleEscapeSequence() {
     escPressCount++;
 
@@ -58,6 +65,13 @@ export function createKeyboardHandler(workspaceActions) {
     if (event.altKey && event.key.toLowerCase() === 't') {
       event.preventDefault();
       handleCreateTradingViewDisplay();
+      return;
+    }
+
+    // Alt+I: Create Price Ticker
+    if (event.altKey && event.key.toLowerCase() === 'i') {
+      event.preventDefault();
+      handleCreatePriceTicker();
       return;
     }
 

@@ -41,7 +41,19 @@
       "Bash(source:*)",
       "Bash(export PATH:*)",
       "Bash(hash:*)",
-      "Bash(claude --version)"
+      "Bash(claude --version)",
+      "Bash(git ls-tree:*)",
+      "Bash(/workspaces/neurosensefx/secrets/.template:*)",
+      "Bash(ls -la /workspaces/neurosensefx/*.yml /workspaces/neurosensefx/Dockerfile*)",
+      "Bash(ls -la /workspaces/neurosensefx/services/tick-backend/Dockerfile*)",
+      "Bash(docker build:*)",
+      "Bash(npm --version)",
+      "Bash(uv --version)",
+      "Bash(sh)",
+      "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
+      "Bash(npm install:*)",
+      "Bash(ls -la /workspaces/neurosensefx/**/*.log)",
+      "Bash(ls -la /workspaces/neurosensefx/services/tick-backend/.env*)"
     ],
     "deny": [],
     "ask": []

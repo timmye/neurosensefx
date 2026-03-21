@@ -9,6 +9,7 @@ class RequestCoordinator {
         this.wsServer = wsServer;
         this.fetchTimeout = fetchTimeout;
         this.pendingRequests = new Map(); // "symbol:adr" -> {promise, clients[]}
+        this.pendingTradingViewRequests = new Map(); // "symbol" -> Set<clients>
         this.MAX_RETRIES = 3;
         this.INITIAL_RETRY_DELAY_MS = 500;
     }
@@ -118,24 +119,24 @@ class RequestCoordinator {
 
             console.log(`[RequestCoordinator] Initializing Market Profile for ${data.symbol}:${source} with ${data.initialMarketProfile.length} bars`);
             try {
-                const bucketSize = calculateBucketSizeForSymbol(data.symbol);
+                const bucketSize = calculateBucketSizeForSymbol(data.symbol, data.initialPrice);
                 this.wsServer.marketProfileService.initializeFromHistory(
                     data.symbol,
                     data.initialMarketProfile,
                     bucketSize,
                     source
                 );
-                console.log(`[RequestCoordinator] Market Profile initialized for ${data.symbol}:${source}`);
+                console.log(`[RequestCoordinator] Market Profile initialized for ${data.symbol}:${source} with bucketSize=${bucketSize}`);
             } catch (error) {
                 console.error(`[RequestCoordinator] Market Profile initialization failed for ${data.symbol}:`, error);
             }
         }
 
         clients.forEach((client, index) => {
-            console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:117] Sending symbolDataPackage to client ${index + 1}/${clients.length} for symbol=${data.symbol}`);
+            console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:135] Sending symbolDataPackage to client ${index + 1}/${clients.length} for symbol=${data.symbol}, source=${source}`);
             this.wsServer.sendToClient(client, {
                 type: 'symbolDataPackage',
-                source: 'ctrader',
+                source: source,
                 symbol: data.symbol,
                 digits: data.digits,
                 adr: data.adr,
@@ -213,10 +214,36 @@ class RequestCoordinator {
      * @param {WebSocket} client - Client making the request
      */
     async handleTradingViewRequest(symbol, adrLookbackDays, client) {
+        // Track this client as waiting for TradingView data
+        if (!this.pendingTradingViewRequests.has(symbol)) {
+            this.pendingTradingViewRequests.set(symbol, new Set());
+        }
+        this.pendingTradingViewRequests.get(symbol).add(client);
+        console.log(`[RequestCoordinator] Tracking ${this.pendingTradingViewRequests.get(symbol).size} clients waiting for TradingView data: ${symbol}`);
+
+        // Set up one-time listener for the data package
+        const onDataPackage = (data) => {
+            if (data.symbol === symbol && data.type === 'symbolDataPackage') {
+                console.log(`[RequestCoordinator] Received TradingView data package for ${symbol}, sending to ${this.pendingTradingViewRequests.get(symbol)?.size || 0} waiting clients`);
+                const waitingClients = this.pendingTradingViewRequests.get(symbol);
+                if (waitingClients) {
+                    waitingClients.forEach(c => {
+                        this.wsServer.sendToClient(c, data);
+                    });
+                    this.pendingTradingViewRequests.delete(symbol);
+                }
+                this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
+            }
+        };
+
+        this.wsServer.tradingViewSession.once('candle', onDataPackage);
+
         try {
             await this.wsServer.tradingViewSession.subscribeToSymbol(symbol, adrLookbackDays);
         } catch (error) {
             console.error(`Failed to get TradingView data for ${symbol}:`, error);
+            this.pendingTradingViewRequests.get(symbol)?.delete(client);
+            this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
             this.wsServer.sendToClient(client, {
                 type: 'error',
                 message: `Failed to get TradingView data for ${symbol}: ${error.message}`,

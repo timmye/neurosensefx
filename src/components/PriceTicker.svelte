@@ -1,0 +1,360 @@
+<script>
+  import { onMount, onDestroy } from 'svelte';
+  import { workspaceStore, workspaceActions } from '../stores/workspace.js';
+  import { ConnectionManager } from '../lib/connectionManager.js';
+  import { getWebSocketUrl, formatSymbol, processSymbolData } from '../lib/displayDataProcessor.js';
+  import { useWebSocketSub } from '../composables/useWebSocketSub.js';
+  import { calculateDayRangePercentage } from '../lib/dayRangeCalculations.js';
+  import { formatPrice } from '../lib/priceFormat.js';
+  import { renderMiniMarketProfile } from '../lib/marketProfile/orchestrator.js';
+  import { createInteractConfig } from '../lib/interactSetup.js';
+
+  export let ticker;
+
+  let element;
+  let interactable;
+  let connectionManager;
+  let canvasRef;
+  let webSocketSub;
+  let lastData = null;
+  let lastMarketProfileData = null;
+
+  // Reactive display values (auto-update when lastData changes)
+  $: currentPrice = lastData?.current ?? null;
+  $: highPrice = lastData?.high ?? null;
+  $: lowPrice = lastData?.low ?? null;
+  $: openPrice = lastData?.open ?? null;
+  $: rangePercent = calculateDayRangePercentage(lastData);
+  $: direction = lastData?.direction ?? 'neutral';
+  $: pipPosition = lastData?.pipPosition ?? 4;
+
+  // Calculate daily change percentage
+  $: dailyChangePercent = currentPrice && openPrice
+    ? (((currentPrice - openPrice) / openPrice) * 100).toFixed(2)
+    : null;
+
+  $: dailyChangeClass = dailyChangePercent > 0 ? 'positive' : dailyChangePercent < 0 ? 'negative' : '';
+
+  const formattedSymbol = formatSymbol(ticker.symbol);
+
+  // Reactive: render market profile whenever data or canvas changes
+  // Use block form to ensure Svelte tracks both dependencies properly
+  $: {
+    if (canvasRef && lastMarketProfileData) {
+      console.log('[PriceTicker] Rendering market profile for', formattedSymbol, 'levels:', lastMarketProfileData.length);
+      renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
+        width: 37.5,
+        height: 60,
+        pipPosition: pipPosition
+      });
+    }
+  }
+
+  onMount(() => {
+    connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
+    webSocketSub = useWebSocketSub(connectionManager);
+
+    webSocketSub.subscribe(formattedSymbol, ticker.source || 'tradingview', (data) => {
+      const processed = processSymbolData(data, formattedSymbol, lastData);
+
+      if (processed?.type === 'data') {
+        lastData = processed.data;
+      }
+
+      // Handle market profile updates from backend processing
+      // Note: initialMarketProfile contains raw M1 data for backend initialization only
+      // We render from profileUpdate events which contain processed {price, tpo} levels
+      if (data.type === 'profileUpdate' && data.profile) {
+        lastMarketProfileData = data.profile.levels;
+      }
+    }, 14);
+
+    // Setup drag interaction (no resize for ticker)
+    interactable = createInteractConfig(element, {
+      onDragMove: (e) => workspaceActions.updatePosition(ticker.id, { x: e.rect.left, y: e.rect.top }),
+      onTap: () => workspaceActions.bringToFront(ticker.id),
+      resizable: false
+    });
+
+    connectionManager.connect();
+
+    return () => {
+      webSocketSub?.unsubscribeCurrent();
+    };
+  });
+
+  onDestroy(() => {
+    interactable?.unset();
+    connectionManager?.disconnect();
+  });
+
+  function handleClose() {
+    workspaceActions.removeDisplay(ticker.id);
+  }
+
+  function handleFocus() {
+    workspaceActions.bringToFront(ticker.id);
+  }
+
+  function handleRefresh() {
+    console.log('[PriceTicker] Refresh clicked for', formattedSymbol, 'source:', ticker.source || 'tradingview');
+    // Request a fresh profile re-emission from backend
+    if (connectionManager?.connectionHandler?.getWebSocket()) {
+      const ws = connectionManager.connectionHandler.getWebSocket();
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'refresh_profile',
+          symbol: formattedSymbol,
+          source: ticker.source || 'tradingview'
+        }));
+      }
+    }
+  }
+</script>
+
+<style>
+  .ticker-container {
+    position: absolute;
+    display: flex;
+    width: 240px;
+    height: 80px;
+    box-sizing: border-box;
+    background: #141414; /* Card BG from spec */
+    border: 1px solid #333; /* Border Line from spec */
+    border-radius: 4px;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+    cursor: move;
+    user-select: none;
+  }
+
+  .ticker-container:focus {
+    outline: 3px solid #00ff00;
+    outline-offset: -3px;
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+  }
+
+  /* Column 1: Identity (135px) */
+  .identity-column {
+    width: 135px;
+    flex-shrink: 0;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-right: 1px solid #333;
+    background: #141414; /* Card BG from spec */
+  }
+
+  .symbol-label {
+    font-size: 14px; /* Spec: 14px, 600, #888888 */
+    font-weight: 600;
+    color: #888888;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+
+  .price-value {
+    font-size: 24px; /* Spec: 24px, 700, #FFFFFF */
+    font-weight: 700;
+    color: #FFFFFF;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Column 2: Chart (37.5px) */
+  .chart-column {
+    width: 37.5px;
+    flex-shrink: 0;
+    position: relative;
+    background: #222222; /* Chart BG from spec */
+    border-right: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chart-canvas {
+    width: 37.5px;
+    height: 60px;
+    display: block;
+  }
+
+  /* Column 3: Stats (flex: 1, remaining 67.5px) */
+  .stats-column {
+    flex: 1;
+    min-width: 0;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #141414; /* Card BG from spec */
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px; /* Spec: Mid Stats 10px, 400, #666666 */
+  }
+
+  .stat-spacer {
+    flex: 1;
+  }
+
+  .stat-label {
+    color: #666666; /* Spec: Mid Stats 10px, 400, #666666 */
+    font-weight: 400;
+  }
+
+  .stat-value {
+    color: #CCCCCC; /* Spec: High/Low Price 12px, 500, #CCCCCC */
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stat-value.positive {
+    color: #00ff00;
+  }
+
+  .stat-value.negative {
+    color: #ff0000;
+  }
+
+  .close-button {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border: none;
+    background: rgba(255, 0, 0, 0.5);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 2px;
+    transition: opacity 0.15s;
+    opacity: 0;
+    pointer-events: auto;
+  }
+
+  .refresh-button {
+    position: absolute;
+    top: 2px;
+    right: 22px;
+    width: 18px;
+    height: 18px;
+    border: none;
+    background: rgba(0, 150, 255, 0.5);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 2px;
+    transition: opacity 0.15s;
+    opacity: 0;
+    pointer-events: auto;
+  }
+
+  .ticker-container:hover .close-button,
+  .ticker-container:hover .refresh-button {
+    opacity: 1;
+  }
+
+  .close-button:hover {
+    background: rgba(255, 0, 0, 0.9);
+  }
+
+  .refresh-button:hover {
+    background: rgba(0, 150, 255, 0.9);
+  }
+
+  /* Loading state */
+  .loading {
+    color: #666;
+    font-style: italic;
+  }
+</style>
+
+<div class="ticker-container" bind:this={element} data-ticker-id={ticker.id}
+     style="left: {ticker.position?.x || 100}px; top: {ticker.position?.y || 100}px; z-index: {ticker.zIndex || 1};"
+     tabindex="0" role="region" aria-label="{ticker.symbol} ticker"
+     on:focus={handleFocus}>
+  <button class="refresh-button" on:click={handleRefresh} aria-label="Refresh ticker">↻</button>
+  <button class="close-button" on:click={handleClose} aria-label="Close ticker">×</button>
+
+  <!-- Column 1: Identity -->
+  <div class="identity-column">
+    <div class="symbol-label">{ticker.symbol}</div>
+    <div class="price-value">
+      {#if currentPrice}
+        {formatPrice(currentPrice, pipPosition)}
+      {:else}
+        <span class="loading">...</span>
+      {/if}
+    </div>
+  </div>
+
+  <!-- Column 2: Mini Market Profile -->
+  <div class="chart-column">
+    <canvas bind:this={canvasRef} class="chart-canvas" width="37.5" height="60"></canvas>
+  </div>
+
+  <!-- Column 3: Session Stats -->
+  <div class="stats-column">
+    <div class="stat-row">
+      <span class="stat-label">H</span>
+      <span class="stat-value">
+        {#if highPrice}
+          {formatPrice(highPrice, pipPosition)}
+        {:else}
+          <span class="loading">...</span>
+        {/if}
+      </span>
+    </div>
+    <div class="stat-spacer"></div>
+    <div class="stat-row">
+      <span class="stat-value" class:positive={dailyChangeClass === 'positive'} class:negative={dailyChangeClass === 'negative'}>
+        {#if dailyChangePercent !== null}
+          {dailyChangePercent > 0 ? '+' : ''}{dailyChangePercent}%
+        {:else}
+          <span class="loading">...</span>
+        {/if}
+      </span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-value">
+        {#if rangePercent !== null}
+          DR{rangePercent}%
+        {:else}
+          <span class="loading">...</span>
+        {/if}
+      </span>
+    </div>
+    <div class="stat-spacer"></div>
+    <div class="stat-row">
+      <span class="stat-label">L</span>
+      <span class="stat-value">
+        {#if lowPrice}
+          {formatPrice(lowPrice, pipPosition)}
+        {:else}
+          <span class="loading">...</span>
+        {/if}
+      </span>
+    </div>
+  </div>
+</div>

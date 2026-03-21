@@ -56,6 +56,24 @@ const actions = {
     });
   },
 
+  addPriceTicker: (symbol, position = null, source = 'ctrader') => {
+    workspaceStore.update(state => {
+      const id = `ticker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const ticker = {
+        id, symbol, source, created: Date.now(), type: 'priceTicker',
+        position: position || state.config.defaultPosition,
+        size: { width: 240, height: 80 },
+        zIndex: state.nextZIndex
+      };
+
+      return {
+        ...state,
+        displays: new Map(state.displays).set(id, ticker),
+        nextZIndex: state.nextZIndex + 1
+      };
+    });
+  },
+
   removeDisplay: (id) => {
     workspaceStore.update(state => {
       const newDisplays = new Map(state.displays);

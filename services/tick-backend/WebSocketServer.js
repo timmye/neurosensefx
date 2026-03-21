@@ -99,6 +99,9 @@ class WebSocketServer {
                 case 'reinit':
                     await this.handleReinit(ws, data);
                     break;
+                case 'refresh_profile':
+                    this.handleRefreshProfile(ws, data);
+                    break;
                 default:
                     console.warn(`Unknown message type: ${data.type}`);
             }
@@ -179,6 +182,21 @@ class WebSocketServer {
                 }
             }
         }
+    }
+
+    handleRefreshProfile(ws, data) {
+        const symbol = data.symbol;
+        const source = data.source || 'ctrader';
+
+        // Check if client is subscribed to this symbol
+        const clients = this.subscriptionManager.getSubscribedClients(symbol, source);
+        if (!clients || !clients.has(ws)) {
+            console.log(`[WebSocketServer] Refresh profile requested for ${symbol} by unsubscribed client`);
+            return;
+        }
+
+        console.log(`[WebSocketServer] Refresh profile requested for ${symbol} (${source})`);
+        this.marketProfileService.reemitProfile(symbol);
     }
 
     sendToClient(ws, data) {

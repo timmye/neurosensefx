@@ -22,14 +22,17 @@ export function useSymbolData() {
       hasLastMarketProfileData: !!lastMarketProfileData
     });
 
-    if (data.type === 'symbolDataPackage' && data.initialMarketProfile) {
+    if (data.type === 'symbolDataPackage' && data.initialMarketProfile && data.initialMarketProfile.length > 0) {
       const bucketSize = data.bucketSize;
       const { profile, actualBucketSize } = buildProfile(
         data.initialMarketProfile,
         bucketSize,
         data
       );
-      result.lastMarketProfileData = profile;
+      // Only update if we have actual profile data (don't overwrite with empty array)
+      if (profile && profile.length > 0) {
+        result.lastMarketProfileData = profile;
+      }
       console.log('[useSymbolData] symbolDataPackage processed, profile length:', profile?.length || 0);
     } else if (data.type === 'profileUpdate' && data.profile) {
       result.lastMarketProfileData = data.profile.levels;

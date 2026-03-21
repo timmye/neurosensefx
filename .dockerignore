@@ -1,0 +1,111 @@
+# =============================================================================
+# NEUROSENSE FX - DOCKERIGNORE FILE
+# =============================================================================
+# Excludes unnecessary files from Docker build context
+# Reduces build time and image size
+
+# Development files
+.git
+.gitignore
+.gitmodules
+.github/
+.vscode/
+.idea/
+
+# Documentation and examples
+README.md
+README-*.md
+docs/
+examples/
+*.md
+!dist/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+
+# Testing
+coverage/
+.nyc_output
+test/
+tests/
+__tests__/
+*.test.js
+*.spec.js
+playwright-report/
+test-results/
+blob-report/
+
+# Logs
+logs/
+*.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+.tmp/
+.temp/
+.cache/
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts (keep final built products)
+dist/
+build/
+!dist/
+!build/
+
+# Development tools
+.eslintrc*
+.prettierrc*
+.editorconfig
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.gitlab-ci.yml
+.github/
+.travis.yml
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Archive files
+*.tar.gz
+*.zip
+*.rar
+
+# Keep these files in build context
+!package.json
+!package-lock.json
+!yarn.lock
+!.env.example
+!run.sh
+!docker-healthcheck.sh

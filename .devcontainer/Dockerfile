@@ -19,7 +19,8 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive && \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:/home/node/.local/bin:$PATH"
 
-# Ensure node user can access UV
+# Ensure node user can access UV and add to .bashrc
 RUN mkdir -p /home/node/.local/bin && \
     cp -r /root/.local/bin/* /home/node/.local/bin/ && \
-    chown -R node:node /home/node/.local
+    chown -R node:node /home/node/.local && \
+    echo 'export PATH="/home/node/.local/bin:$PATH"' >> /home/node/.bashrc

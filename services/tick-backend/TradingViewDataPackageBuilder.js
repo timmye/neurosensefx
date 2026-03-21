@@ -56,7 +56,8 @@ class TradingViewDataPackageBuilder {
      */
     buildDataPackage(symbol, todaysOpen, adr, todaysM1Candles, previousDay, lastCandle, estimatePipDataFn) {
         const pipData = estimatePipDataFn(lastCandle.close);
-        const bucketSize = this.calculateBucketSizeForSymbol(symbol);
+        const currentPrice = lastCandle.close;
+        const bucketSize = this.calculateBucketSizeForSymbol(symbol, currentPrice);
 
         return {
             type: 'symbolDataPackage',

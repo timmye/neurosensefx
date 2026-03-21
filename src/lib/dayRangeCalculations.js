@@ -3,7 +3,7 @@
 
 // Calculate day range percentage from ADR
 export function calculateDayRangePercentage(d) {
-  if (typeof d.high === 'number' && typeof d.low === 'number' &&
+  if (d && typeof d.high === 'number' && typeof d.low === 'number' &&
       typeof d.adrHigh === 'number' && typeof d.adrLow === 'number') {
     const dayRange = d.high - d.low;
     const adrValue = d.adrHigh - d.adrLow;
