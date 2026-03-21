@@ -25,6 +25,7 @@
   let lastMarketProfileData = null;
   let lastTrackedPrice = null;
   let flashTimeout = null;
+  let resizeObserver = null;
 
   // Flash state
   let priceFlashClass = '';
@@ -75,6 +76,18 @@
 
   const formattedSymbol = formatSymbol(ticker.symbol);
 
+  // Function to re-render market profile (called on zoom/resize)
+  function renderMarketProfile() {
+    if (canvasRef && lastMarketProfileData) {
+      renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
+        width: 37.5,
+        height: 60,
+        pipPosition: pipPosition,
+        currentPrice
+      });
+    }
+  }
+
   // Reactive: render market profile whenever data or canvas changes
   // Use block form to ensure Svelte tracks both dependencies properly
   $: {
@@ -92,6 +105,16 @@
   onMount(() => {
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
     webSocketSub = useWebSocketSub(connectionManager);
+
+    // Setup ResizeObserver to re-render canvas on browser zoom/resize
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        renderMarketProfile();
+      });
+      if (canvasRef) {
+        resizeObserver.observe(canvasRef);
+      }
+    }
 
     webSocketSub.subscribe(formattedSymbol, ticker.source || 'tradingview', (data) => {
       const processed = processSymbolData(data, formattedSymbol, lastData);
@@ -124,6 +147,7 @@
 
   onDestroy(() => {
     if (flashTimeout) clearTimeout(flashTimeout);
+    if (resizeObserver) resizeObserver.disconnect();
     interactable?.unset();
     connectionManager?.disconnect();
   });

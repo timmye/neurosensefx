@@ -9,6 +9,7 @@ import { calculateMaxTpo, calculateTpoScale, computePOC, calculateValueArea } fr
 import { drawValueArea, drawBars, drawPOC } from './rendering.js';
 import { createDayRangeConfig } from '../dayRangeRenderingUtils.js';
 import { getConfig } from '../dayRangeConfig.js';
+import { setupCanvas, renderPixelPerfectLine } from '../dayRangeCore.js';
 
 export function renderMarketProfile(ctx, data, config) {
   if (!data || data.length === 0) {
@@ -73,18 +74,11 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   }
 
   console.log('[renderMiniMarketProfile] Rendering profile with', profile.length, 'levels, size:', size);
-  const ctx = canvas.getContext('2d');
   const { width, height, pipPosition = 4, currentPrice } = size;
+
+  // DPR-aware canvas setup
+  const ctx = setupCanvas(canvas, width, height);
   const dpr = window.devicePixelRatio || 1;
-
-  // Set canvas size accounting for DPR
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
-
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, width, height);
 
   // Calculate price range
   const prices = profile.map(l => l.price);
@@ -102,17 +96,18 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   // Draw profile bars (simplified, no labels)
   const barHeight = Math.max(1, (height - 4) / profile.length); // -4 for padding
   const padding = 2;
+  const gap = 1 / dpr; // DPR-aware gap
 
   profile.forEach((level, index) => {
-    const y = padding + (index * barHeight);
+    const y = Math.round(padding + (index * barHeight));
     const barWidth = (level.tpo / maxTpo) * (width - 2); // -2 for right padding
 
     // Standard Bar color from spec: #00D2FF
     // Use opacity to indicate intensity
     const intensity = level.tpo / maxTpo;
-    ctx.fillStyle = `rgba(0, 210, 255, ${0.4 + (intensity * 0.6)})`;
+    ctx.fillStyle = `rgba(0, 210, 255, ${0.2 + (intensity * 0.4)})`;
 
-    ctx.fillRect(0, y, barWidth, barHeight - 0.5); // -0.5 for gap
+    ctx.fillRect(0, y, barWidth, Math.max(1, Math.round(barHeight - gap)));
   });
 
   // Draw POC line (level with highest TPO)
@@ -122,33 +117,35 @@ export function renderMiniMarketProfile(canvas, profile, size) {
 
   // if (pocLevel) {
   //   const pocIndex = profile.findIndex(l => l.price === pocLevel.price);
-  //   const pocY = padding + (pocIndex * barHeight);
+  //   const pocY = Math.round(padding + (pocIndex * barHeight));
 
   //   ctx.strokeStyle = '#FFCC00';
   //   ctx.lineWidth = 1;
-  //   ctx.beginPath();
-  //   ctx.moveTo(0, pocY);
-  //   ctx.lineTo(width, pocY);
-  //   ctx.stroke();
+  //   renderPixelPerfectLine(ctx, 0, pocY, width, pocY);
   // }
 
   // Draw current price marker (if available and within profile range)
   if (currentPrice != null && currentPrice >= minPrice && currentPrice <= maxPrice) {
     const pricePosition = (currentPrice - minPrice) / priceRange;
-    const currentY = padding + ((1 - pricePosition) * (height - 4));
+    const currentY = Math.round(padding + ((1 - pricePosition) * (height - 4)));
 
     // Neon orange line for current price (most visible)
+    ctx.save();
     ctx.strokeStyle = '#FF6600';
     ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, currentY);
-    ctx.lineTo(width - 4, currentY);
-    ctx.stroke();
+    renderPixelPerfectLine(ctx, 0, currentY, width - 4, currentY);
+    ctx.restore();
 
-    // Accent dot on right edge
+    // Accent dot on right edge (pixel-aligned, offset for visibility)
     ctx.fillStyle = '#FF6600';
     ctx.beginPath();
-    ctx.arc(width - 2, currentY, 2, 0, Math.PI * 2);
+    ctx.arc(Math.round(width - 4), currentY, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Origin dot at middle (left edge, offset for visibility)
+    ctx.fillStyle = '#FF6600';
+    ctx.beginPath();
+    ctx.arc(2, Math.round(height / 2), 2, 0, Math.PI * 2);
     ctx.fill();
   }
 }
