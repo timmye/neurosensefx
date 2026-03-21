@@ -56,7 +56,7 @@ export function renderMarketProfile(ctx, data, config) {
  *
  * @param {HTMLCanvasElement} canvas - Canvas element to render on
  * @param {Array} profile - Market profile data [{price, tpo}, ...]
- * @param {Object} size - {width, height, pipPosition}
+ * @param {Object} size - {width, height, pipPosition, currentPrice}
  */
 export function renderMiniMarketProfile(canvas, profile, size) {
   if (!canvas) {
@@ -74,7 +74,7 @@ export function renderMiniMarketProfile(canvas, profile, size) {
 
   console.log('[renderMiniMarketProfile] Rendering profile with', profile.length, 'levels, size:', size);
   const ctx = canvas.getContext('2d');
-  const { width, height, pipPosition = 4 } = size;
+  const { width, height, pipPosition = 4, currentPrice } = size;
   const dpr = window.devicePixelRatio || 1;
 
   // Set canvas size accounting for DPR
@@ -96,7 +96,7 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   const maxTpo = Math.max(...profile.map(l => l.tpo));
 
   // Background (Chart BG from spec)
-  ctx.fillStyle = '#222222';
+  ctx.fillStyle = '#111111';
   ctx.fillRect(0, 0, width, height);
 
   // Draw profile bars (simplified, no labels)
@@ -117,19 +117,39 @@ export function renderMiniMarketProfile(canvas, profile, size) {
 
   // Draw POC line (level with highest TPO)
   // POC Bar color from spec: #FFCC00
-  const pocLevel = profile.reduce((max, level) =>
-    level.tpo > max.tpo ? level : max, profile[0]);
+  // const pocLevel = profile.reduce((max, level) =>
+  //   level.tpo > max.tpo ? level : max, profile[0]);
 
-  if (pocLevel) {
-    const pocIndex = profile.findIndex(l => l.price === pocLevel.price);
-    const pocY = padding + (pocIndex * barHeight);
+  // if (pocLevel) {
+  //   const pocIndex = profile.findIndex(l => l.price === pocLevel.price);
+  //   const pocY = padding + (pocIndex * barHeight);
 
-    ctx.strokeStyle = '#FFCC00';
-    ctx.lineWidth = 1;
+  //   ctx.strokeStyle = '#FFCC00';
+  //   ctx.lineWidth = 1;
+  //   ctx.beginPath();
+  //   ctx.moveTo(0, pocY);
+  //   ctx.lineTo(width, pocY);
+  //   ctx.stroke();
+  // }
+
+  // Draw current price marker (if available and within profile range)
+  if (currentPrice != null && currentPrice >= minPrice && currentPrice <= maxPrice) {
+    const pricePosition = (currentPrice - minPrice) / priceRange;
+    const currentY = padding + ((1 - pricePosition) * (height - 4));
+
+    // Neon orange line for current price (most visible)
+    ctx.strokeStyle = '#FF6600';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(0, pocY);
-    ctx.lineTo(width, pocY);
+    ctx.moveTo(0, currentY);
+    ctx.lineTo(width - 4, currentY);
     ctx.stroke();
+
+    // Accent dot on right edge
+    ctx.fillStyle = '#FF6600';
+    ctx.beginPath();
+    ctx.arc(width - 2, currentY, 2, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 

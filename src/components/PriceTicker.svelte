@@ -45,7 +45,8 @@
       renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
         width: 37.5,
         height: 60,
-        pipPosition: pipPosition
+        pipPosition: pipPosition,
+        currentPrice
       });
     }
   }
@@ -130,14 +131,14 @@
   }
 
   .ticker-container:focus {
-    outline: 3px solid #00ff00;
-    outline-offset: -3px;
-    box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+    outline: 2px solid #00ff00;
+    outline-offset: -2px;
+    box-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
   }
 
   /* Column 1: Identity (135px) */
   .identity-column {
-    width: 135px;
+    width: 115px;
     flex-shrink: 0;
     padding: 8px;
     display: flex;
@@ -148,7 +149,7 @@
   }
 
   .symbol-label {
-    font-size: 14px; /* Spec: 14px, 600, #888888 */
+    font-size: 16px; /* Spec: 14px, 600, #888888 */
     font-weight: 600;
     color: #888888;
     text-transform: uppercase;
@@ -159,8 +160,8 @@
 
 
   .price-value {
-    font-size: 24px; /* Spec: 24px, 700, #FFFFFF */
-    font-weight: 700;
+    font-size: 32px; /* Spec: 24px, 700, #FFFFFF */
+    font-weight: 600;
     color: #FFFFFF;
     white-space: nowrap;
     overflow: hidden;
@@ -172,7 +173,7 @@
     width: 37.5px;
     flex-shrink: 0;
     position: relative;
-    background: #222222; /* Chart BG from spec */
+    background: #111111; /* Chart BG from spec */
     border-right: 1px solid #333;
     display: flex;
     align-items: center;
@@ -200,7 +201,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 10px; /* Spec: Mid Stats 10px, 400, #666666 */
+    font-size: 11px; /* Spec: Mid Stats 10px, 400, #666666 */
   }
 
   .stat-spacer {
@@ -221,11 +222,11 @@
   }
 
   .stat-value.positive {
-    color: #00ff00;
+    color: #00d4ff;
   }
 
   .stat-value.negative {
-    color: #ff0000;
+    color: #e040fb;
   }
 
   .close-button {
@@ -339,7 +340,7 @@
     <div class="stat-row">
       <span class="stat-value">
         {#if rangePercent !== null}
-          DR{rangePercent}%
+          DR {rangePercent}%
         {:else}
           <span class="loading">...</span>
         {/if}
