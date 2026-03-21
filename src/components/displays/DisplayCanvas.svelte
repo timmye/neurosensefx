@@ -173,6 +173,7 @@
     height: 100%;
     position: relative;
     overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 
   canvas {

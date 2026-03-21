@@ -95,7 +95,7 @@ function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height,
   const midY = priceScale(midPrice);
 
   ctx.fillStyle = colors.sessionPrices;
-  ctx.font = colors.fonts?.percentageLabels || '10px sans-serif';
+  ctx.font = colors.fonts?.percentageLabels || '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
   ctx.textAlign = 'right';
 
   // Add semi-transparent background for DR% text

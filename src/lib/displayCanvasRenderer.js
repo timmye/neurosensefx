@@ -203,7 +203,7 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
     drawPriceMarker(ctx, axisX, currentY, formattedCurrentPrice, '#FFD700', true, 'right', `(${deltaPips})`);
 
     // Setup font for percentage text
-    ctx.font = config.fonts?.statusMessages || '16px monospace';
+    ctx.font = config.fonts?.statusMessages || '400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
     ctx.textAlign = 'right';
     const midY = (startY + currentY) / 2;
     const percentText = `${deltaPercent}%`;

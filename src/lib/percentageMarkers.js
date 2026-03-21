@@ -1,10 +1,10 @@
 // Percentage markers for Day Range Meter - Crystal Clarity Compliant
 // Framework-first: Individual percentage marker functions
 
-import { COLORS, FONT_SIZES, LINE_WIDTHS } from './colors.js';
+import { COLORS, FONT_SIZES, LINE_WIDTHS, SYSTEM_FONT_FAMILY } from './colors.js';
 
 export function drawPercentageMarkers(ctx, axisX, midPrice, adrValue, priceScale) {
-  ctx.font = `${FONT_SIZES.percent}px monospace`;
+  ctx.font = `${FONT_SIZES.percent}px ${SYSTEM_FONT_FAMILY}`;
 
   drawPositivePercentages(ctx, axisX, midPrice, adrValue, priceScale);
   drawNegativePercentages(ctx, axisX, midPrice, adrValue, priceScale);

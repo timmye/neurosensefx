@@ -5,6 +5,8 @@
 import { renderPixelPerfectLine } from '../dayRangeCore.js';
 import { ZONE_COLORS, BASKET_ZONES } from './fxBasketConfig.js';
 
+const SYSTEM_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
 export function measureTextHeight(ctx, config) {
   ctx.font = config.fonts.basketLabel;
   const metrics = ctx.measureText('EUR');
@@ -18,7 +20,7 @@ export function renderBaseline(ctx, y, width, config) {
   ctx.setLineDash([4, 4]);
   renderPixelPerfectLine(ctx, 0, y, width, y);
 
-  ctx.font = '10px sans-serif';
+  ctx.font = `400 11px ${SYSTEM_FONT_FAMILY}`;
   ctx.fillStyle = config.colors.baseline;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
@@ -94,7 +96,7 @@ export function renderWaitingState(ctx, progress, config, dimensions) {
   ctx.fillRect(20, height / 2 - 10, barWidth, 20);
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '14px monospace';
+  ctx.font = `400 14px ${SYSTEM_FONT_FAMILY}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(`Initializing... (${received}/${total} pairs)`, width / 2, height / 2 - 30);
@@ -119,12 +121,12 @@ export function renderErrorState(ctx, missingPairs, config, dimensions) {
   ctx.stroke();
 
   ctx.fillStyle = '#EF4444';
-  ctx.font = 'bold 14px monospace';
+  ctx.font = `600 14px ${SYSTEM_FONT_FAMILY}`;
   ctx.textAlign = 'center';
   ctx.fillText(`Unable to initialize - missing ${missingPairs.length} pairs`, centerX, centerY + 50);
 
   ctx.fillStyle = '#9CA3AF';
-  ctx.font = '12px monospace';
+  ctx.font = `400 12px ${SYSTEM_FONT_FAMILY}`;
   const pairsText = missingPairs.slice(0, 8).join(', ');
   ctx.fillText(pairsText, centerX, centerY + 75);
 
@@ -135,7 +137,7 @@ export function renderErrorState(ctx, missingPairs, config, dimensions) {
   ctx.fillStyle = '#3B82F6';
   ctx.fillRect(centerX - 50, centerY + 120, 100, 30);
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '14px monospace';
+  ctx.font = `600 14px ${SYSTEM_FONT_FAMILY}`;
   ctx.fillText('Retry', centerX, centerY + 135);
 }
 

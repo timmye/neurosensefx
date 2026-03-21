@@ -46,7 +46,7 @@ export function renderDayRange(ctx, data, size, getConfig) {
   ctx.stroke();
 
   // Price markers
-  ctx.font = config.fonts?.percentageLabels || '10px sans-serif';
+  ctx.font = config.fonts?.percentageLabels || '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const prices = [

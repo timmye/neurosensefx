@@ -4,6 +4,7 @@
 import { setupTextRendering } from './dayRangeCore.js';
 import { formatPriceWithPipPosition, emphasizeDigits } from './priceFormat.js';
 import { defaultConfig } from './dayRangeConfig.js';
+import { SYSTEM_FONT_FAMILY } from './colors.js';
 
 // Render a horizontal marker line with optional text label
 export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, config = {}) {
@@ -40,7 +41,7 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
 
       // Draw background if needed
       if (textBackground) {
-        const fontSize = parseInt(textFont.match(/\d+/)) || 32;
+        const fontSize = parseInt(textFont.match(/\d+px/)) || 32;
 
         // Background sized to emphasized font with small padding
         const padding = fontSize * 0.1; // 10% of font size
@@ -65,7 +66,7 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
       const emphasisEnd = emphasisStart + emphasized.length;
 
       // Extract base font size from textFont configuration
-      const baseFontSize = parseInt(textFont.match(/\d+/)) || 46;
+      const baseFontSize = parseInt(textFont.match(/\d+px/)) || 32;
       renderMultiSizePrice(ctx, axisX - 5, y, fullText, emphasisStart, emphasisEnd, textColor, baseFontSize);
     } else {
       // Use original single-size rendering
@@ -74,7 +75,7 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
       // Draw semi-transparent background if enabled (for current price)
       if (textBackground) {
         const metrics = ctx.measureText(text);
-        const fontHeight = parseInt(ctx.font.match(/\d+/)) || 12; // Extract font size from ctx.font
+        const fontHeight = parseInt(ctx.font.match(/\d+px/)) || 12; // Extract font size from ctx.font
         const padding = Math.max(3, fontHeight * 0.08); // Dynamic padding based on font size
         const backgroundHeight = fontHeight * 0.7; // 70% of font height for proper text alignment
 
@@ -143,7 +144,7 @@ export function renderMultiSizePrice(ctx, x, y, text, emphasisStart, emphasisEnd
   parts.forEach(part => {
     if (!part.text) return;
     const fontSize = part.emphasized ? baseFontSize * defaultConfig.emphasis.ratio : baseFontSize;
-    ctx.font = `${scaleForDPR(fontSize)}px monospace`;
+    ctx.font = `${scaleForDPR(fontSize)}px ${SYSTEM_FONT_FAMILY}`;
     totalWidth += ctx.measureText(part.text).width;
   });
 
@@ -154,7 +155,7 @@ export function renderMultiSizePrice(ctx, x, y, text, emphasisStart, emphasisEnd
     if (!part.text) return;
 
     const fontSize = part.emphasized ? baseFontSize * defaultConfig.emphasis.ratio : baseFontSize;
-    ctx.font = `${scaleForDPR(fontSize)}px monospace`;
+    ctx.font = `${scaleForDPR(fontSize)}px ${SYSTEM_FONT_FAMILY}`;
     ctx.fillStyle = color;
 
     ctx.fillText(part.text, currentX, y);

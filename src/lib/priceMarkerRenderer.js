@@ -156,7 +156,7 @@ export function renderPreviousDayOHLC(ctx, config, axisX, priceScale, prevOHLC, 
     const text = label;
     // Price display commented out, kept for future use
     // const text = `${label}: ${formatPriceForDisplay(price, symbolData)}`;
-    ctx.font = '14px monospace';
+    ctx.font = '500 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;

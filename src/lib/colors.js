@@ -11,10 +11,13 @@ export const COLORS = {
   percentLabel: '#9CA3AF'   // Percentage Labels (Gray-400)
 };
 
+// System font family matching mini market profile (ticker)
+export const SYSTEM_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
 export const FONT_SIZES = {
   price: 16,
-  percent: 16,
-  status: 12
+  percent: 11,
+  status: 11
 };
 
 export const LINE_WIDTHS = {

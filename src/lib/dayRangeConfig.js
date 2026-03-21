@@ -20,16 +20,16 @@ export const defaultConfig = {
     twapMarker: '#10b981' // Emerald green for TWAP marker
   },
 
-  // Typography
+  // Typography - matching mini market profile (ticker) fonts
   fonts: {
-    currentPrice: 'bold 46px monospace',
-    priceLabels: '20px monospace',
-    percentageLabels: '10px sans-serif',
-    statusMessages: '16px monospace',
-    uiElements: '12px monospace',
-    uiSymbol: '14px monospace',
-    uiVizIndicator: '10px monospace',
-    uiButtons: '14px monospace'
+    currentPrice: '800 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    priceLabels: '500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    percentageLabels: '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    statusMessages: '400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    uiElements: '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    uiSymbol: '600 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    uiVizIndicator: '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    uiButtons: '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
   },
 
   // Text Emphasis

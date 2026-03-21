@@ -26,14 +26,14 @@ const defaultConfig = {
     text: '#ffffff'
   },
   fonts: {
-    basketLabel: 'bold 14px monospace',
-    basketValue: '12px monospace',
-    anchorTime: '10px sans-serif'
+    basketLabel: '500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    basketValue: '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    anchorTime: '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
   },
   positioning: {
-    padding: 16,
+    padding: 8,
     verticalPadding: 20,
-    markerWidth: 4,
+    markerWidth: 2,
     labelOffset: 8
   }
 };

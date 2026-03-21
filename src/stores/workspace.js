@@ -4,7 +4,7 @@ const initialState = {
   displays: new Map(),
   nextZIndex: 1,
   config: {
-    defaultSize: { width: 220, height: 350 },
+    defaultSize: { width: 160, height: 350 },
     defaultPosition: { x: 100, y: 100 }
   }
 };

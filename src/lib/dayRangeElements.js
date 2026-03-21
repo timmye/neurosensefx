@@ -1,7 +1,7 @@
 // Day Range Meter drawing elements - Crystal Clarity Compliant
 // Framework-first: Individual drawing functions, <15 lines each
 
-import { COLORS, FONT_SIZES, LINE_WIDTHS } from './colors.js';
+import { COLORS, FONT_SIZES, LINE_WIDTHS, SYSTEM_FONT_FAMILY } from './colors.js';
 import { formatPriceWithPipPosition } from './priceFormat.js';
 
 export function drawAxis(ctx, x, height) {
@@ -47,7 +47,7 @@ export function drawBoundaries(ctx, width, adrLow, adrHigh, priceScale) {
 
 export function drawPriceMarkers(ctx, axisX, data, midPrice, priceScale, symbolData) {
   const prices = createPriceArray(midPrice, data);
-  ctx.font = `${FONT_SIZES.price}px monospace`;
+  ctx.font = `${FONT_SIZES.price}px ${SYSTEM_FONT_FAMILY}`;
 
   prices.forEach(item => {
     renderPriceMarker(ctx, item, axisX, priceScale, symbolData);
@@ -84,7 +84,7 @@ export function drawPriceMarker(ctx, x, y, label, color, showBackground = false,
   ctx.stroke();
 
   // Set font for text measurements
-  ctx.font = `${FONT_SIZES.price}px monospace`;
+  ctx.font = `${FONT_SIZES.price}px ${SYSTEM_FONT_FAMILY}`;
 
   // Calculate text position based on alignment
   const labelOffset = textAlign === 'right' ? -5 : 15;
@@ -121,7 +121,7 @@ export function drawPriceMarker(ctx, x, y, label, color, showBackground = false,
   // Draw label
   ctx.fillStyle = color;
   ctx.textAlign = textAlign;
-  ctx.font = `${FONT_SIZES.price}px monospace`;
+  ctx.font = `${FONT_SIZES.price}px ${SYSTEM_FONT_FAMILY}`;
 
   if (subtitle) {
     const lineHeight = FONT_SIZES.price * 1.0;

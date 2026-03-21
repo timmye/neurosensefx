@@ -49,6 +49,7 @@
     justify-content: center;
     z-index: 10000;
     backdrop-filter: blur(4px);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 
   .workspace-modal {
