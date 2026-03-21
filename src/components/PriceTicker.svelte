@@ -83,7 +83,8 @@
         width: 37.5,
         height: 60,
         pipPosition: pipPosition,
-        currentPrice
+        currentPrice,
+        openPrice
       });
     }
   }
@@ -97,7 +98,8 @@
         width: 37.5,
         height: 60,
         pipPosition: pipPosition,
-        currentPrice
+        currentPrice,
+        openPrice
       });
     }
   }

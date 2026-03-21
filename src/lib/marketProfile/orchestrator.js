@@ -74,17 +74,27 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   }
 
   console.log('[renderMiniMarketProfile] Rendering profile with', profile.length, 'levels, size:', size);
-  const { width, height, pipPosition = 4, currentPrice } = size;
+  const { width, height, pipPosition = 4, currentPrice, openPrice } = size;
 
   // DPR-aware canvas setup
   const ctx = setupCanvas(canvas, width, height);
   const dpr = window.devicePixelRatio || 1;
 
-  // Calculate price range
+  // Calculate price range and create proper price scale
   const prices = profile.map(l => l.price);
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
-  const priceRange = maxPrice - minPrice || 1;
+
+  // Create adaptive scale for proper price-to-Y mapping
+  const adaptiveScale = {
+    min: minPrice,
+    max: maxPrice,
+    range: maxPrice - minPrice || 1,
+    isProgressive: false
+  };
+
+  // Use same price scale creation as full market profile
+  const priceScale = createPriceScale({}, adaptiveScale, height);
 
   // Calculate TPO range
   const maxTpo = Math.max(...profile.map(l => l.tpo));
@@ -93,13 +103,21 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   ctx.fillStyle = '#111111';
   ctx.fillRect(0, 0, width, height);
 
-  // Draw profile bars (simplified, no labels)
-  const barHeight = Math.max(1, (height - 4) / profile.length); // -4 for padding
+  // Top and bottom border lines (match ticker border style)
+  ctx.save();
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  renderPixelPerfectLine(ctx, 0, 0, width, 0);           // Top border
+  renderPixelPerfectLine(ctx, 0, height - 1, width, height - 1);  // Bottom border
+  ctx.restore();
+
+  // Draw profile bars using proper price scale
   const padding = 2;
   const gap = 1 / dpr; // DPR-aware gap
 
-  profile.forEach((level, index) => {
-    const y = Math.round(padding + (index * barHeight));
+  profile.forEach((level) => {
+    // Use price scale for proper Y coordinate
+    const y = Math.round(priceScale(level.price));
     const barWidth = (level.tpo / maxTpo) * (width - 2); // -2 for right padding
 
     // Standard Bar color from spec: #00D2FF
@@ -107,7 +125,11 @@ export function renderMiniMarketProfile(canvas, profile, size) {
     const intensity = level.tpo / maxTpo;
     ctx.fillStyle = `rgba(0, 210, 255, ${0.2 + (intensity * 0.4)})`;
 
-    ctx.fillRect(0, y, barWidth, Math.max(1, Math.round(barHeight - gap)));
+    // Calculate bar height based on price scale
+    const nextPriceY = Math.round(priceScale(level.price + (adaptiveScale.range / profile.length)));
+    const barHeight = Math.max(1, Math.abs(nextPriceY - y) - gap);
+
+    ctx.fillRect(0, y, barWidth, barHeight);
   });
 
   // Draw POC line (level with highest TPO)
@@ -116,8 +138,7 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   //   level.tpo > max.tpo ? level : max, profile[0]);
 
   // if (pocLevel) {
-  //   const pocIndex = profile.findIndex(l => l.price === pocLevel.price);
-  //   const pocY = Math.round(padding + (pocIndex * barHeight));
+  //   const pocY = Math.round(priceScale(pocLevel.price));
 
   //   ctx.strokeStyle = '#FFCC00';
   //   ctx.lineWidth = 1;
@@ -126,8 +147,7 @@ export function renderMiniMarketProfile(canvas, profile, size) {
 
   // Draw current price marker (if available and within profile range)
   if (currentPrice != null && currentPrice >= minPrice && currentPrice <= maxPrice) {
-    const pricePosition = (currentPrice - minPrice) / priceRange;
-    const currentY = Math.round(padding + ((1 - pricePosition) * (height - 4)));
+    const currentY = Math.round(priceScale(currentPrice));
 
     // Neon orange line for current price (most visible)
     ctx.save();
@@ -142,10 +162,14 @@ export function renderMiniMarketProfile(canvas, profile, size) {
     ctx.arc(Math.round(width - 4), currentY, 2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Origin dot at middle (left edge, offset for visibility)
+    // Origin dot at open price (left edge, offset for visibility)
+    // Use open price if available, otherwise fall back to visual center
+    const openY = (openPrice != null && openPrice >= minPrice && openPrice <= maxPrice)
+      ? Math.round(priceScale(openPrice))
+      : Math.round(height / 2);
     ctx.fillStyle = '#FF6600';
     ctx.beginPath();
-    ctx.arc(2, Math.round(height / 2), 2, 0, Math.PI * 2);
+    ctx.arc(2, openY, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 }
