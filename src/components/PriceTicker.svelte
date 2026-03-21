@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { workspaceStore, workspaceActions } from '../stores/workspace.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl, formatSymbol, processSymbolData } from '../lib/displayDataProcessor.js';
@@ -11,6 +11,11 @@
 
   export let ticker;
 
+  // Flash configuration props
+  export let flashPriceEnabled = false;
+  export let flashBorderEnabled = true;
+  export let flashDuration = 500; // ms
+
   let element;
   let interactable;
   let connectionManager;
@@ -18,6 +23,12 @@
   let webSocketSub;
   let lastData = null;
   let lastMarketProfileData = null;
+  let lastTrackedPrice = null;
+  let flashTimeout = null;
+
+  // Flash state
+  let priceFlashClass = '';
+  let borderFlashClass = '';
 
   // Reactive display values (auto-update when lastData changes)
   $: currentPrice = lastData?.current ?? null;
@@ -34,6 +45,33 @@
     : null;
 
   $: dailyChangeClass = dailyChangePercent > 0 ? 'positive' : dailyChangePercent < 0 ? 'negative' : '';
+
+  // Flash on price change
+  $: if (currentPrice !== null && currentPrice !== lastTrackedPrice) {
+    if (lastTrackedPrice !== null && (flashPriceEnabled || flashBorderEnabled)) {
+      const isUp = currentPrice > lastTrackedPrice;
+      const direction = isUp ? 'up' : 'down';
+
+      // Clear any existing timeout
+      if (flashTimeout) clearTimeout(flashTimeout);
+
+      if (flashPriceEnabled) {
+        priceFlashClass = `flash-${direction}`;
+      }
+      if (flashBorderEnabled) {
+        borderFlashClass = `flash-${direction}`;
+      }
+
+      // Wait for DOM update, then schedule removal
+      tick().then(() => {
+        flashTimeout = setTimeout(() => {
+          priceFlashClass = '';
+          borderFlashClass = '';
+        }, flashDuration);
+      });
+    }
+    lastTrackedPrice = currentPrice;
+  }
 
   const formattedSymbol = formatSymbol(ticker.symbol);
 
@@ -85,6 +123,7 @@
   });
 
   onDestroy(() => {
+    if (flashTimeout) clearTimeout(flashTimeout);
     interactable?.unset();
     connectionManager?.disconnect();
   });
@@ -114,6 +153,12 @@
 </script>
 
 <style>
+  :global(.ticker-container) {
+    --flash-color-up: #00d4ff;
+    --flash-color-down: #e040fb;
+    --flash-duration: 500ms;
+  }
+
   .ticker-container {
     position: absolute;
     display: flex;
@@ -134,6 +179,19 @@
     outline: 2px solid #00ff00;
     outline-offset: -2px;
     box-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
+  }
+
+  /* Border flash - only when not focused to avoid overriding focus outline */
+  .ticker-container:not(:focus) {
+    transition: border-color var(--flash-duration) ease-out;
+  }
+
+  .ticker-container:not(:focus).flash-up {
+    border-color: var(--flash-color-up);
+  }
+
+  .ticker-container:not(:focus).flash-down {
+    border-color: var(--flash-color-down);
   }
 
   /* Column 1: Identity (135px) */
@@ -166,6 +224,15 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: color var(--flash-duration) ease-out;
+  }
+
+  .price-value.flash-up {
+    color: var(--flash-color-up);
+  }
+
+  .price-value.flash-down {
+    color: var(--flash-color-down);
   }
 
   /* Column 2: Chart (37.5px) */
@@ -289,10 +356,21 @@
     color: #666;
     font-style: italic;
   }
+
+  /* Respect user's motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .price-value,
+    .ticker-container:not(:focus).flash-up,
+    .ticker-container:not(:focus).flash-down {
+      transition: none;
+    }
+  }
 </style>
 
 <div class="ticker-container" bind:this={element} data-ticker-id={ticker.id}
-     style="left: {ticker.position?.x || 100}px; top: {ticker.position?.y || 100}px; z-index: {ticker.zIndex || 1};"
+     style="left: {ticker.position?.x || 100}px; top: {ticker.position?.y || 100}px; z-index: {ticker.zIndex || 1}; --flash-duration: {flashDuration}ms;"
+     class:flash-up={borderFlashClass === 'flash-up'}
+     class:flash-down={borderFlashClass === 'flash-down'}
      tabindex="0" role="region" aria-label="{ticker.symbol} ticker"
      on:focus={handleFocus}>
   <button class="refresh-button" on:click={handleRefresh} aria-label="Refresh ticker">↻</button>
@@ -301,7 +379,7 @@
   <!-- Column 1: Identity -->
   <div class="identity-column">
     <div class="symbol-label">{ticker.symbol}</div>
-    <div class="price-value">
+    <div class="price-value" class:flash-up={priceFlashClass === 'flash-up'} class:flash-down={priceFlashClass === 'flash-down'}>
       {#if currentPrice}
         {formatPrice(currentPrice, pipPosition)}
       {:else}
