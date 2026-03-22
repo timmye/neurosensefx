@@ -7,8 +7,8 @@ export const defaultConfig = {
     axisPrimary: '#4B5563',
     axisReference: '#f66a51ff',
     currentPrice: '#6B7280',
-    priceUp: '#cde0f6ff', //4a9eff
-    priceDown: '#4a9eff  ', //8f6ce0ff
+    priceUp: '#4a9eff', //cde0f6ff
+    priceDown: '#8f6ce0ff', //4a9eff
     sessionPrices: '#f69051ff',
     openPrice: '#6B7280',
     adrRange: 'rgba(224, 224, 224, 0.3)',
@@ -51,7 +51,7 @@ export const defaultConfig = {
       dynamic: true, // Show day range percentage
       adaptiveScaling: true // Enable auto scaling for ADR 50%+ visibility
     },
-    boundaryLines: true,
+    boundaryLines: false,
     dprAwareRendering: true,
     professionalTypography: true,
     twapMarker: true // Enable/disable TWAP display

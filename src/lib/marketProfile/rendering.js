@@ -30,7 +30,7 @@ export function drawBars(ctx, data, priceScale, tpoScale, startX) {
     const x = startX;
     const y = priceScale(level.price);
     const barWidth = Math.max(level.tpo * tpoScale, 1);
-    const color = getIntensityColor(getIntensityLevel(intensity));
+    const color = getIntensityColor(getIntensityLevel(intensity), intensity);
 
     if (idx < 3 || idx === data.length - 1) {
       console.log(`[DEBUGGER:rendering:22-29] level[${idx}]: price=${level.price}, tpo=${level.tpo}, barWidth=${barWidth.toFixed(2)}px, intensity=${intensity.toFixed(2)}`);

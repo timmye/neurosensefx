@@ -18,6 +18,14 @@
   let webSocketSub, displayState, handlers;
   const { createCallback } = useDataCallback();
 
+  // Flash state
+  let borderFlashClass = '';
+  let flashTimeout = null;
+  let lastTrackedPrice = null;
+
+  // Flash configuration
+  const flashDuration = 500; // ms
+
   $: ({ currentDisplay, showMarketProfile, selectedMarker, source, formattedSymbol, connectionStatus, handlers } =
     (() => {
       const d = $workspaceStore.displays.get(display.id) || {};
@@ -40,6 +48,24 @@
       };
     })()
   );
+
+  // Track price changes for border flash
+  $: if (lastData?.current && lastData.current !== lastTrackedPrice) {
+    const isUp = lastData.current > lastTrackedPrice;
+    const direction = isUp ? 'up' : 'down';
+
+    if (flashTimeout) clearTimeout(flashTimeout);
+
+    borderFlashClass = `flash-${direction}`;
+
+    tick().then(() => {
+      flashTimeout = setTimeout(() => {
+        borderFlashClass = '';
+      }, flashDuration);
+    });
+
+    lastTrackedPrice = lastData.current;
+  }
 
   $: if (display.symbol && source && connectionManager && webSocketSub?.getCallback()) {
     const newSymbol = formatSymbol(display.symbol);
@@ -96,10 +122,12 @@
 </script>
 
 <div class="floating-display" bind:this={element} data-display-id={display.id}
+     class:flash-up={borderFlashClass === 'flash-up'}
+     class:flash-down={borderFlashClass === 'flash-down'}
      tabindex="0" role="region" aria-label="{display.symbol} display"
      on:focus={handlers?.focus} on:keydown={handlers?.keydown}
      style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};
-            width: {display.size.width}px; height: {display.size.height}px;">
+            width: {display.size.width}px; height: {display.size.height}px; --flash-duration: {flashDuration}ms;">
   <DisplayHeader symbol={display.symbol} {source} {connectionStatus} {showMarketProfile}
     onClose={handlers?.close} onFocus={handlers?.focus} onRefresh={handlers?.refresh} initiallyVisible={display.showHeader !== false} />
   <DisplayCanvas bind:this={canvasRef} data={lastData} marketProfileData={lastMarketProfileData} {showMarketProfile}
@@ -116,4 +144,25 @@
   .floating-display:focus-visible{border-color:#4a9eff;box-shadow:0 0 12px rgba(74,158,255,.6);outline:2px solid rgba(74,158,255,.3);outline-offset:2px}
   .resize-handle{position:absolute;right:0;bottom:0;width:16px;height:16px;background:linear-gradient(135deg,transparent 50%,#555 50%);cursor:se-resize;opacity:.6;transition:opacity .2s ease}
   .resize-handle:hover{opacity:1}
+
+  /* Border flash - only when not focused to avoid overriding focus outline */
+  .floating-display:not(:focus) {
+    transition: border-color var(--flash-duration, 500ms) ease-out;
+  }
+
+  .floating-display:not(:focus).flash-up {
+    border-color: #00d4ff;
+  }
+
+  .floating-display:not(:focus).flash-down {
+    border-color: #e040fb;
+  }
+
+  /* Respect user's motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .floating-display:not(:focus).flash-up,
+    .floating-display:not(:focus).flash-down {
+      transition: none;
+    }
+  }
 </style>

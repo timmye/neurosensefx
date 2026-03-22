@@ -20,11 +20,12 @@ export function getIntensityLevel(intensity) {
   return 'high';
 }
 
-export function getIntensityColor(level) {
+export function getIntensityColor(level, intensity = 0.5) {
+  // Cyan shades from dark to light (high intensity = brightest)
   const colors = {
-    low: '#374151',
-    medium: '#404694ff',
-    high: '#7b5dc0'
+    low: '#0891b2',    // deep cyan
+    medium: '#22d3ee', // medium cyan
+    high: '#67e8f9'    // bright cyan
   };
   return colors[level] || colors.low;
 }

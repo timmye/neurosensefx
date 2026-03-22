@@ -11,7 +11,7 @@ export const marketProfileConfig = {
   valueAreaPercentage: 0.7,
   colors: {
     background: '#0a0a0a',
-    profile: '#7a7a7aff', //474747ff
+    profile: '#4a9eff', // matching mini profile blue
     poc: '#8d3dd7ff',
     valueArea: 'rgba(37, 83, 135, 0.9)',
     text: '#fff',
