@@ -5,6 +5,7 @@
   import PriceTicker from './PriceTicker.svelte';
   import BackgroundShader from './BackgroundShader.svelte';
   import WorkspaceModal from './WorkspaceModal.svelte';
+  import KeyboardShortcutsHelp from './KeyboardShortcutsHelp.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { createKeyboardHandler } from '../lib/keyboardHandler.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
@@ -34,6 +35,7 @@
   }
 
   let showWorkspaceModal = false;
+  let showKeyboardHelp = false;
 
   function showWorkspaceDialog() {
     showWorkspaceModal = true;
@@ -64,6 +66,11 @@
   }
 
   function handleKeydown(event) {
+    // Hold ? to show keyboard shortcuts
+    if (event.key === '?' || event.key === '/') {
+      showKeyboardHelp = true;
+      return;
+    }
     if (event.altKey && event.key.toLowerCase() === 'w') {
       event.preventDefault();
       showWorkspaceDialog();
@@ -75,6 +82,13 @@
       return;
     }
     keyboardHandler?.handleKeydown(event);
+  }
+
+  function handleKeyup(event) {
+    // Release ? to hide keyboard shortcuts
+    if (event.key === '?' || event.key === '/') {
+      showKeyboardHelp = false;
+    }
   }
 
   onMount(() => {
@@ -121,7 +135,7 @@
 
 <div class="workspace-container" role="application">
   <BackgroundShader />
-  <div class="workspace" role="region" tabindex="0" aria-label="Workspace" on:keydown={handleKeydown}>
+  <div class="workspace" role="region" tabindex="0" aria-label="Workspace" on:keydown={handleKeydown} on:keyup={handleKeyup}>
     {#each Array.from($workspaceStore.displays.values()) as display (display.id)}
       {#if display.type === 'priceTicker'}
         <PriceTicker ticker={display} />
@@ -140,3 +154,5 @@
   on:import={handleImportClick}
   on:cancel={handleModalCancel}
 />
+
+<KeyboardShortcutsHelp bind:show={showKeyboardHelp} />
