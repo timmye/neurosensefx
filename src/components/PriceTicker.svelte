@@ -118,7 +118,7 @@
       }
     }
 
-    webSocketSub.subscribe(formattedSymbol, ticker.source || 'tradingview', (data) => {
+    webSocketSub.subscribe(formattedSymbol, ticker.source || 'tradingview', async (data) => {
       const processed = processSymbolData(data, formattedSymbol, lastData);
 
       if (processed?.type === 'data') {
@@ -130,6 +130,8 @@
       // We render from profileUpdate events which contain processed {price, tpo} levels
       if (data.type === 'profileUpdate' && data.profile) {
         lastMarketProfileData = data.profile.levels;
+        // CRITICAL: Call tick() to ensure Svelte detects the change and triggers reactive rendering
+        await tick();
       }
     }, 14);
 
