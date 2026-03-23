@@ -163,17 +163,19 @@
   }
 
   function handleRefresh() {
-    console.log('[PriceTicker] Refresh clicked for', formattedSymbol, 'source:', ticker.source || 'tradingview');
-    // Request a fresh profile re-emission from backend
-    if (connectionManager?.connectionHandler?.getWebSocket()) {
-      const ws = connectionManager.connectionHandler.getWebSocket();
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'refresh_profile',
-          symbol: formattedSymbol,
-          source: ticker.source || 'tradingview'
-        }));
-      }
+    console.log('[PriceTicker] Full refresh for', formattedSymbol, 'source:', ticker.source || 'tradingview');
+
+    // Clear local state
+    lastData = null;
+    lastMarketProfileData = null;
+    lastTrackedPrice = null;
+    priceFlashClass = '';
+    borderFlashClass = '';
+    if (flashTimeout) clearTimeout(flashTimeout);
+
+    // Resubscribe (triggers fresh data request from backend)
+    if (webSocketSub) {
+      webSocketSub.refreshSubscription(formattedSymbol, ticker.source || 'tradingview', 14);
     }
   }
 </script>
