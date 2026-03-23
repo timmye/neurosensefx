@@ -150,9 +150,11 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   //   renderPixelPerfectLine(ctx, 0, pocY, width, pocY);
   // }
 
-  // Draw current price marker (if available and within profile range)
-  if (currentPrice != null && currentPrice >= minPrice && currentPrice <= maxPrice) {
-    const currentY = Math.round(priceScale(currentPrice));
+  // Draw current price marker (clamp to visible range if price exceeds profile bounds)
+  if (currentPrice != null) {
+    // Clamp price to visible range for rendering
+    const clampedPrice = Math.max(minPrice, Math.min(maxPrice, currentPrice));
+    const currentY = Math.round(priceScale(clampedPrice));
 
     // Neon orange line for current price (most visible)
     ctx.save();
@@ -166,17 +168,16 @@ export function renderMiniMarketProfile(canvas, profile, size) {
     ctx.beginPath();
     ctx.arc(Math.round(width - 4), currentY, 2, 0, Math.PI * 2);
     ctx.fill();
-
-    // Origin dot at open price (left edge, offset for visibility)
-    // Use open price if available, otherwise fall back to visual center
-    const openY = (openPrice != null && openPrice >= minPrice && openPrice <= maxPrice)
-      ? Math.round(priceScale(openPrice))
-      : Math.round(height / 2);
-    ctx.fillStyle = '#FF6600';
-    ctx.beginPath();
-    ctx.arc(2, openY, 2, 0, Math.PI * 2);
-    ctx.fill();
   }
+
+  // Draw open price marker (separate from current price to always render)
+  const openY = (openPrice != null && openPrice >= minPrice && openPrice <= maxPrice)
+    ? Math.round(priceScale(openPrice))
+    : Math.round(height / 2);
+  ctx.fillStyle = '#FF6600';
+  ctx.beginPath();
+  ctx.arc(2, openY, 2, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 export function renderMarketProfileError(ctx, errorMessage) {

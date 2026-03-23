@@ -89,19 +89,17 @@
     }
   }
 
-  // Reactive: render market profile whenever data or canvas changes
-  // Use block form to ensure Svelte tracks both dependencies properly
-  $: {
-    if (canvasRef && lastMarketProfileData) {
-      console.log('[PriceTicker] Rendering market profile for', formattedSymbol, 'levels:', lastMarketProfileData.length);
-      renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
-        width: 37.5,
-        height: 80,
-        pipPosition: pipPosition,
-        currentPrice,
-        openPrice
-      });
-    }
+  // Reactive: render market profile whenever data, canvas, or prices change
+  // Use block form to ensure Svelte tracks all dependencies properly
+  $: if (canvasRef && lastMarketProfileData) {
+    console.log('[PriceTicker] Rendering market profile for', formattedSymbol, 'levels:', lastMarketProfileData.length);
+    renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
+      width: 37.5,
+      height: 80,
+      pipPosition: pipPosition,
+      currentPrice,
+      openPrice
+    });
   }
 
   onMount(() => {
