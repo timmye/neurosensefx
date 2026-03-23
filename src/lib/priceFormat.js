@@ -31,6 +31,28 @@ export function formatPipMovement(priceChange, pipPosition) {
   return `${pipValue > 0 ? '+' : ''}${pipValue.toFixed(1)} pips`;
 }
 
+// Format price to pip level only for ticker display
+export function formatPriceToPip(price, pipPosition) {
+  if (typeof price !== 'number' || !isFinite(price)) return 'N/A';
+  if (pipPosition === null || pipPosition === undefined) {
+    throw new Error('[formatPriceToPip] pipPosition is required');
+  }
+  // Round down to pip level (floor at pipPosition precision)
+  const pipSize = Math.pow(10, -pipPosition);
+  return (Math.floor(price / pipSize) * pipSize).toFixed(pipPosition);
+}
+
+// Extract single pipette digit (0-9) for ticker display
+export function getPipetteDigit(price, pipPosition) {
+  if (typeof price !== 'number' || !isFinite(price)) return '-';
+  if (pipPosition === null || pipPosition === undefined) {
+    return '-';
+  }
+  // Multiply to get all digits as integer, then extract last digit
+  const multiplier = Math.pow(10, pipPosition + 1);
+  return Math.round(price * multiplier) % 10;
+}
+
 // Emphasize 4th and 5th significant digits (pips) in price
 export function emphasizeDigits(formattedPrice, pipPosition) {
   if (!formattedPrice) {

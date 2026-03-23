@@ -5,7 +5,7 @@
   import { getWebSocketUrl, formatSymbol, processSymbolData } from '../lib/displayDataProcessor.js';
   import { useWebSocketSub } from '../composables/useWebSocketSub.js';
   import { calculateDayRangePercentage } from '../lib/dayRangeCalculations.js';
-  import { formatPrice } from '../lib/priceFormat.js';
+  import { formatPrice, formatPriceToPip, getPipetteDigit } from '../lib/priceFormat.js';
   import { renderMiniMarketProfile } from '../lib/marketProfile/orchestrator.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
 
@@ -250,8 +250,7 @@
     font-weight: 600;
     color: #FFFFFF;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
     transition: color var(--flash-duration) ease-out;
   }
 
@@ -261,6 +260,15 @@
 
   .price-value.flash-down {
     color: var(--flash-color-down);
+  }
+
+  /* Tiny top-aligned pipette digit (FX standard) */
+  .pipette {
+    font-size: 0.5em;
+    vertical-align: top;
+    line-height: 1.2;
+    margin-left: 1px;
+    opacity: 0.7;
   }
 
   /* Column 2: Chart (37.5px) */
@@ -409,7 +417,7 @@
     <div class="symbol-label">{ticker.symbol}</div>
     <div class="price-value" class:flash-up={priceFlashClass === 'flash-up'} class:flash-down={priceFlashClass === 'flash-down'}>
       {#if currentPrice}
-        {formatPrice(currentPrice, pipPosition)}
+        {formatPriceToPip(currentPrice, pipPosition)}<span class="pipette">{getPipetteDigit(currentPrice, pipPosition)}</span>
       {:else}
         <span class="loading">...</span>
       {/if}
