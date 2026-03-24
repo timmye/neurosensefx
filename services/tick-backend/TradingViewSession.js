@@ -24,14 +24,23 @@ class TradingViewSession extends EventEmitter {
         this.subscriptions = new Map();
         this.unsubscribe = null;
 
-        this.healthMonitor = new HealthMonitor('tradingview');
-        this.reconnection = new ReconnectionManager(60000, 1000);
-        this.shouldReconnect = true;
+        // Aggressive staleness threshold for trading
+        this.healthMonitor = new HealthMonitor('tradingview', 10000, 5000);
+        this.reconnection = new ReconnectionManager(15000, 500, Number(process.env.MAX_RECONNECT_ATTEMPTS) || 20);
 
         const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
         this.candleHandler = new TradingViewCandleHandler(this.healthMonitor, calculateBucketSizeForSymbol, twapService, marketProfileService);
         this.candleHandler.setEmitter(this.emit.bind(this));
         this.subscriptionManager = null;
+
+        // Store listener references to prevent duplicates
+        this.closeEventHandler = null;
+        this.errorEventHandler = null;
+        this.staleEventHandler = null;
+
+        // Connection state guard
+        this.eventListenersAttached = false;
+        this.isDisconnecting = false;
     }
 
     async connect(sessionId) {
@@ -42,10 +51,15 @@ class TradingViewSession extends EventEmitter {
             this.client = await connect(options);
             this.subscriptionManager = new TradingViewSubscriptionManager(this.client);
 
+            this.removeEventListeners();
+            this.setupEventListeners();
+
             this.unsubscribe = this.client.subscribe((event) => {
                 this.handleEvent(event);
             });
 
+            // Initialize health monitor and start tracking
+            this.healthMonitor.recordTick(); // Prevent immediate staleness on connect
             this.healthMonitor.start();
             this.reconnection.reset();
 
@@ -60,18 +74,25 @@ class TradingViewSession extends EventEmitter {
     }
 
     handleEvent(event) {
-        switch (event.name) {
-            case 'timescale_update':
-            case 'du':
-                this.handleCandleUpdate(event.params);
-                break;
-            case 'series_completed':
-                this.handleSeriesCompleted(event.params);
-                break;
-            case 'symbol_error':
-                console.error('[TradingView] Symbol error:', event.params);
-                this.emit('error', new Error(event.params.toString()));
-                break;
+        try {
+            switch (event.name) {
+                case 'timescale_update':
+                case 'du':
+                    this.handleCandleUpdate(event.params);
+                    break;
+                case 'series_completed':
+                    this.handleSeriesCompleted(event.params);
+                    break;
+                case 'symbol_error':
+                    console.error('[TradingView] Symbol error:', event.params);
+                    this.emit('error', new Error(event.params?.toString() || 'Unknown symbol error'));
+                    break;
+            }
+        } catch (error) {
+            console.error('[TradingView] Error handling event:', error.message);
+            console.error('Event data:', JSON.stringify(event).substring(0, 200));
+            // Emit error but don't crash - continue processing other events
+            this.emit('error', error);
         }
     }
 
@@ -148,34 +169,112 @@ class TradingViewSession extends EventEmitter {
         console.log(`[TradingView] M1 subscription active for ${symbol}`);
     }
 
-    async disconnect() {
-        this.reconnection.cancelReconnect();
-        this.shouldReconnect = false;
-
-        if (this.client) {
-            if (this.unsubscribe) this.unsubscribe();
-            await this.client.close();
-            this.client = null;
+    setupEventListeners() {
+        if (this.eventListenersAttached) {
+            console.log('[TradingView] Event listeners already attached, skipping');
+            return;
         }
-        this.subscriptions.clear();
+
+        // tradingview-ws library doesn't emit standard 'close'/'error' events
+        // Instead, we use the health monitor to detect stale connections
+        this.staleEventHandler = () => {
+            console.log('[TradingView] Connection detected as stale, triggering reconnection');
+            this.handleDisconnect(new Error('Connection stale - no data received'), true);
+        };
+
+        // Try to bind to library events if they exist (won't work with current library version)
+        this.closeEventHandler = () => {
+            console.log('[TradingView] Connection closed');
+            this.handleDisconnect();
+        };
+
+        this.errorEventHandler = (err) => {
+            console.error('[TradingView] Connection error:', err);
+            this.handleDisconnect(err);
+        };
+
+        // Use health monitor for connection health tracking
+        this.healthMonitor.on('stale', this.staleEventHandler);
+
+        // These won't work with current tradingview-ws but kept for compatibility
+        try {
+            this.client.on('close', this.closeEventHandler);
+            this.client.on('error', this.errorEventHandler);
+        } catch (e) {
+            // Library doesn't support these events
+        }
+
+        this.eventListenersAttached = true;
+    }
+
+    removeEventListeners() {
+        if (!this.client) return;
+
+        // Remove health monitor listener
+        if (this.staleEventHandler) {
+            this.healthMonitor.removeListener('stale', this.staleEventHandler);
+            this.staleEventHandler = null;
+        }
+
+        // Remove client event listeners if they exist
+        try {
+            if (this.closeEventHandler) {
+                this.client.removeListener('close', this.closeEventHandler);
+                this.closeEventHandler = null;
+            }
+
+            if (this.errorEventHandler) {
+                this.client.removeListener('error', this.errorEventHandler);
+                this.errorEventHandler = null;
+            }
+        } catch (e) {
+            // Library doesn't support these events
+        }
+
+        this.eventListenersAttached = false;
+    }
+
+    disconnect() {
+        // Use handleDisconnect with shouldScheduleReconnect=false to prevent auto-reconnect
+        this.handleDisconnect(null, false);
     }
 
     async reconnect() {
         console.log('[TradingViewSession] Manual reinit requested');
-        this.shouldReconnect = true;
         this.healthMonitor.stop();
         this.reconnection.cancelReconnect();
-        await this.disconnect();
+        this.disconnect();
         await this.connect(this.sessionId);
     }
 
-    handleDisconnect(error = null) {
+    handleDisconnect(error = null, shouldScheduleReconnect = true) {
+        // Prevent concurrent disconnect handling
+        if (this.isDisconnecting) {
+            console.log('[TradingView] Already disconnecting, skipping duplicate call');
+            return;
+        }
+
+        this.isDisconnecting = true;
         console.log('[TradingView] handleDisconnect() called');
         if (error) console.error('[TradingView] connection failed:', error);
+
+        this.reconnection.cancelReconnect();
         this.healthMonitor.stop();
         this.emit('disconnected');
 
-        if (this.shouldReconnect) {
+        if (this.client) {
+            console.log('[TradingView] Closing client in handleDisconnect');
+            this.removeEventListeners();
+            if (this.unsubscribe) this.unsubscribe();
+            this.client.close();
+            this.client = null;
+        }
+        this.subscriptions.clear();
+
+        // Reset flag after cleanup
+        this.isDisconnecting = false;
+
+        if (shouldScheduleReconnect) {
             this.scheduleReconnect();
         }
     }

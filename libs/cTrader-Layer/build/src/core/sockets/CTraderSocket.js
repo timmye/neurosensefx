@@ -56,7 +56,13 @@ class CTraderSocket {
     }
     onClose() {
     }
-    onError() {
+    onError(error) {
+    }
+    close() {
+        if (__classPrivateFieldGet(this, _CTraderSocket_socket, "f")) {
+            __classPrivateFieldGet(this, _CTraderSocket_socket, "f").destroy();
+            __classPrivateFieldSet(this, _CTraderSocket_socket, undefined, "f");
+        }
     }
 }
 exports.CTraderSocket = CTraderSocket;

@@ -56,8 +56,8 @@
   }
 
   function reinitAll() {
-    if (connectionManager?.ws?.readyState === WebSocket.OPEN) {
-      connectionManager.ws.send(JSON.stringify({ type: 'reinit', source: 'all' }));
+    if (connectionManager?.status === 'connected') {
+      connectionManager.connectionHandler.getWebSocket().send(JSON.stringify({ type: 'reinit', source: 'all' }));
       console.log('[Workspace] Reinit requested for: all (cTrader + TradingView)');
     } else {
       console.warn('[Workspace] Cannot reinit: WebSocket not connected. Status:', connectionManager?.status || 'unknown');

@@ -26,12 +26,27 @@ class CTraderSession extends EventEmitter {
         this.dataProcessor = null;
         this.eventHandler = null;
 
-        this.healthMonitor = new HealthMonitor('ctrader');
-        this.reconnection = new ReconnectionManager(60000, 1000);
-        this.shouldReconnect = true;
+        this.healthMonitor = new HealthMonitor('ctrader', 10000, 5000);
+        this.reconnection = new ReconnectionManager(15000, 500, Number(process.env.MAX_RECONNECT_ATTEMPTS) || 20);
+
+        // Store listener references to prevent duplicates
+        this.spotEventHandler = null;
+        this.closeEventHandler = null;
+        this.errorEventHandler = null;
+
+        // Connection state guards
+        this.isConnecting = false;
+        this.eventListenersAttached = false;
     }
 
     async connect() {
+        if (this.isConnecting) {
+            console.log('[CTraderSession] Connection already in progress, skipping');
+            return;
+        }
+
+        this.isConnecting = true;
+
         if (this.connection) this.connection.close();
 
         this.connection = new CTraderConnection({
@@ -43,18 +58,24 @@ class CTraderSession extends EventEmitter {
         this.dataProcessor = new CTraderDataProcessor(this.connection, this.ctidTraderAccountId, this.symbolLoader);
         this.eventHandler = new CTraderEventHandler(this.dataProcessor, this.healthMonitor);
 
+        this.removeEventListeners();
         this.setupEventListeners();
 
         // Add timeout to detect hanging connection
-        const timeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('cTrader connection timeout after 10 seconds')), 10000)
-        );
+        let timeoutHandle;
+        const timeout = new Promise((_, reject) => {
+            timeoutHandle = setTimeout(() => reject(new Error('cTrader connection timeout after 10 seconds')), 10000);
+        });
 
         try {
             await Promise.race([this.connection.open(), timeout]);
+            clearTimeout(timeoutHandle);
+            this.isConnecting = false;
         } catch (error) {
+            clearTimeout(timeoutHandle);
+            this.isConnecting = false;
             console.error('[CTraderSession] Connection failed:', error.message);
-            this.emit('disconnected');
+            this.handleDisconnect(error, true);
             throw error;
         }
 
@@ -67,46 +88,82 @@ class CTraderSession extends EventEmitter {
     }
 
     setupEventListeners() {
-        this.connection.on('PROTO_OA_SPOT_EVENT', async (event) => {
-            const symbolId = Number(event.symbolId);
-            if (!symbolId) return;
+        if (this.eventListenersAttached) {
+            console.log('[CTraderSession] Event listeners already attached, skipping');
+            return;
+        }
 
-            const symbolName = this.symbolLoader.getSymbolName(symbolId);
-            if (!symbolName) return;
+        this.spotEventHandler = async (event) => {
+            try {
+                const symbolId = Number(event.symbolId);
+                if (!symbolId) return;
 
-            const symbolInfo = await this.symbolLoader.getFullSymbolInfo(symbolId);
-            if (!symbolInfo) return;
+                const symbolName = this.symbolLoader.getSymbolName(symbolId);
+                if (!symbolName) return;
 
-            let tickData = null;
-            let m1Bar = null;
+                const symbolInfo = await this.symbolLoader.getFullSymbolInfo(symbolId);
+                if (!symbolInfo) return;
 
-            if (event.trendbar && event.trendbar.length > 0) {
-                const result = this.eventHandler.processTrendbarEvent(event, symbolName, symbolInfo);
-                m1Bar = result.m1Bar;
-                tickData = result.tick;
-            } else if (event.bid != null && event.ask != null) {
-                tickData = this.eventHandler.processSpotEvent(event, symbolName, symbolInfo);
+                let tickData = null;
+                let m1Bar = null;
+
+                if (event.trendbar && event.trendbar.length > 0) {
+                    const result = this.eventHandler.processTrendbarEvent(event, symbolName, symbolInfo);
+                    m1Bar = result.m1Bar;
+                    tickData = result.tick;
+                } else if (event.bid != null && event.ask != null) {
+                    tickData = this.eventHandler.processSpotEvent(event, symbolName, symbolInfo);
+                }
+
+                if (tickData) {
+                    this.healthMonitor.recordTick();
+                    this.emit('tick', tickData);
+                }
+
+                if (m1Bar) {
+                    this.emit('m1Bar', m1Bar);
+                }
+            } catch (error) {
+                console.error('[ERROR] Unhandled error in PROTO_OA_SPOT_EVENT handler:', error);
             }
+        };
 
-            if (tickData) {
-                this.healthMonitor.recordTick();
-                this.emit('tick', tickData);
-            }
-
-            if (m1Bar) {
-                this.emit('m1Bar', m1Bar);
-            }
-        });
-
-        this.connection.on('close', () => {
+        this.closeEventHandler = () => {
             console.log('[DEBUG] CTraderConnection closed');
-            this.handleDisconnect();
-        });
+            this.handleDisconnect(null, true);
+        };
 
-        this.connection.on('error', (err) => {
+        this.errorEventHandler = (err) => {
             console.error('[ERROR] CTraderConnection error:', err);
-            this.handleDisconnect(err);
-        });
+            this.handleDisconnect(err, true);
+        };
+
+        this.connection.on('PROTO_OA_SPOT_EVENT', this.spotEventHandler);
+        this.connection.on('close', this.closeEventHandler);
+        this.connection.on('error', this.errorEventHandler);
+
+        this.eventListenersAttached = true;
+    }
+
+    removeEventListeners() {
+        if (!this.connection) return;
+
+        if (this.spotEventHandler) {
+            this.connection.removeListener('PROTO_OA_SPOT_EVENT', this.spotEventHandler);
+            this.spotEventHandler = null;
+        }
+
+        if (this.closeEventHandler) {
+            this.connection.removeListener('close', this.closeEventHandler);
+            this.closeEventHandler = null;
+        }
+
+        if (this.errorEventHandler) {
+            this.connection.removeListener('error', this.errorEventHandler);
+            this.errorEventHandler = null;
+        }
+
+        this.eventListenersAttached = false;
     }
 
     async authenticate() {
@@ -120,9 +177,11 @@ class CTraderSession extends EventEmitter {
         });
     }
 
-    handleDisconnect(error = null) {
+    handleDisconnect(error = null, shouldScheduleReconnect = true) {
         console.log('[DEBUG] CTraderSession.handleDisconnect() called');
         if (error) console.error('CTraderSession connection failed:', error);
+        this.reconnection.cancelReconnect();
+        this.isConnecting = false;
         this.healthMonitor.stop();
         this.stopHeartbeat();
         this.emit('disconnected');
@@ -132,7 +191,7 @@ class CTraderSession extends EventEmitter {
             this.connection.close();
         }
 
-        if (this.shouldReconnect) {
+        if (shouldScheduleReconnect) {
             this.scheduleReconnect();
         }
     }
@@ -188,33 +247,15 @@ class CTraderSession extends EventEmitter {
     }
 
     disconnect() {
-        this.reconnection.cancelReconnect();
-        this.shouldReconnect = false;
-
-        if (this.connection) {
-            try {
-                if (typeof this.connection.close === 'function') {
-                    this.connection.close();
-                } else if (typeof this.connection.disconnect === 'function') {
-                    this.connection.disconnect();
-                }
-            } catch (error) {
-                console.log('[DEBUG] Connection close/disconnect failed:', error.message);
-            }
-            this.connection = null;
-        }
-
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
-        }
+        // Use handleDisconnect with shouldScheduleReconnect=false to prevent auto-reconnect
+        this.handleDisconnect(null, false);
     }
 
     async reconnect() {
         console.log('[CTraderSession] Manual reinit requested');
-        this.shouldReconnect = true;
         this.healthMonitor.stop();
         this.reconnection.cancelReconnect();
+        this.isConnecting = false;
         await this.disconnect();
         await this.connect();
     }

@@ -58,7 +58,14 @@ export class CTraderSocket {
         // Silence is golden.
     }
 
-    public onError (): void {
-        // Silence is golden.
+    public onError (error: Error): void {
+        // Error handled by CTraderConnection
+    }
+
+    public close (): void {
+        if (this.#socket) {
+            this.#socket.destroy();
+            this.#socket = undefined;
+        }
     }
 }

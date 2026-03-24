@@ -47,9 +47,53 @@ class WebSocketServer {
         this.tradingViewSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'tradingview'));
         this.tradingViewSession.on('tick', (tick) => this.dataRouter.routeFromTradingView(tick));
         this.tradingViewSession.on('candle', (candle) => this.dataRouter.routeFromTradingView(candle));
-        this.tradingViewSession.on('connected', () => console.log('[TradingView] Backend connected'));
-        this.tradingViewSession.on('disconnected', () => console.log('[TradingView] Backend disconnected'));
+        this.tradingViewSession.on('connected', () => {
+            console.log('[TradingView] Backend connected');
+            this.statusBroadcaster.broadcastStatus('connected');
+        });
+        this.tradingViewSession.on('disconnected', () => {
+            console.log('[TradingView] Backend disconnected');
+            this.statusBroadcaster.broadcastStatus('disconnected');
+        });
         this.tradingViewSession.on('error', (error) => console.error('[TradingView] Backend error:', error));
+
+        // Start heartbeat to keep frontend connections alive
+        // Frontend expects messages every 2 seconds, we send every 5 seconds
+        console.log('[WebSocketServer] Starting heartbeat interval (5s - aggressive for trading)');
+        this.heartbeatInterval = setInterval(() => {
+            console.log('[WebSocketServer] Heartbeat interval triggered');
+            this.sendHeartbeat();
+        }, 5000);
+    }
+
+    sendHeartbeat() {
+        const heartbeatMessage = {
+            type: 'heartbeat',
+            timestamp: Date.now(),
+            symbol: 'system'
+        };
+        let sentCount = 0;
+        let openClients = 0;
+        this.wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                openClients++;
+                try {
+                    client.send(JSON.stringify(heartbeatMessage));
+                    sentCount++;
+                } catch (error) {
+                    console.error('[DEBUGGER:WebSocketServer:sendHeartbeat:76] Failed to send heartbeat:', error.message);
+                }
+            }
+        });
+        console.log('[DEBUGGER:WebSocketServer:sendHeartbeat:67] Heartbeat sent: ' + sentCount + '/' + openClients + ' clients, timestamp=' + heartbeatMessage.timestamp);
+    }
+
+    // Cleanup method to stop heartbeat when server is shut down
+    close() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     }
 
     handleConnection(ws) {
@@ -154,13 +198,17 @@ class WebSocketServer {
 
     async handleReinit(ws, data) {
         const source = data.source || 'all';
-        console.log(`[WebSocketServer] Reinit requested for: ${source}`);
+        console.log('[DEBUGGER:WebSocketServer:handleReinit:162] Reinit requested for: ' + source);
 
         if (source === 'ctrader' || source === 'all') {
+            console.log('[DEBUGGER:WebSocketServer:handleReinit:165] Calling cTraderSession.reconnect()');
             await this.cTraderSession.reconnect();
+            console.log('[DEBUGGER:WebSocketServer:handleReinit:167] cTraderSession.reconnect() returned');
         }
         if (source === 'tradingview' || source === 'all') {
+            console.log('[DEBUGGER:WebSocketServer:handleReinit:169] Calling tradingViewSession.reconnect()');
             await this.tradingViewSession.reconnect();
+            console.log('[DEBUGGER:WebSocketServer:handleReinit:171] tradingViewSession.reconnect() returned');
         }
 
         this.sendToClient(ws, {

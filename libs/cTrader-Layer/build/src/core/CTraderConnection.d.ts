@@ -11,6 +11,7 @@ export declare class CTraderConnection extends EventEmitter {
     sendHeartbeat(): void;
     open(): Promise<unknown>;
     on(type: string | symbol, listener: (...parameters: any) => any): this;
+    close(): void;
     static getAccessTokenProfile(accessToken: string): Promise<GenericObject>;
     static getAccessTokenAccounts(accessToken: string): Promise<GenericObject[]>;
 }

@@ -16,6 +16,8 @@ class StatusBroadcaster {
      * @param {Array<string>} availableSymbols - Optional list of available symbols
      */
     broadcastStatus(status, message = null, availableSymbols = []) {
+        console.log('[DEBUGGER:StatusBroadcaster:broadcastStatus:19] ENTER broadcastStatus, status=' + status);
+        console.log('[DEBUGGER:StatusBroadcaster:broadcastStatus:20] availableSymbols=' + JSON.stringify(availableSymbols));
         this.currentBackendStatus = status;
         if (availableSymbols && availableSymbols.length > 0) {
             this.currentAvailableSymbols = availableSymbols;
@@ -29,9 +31,11 @@ class StatusBroadcaster {
         };
         if (message) statusData.message = message;
 
+        console.log('[DEBUGGER:StatusBroadcaster:broadcastStatus:33] Broadcasting to all clients: ' + JSON.stringify(statusData));
         this.broadcastToAll(statusData);
 
         if (status === 'connected') {
+            console.log('[DEBUGGER:StatusBroadcaster:broadcastStatus:36] Status is connected, broadcasting ready message');
             this.broadcastToAll({
                 type: 'ready',
                 availableSymbols: this.currentAvailableSymbols,
@@ -45,6 +49,7 @@ class StatusBroadcaster {
      * @param {Object} message - Message to broadcast
      */
     broadcastToAll(message) {
+        console.log('[DEBUGGER:StatusBroadcaster:broadcastToAll:48] Broadcasting to ' + this.wsServer.wss.clients.size + ' clients');
         this.wsServer.wss.clients.forEach(client => {
             this.sendToClient(client, message);
         });

@@ -10,5 +10,6 @@ export declare class CTraderSocket {
     onOpen(): void;
     onData(...parameters: any[]): void;
     onClose(): void;
-    onError(): void;
+    onError(error: Error): void;
+    close(): void;
 }

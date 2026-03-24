@@ -39,6 +39,7 @@ export class CTraderConnection extends EventEmitter {
         this.#socket.onOpen = (): void => this.#onOpen();
         this.#socket.onData = (data: any): void => this.#onData(data);
         this.#socket.onClose = (): void => this.#onClose();
+        this.#socket.onError = (error: Error): void => this.#onError(error);
     }
 
     public getPayloadTypeByName (name: string): number | undefined {
@@ -134,11 +135,19 @@ export class CTraderConnection extends EventEmitter {
     }
 
     #onClose (): void {
-        // Silence is golden.
+        this.emit('close');
+    }
+
+    #onError (error: Error): void {
+        this.emit('error', error);
     }
 
     #onPushEvent (payloadType: number, message: GenericObject): void {
         this.emit(payloadType.toString(), message);
+    }
+
+    public close (): void {
+        this.#socket.close();
     }
 
     public static async getAccessTokenProfile (accessToken: string): Promise<GenericObject> {

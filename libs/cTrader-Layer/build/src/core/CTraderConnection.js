@@ -19,7 +19,7 @@ var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
     return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 };
-var _CTraderConnection_instances, _CTraderConnection_commandMap, _CTraderConnection_encoderDecoder, _CTraderConnection_protobufReader, _CTraderConnection_socket, _CTraderConnection_resolveConnectionPromise, _CTraderConnection_rejectConnectionPromise, _CTraderConnection_send, _CTraderConnection_onOpen, _CTraderConnection_onData, _CTraderConnection_onDecodedData, _CTraderConnection_onClose, _CTraderConnection_onPushEvent;
+var _CTraderConnection_instances, _CTraderConnection_commandMap, _CTraderConnection_encoderDecoder, _CTraderConnection_protobufReader, _CTraderConnection_socket, _CTraderConnection_resolveConnectionPromise, _CTraderConnection_rejectConnectionPromise, _CTraderConnection_send, _CTraderConnection_onOpen, _CTraderConnection_onData, _CTraderConnection_onDecodedData, _CTraderConnection_onClose, _CTraderConnection_onError, _CTraderConnection_onPushEvent;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CTraderConnection = void 0;
 const EventEmitter = require("events");
@@ -56,6 +56,7 @@ class CTraderConnection extends EventEmitter {
         __classPrivateFieldGet(this, _CTraderConnection_socket, "f").onOpen = () => __classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_onOpen).call(this);
         __classPrivateFieldGet(this, _CTraderConnection_socket, "f").onData = (data) => __classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_onData).call(this, data);
         __classPrivateFieldGet(this, _CTraderConnection_socket, "f").onClose = () => __classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_onClose).call(this);
+        __classPrivateFieldGet(this, _CTraderConnection_socket, "f").onError = (error) => __classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_onError).call(this, error);
     }
     getPayloadTypeByName(name) {
         return __classPrivateFieldGet(this, _CTraderConnection_protobufReader, "f").getPayloadTypeByName(name);
@@ -105,6 +106,9 @@ class CTraderConnection extends EventEmitter {
         }
         return super.on(normalizedType, listener);
     }
+    close() {
+        __classPrivateFieldGet(this, _CTraderConnection_socket, "f").close();
+    }
     static getAccessTokenProfile(accessToken) {
         return __awaiter(this, void 0, void 0, function* () {
             return JSON.parse(yield axios_1.default.get(`https://api.spotware.com/connect/profile?access_token=${accessToken}`));
@@ -148,6 +152,9 @@ _CTraderConnection_commandMap = new WeakMap(), _CTraderConnection_encoderDecoder
         __classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_onPushEvent).call(this, payloadType, data.payload);
     }
 }, _CTraderConnection_onClose = function _CTraderConnection_onClose() {
+    this.emit('close');
+}, _CTraderConnection_onError = function _CTraderConnection_onError(error) {
+    this.emit('error', error);
 }, _CTraderConnection_onPushEvent = function _CTraderConnection_onPushEvent(payloadType, message) {
     this.emit(payloadType.toString(), message);
 };

@@ -31,11 +31,26 @@ const session = new CTraderSession();
 const tradingViewSession = new TradingViewSession(twapService, marketProfileService);
 const wsServer = new WebSocketServer(port, session, tradingViewSession, twapService, marketProfileService);
 
+// Global error handlers to prevent crashes on connection interrupt
+process.on('uncaughtException', (error) => {
+    console.error('[FATAL] Uncaught exception:', error.message);
+    console.error(error.stack);
+    // Attempt graceful recovery but don't crash immediately
+    // Log the error and continue running if possible
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] Unhandled promise rejection:', reason);
+    console.error('at:', promise);
+    // Log but don't crash - connection failures should be handled gracefully
+});
+
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
     console.log('Shutting down backend...');
     session.disconnect();
     tradingViewSession.disconnect();
+    wsServer.close(); // Stop heartbeat
     wsServer.wss.close(() => {
         console.log('WebSocket server closed.');
         process.exit(0);
