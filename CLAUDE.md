@@ -6,8 +6,8 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 
 ### Core Workflow: explore → plan → execute
 
-1. **Explore**: Use `codebase-analysis` for large codebase exploration
-2. **Think**: Use `deepthink` for analytical questions (trade-offs, architecture, "why is this happening?")
+1. **Explore**: Use `codebase-analysis` for unfamiliar codebases, security reviews, performance analysis
+2. **Think**: Use `deepthink` for questions where answer structure is unknown (taxonomy, trade-offs, definitions)
 3. **Plan**: "Use your planner skill to write a plan to plans/my-feature.md"
 4. **Clear**: `/clear` - start fresh with clean context
 5. **Execute**: "Use your planner skill to execute plans/my-feature.md"
@@ -16,14 +16,21 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 
 | Skill | When to invoke |
 |-------|----------------|
-| `deepthink` | Analytical questions, trade-offs, architecture, "why does this keep happening?" |
-| `problem-analysis` | Root cause investigation - "X is broken, figure out why" |
-| `codebase-analysis` | Large codebase exploration before proposing changes |
-| `decision-critic` | Stress-test a specific decision before committing |
-| `planner` | Write implementation plans OR execute approved plans |
-| `refactor` | After features work but code feels messy |
-| `prompt-engineer` | Optimizing prompts that aren't performing well |
-| `doc-sync` | Synchronize documentation across the repository |
+| `deepthink` | Questions where answer structure is unknown: taxonomy design, conceptual analysis, "what makes a good X?", trade-off exploration, definitional questions. NOT for problems with verifiable answers or known problem types. |
+| `problem-analysis` | Root cause identification - "X is broken, figure out why". Does NOT propose solutions. Use for bugs, component failures, unexpected behavior. |
+| `codebase-analysis` | Unfamiliar codebase, security review, performance analysis, architecture evaluation. Forces systematic investigation with file:line evidence. |
+| `decision-critic` | Stress-test a decision where you want CRITICISM not agreement. Architectural choices, technology selection, tradeoffs with long-term consequences. |
+| `planner` | Write implementation plans with quality gates OR execute approved plans. Has specific phases: Context & Scope → Decision & Architecture → Refinement → Final Verification → QR (completeness, code, docs) → Technical Writer. |
+| `refactor` | After LLM-generated features work but code feels messy. Catches what LLM misses: duplication across files, god functions, inconsistent validation. Outputs prioritized work items (does NOT refactor code). |
+| `prompt-engineer` | Sub-agent definition misbehaving, Python script prompt underperforming, multi-prompt workflow inconsistent. Uses 100+ research papers for pattern attribution. |
+| `doc-sync` | Bootstrapping workflow on existing repo, after major refactors/restructuring, periodic audits for documentation drift. Maintains CLAUDE.md/README.md hierarchy. |
+
+### Key Workflow Principles
+
+- **Context hygiene**: Each task gets precisely the information it needs -- no more
+- **Planning before execution**: Forces ambiguities to surface when cheap to fix
+- **Review cycles**: Quality gates at every stage (QR-Completeness, QR-Code, QR-Docs, Technical Writer)
+- **Cost-effective delegation**: Smaller models for straightforward tasks, escalate only when needed
 
 ## Files
 
@@ -45,6 +52,7 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `docker/` | Container configurations | Deploying, containerizing services |
 | `scripts/` | Utility and setup scripts | Setting up development environment |
 | `docs/` | Architecture and design documentation | Understanding system design decisions |
+| `skills/` | Solatis claude-config skills for structured LLM workflows | Using development skills |
 
 ## Development
 

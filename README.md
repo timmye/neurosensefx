@@ -2,7 +2,7 @@
 
 A foreign exchange trading visualization platform that provides visual patterns for quick market understanding while monitoring multiple currency pairs.
 
-> **Note**: This project uses the [Solatis claude-config](https://github.com/solatis/claude-config/tree/feat/installer) skills framework for structured LLM-assisted development. See `skills/README.md` for the development workflow.
+> **Development Workflow**: This project uses the [Solatis claude-config](https://github.com/solatis/claude-config/tree/feat/installer) skills framework for structured LLM-assisted development. See `CLAUDE.md` for skill usage guidance.
 
 ## Features
 
@@ -87,28 +87,17 @@ services/              # Backend services
 libs/                  # External libraries
 └── cTrader-Layer/     # cTrader API integration
 
-skills/                # Solatis claude-config skills for structured LLM workflows
-├── deepthink/         # Analytical reasoning for open-ended questions
-├── problem-analysis/  # Root cause identification workflow
-├── planner/           # Implementation planning and execution
-├── codebase-analysis/ # Systematic codebase exploration
-├── decision-critic/   # Decision stress-testing and validation
-├── refactor/          # Code quality and technical debt review
+skills/                # Solatis claude-config skills
+├── deepthink/         # Structured reasoning for questions with unknown answer structure
+├── problem-analysis/  # Root cause identification (does NOT propose solutions)
+├── codebase-analysis/ # Systematic codebase exploration with evidence requirements
+├── decision-critic/   # Decision stress-testing (adversarial, not sycophantic)
+├── planner/           # Implementation planning/execution with quality gates
+├── refactor/          # Technical debt analysis (10 smell categories in parallel)
 ├── prompt-engineer/   # Prompt optimization with 100+ research papers
-└── doc-sync/          # Documentation synchronization
+├── doc-sync/          # CLAUDE.md/README.md hierarchy synchronization
+└── scripts/           # Python skill implementations
 ```
-
-## Development Workflow
-
-This project uses structured workflows to ensure high-quality LLM-assisted development:
-
-1. **Explore** - Use `codebase-analysis` for large codebase exploration
-2. **Think** - Use `deepthink` for analytical questions (most common)
-3. **Plan** - Use `planner` to write implementation plans with review cycles
-4. **Clear** - `/clear` to start fresh with clean context
-5. **Execute** - Use `planner` to execute the approved plan
-
-See [Solatis claude-config](https://github.com/solatis/claude-config/tree/feat/installer) for full documentation.
 
 ## License
 
