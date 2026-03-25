@@ -5,7 +5,7 @@
   import { getWebSocketUrl, formatSymbol, processSymbolData } from '../lib/displayDataProcessor.js';
   import { useWebSocketSub } from '../composables/useWebSocketSub.js';
   import { calculateDayRangePercentage } from '../lib/dayRangeCalculations.js';
-  import { formatPrice, formatPriceToPip, getPipetteDigit } from '../lib/priceFormat.js';
+  import { formatPrice, formatPriceToPip, getPipetteDigit, splitByPipPosition } from '../lib/priceFormat.js';
   import { renderMiniMarketProfile } from '../lib/marketProfile/orchestrator.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
 
@@ -39,6 +39,9 @@
   $: rangePercent = calculateDayRangePercentage(lastData);
   $: direction = lastData?.direction ?? 'neutral';
   $: pipPosition = lastData?.pipPosition ?? 4;
+
+  // Split price into larger digits (smaller font) and pip digits (normal font)
+  $: priceParts = currentPrice ? splitByPipPosition(formatPriceToPip(currentPrice, pipPosition)) : null;
 
   // Calculate daily change percentage
   $: dailyChangePercent = currentPrice && openPrice
@@ -254,6 +257,16 @@
     transition: color var(--flash-duration) ease-out;
   }
 
+  /* Larger value digits displayed smaller to emphasize pips */
+  .price-larger-digits {
+    font-size: 0.50em; /* 75% of base size */
+  }
+
+  /* Pip digits at full normal size */
+  .price-pip-digits {
+    font-size: 1em; /* Normal size */
+  }
+
   .price-value.flash-up {
     color: var(--flash-color-up);
   }
@@ -330,6 +343,11 @@
 
   .stat-value.negative {
     color: #e040fb;
+  }
+
+  .daily-change {
+    font-size: 15px;
+    font-weight: 600;
   }
 
   .close-button {
@@ -417,7 +435,7 @@
     <div class="symbol-label">{ticker.symbol}</div>
     <div class="price-value" class:flash-up={priceFlashClass === 'flash-up'} class:flash-down={priceFlashClass === 'flash-down'}>
       {#if currentPrice}
-        {formatPriceToPip(currentPrice, pipPosition)}<span class="pipette">{getPipetteDigit(currentPrice, pipPosition)}</span>
+        <span class="price-larger-digits">{priceParts.largerDigits}</span><span class="price-pip-digits">{priceParts.pipDigits}</span><span class="pipette">{getPipetteDigit(currentPrice, pipPosition)}</span>
       {:else}
         <span class="loading">...</span>
       {/if}
@@ -443,7 +461,7 @@
     </div>
     <div class="stat-spacer"></div>
     <div class="stat-row">
-      <span class="stat-value" class:positive={dailyChangeClass === 'positive'} class:negative={dailyChangeClass === 'negative'}>
+      <span class="stat-value daily-change" class:positive={dailyChangeClass === 'positive'} class:negative={dailyChangeClass === 'negative'}>
         {#if dailyChangePercent !== null}
           {dailyChangePercent > 0 ? '+' : ''}{dailyChangePercent}%
         {:else}

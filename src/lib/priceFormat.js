@@ -97,3 +97,48 @@ export function emphasizeDigits(formattedPrice, pipPosition) {
   };
 }
 
+// Split price formatted to pip level into larger digits (to shrink) and pip digits (normal size)
+// Returns: { largerDigits, pipDigits }
+// largerDigits: everything before the pips (should be displayed smaller)
+// pipDigits: the 4th and 5th significant digits (normal/larger size)
+// Note: Input should already be formatted to pip level (no pipettes)
+export function splitByPipPosition(formattedPrice) {
+  if (!formattedPrice) {
+    return { largerDigits: '', pipDigits: '' };
+  }
+
+  // Remove negative sign for processing
+  const isNegative = formattedPrice.startsWith('-');
+  const cleanPrice = isNegative ? formattedPrice.substring(1) : formattedPrice;
+
+  // Find the 4th and 5th digits (pips) in the price string
+  const priceChars = cleanPrice.split('');
+  let digitCount = 0;
+  let fourthDigitIndex = -1;
+  let fifthDigitIndex = -1;
+
+  // Find indices of 4th and 5th digits (the pip positions)
+  for (let i = 0; i < priceChars.length; i++) {
+    if (priceChars[i] >= '0' && priceChars[i] <= '9') {
+      digitCount++;
+      if (digitCount === 4) fourthDigitIndex = i;
+      if (digitCount === 5) fifthDigitIndex = i;
+    }
+  }
+
+  // If fewer than 5 digits, return entire price as pipDigits (nothing to shrink)
+  if (fifthDigitIndex === -1) {
+    return { largerDigits: '', pipDigits: formattedPrice };
+  }
+
+  // Extract segments
+  const largerDigits = cleanPrice.substring(0, fourthDigitIndex);
+  const pipDigits = cleanPrice.substring(fourthDigitIndex, fifthDigitIndex + 1);
+
+  // Add back negative sign to larger digits if present
+  return {
+    largerDigits: isNegative ? '-' + largerDigits : largerDigits,
+    pipDigits: pipDigits
+  };
+}
+
