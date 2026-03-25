@@ -74,6 +74,10 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   }
 
   console.log('[renderMiniMarketProfile] Rendering profile with', profile.length, 'levels, size:', size);
+
+  // DIAGNOSTIC: Log sample data to see what we're actually drawing
+  console.log('[renderMiniMarketProfile] SAMPLE DATA:', profile.slice(0, 3).map(l => ({ price: l.price, tpo: l.tpo })));
+
   const { width, height, pipPosition = 4, currentPrice, openPrice } = size;
 
   // DPR-aware canvas setup
@@ -104,8 +108,8 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   // Calculate TPO range
   const maxTpo = Math.max(...profile.map(l => l.tpo));
 
-  // Background (Chart BG from spec)
-  ctx.fillStyle = '#111111';
+  // Background (Chart BG)
+  ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, width, height);
 
   // Top and bottom border lines (match ticker border style)
@@ -178,6 +182,9 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   ctx.beginPath();
   ctx.arc(2, openY, 2, 0, Math.PI * 2);
   ctx.fill();
+
+  // DIAGNOSTIC: Confirm render completed
+  console.log('[renderMiniMarketProfile] RENDER COMPLETE: Drew', profile.length, 'bars, canvas dimensions:', canvas.width, 'x', canvas.height, 'DPR:', window.devicePixelRatio);
 }
 
 export function renderMarketProfileError(ctx, errorMessage) {

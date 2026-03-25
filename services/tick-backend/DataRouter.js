@@ -27,12 +27,13 @@ class DataRouter {
         this.broadcastToClients(message, candle.symbol, 'tradingview');
     }
 
-    routeProfileUpdate(symbol, profile, source) {
-        console.log(`[DataRouter] routeProfileUpdate: ${symbol} (${source}), levels=${profile.levels.length}`);
+    routeProfileUpdate(symbol, profile, source, seq) {
+        console.log(`[DataRouter] routeProfileUpdate: ${symbol} (${source}), seq=${seq}, levels=${profile.levels.length}`);
         const message = {
             type: 'profileUpdate',
             symbol,
             source,
+            seq,
             profile
         };
         console.log(`[DataRouter] About to call broadcastToClients for ${source}`);

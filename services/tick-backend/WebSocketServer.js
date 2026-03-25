@@ -36,14 +36,17 @@ class WebSocketServer {
         });
         this.cTraderSession.on('disconnected', () => this.statusBroadcaster.broadcastStatus('disconnected'));
         this.cTraderSession.on('error', (error) => this.statusBroadcaster.broadcastStatus('error', error.message));
-        this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar));
+        this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar, 'ctrader'));
         this.cTraderSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'ctrader'));
-        this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.profile, data.source || 'ctrader'));
+        this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.profile, data.source || 'ctrader', data.seq));
         this.marketProfileService.on('profileError', (data) => this.dataRouter.routeProfileError(data.symbol, data.error, data.message));
         this.twapService.on('twapUpdate', (data) => this.dataRouter.routeTwapUpdate(data.symbol, data, data.source || 'ctrader'));
 
         // TradingView event handlers
-        this.tradingViewSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar));
+        this.tradingViewSession.on('m1Bar', (bar) => {
+            console.log(`[WebSocketServer] TradingView m1Bar received:`, JSON.stringify(bar));
+            this.marketProfileService.onM1Bar(bar.symbol, bar, 'tradingview');
+        });
         this.tradingViewSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'tradingview'));
         this.tradingViewSession.on('tick', (tick) => this.dataRouter.routeFromTradingView(tick));
         this.tradingViewSession.on('candle', (candle) => this.dataRouter.routeFromTradingView(candle));

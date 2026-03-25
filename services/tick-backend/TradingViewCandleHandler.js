@@ -10,6 +10,10 @@ class TradingViewCandleHandler {
         this.packageBuilder = new TradingViewDataPackageBuilder(calculateBucketSizeForSymbol);
         this.twapService = twapService;
         this.marketProfileService = marketProfileService;
+
+        // Track current M1 bars being built from tick data
+        // TradingView doesn't send real-time M1 updates after series_completed
+        this.currentM1Bars = new Map(); // symbol -> { open, high, low, close, minuteTimestamp }
     }
 
     /**
@@ -33,7 +37,7 @@ class TradingViewCandleHandler {
 
         data.lastCandle = parsedD1[parsedD1.length - 1];
 
-        this.emitTickFromCandle(data.lastCandle, symbol);
+        this.emitTickFromCandle(data.lastCandle, symbol, data);
     }
 
     /**
@@ -57,36 +61,60 @@ class TradingViewCandleHandler {
             parsedM1.length = M1_HARD_CAP;
         }
 
+        // ALWAYS log when handleM1Candles is called
+        console.log(`[TradingView] handleM1Candles called for ${symbol}: ${parsedM1.length} candles, initialSent=${data.initialSent}`);
+
         if (!data.initialSent) {
             data.m1Candles.push(...parsedM1);
+            console.log(`[TradingView] Accumulated ${data.m1Candles.length} M1 candles for ${symbol} (historical)`);
+        } else {
+            // Real-time update - log diagnostic info
+            console.log(`[TradingView] M1 REALTIME UPDATE for ${symbol}: ${parsedM1.length} candles`);
         }
 
         const latest = parsedM1[parsedM1.length - 1];
-        this.emit('m1Bar', {
+        const m1Bar = {
             symbol,
             open: latest.open,
             high: latest.high,
             low: latest.low,
             close: latest.close,
             timestamp: latest.time * 1000
-        });
+        };
 
-        console.log(`[TradingView] Accumulated ${data.m1Candles.length} M1 candles for ${symbol}`);
+        // Only emit if this looks like new data (not historical)
+        if (data.initialSent) {
+            console.log(`[TradingView] EMITTING m1Bar for ${symbol}:`, JSON.stringify(m1Bar));
+            this.emit('m1Bar', m1Bar);
+        } else {
+            // During historical load, don't emit individual bars
+            // They'll be processed in batch via initializeFromHistory
+            console.log(`[TradingView] NOT emitting m1Bar (historical load in progress)`);
+        }
     }
 
     /**
      * Emit tick event from latest candle close price.
      */
-    emitTickFromCandle(latest, symbol) {
+    emitTickFromCandle(latest, symbol, data = null) {
         this.healthMonitor.recordTick();
-        this.emit('tick', {
+
+        const tick = {
             type: 'tick',
             source: 'tradingview',
             symbol,
             price: latest.close,
             current: latest.close,
             timestamp: Date.now()
-        });
+        };
+
+        this.emit('tick', tick);
+
+        // Build M1 bars from tick data (TradingView doesn't send real-time M1 updates)
+        // Only start building after initial data is sent
+        if (data && data.initialSent) {
+            this.updateM1BarFromTick(symbol, latest.close);
+        }
     }
 
     /**
@@ -139,6 +167,61 @@ class TradingViewCandleHandler {
 
         emitFn('candle', dataPackage);
         this.packageBuilder.markDataPackageSent(data);
+    }
+
+    /**
+     * Update M1 bar from tick data and emit when minute changes.
+     * TradingView doesn't send real-time M1 updates after series_completed,
+     * so we build M1 bars from tick data.
+     * @param {string} symbol - Symbol identifier
+     * @param {number} price - Current tick price
+     */
+    updateM1BarFromTick(symbol, price) {
+        console.log(`[TradingView] updateM1BarFromTick called for ${symbol} price=${price}`);
+        const now = Date.now();
+        const currentMinute = Math.floor(now / 60000) * 60000; // Round down to minute
+
+        const existing = this.currentM1Bars.get(symbol);
+
+        if (existing) {
+            if (existing.minuteTimestamp !== currentMinute) {
+                // Minute changed - emit the completed bar
+                const completedBar = {
+                    symbol,
+                    open: existing.open,
+                    high: existing.high,
+                    low: existing.low,
+                    close: existing.close,
+                    timestamp: existing.minuteTimestamp
+                };
+                console.log(`[TradingView] M1 bar completed for ${symbol}:`, JSON.stringify(completedBar));
+                this.emit('m1Bar', completedBar);
+
+                // Start new bar
+                this.currentM1Bars.set(symbol, {
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price,
+                    minuteTimestamp: currentMinute
+                });
+            } else {
+                // Same minute - update OHLC
+                existing.high = Math.max(existing.high, price);
+                existing.low = Math.min(existing.low, price);
+                existing.close = price;
+            }
+        } else {
+            // First tick for this symbol
+            console.log(`[TradingView] First tick for ${symbol}, starting M1 bar at ${currentMinute}`);
+            this.currentM1Bars.set(symbol, {
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+                minuteTimestamp: currentMinute
+            });
+        }
     }
 
     /**

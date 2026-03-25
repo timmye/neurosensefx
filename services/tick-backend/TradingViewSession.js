@@ -28,6 +28,10 @@ class TradingViewSession extends EventEmitter {
         this.healthMonitor = new HealthMonitor('tradingview', 6000, 1000);
         this.reconnection = new ReconnectionManager(15000, 500, Number(process.env.MAX_RECONNECT_ATTEMPTS) || 20);
 
+        // Track current M1 bars being built from tick data
+        // TradingView doesn't send real-time M1 updates after series_completed
+        this.currentM1Bars = new Map(); // symbol -> { open, high, low, close, minuteTimestamp }
+
         const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
         this.candleHandler = new TradingViewCandleHandler(this.healthMonitor, calculateBucketSizeForSymbol, twapService, marketProfileService);
         this.candleHandler.setEmitter(this.emit.bind(this));
@@ -77,6 +81,9 @@ class TradingViewSession extends EventEmitter {
 
     handleEvent(event) {
         try {
+            // DIAGNOSTIC: Log ALL events to understand TradingView behavior
+            console.log(`[TradingView] EVENT: ${event.name}`, event.params ? `params: ${JSON.stringify(event.params).substring(0, 200)}` : '');
+
             switch (event.name) {
                 case 'timescale_update':
                 case 'du':

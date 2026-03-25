@@ -96,13 +96,18 @@
   // Use block form to ensure Svelte tracks all dependencies properly
   $: if (canvasRef && lastMarketProfileData) {
     console.log('[PriceTicker] REACTIVE TRIGGER: rendering market profile for', formattedSymbol, 'levels:', lastMarketProfileData.length);
-    renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
-      width: 37.5,
-      height: 80,
-      pipPosition: pipPosition,
-      currentPrice,
-      openPrice
-    });
+    try {
+      renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
+        width: 37.5,
+        height: 80,
+        pipPosition: pipPosition,
+        currentPrice,
+        openPrice
+      });
+      console.log('[PriceTicker] RENDER CALL SUCCESS');
+    } catch (e) {
+      console.error('[PriceTicker] RENDER ERROR:', e);
+    }
   }
 
   onMount(() => {
@@ -130,11 +135,13 @@
       // Note: initialMarketProfile contains raw M1 data for backend initialization only
       // We render from profileUpdate events which contain processed {price, tpo} levels
       if (data.type === 'profileUpdate' && data.profile) {
-        console.log('[PriceTicker] profileUpdate received for', formattedSymbol, 'levels:', data.profile.levels.length, 'seq:', data.seq);
-        lastMarketProfileData = data.profile.levels;
-        // CRITICAL: Call tick() to ensure Svelte detects the change and triggers reactive rendering
+        const levels = data.profile.levels;
+        // DIAGNOSTIC: Log first 3 levels' TPO values to detect if data is actually changing
+        const sampleTpo = levels.slice(0, 3).map(l => l.tpo);
+        console.log('[PriceTicker] profileUpdate', formattedSymbol, 'levels:', levels.length, 'seq:', data.seq, 'sample TPO:', sampleTpo);
+        console.log('[PriceTicker] ARRAY SAME?', lastMarketProfileData === levels, 'old:', lastMarketProfileData?.length, 'new:', levels.length);
+        lastMarketProfileData = levels;
         await tick();
-        console.log('[PriceTicker] tick() completed, lastMarketProfileData.length:', lastMarketProfileData.length);
       }
     }, 14);
 

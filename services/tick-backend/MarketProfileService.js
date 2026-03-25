@@ -37,8 +37,12 @@ class MarketProfileService extends EventEmitter {
   cleanupSymbol(symbol) {
     // Remove pending bars buffer
     this.pendingBars.delete(symbol);
-    // Remove last bar timestamp tracking
-    this.lastBarTimestamps.delete(symbol);
+    // Remove all keys starting with symbol (including source-specific keys)
+    for (const key of this.lastBarTimestamps.keys()) {
+      if (key === symbol || key.startsWith(`${symbol}:`)) {
+        this.lastBarTimestamps.delete(key);
+      }
+    }
     // Clear processing guards
     this.isProcessingPending.delete(symbol);
     this.isInitializing.delete(symbol);
@@ -46,11 +50,32 @@ class MarketProfileService extends EventEmitter {
     console.log(`[MarketProfileService] Cleaned up state for ${symbol}`);
   }
 
-  onM1Bar(symbol, bar) {
-    const profile = this.profiles.get(symbol);
+  onM1Bar(symbol, bar, source = null) {
+    let profile = this.profiles.get(symbol);
     if (!profile) {
-      console.warn(`[MarketProfileService] No profile found for ${symbol}`);
-      return;
+      // Check if currently initializing - if so, buffer the bar
+      if (this.isInitializing.get(symbol)) {
+        console.log(`[MarketProfileService] Profile initializing for ${symbol}, buffering bar`);
+        let pending = this.pendingBars.get(symbol);
+        if (!pending) {
+          pending = [];
+          this.pendingBars.set(symbol, pending);
+        }
+        if (pending.length < this.MAX_PENDING_BARS) {
+          pending.push(bar);
+        }
+        return;
+      }
+
+      // Use provided source or default to tradingview
+      const initSource = source || 'tradingview';
+      console.warn(`[MarketProfileService] No profile found for ${symbol}, auto-initializing from live M1 bars with source=${initSource}`);
+      this.subscribeToSymbol(symbol, initSource);
+      profile = this.profiles.get(symbol);
+      if (!profile) {
+        console.error(`[MarketProfileService] Failed to auto-initialize ${symbol}`);
+        return;
+      }
     }
 
     // Guard: Skip if already processing pending bars for this symbol
@@ -75,13 +100,20 @@ class MarketProfileService extends EventEmitter {
       }
     }
 
-    // Deduplication: Skip if we've already processed this bar (same timestamp)
-    const lastTimestamp = this.lastBarTimestamps.get(symbol);
-    if (lastTimestamp === bar.timestamp) {
-      console.log(`[MarketProfileService] Skipping duplicate bar for ${symbol} at ${new Date(bar.timestamp).toISOString()}`);
+    // Use provided source or fall back to tracked source
+    const barSource = source || this.symbolSources.get(symbol) || 'tradingview';
+    const dedupeKey = `${symbol}:${barSource}`;
+
+    // Deduplication: Use bar signature to detect truly identical bars
+    // Same timestamp with different OHLC = same minute being updated (skip)
+    const barSignature = `${bar.timestamp}|${bar.low}|${bar.high}|${bar.close}`;
+    const lastBarData = this.lastBarTimestamps.get(dedupeKey);
+
+    if (lastBarData === barSignature) {
+      console.log(`[MarketProfileService] Skipping identical bar for ${symbol}:${barSource}`);
       return;
     }
-    this.lastBarTimestamps.set(symbol, bar.timestamp);
+    this.lastBarTimestamps.set(dedupeKey, barSignature);
 
     if (profile.levels.size >= this.MAX_LEVELS) {
       console.warn(`[MarketProfile] ${symbol} exceeded ${this.MAX_LEVELS} levels`);
@@ -111,8 +143,16 @@ class MarketProfileService extends EventEmitter {
 
     profile.lastUpdate = bar.timestamp;
 
+    // DIAGNOSTIC: Log what actually changed
+    if (delta.added.length > 0 || delta.updated.length > 0) {
+      console.log(`[MarketProfileService] ${symbol} M1 bar processed: +${delta.added.length} levels, updated ${delta.updated.length} levels`);
+      if (delta.updated.length > 0 && delta.updated.length <= 5) {
+        console.log(`[MarketProfileService] ${symbol} Updated TPOs:`, delta.updated.map(u => `${u.price}→${u.tpo}`).join(', '));
+      }
+    }
+
     const seq = this._incrementSequence(symbol);
-    const source = this.symbolSources.get(symbol) || 'ctrader';
+    // source is already declared above
     const fullProfile = this.getFullProfile(symbol);
     console.log(`[MarketProfileService] EMITTING profileUpdate for ${symbol} (${source}), seq=${seq}, levels=${fullProfile.levels.length}`);
     this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
@@ -186,13 +226,16 @@ class MarketProfileService extends EventEmitter {
           return 0;
         }
 
-        // Deduplication: Skip if we've already processed this bar (same timestamp)
-        const lastTimestamp = this.lastBarTimestamps.get(symbol);
-        if (lastTimestamp === bar.timestamp) {
-          console.log(`[MarketProfileService] Skipping duplicate pending bar for ${symbol} at ${new Date(bar.timestamp).toISOString()}`);
+        // Deduplication: Skip if we've already processed this exact bar (same timestamp AND OHLC)
+        const source = this.symbolSources.get(symbol) || 'tradingview';
+        const dedupeKey = `${symbol}:${source}`;
+        const barSignature = `${bar.timestamp}|${bar.low}|${bar.high}|${bar.close}`;
+        const lastBarData = this.lastBarTimestamps.get(dedupeKey);
+        if (lastBarData === barSignature) {
+          console.log(`[MarketProfileService] Skipping identical pending bar for ${symbol}:${source}`);
           continue;
         }
-        this.lastBarTimestamps.set(symbol, bar.timestamp);
+        this.lastBarTimestamps.set(dedupeKey, barSignature);
 
         if (profile.levels.size >= this.MAX_LEVELS) {
           console.warn(`[MarketProfile] ${symbol} exceeded ${this.MAX_LEVELS} levels while processing pending bars`);
@@ -240,13 +283,27 @@ class MarketProfileService extends EventEmitter {
       return;
     }
 
+    // Guard: Prevent reinitialization of existing profiles with data
+    // This allows real-time TPO accumulation without being wiped out by repeated calls
+    const existingProfile = this.profiles.get(symbol);
+    if (existingProfile && existingProfile.levels.size > 0) {
+      console.log(`[MarketProfileService] ${symbol} already initialized with ${existingProfile.levels.size} levels, skipping reinitialization`);
+      // Still emit current profile for new subscribers
+      const seq = this._incrementSequence(symbol);
+      const fullProfile = this.getFullProfile(symbol);
+      this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
+      return;
+    }
+
     // Set initialization guard
     this.isInitializing.set(symbol, true);
 
     try {
       // Clear deduplication state for this initialization (handles reconnection scenarios)
+      // Clear ALL source-specific keys to prevent stale data from source switching
       // IMPORTANT: Do NOT reset sequence numbers - they should only ever increase
-      this.lastBarTimestamps.delete(symbol);
+      this.lastBarTimestamps.delete(`${symbol}:ctrader`);
+      this.lastBarTimestamps.delete(`${symbol}:tradingview`);
 
       // Subscribe to symbol FIRST so profile exists to receive live M1 bars
       // This is critical: even without historical data, we need to receive live bars
