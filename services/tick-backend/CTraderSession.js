@@ -26,17 +26,24 @@ class CTraderSession extends EventEmitter {
         this.dataProcessor = null;
         this.eventHandler = null;
 
-        this.healthMonitor = new HealthMonitor('ctrader', 10000, 5000);
+        // 6s staleness threshold to avoid false positives during normal FX low-activity periods
+        this.healthMonitor = new HealthMonitor('ctrader', 6000, 1000);
         this.reconnection = new ReconnectionManager(15000, 500, Number(process.env.MAX_RECONNECT_ATTEMPTS) || 20);
 
         // Store listener references to prevent duplicates
         this.spotEventHandler = null;
         this.closeEventHandler = null;
         this.errorEventHandler = null;
+        this.staleEventHandler = null;
 
         // Connection state guards
         this.isConnecting = false;
+        this.isDisconnecting = false;
         this.eventListenersAttached = false;
+        this.connectedAt = null;
+
+        // Track active subscriptions for restoration after reconnection
+        this.activeSubscriptions = new Set();
     }
 
     async connect() {
@@ -81,8 +88,17 @@ class CTraderSession extends EventEmitter {
 
         await this.authenticate();
         await this.symbolLoader.loadAllSymbols();
+
+        // Restore subscriptions after reconnection
+        await this.restoreSubscriptions();
+
         this.startHeartbeat();
+
+        // Initialize health monitor with grace period - record tick immediately to prevent immediate staleness
+        this.connectedAt = Date.now();
+        this.healthMonitor.recordTick();
         this.healthMonitor.start();
+
         this.reconnection.reset();
         this.emit('connected', this.symbolLoader.getAllSymbolNames());
     }
@@ -138,9 +154,18 @@ class CTraderSession extends EventEmitter {
             this.handleDisconnect(err, true);
         };
 
+        // Handle staleness detection from HealthMonitor
+        this.staleEventHandler = () => {
+            console.log('[CTraderSession] Connection detected as stale, triggering reconnection');
+            this.handleDisconnect(new Error('Connection stale - no data received'), true);
+        };
+
         this.connection.on('PROTO_OA_SPOT_EVENT', this.spotEventHandler);
         this.connection.on('close', this.closeEventHandler);
         this.connection.on('error', this.errorEventHandler);
+
+        // Use health monitor for staleness detection
+        this.healthMonitor.on('stale', this.staleEventHandler);
 
         this.eventListenersAttached = true;
     }
@@ -163,6 +188,12 @@ class CTraderSession extends EventEmitter {
             this.errorEventHandler = null;
         }
 
+        // Remove health monitor listener
+        if (this.staleEventHandler) {
+            this.healthMonitor.removeListener('stale', this.staleEventHandler);
+            this.staleEventHandler = null;
+        }
+
         this.eventListenersAttached = false;
     }
 
@@ -178,8 +209,15 @@ class CTraderSession extends EventEmitter {
     }
 
     handleDisconnect(error = null, shouldScheduleReconnect = true) {
-        console.log('[DEBUG] CTraderSession.handleDisconnect() called');
-        if (error) console.error('CTraderSession connection failed:', error);
+        // Prevent concurrent disconnect handling
+        if (this.isDisconnecting) {
+            console.log('[CTraderSession] Already disconnecting, skipping duplicate call');
+            return;
+        }
+
+        this.isDisconnecting = true;
+        console.log('[CTraderSession] handleDisconnect() called');
+        if (error) console.error('[CTraderSession] connection failed:', error);
         this.reconnection.cancelReconnect();
         this.isConnecting = false;
         this.healthMonitor.stop();
@@ -187,9 +225,12 @@ class CTraderSession extends EventEmitter {
         this.emit('disconnected');
 
         if (this.connection) {
-            console.log('[DEBUG] Closing connection in handleDisconnect');
+            console.log('[CTraderSession] Closing connection in handleDisconnect');
             this.connection.close();
         }
+
+        // Reset flag after cleanup
+        this.isDisconnecting = false;
 
         if (shouldScheduleReconnect) {
             this.scheduleReconnect();
@@ -211,6 +252,40 @@ class CTraderSession extends EventEmitter {
         if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     }
 
+    /**
+     * Restore all active subscriptions after reconnection.
+     * Called during connect() to resubscribe to all symbols that were active before disconnect.
+     */
+    async restoreSubscriptions() {
+        if (!this.connection || this.activeSubscriptions.size === 0) {
+            return;
+        }
+
+        console.log(`[CTraderSession] Restoring ${this.activeSubscriptions.size} subscriptions`);
+
+        // Restore subscriptions in order: ticks first, then M1 bars
+        for (const symbolName of this.activeSubscriptions) {
+            try {
+                // cTrader requires tick subscription before M1 bars
+                await this.subscribeToTicks(symbolName);
+                await new Promise(resolve => setTimeout(resolve, 50)); // Small delay to avoid overwhelming API
+            } catch (error) {
+                console.error(`[CTraderSession] Failed to restore tick subscription for ${symbolName}:`, error.message);
+            }
+        }
+
+        for (const symbolName of this.activeSubscriptions) {
+            try {
+                await this.subscribeToM1Bars(symbolName);
+                await new Promise(resolve => setTimeout(resolve, 50)); // Small delay to avoid overwhelming API
+            } catch (error) {
+                console.error(`[CTraderSession] Failed to restore M1 bar subscription for ${symbolName}:`, error.message);
+            }
+        }
+
+        console.log(`[CTraderSession] Subscription restoration complete`);
+    }
+
     async subscribeToTicks(symbolName) {
         const symbolId = this.symbolLoader.getSymbolId(symbolName);
         if (symbolId) {
@@ -218,6 +293,8 @@ class CTraderSession extends EventEmitter {
                 ctidTraderAccountId: this.ctidTraderAccountId,
                 symbolId: [symbolId]
             });
+            // Track subscription for restoration after reconnect
+            this.activeSubscriptions.add(symbolName);
         }
     }
 
@@ -228,6 +305,8 @@ class CTraderSession extends EventEmitter {
                 ctidTraderAccountId: this.ctidTraderAccountId,
                 symbolId: [symbolId]
             });
+            // Stop tracking this subscription
+            this.activeSubscriptions.delete(symbolName);
         }
     }
 
@@ -247,6 +326,8 @@ class CTraderSession extends EventEmitter {
     }
 
     disconnect() {
+        // Clear subscription tracking on explicit disconnect
+        this.activeSubscriptions.clear();
         // Use handleDisconnect with shouldScheduleReconnect=false to prevent auto-reconnect
         this.handleDisconnect(null, false);
     }

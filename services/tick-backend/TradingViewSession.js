@@ -24,8 +24,8 @@ class TradingViewSession extends EventEmitter {
         this.subscriptions = new Map();
         this.unsubscribe = null;
 
-        // Aggressive staleness threshold for trading
-        this.healthMonitor = new HealthMonitor('tradingview', 10000, 5000);
+        // 6s staleness threshold to avoid false positives during normal market low-activity periods
+        this.healthMonitor = new HealthMonitor('tradingview', 6000, 1000);
         this.reconnection = new ReconnectionManager(15000, 500, Number(process.env.MAX_RECONNECT_ATTEMPTS) || 20);
 
         const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
@@ -41,6 +41,7 @@ class TradingViewSession extends EventEmitter {
         // Connection state guard
         this.eventListenersAttached = false;
         this.isDisconnecting = false;
+        this.connectedAt = null;
     }
 
     async connect(sessionId) {
@@ -59,6 +60,7 @@ class TradingViewSession extends EventEmitter {
             });
 
             // Initialize health monitor and start tracking
+            this.connectedAt = Date.now();
             this.healthMonitor.recordTick(); // Prevent immediate staleness on connect
             this.healthMonitor.start();
             this.reconnection.reset();

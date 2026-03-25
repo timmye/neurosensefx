@@ -41,7 +41,7 @@ export class ConnectionManager {
       console.log('[DEBUGGER:ConnectionManager:onOpen:38] Connection opened, resetting attempts');
       this.reconnectionHandler.resetAttempts();
       this.subscriptionManager.flushPending(h.getWebSocket());
-      this.resubscribeAll();
+      // Don't resubscribe here - wait for 'ready' message from backend
       this.notifyStatusChange();
     };
     h.onClose = () => {
@@ -85,6 +85,11 @@ export class ConnectionManager {
     h.onMessage = (d) => {
       if (d.type === 'status') {
         this.notifyStatusChange();
+      }
+      // Resubscribe when backend is ready (after cTrader/TradingView reconnection)
+      if (d.type === 'ready') {
+        console.log('[ConnectionManager] Backend ready, resubscribing to all symbols');
+        this.resubscribeAll();
       }
       this.subscriptionManager.dispatch(d);
     };
