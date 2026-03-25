@@ -35,7 +35,7 @@
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
     fxPairs = getAllPairs();
     store = createStore();
-    stateMachine = createStateMachine(fxPairs, 45000); // 45s: 11s subscription + 25s coordinator + buffer
+    stateMachine = createStateMachine(fxPairs, 60000); // 60s: 11s subscription + 25s coordinator + buffer
 
     setupInteract();
     startSubscriptions();
@@ -215,7 +215,7 @@
   async function handleRefresh() {
     if (connectionManager) {
       if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-      stateMachine = createStateMachine(fxPairs, 45000); // 45s: 11s subscription + 25s coordinator + buffer
+      stateMachine = createStateMachine(fxPairs, 60000); // 60s: 11s subscription + 25s coordinator + buffer
       basketData = null;
       startSubscriptions();
     }
