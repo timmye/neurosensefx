@@ -179,21 +179,26 @@ class WebSocketServer {
             });
         }
 
-        // Subscribe to M1 bars if first subscription for this symbol (AFTER ticks for cTrader)
-        if (!this.subscriptionManager.hasM1BarSubscription(symbolName, source)) {
-            this.subscriptionManager.addBackendSubscription(symbolName, source);
-            console.log(`[WebSocketServer] Subscribing to M1 bars for ${symbolName} (${source})`);
-            this.marketProfileService.subscribeToSymbol(symbolName, source);
-
+        // Define callback to subscribe to M1 bars when profile initialization completes
+        const onDataReceived = () => {
+            console.log(`[WebSocketServer] Profile initialization complete for ${symbolName}, now subscribing to M1 bars`);
             if (source === 'ctrader') {
                 this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
                     console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err);
                 });
             }
+        };
+
+        // Subscribe to M1 bars if first subscription for this symbol
+        // NOTE: M1 bar subscription activates upon profile initialization completion
+        if (!this.subscriptionManager.hasM1BarSubscription(symbolName, source)) {
+            this.subscriptionManager.addBackendSubscription(symbolName, source);
+            console.log(`[WebSocketServer] Registering M1 bar subscription for ${symbolName} (${source}) - will activate after profile initialization`);
+            this.marketProfileService.subscribeToSymbol(symbolName, source);
         }
 
-        // Delegate request handling
-        return this.requestCoordinator.handleRequest(symbolName, adrLookbackDays, source, ws);
+        // Delegate request handling with completion callback
+        return this.requestCoordinator.handleRequest(symbolName, adrLookbackDays, source, ws, onDataReceived);
     }
 
     async handleReinit(ws, data) {
@@ -228,6 +233,8 @@ class WebSocketServer {
                 if (source === 'ctrader') {
                     this.cTraderSession.unsubscribeFromTicks(symbolName);
                 }
+                // Clean up market profile data to free memory
+                this.marketProfileService.cleanupSymbol(symbol);
             }
         }
     }

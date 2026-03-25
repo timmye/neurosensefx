@@ -20,13 +20,14 @@ class RequestCoordinator {
      * @param {number} adrLookbackDays - ADR lookback period
      * @param {string} source - Data source ('ctrader' or 'tradingview')
      * @param {WebSocket} client - Client making the request
+     * @param {Function} onComplete - Optional callback called after data is sent to clients
      */
-    async handleRequest(symbol, adrLookbackDays, source, client) {
+    async handleRequest(symbol, adrLookbackDays, source, client, onComplete = null) {
         if (source === 'tradingview') {
-            return this.handleTradingViewRequest(symbol, adrLookbackDays, client);
+            return this.handleTradingViewRequest(symbol, adrLookbackDays, client, onComplete);
         }
 
-        return this.handleCTraderRequest(symbol, adrLookbackDays, client);
+        return this.handleCTraderRequest(symbol, adrLookbackDays, client, onComplete);
     }
 
     /**
@@ -34,15 +35,16 @@ class RequestCoordinator {
      * @param {string} symbol - Symbol to fetch
      * @param {number} adrLookbackDays - ADR lookback period
      * @param {WebSocket} client - Client making the request
+     * @param {Function} onComplete - Optional callback called after data is sent to clients
      */
-    async handleCTraderRequest(symbol, adrLookbackDays, client) {
+    async handleCTraderRequest(symbol, adrLookbackDays, client, onComplete = null) {
         const requestKey = `${symbol}:${adrLookbackDays}`;
 
         const existingRequest = this.checkCoalescing(requestKey, client);
         if (existingRequest) return existingRequest;
 
         const clients = [client];
-        const fetchPromise = this.fetchWithRetry(symbol, adrLookbackDays, requestKey, clients);
+        const fetchPromise = this.fetchWithRetry(symbol, adrLookbackDays, requestKey, clients, onComplete);
         this.pendingRequests.set(requestKey, { promise: fetchPromise, clients });
         return fetchPromise;
     }
@@ -69,9 +71,10 @@ class RequestCoordinator {
      * @param {number} adrLookbackDays - ADR lookback period
      * @param {string} requestKey - Request identifier for logging
      * @param {Array} clients - Clients awaiting this data
+     * @param {Function} onComplete - Optional callback called after data is sent to clients
      * @returns {Promise<Object>} Symbol data package
      */
-    async fetchWithRetry(symbol, adrLookbackDays, requestKey, clients) {
+    async fetchWithRetry(symbol, adrLookbackDays, requestKey, clients, onComplete = null) {
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
         const attemptFetch = async (retries = 0) => {
@@ -84,6 +87,16 @@ class RequestCoordinator {
 
                 this.sendDataToClients(data, clients);
                 this.pendingRequests.delete(requestKey);
+
+                // Call completion callback after data is sent
+                if (onComplete) {
+                    try {
+                        onComplete();
+                    } catch (error) {
+                        console.error(`[RequestCoordinator] Completion callback error for ${symbol}:`, error);
+                    }
+                }
+
                 return data;
             } catch (error) {
                 return this.handleFetchError(error, symbol, requestKey, clients, retries, sleep, attemptFetch);
@@ -212,8 +225,9 @@ class RequestCoordinator {
      * @param {string} symbol - Symbol to fetch
      * @param {number} adrLookbackDays - ADR lookback period
      * @param {WebSocket} client - Client making the request
+     * @param {Function} onComplete - Optional callback called after data is sent to clients
      */
-    async handleTradingViewRequest(symbol, adrLookbackDays, client) {
+    async handleTradingViewRequest(symbol, adrLookbackDays, client, onComplete = null) {
         // Track this client as waiting for TradingView data
         if (!this.pendingTradingViewRequests.has(symbol)) {
             this.pendingTradingViewRequests.set(symbol, new Set());
@@ -233,6 +247,15 @@ class RequestCoordinator {
                     this.pendingTradingViewRequests.delete(symbol);
                 }
                 this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
+
+                // Call completion callback after data is sent
+                if (onComplete) {
+                    try {
+                        onComplete();
+                    } catch (error) {
+                        console.error(`[RequestCoordinator] Completion callback error for ${symbol}:`, error);
+                    }
+                }
             }
         };
 
