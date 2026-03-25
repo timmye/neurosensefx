@@ -1,5 +1,30 @@
 # NeuroSense FX
 
+## Structured Development Workflow
+
+This project uses [Solatis claude-config skills](https://github.com/solatis/claude-config/tree/feat/installer) for high-quality LLM-assisted development.
+
+### Core Workflow: explore → plan → execute
+
+1. **Explore**: Use `codebase-analysis` for large codebase exploration
+2. **Think**: Use `deepthink` for analytical questions (trade-offs, architecture, "why is this happening?")
+3. **Plan**: "Use your planner skill to write a plan to plans/my-feature.md"
+4. **Clear**: `/clear` - start fresh with clean context
+5. **Execute**: "Use your planner skill to execute plans/my-feature.md"
+
+### When to Use Each Skill
+
+| Skill | When to invoke |
+|-------|----------------|
+| `deepthink` | Analytical questions, trade-offs, architecture, "why does this keep happening?" |
+| `problem-analysis` | Root cause investigation - "X is broken, figure out why" |
+| `codebase-analysis` | Large codebase exploration before proposing changes |
+| `decision-critic` | Stress-test a specific decision before committing |
+| `planner` | Write implementation plans OR execute approved plans |
+| `refactor` | After features work but code feels messy |
+| `prompt-engineer` | Optimizing prompts that aren't performing well |
+| `doc-sync` | Synchronize documentation across the repository |
+
 ## Files
 
 | File | What | When to read |

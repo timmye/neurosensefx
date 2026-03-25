@@ -2,6 +2,8 @@
 
 A foreign exchange trading visualization platform that provides visual patterns for quick market understanding while monitoring multiple currency pairs.
 
+> **Note**: This project uses the [Solatis claude-config](https://github.com/solatis/claude-config/tree/feat/installer) skills framework for structured LLM-assisted development. See `skills/README.md` for the development workflow.
+
 ## Features
 
 - Real-time FX market data visualization via cTrader integration
@@ -84,7 +86,29 @@ services/              # Backend services
 
 libs/                  # External libraries
 └── cTrader-Layer/     # cTrader API integration
+
+skills/                # Solatis claude-config skills for structured LLM workflows
+├── deepthink/         # Analytical reasoning for open-ended questions
+├── problem-analysis/  # Root cause identification workflow
+├── planner/           # Implementation planning and execution
+├── codebase-analysis/ # Systematic codebase exploration
+├── decision-critic/   # Decision stress-testing and validation
+├── refactor/          # Code quality and technical debt review
+├── prompt-engineer/   # Prompt optimization with 100+ research papers
+└── doc-sync/          # Documentation synchronization
 ```
+
+## Development Workflow
+
+This project uses structured workflows to ensure high-quality LLM-assisted development:
+
+1. **Explore** - Use `codebase-analysis` for large codebase exploration
+2. **Think** - Use `deepthink` for analytical questions (most common)
+3. **Plan** - Use `planner` to write implementation plans with review cycles
+4. **Clear** - `/clear` to start fresh with clean context
+5. **Execute** - Use `planner` to execute the approved plan
+
+See [Solatis claude-config](https://github.com/solatis/claude-config/tree/feat/installer) for full documentation.
 
 ## License
 
