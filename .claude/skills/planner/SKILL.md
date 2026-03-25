@@ -15,8 +15,8 @@ script IS the workflow.
 
 | Mode      | Intent                             | Command                                                                                                             |
 | --------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| planning  | "plan", "design", "architect"      | `<invoke working-dir=".claude/skills/scripts" cmd="./skills/planner/run.sh --step 1 --total-steps 13" />` |
-| execution | "execute", "implement", "run plan" | `<invoke working-dir=".claude/skills/scripts" cmd="./skills/planner/executor.sh --step 1 --total-steps 9" />` |
+| planning  | "plan", "design", "architect"      | `<invoke working-dir=".claude/skills/scripts" cmd="python3 -m skills.planner.planner --step 1 --total-steps 13" />` |
+| execution | "execute", "implement", "run plan" | `<invoke working-dir=".claude/skills/scripts" cmd="python3 -m skills.planner.executor --step 1 --total-steps 9" />` |
 
 ## When to Use
 

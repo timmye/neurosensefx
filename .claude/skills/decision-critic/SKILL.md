@@ -10,7 +10,7 @@ workflow.
 
 ## Invocation
 
-<invoke working-dir=".claude/skills/scripts" cmd="./skills/decision_critic/run.sh --step 1 --total-steps 7 --decision '<decision text>'" />
+<invoke working-dir=".claude/skills/scripts" cmd="python3 -m skills.decision_critic.decision_critic --step 1 --total-steps 7 --decision '<decision text>'" />
 
 | Argument        | Required | Description                             |
 | --------------- | -------- | --------------------------------------- |
