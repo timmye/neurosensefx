@@ -100,9 +100,10 @@ export function emphasizeDigits(formattedPrice, pipPosition) {
 // Split price formatted to pip level into larger digits (to shrink) and pip digits (normal size)
 // Returns: { largerDigits, pipDigits }
 // largerDigits: everything before the pips (should be displayed smaller)
-// pipDigits: the 4th and 5th significant digits (normal/larger size)
+// pipDigits: the last 2 digits of the pip-level price (normal/larger size)
 // Note: Input should already be formatted to pip level (no pipettes)
-export function splitByPipPosition(formattedPrice) {
+// pipPosition: the decimal position of pips (e.g., 4 for EURUSD, 2 for USDJPY, 1 for XAUUSD)
+export function splitByPipPosition(formattedPrice, pipPosition) {
   if (!formattedPrice) {
     return { largerDigits: '', pipDigits: '' };
   }
@@ -111,29 +112,33 @@ export function splitByPipPosition(formattedPrice) {
   const isNegative = formattedPrice.startsWith('-');
   const cleanPrice = isNegative ? formattedPrice.substring(1) : formattedPrice;
 
-  // Find the 4th and 5th digits (pips) in the price string
-  const priceChars = cleanPrice.split('');
-  let digitCount = 0;
-  let fourthDigitIndex = -1;
-  let fifthDigitIndex = -1;
+  // Find decimal point
+  const decimalIndex = cleanPrice.indexOf('.');
 
-  // Find indices of 4th and 5th digits (the pip positions)
-  for (let i = 0; i < priceChars.length; i++) {
-    if (priceChars[i] >= '0' && priceChars[i] <= '9') {
-      digitCount++;
-      if (digitCount === 4) fourthDigitIndex = i;
-      if (digitCount === 5) fifthDigitIndex = i;
+  // If no decimal or pipPosition is 0 (whole number pips), take last 2 digits
+  if (decimalIndex === -1) {
+    const length = cleanPrice.length;
+    if (length < 3) {
+      return { largerDigits: '', pipDigits: formattedPrice };
     }
+    return {
+      largerDigits: isNegative ? '-' + cleanPrice.substring(0, length - 2) : cleanPrice.substring(0, length - 2),
+      pipDigits: cleanPrice.substring(length - 2)
+    };
   }
 
-  // If fewer than 5 digits, return entire price as pipDigits (nothing to shrink)
-  if (fifthDigitIndex === -1) {
+  // For prices with decimals: split before the pip decimals
+  // pipPosition tells us how many decimal places are pips
+  // We want the last 2 digits before the end (the pip decimal place)
+  const totalLength = cleanPrice.length;
+  const splitIndex = decimalIndex + pipPosition - 1;  // -1 because we want 2 digits for pips
+
+  if (splitIndex <= 0) {
     return { largerDigits: '', pipDigits: formattedPrice };
   }
 
-  // Extract segments
-  const largerDigits = cleanPrice.substring(0, fourthDigitIndex);
-  const pipDigits = cleanPrice.substring(fourthDigitIndex, fifthDigitIndex + 1);
+  const largerDigits = cleanPrice.substring(0, splitIndex);
+  const pipDigits = cleanPrice.substring(splitIndex);
 
   // Add back negative sign to larger digits if present
   return {

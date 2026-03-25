@@ -79,9 +79,7 @@ class RequestCoordinator {
 
         const attemptFetch = async (retries = 0) => {
             try {
-                console.log(`[DEBUGGER:RequestCoordinator:fetchWithRetry:76] Attempting fetch for symbol=${symbol}, adrLookbackDays=${adrLookbackDays}, retry=${retries}`);
                 const data = await this.wsServer.cTraderSession.getSymbolDataPackage(symbol, adrLookbackDays);
-                console.log(`[DEBUGGER:RequestCoordinator:fetchWithRetry:78] Fetch SUCCESS for ${symbol}, got data with ${data.initialMarketProfile?.length || 0} profile entries`);
                 console.log(`[COALESCE] Sending ${requestKey} to ${clients.length} clients${retries > 0 ? ` (after ${retries} retries)` : ''}`);
                 console.log(`[E2E_TRACE | RequestCoordinator] Sending package with ${data.initialMarketProfile.length} profile entries.`);
 
@@ -112,11 +110,38 @@ class RequestCoordinator {
      * @param {Array} clients - Clients to send to
      */
     sendDataToClients(data, clients) {
-        console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:97] Called with symbol=${data.symbol}, clients=${clients.length}, source=${data.source || 'ctrader'}`);
         // Determine source from data package
         const source = data.source || 'ctrader';
 
-        // After receiving symbolDataPackage, initialize TWAP and Market Profile from history
+        // IMPORTANT: Send symbolDataPackage FIRST, before initializing services that emit profileUpdate
+        // This prevents a race condition where profileUpdate arrives before price data, causing
+        // the frontend mini market profile to render with null currentPrice/openPrice values
+        clients.forEach((client, index) => {
+            this.wsServer.sendToClient(client, {
+                type: 'symbolDataPackage',
+                source: source,
+                symbol: data.symbol,
+                digits: data.digits,
+                adr: data.adr,
+                todaysOpen: data.todaysOpen,
+                todaysHigh: data.todaysHigh,
+                todaysLow: data.todaysLow,
+                projectedAdrHigh: data.projectedAdrHigh,
+                projectedAdrLow: data.projectedAdrLow,
+                initialPrice: data.initialPrice,
+                initialMarketProfile: data.initialMarketProfile || [],
+                pipPosition: data.pipPosition,
+                pipSize: data.pipSize,
+                pipetteSize: data.pipetteSize,
+                ...(data.prevDayOpen !== undefined && { prevDayOpen: data.prevDayOpen }),
+                ...(data.prevDayHigh !== undefined && { prevDayHigh: data.prevDayHigh }),
+                ...(data.prevDayLow !== undefined && { prevDayLow: data.prevDayLow }),
+                ...(data.prevDayClose !== undefined && { prevDayClose: data.prevDayClose })
+            });
+        });
+
+        // After sending symbolDataPackage, initialize TWAP and Market Profile from history
+        // This ensures profileUpdate events are emitted AFTER clients have price data
         if (data.initialMarketProfile) {
             console.log(`[RequestCoordinator] Initializing TWAP for ${data.symbol}:${source} with ${data.initialMarketProfile.length} bars`);
             try {
@@ -144,32 +169,6 @@ class RequestCoordinator {
                 console.error(`[RequestCoordinator] Market Profile initialization failed for ${data.symbol}:`, error);
             }
         }
-
-        clients.forEach((client, index) => {
-            console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:135] Sending symbolDataPackage to client ${index + 1}/${clients.length} for symbol=${data.symbol}, source=${source}`);
-            this.wsServer.sendToClient(client, {
-                type: 'symbolDataPackage',
-                source: source,
-                symbol: data.symbol,
-                digits: data.digits,
-                adr: data.adr,
-                todaysOpen: data.todaysOpen,
-                todaysHigh: data.todaysHigh,
-                todaysLow: data.todaysLow,
-                projectedAdrHigh: data.projectedAdrHigh,
-                projectedAdrLow: data.projectedAdrLow,
-                initialPrice: data.initialPrice,
-                initialMarketProfile: data.initialMarketProfile || [],
-                pipPosition: data.pipPosition,
-                pipSize: data.pipSize,
-                pipetteSize: data.pipetteSize,
-                ...(data.prevDayOpen !== undefined && { prevDayOpen: data.prevDayOpen }),
-                ...(data.prevDayHigh !== undefined && { prevDayHigh: data.prevDayHigh }),
-                ...(data.prevDayLow !== undefined && { prevDayLow: data.prevDayLow }),
-                ...(data.prevDayClose !== undefined && { prevDayClose: data.prevDayClose })
-            });
-        });
-        console.log(`[DEBUGGER:RequestCoordinator:sendDataToClients:139] Completed sending to all ${clients.length} clients`);
     }
 
     /**

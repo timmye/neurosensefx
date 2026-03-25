@@ -97,8 +97,6 @@ class MarketProfileService extends EventEmitter {
     const delta = { added: [], updated: [] };
     const levels = this.generatePriceLevels(bar.low, bar.high, profile.bucketSize);
 
-    console.log(`[MarketProfileService] Generated ${levels.length} price levels from ${bar.low} to ${bar.high}`);
-
     levels.forEach(price => {
       const currentTpo = profile.levels.get(price) || 0;
       const newTpo = currentTpo + 1;
@@ -117,7 +115,6 @@ class MarketProfileService extends EventEmitter {
     const source = this.symbolSources.get(symbol) || 'ctrader';
     const fullProfile = this.getFullProfile(symbol);
     console.log(`[MarketProfileService] EMITTING profileUpdate for ${symbol} (${source}), seq=${seq}, levels=${fullProfile.levels.length}`);
-    console.log(`[DEBUGGER:MarketProfileService:80-82] Sample levels:`, fullProfile.levels.slice(0, 3).map(l => ({price: l.price, tpo: l.tpo})));
     this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
   }
 
@@ -143,12 +140,6 @@ class MarketProfileService extends EventEmitter {
       levels.push(Math.round(currentPrice * 100000) / 100000);
       currentPrice += bucketSize;
       levelCount++;
-    }
-
-    // Log sample generated levels for debugging
-    if (levels.length > 0) {
-      console.log(`[DEBUGGER:MarketProfileService:generatePriceLevels] Generated ${levels.length} levels from low=${low}, high=${high}, bucketSize=${bucketSize}`);
-      console.log(`[DEBUGGER:MarketProfileService:generatePriceLevels] Sample levels:`, levels.slice(0, 3), '...', levels.slice(-1));
     }
 
     return levels;

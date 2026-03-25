@@ -41,7 +41,7 @@
   $: pipPosition = lastData?.pipPosition ?? 4;
 
   // Split price into larger digits (smaller font) and pip digits (normal font)
-  $: priceParts = currentPrice ? splitByPipPosition(formatPriceToPip(currentPrice, pipPosition)) : null;
+  $: priceParts = currentPrice ? splitByPipPosition(formatPriceToPip(currentPrice, pipPosition), pipPosition) : null;
 
   // Calculate daily change percentage
   $: dailyChangePercent = currentPrice && openPrice
@@ -95,7 +95,7 @@
   // Reactive: render market profile whenever data, canvas, or prices change
   // Use block form to ensure Svelte tracks all dependencies properly
   $: if (canvasRef && lastMarketProfileData) {
-    console.log('[PriceTicker] Rendering market profile for', formattedSymbol, 'levels:', lastMarketProfileData.length);
+    console.log('[PriceTicker] REACTIVE TRIGGER: rendering market profile for', formattedSymbol, 'levels:', lastMarketProfileData.length);
     renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
       width: 37.5,
       height: 80,
@@ -130,9 +130,11 @@
       // Note: initialMarketProfile contains raw M1 data for backend initialization only
       // We render from profileUpdate events which contain processed {price, tpo} levels
       if (data.type === 'profileUpdate' && data.profile) {
+        console.log('[PriceTicker] profileUpdate received for', formattedSymbol, 'levels:', data.profile.levels.length, 'seq:', data.seq);
         lastMarketProfileData = data.profile.levels;
         // CRITICAL: Call tick() to ensure Svelte detects the change and triggers reactive rendering
         await tick();
+        console.log('[PriceTicker] tick() completed, lastMarketProfileData.length:', lastMarketProfileData.length);
       }
     }, 14);
 

@@ -28,57 +28,44 @@ export class ConnectionManager {
   }
 
   connect(fromReconnect = false) {
-    console.log('[DEBUGGER:ConnectionManager:connect:30] Called, fromReconnect=' + fromReconnect + ', isTabVisible=' + this.isTabVisible);
     // Only clear the reconnect timeout if this is NOT called from the scheduled reconnect itself
     // This prevents visibility changes from canceling exponential backoff
     if (!fromReconnect && this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
-      console.log('[DEBUGGER:ConnectionManager:connect:35] Cleared existing reconnectTimeout');
     }
     const h = this.connectionHandler;
     h.onOpen = () => {
-      console.log('[DEBUGGER:ConnectionManager:onOpen:38] Connection opened, resetting attempts');
       this.reconnectionHandler.resetAttempts();
       this.subscriptionManager.flushPending(h.getWebSocket());
       // Don't resubscribe here - wait for 'ready' message from backend
       this.notifyStatusChange();
     };
     h.onClose = () => {
-      console.log('[DEBUGGER:ConnectionManager:onClose:44] Connection closed');
       const shouldReconnect = this.reconnectionHandler.shouldReconnect();
-      console.log('[DEBUGGER:ConnectionManager:onClose:46] shouldReconnect=' + shouldReconnect);
       if (shouldReconnect) {
         const attempts = this.reconnectionHandler.incrementAttempts();
         const delay = this.reconnectionHandler.getDelay(attempts);
-        console.log('[DEBUGGER:ConnectionManager:onClose:50] Scheduling reconnect, attempts=' + attempts + ', delay=' + delay + 'ms');
         this.scheduleReconnect(delay);
-      } else {
-        console.log('[DEBUGGER:ConnectionManager:onClose:53] Not reconnecting - shouldReconnect returned false');
       }
       this.notifyStatusChange();
     };
     h.onError = (e) => {
-      console.error('[DEBUGGER:ConnectionManager:onError:58] WebSocket error:', e);
+      console.error('[ConnectionManager] WebSocket error:', e);
       // Trigger reconnection on error - errors often precede disconnect
       if (this.reconnectionHandler.shouldReconnect()) {
         const attempts = this.reconnectionHandler.incrementAttempts();
         const delay = this.reconnectionHandler.getDelay(attempts);
-        console.log('[DEBUGGER:ConnectionManager:onError:63] Scheduling reconnect after error, attempts=' + attempts + ', delay=' + delay + 'ms');
         this.scheduleReconnect(delay);
       }
       this.notifyStatusChange();
     };
     h.onStale = () => {
-      console.log('[DEBUGGER:ConnectionManager:onStale:58] Stale connection detected, triggering reconnection');
       // Trigger reconnection when heartbeat detects stale connection
       if (this.reconnectionHandler.shouldReconnect()) {
         const attempts = this.reconnectionHandler.incrementAttempts();
         const delay = this.reconnectionHandler.getDelay(attempts);
-        console.log('[DEBUGGER:ConnectionManager:onStale:63] Scheduling reconnect after stale detection, attempts=' + attempts + ', delay=' + delay + 'ms');
         this.scheduleReconnect(delay);
-      } else {
-        console.log('[DEBUGGER:ConnectionManager:onStale:66] Not reconnecting - shouldReconnect returned false');
       }
       this.notifyStatusChange();
     };
@@ -93,25 +80,19 @@ export class ConnectionManager {
       }
       this.subscriptionManager.dispatch(d);
     };
-    console.log('[DEBUGGER:ConnectionManager:connect:72] Calling connectionHandler.connect()');
     h.connect();
   }
 
   scheduleReconnect(delay) {
-    console.log('[DEBUGGER:ConnectionManager:scheduleReconnect:67] Called with delay=' + delay + 'ms, isTabVisible=' + this.isTabVisible);
     if (!this.isTabVisible) {
         // Use longer delay when tab is hidden instead of pausing completely
         const hiddenDelay = Math.min(delay * 3, 60000); // Cap at 60s
-        console.log('[DEBUGGER:ConnectionManager:scheduleReconnect:70] Tab hidden, using extended delay: ' + hiddenDelay + 'ms');
         this.reconnectTimeout = setTimeout(() => {
-          console.log('[DEBUGGER:ConnectionManager:scheduleReconnect:72] Hidden tab reconnect timeout fired, calling connect(true)');
           this.connect(true);
         }, hiddenDelay);
         return;
     }
-    console.log('[DEBUGGER:ConnectionManager:scheduleReconnect:75] Scheduling reconnect in ' + delay + 'ms');
     this.reconnectTimeout = setTimeout(() => {
-      console.log('[DEBUGGER:ConnectionManager:scheduleReconnect:77] Reconnect timeout fired, calling connect(true)');
       this.connect(true);
     }, delay);
   }
