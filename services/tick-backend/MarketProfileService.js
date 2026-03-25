@@ -283,16 +283,32 @@ class MarketProfileService extends EventEmitter {
       return;
     }
 
-    // Guard: Prevent reinitialization of existing profiles with data
-    // This allows real-time TPO accumulation without being wiped out by repeated calls
+    // Guard: Detect daily boundary and reset if needed
     const existingProfile = this.profiles.get(symbol);
     if (existingProfile && existingProfile.levels.size > 0) {
-      console.log(`[MarketProfileService] ${symbol} already initialized with ${existingProfile.levels.size} levels, skipping reinitialization`);
-      // Still emit current profile for new subscribers
-      const seq = this._incrementSequence(symbol);
-      const fullProfile = this.getFullProfile(symbol);
-      this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
-      return;
+      // Check if new data is from a different UTC day (daily boundary detection)
+      const existingDayStart = this._getUtcDayStart(existingProfile.lastUpdate);
+      const newDataDayStart = m1Bars && m1Bars.length > 0
+        ? this._getUtcDayStart(m1Bars[0].timestamp)
+        : this._getUtcDayStart(Date.now());
+
+      if (existingDayStart === newDataDayStart) {
+        // Same day - safe to skip reinitialization (optimization for multi-client subscriptions)
+        console.log(`[MarketProfileService] ${symbol} already initialized for ${newDataDayStart}, skipping reinitialization`);
+        const seq = this._incrementSequence(symbol);
+        const fullProfile = this.getFullProfile(symbol);
+        this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
+        return;
+      } else {
+        // Different day - daily boundary crossed, must reset to prevent cross-day contamination
+        console.log(`[MarketProfileService] ${symbol} daily boundary detected: ${existingDayStart} → ${newDataDayStart}, resetting profile`);
+        existingProfile.levels.clear();
+        // Clear sequence for new day
+        this.sequenceNumbers.delete(symbol);
+        // Clear deduplication state for new day
+        this.lastBarTimestamps.delete(`${symbol}:ctrader`);
+        this.lastBarTimestamps.delete(`${symbol}:tradingview`);
+      }
     }
 
     // Set initialization guard
@@ -387,6 +403,20 @@ class MarketProfileService extends EventEmitter {
     const fullProfile = this.getFullProfile(symbol);
     console.log(`[MarketProfileService] RE-EMITTING profileUpdate for ${symbol} (${source}), seq=${seq}, levels=${fullProfile.levels.length}`);
     this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
+  }
+
+  /**
+   * Get UTC day start timestamp (00:00:00) for a given timestamp
+   * Used for daily boundary detection in market profile reset logic
+   * @param {number} timestamp - Millisecond timestamp
+   * @returns {string} ISO date string (YYYY-MM-DD) representing UTC day start
+   * @private
+   */
+  _getUtcDayStart(timestamp) {
+    if (!timestamp || typeof timestamp !== 'number') {
+      return new Date().toISOString().split('T')[0];
+    }
+    return new Date(timestamp).toISOString().split('T')[0];
   }
 }
 
