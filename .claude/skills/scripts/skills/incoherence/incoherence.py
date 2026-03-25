@@ -33,7 +33,6 @@ No manual file editing required.
 
 import argparse
 import sys
-from typing import Annotated
 
 from skills.lib.workflow.core import (
     Arg,

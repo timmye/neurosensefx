@@ -38,6 +38,31 @@ EXAMPLE (don't batch):
 
 
 # =============================================================================
+# Subagent Question Relay Constants
+# =============================================================================
+
+SUB_AGENT_QUESTION_FORMAT = """\
+<question_relay>
+QUESTION RELAY PROTOCOL:
+When the sub-agent has questions for the user:
+1. Collect all questions
+2. Present them via AskUserQuestion tool
+3. Continue work after receiving answers
+</question_relay>
+"""
+
+QUESTION_RELAY_HANDLER = """\
+<question_relay_handler>
+If the architect sub-agent has questions for you:
+- Use the AskUserQuestion tool to relay them to the user
+- Wait for user responses
+- Provide the answers back to the architect
+- Instruct the architect to continue its work
+</question_relay_handler>
+"""
+
+
+# =============================================================================
 # Subagent Return Constants
 # =============================================================================
 

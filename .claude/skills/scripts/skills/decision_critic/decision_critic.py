@@ -251,8 +251,8 @@ WORKFLOW = Workflow(
 
 
 def main(
-    step: int = None,
-    total_steps: int = None,
+    step: int | None = None,
+    total_steps: int | None = None,
     decision: str | None = None,
 ):
     """Entry point with parameter annotations for testing framework.

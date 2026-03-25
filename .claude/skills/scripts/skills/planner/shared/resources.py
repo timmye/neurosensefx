@@ -12,7 +12,16 @@ __all__ = [
     "get_mode_script_path",
     "get_exhaustiveness_prompt",
     "PlannerResourceProvider",
+    "STATE_DIR_ARG_REQUIRED",
 ]
+
+
+# =============================================================================
+# CLI Argument Constants
+# =============================================================================
+
+
+STATE_DIR_ARG_REQUIRED = (["--state-dir"], {"type": str, "required": True, "help": "State directory path"})
 
 
 # =============================================================================

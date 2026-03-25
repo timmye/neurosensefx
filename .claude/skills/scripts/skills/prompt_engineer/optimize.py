@@ -970,7 +970,7 @@ def main(
     if args.step == 1:
         workflow = WORKFLOW_SINGLE
         step_def = STEP_TRIAGE
-        total = 6
+        total = workflow.total_steps
         next_cmd = "python3 -m skills.prompt_engineer.optimize --step 2 --scope <determined-scope>"
         output = format_prompt_engineer_output(
             args.step, total, None, step_def, None, next_cmd, is_step_one=True
