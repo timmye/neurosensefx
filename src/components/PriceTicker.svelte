@@ -26,6 +26,8 @@
   let lastTrackedPrice = null;
   let flashTimeout = null;
   let resizeObserver = null;
+  let isFirstRender = true;
+  let previousSymbol = '';
 
   // Flash state
   let priceFlashClass = '';
@@ -77,7 +79,8 @@
     lastTrackedPrice = currentPrice;
   }
 
-  const formattedSymbol = formatSymbol(ticker.symbol);
+  // Reactive: formattedSymbol must update when ticker.symbol changes
+  $: formattedSymbol = formatSymbol(ticker.symbol);
 
   // Function to re-render market profile (called on zoom/resize)
   function renderMarketProfile() {
@@ -93,9 +96,8 @@
   }
 
   // Reactive: render market profile whenever data, canvas, or prices change
-  // Use block form to ensure Svelte tracks all dependencies properly
-  $: if (canvasRef && lastMarketProfileData) {
-    console.log('[PriceTicker] REACTIVE TRIGGER: rendering market profile for', formattedSymbol, 'levels:', lastMarketProfileData.length);
+  // Depends on currentPrice, openPrice, pipPosition which are derived from lastData
+  $: if (currentPrice !== null && canvasRef && lastMarketProfileData) {
     try {
       renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
         width: 37.5,
@@ -104,9 +106,8 @@
         currentPrice,
         openPrice
       });
-      console.log('[PriceTicker] RENDER CALL SUCCESS');
     } catch (e) {
-      console.error('[PriceTicker] RENDER ERROR:', e);
+      console.error('[PriceTicker] Market profile render error:', e);
     }
   }
 
@@ -129,18 +130,12 @@
 
       if (processed?.type === 'data') {
         lastData = processed.data;
+        await tick(); // Ensure Svelte detects state change and updates UI
       }
 
       // Handle market profile updates from backend processing
-      // Note: initialMarketProfile contains raw M1 data for backend initialization only
-      // We render from profileUpdate events which contain processed {price, tpo} levels
       if (data.type === 'profileUpdate' && data.profile) {
-        const levels = data.profile.levels;
-        // DIAGNOSTIC: Log first 3 levels' TPO values to detect if data is actually changing
-        const sampleTpo = levels.slice(0, 3).map(l => l.tpo);
-        console.log('[PriceTicker] profileUpdate', formattedSymbol, 'levels:', levels.length, 'seq:', data.seq, 'sample TPO:', sampleTpo);
-        console.log('[PriceTicker] ARRAY SAME?', lastMarketProfileData === levels, 'old:', lastMarketProfileData?.length, 'new:', levels.length);
-        lastMarketProfileData = levels;
+        lastMarketProfileData = data.profile.levels;
         await tick();
       }
     }, 14);
@@ -157,6 +152,10 @@
     return () => {
       webSocketSub?.unsubscribeCurrent();
     };
+
+    // Mark first render complete after subscription is set up
+    isFirstRender = false;
+    previousSymbol = formattedSymbol;
   });
 
   onDestroy(() => {
@@ -165,6 +164,16 @@
     interactable?.unset();
     connectionManager?.disconnect();
   });
+
+  // Track previous symbol to detect changes and resubscribe
+  $: if (formattedSymbol && formattedSymbol !== previousSymbol && webSocketSub && !isFirstRender) {
+    previousSymbol = formattedSymbol;
+    webSocketSub.refreshSubscription(formattedSymbol, ticker.source || 'tradingview', 14);
+    // Clear state to prevent showing data from previous symbol
+    lastData = null;
+    lastMarketProfileData = null;
+    lastTrackedPrice = null;
+  }
 
   function handleClose() {
     workspaceActions.removeDisplay(ticker.id);
@@ -175,8 +184,6 @@
   }
 
   function handleRefresh() {
-    console.log('[PriceTicker] Full refresh for', formattedSymbol, 'source:', ticker.source || 'tradingview');
-
     // Clear local state
     lastData = null;
     lastMarketProfileData = null;

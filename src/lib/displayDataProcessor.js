@@ -24,12 +24,6 @@ function getDirection(currentPrice, prevPrice) {
 }
 
 export function processSymbolData(data, formattedSymbol, lastData) {
-  // Debug logging for TWAP messages
-  if (data.type === 'twapUpdate') {
-    console.log('[displayDataProcessor] Received twapUpdate:', JSON.stringify(data));
-    console.log('[displayDataProcessor] formattedSymbol:', formattedSymbol);
-  }
-
   if (data.type === 'error') {
     return { type: 'error', message: data.message };
   }
@@ -66,7 +60,7 @@ export function processSymbolData(data, formattedSymbol, lastData) {
       twapContributions: lastData.twapContributions,
       twapUpdatedAt: lastData.twapUpdatedAt
     } : {})
-  } : data.type === 'tick' && data.symbol === formattedSymbol ? {
+  } : data.type === 'tick' && formatSymbol(data.symbol || '') === formattedSymbol ? {
     high: Math.max(lastData?.high || 0, data.high || data.ask || data.bid || 0),
     low: Math.min(lastData?.low || Infinity, data.low || data.bid || data.ask || Infinity),
     current: data.price || data.bid || data.ask || lastData?.current || 1.0,
