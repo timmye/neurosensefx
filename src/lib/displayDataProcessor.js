@@ -1,20 +1,54 @@
 // Data processing utilities for display components
 // Week 2: Market Profile integration
 // Phase 2: TradingView client integration
+//
+// DATA CONTRACTS: See src/lib/dataContracts.js for type definitions
+// - WebSocketMessage: Base message structure
+// - SymbolDataPackage: Initial subscription data
+// - TickData: Real-time tick updates
+// - DisplayData: Normalized output format
+// - ProcessResult: Function return type
 
-// Helper function for pip estimation (client-side)
+import {
+  validateWebSocketMessage,
+  validateSymbolDataPackage,
+  validateTickData,
+  validateDisplayData,
+  logValidationResult
+} from './dataContracts.js';
+
+/**
+ * Pip Estimation Logic
+ *
+ * These thresholds determine pip position and size based on typical asset price ranges.
+ * The logic uses price magnitude as a heuristic since we don't have explicit pip metadata.
+ *
+ * RATIONALE:
+ * - > 10000: Crypto (BTC, ETH) and high-value stocks trade in whole numbers. Pip = 1.0
+ * - > 1000: Gold (XAUUSD ~$2000) uses 0.1 pip. Also covers indices.
+ * - > 10: JPY pairs (USDJPY ~150) use 0.01 pip. Standard for yen-based pairs.
+ * - Default (<= 10): Most forex pairs (EURUSD ~1.08) use 0.0001 pip (4 decimal places).
+ *
+ * NOTE: These are fallbacks when backend doesn't provide pipPosition/pipSize.
+ * TradingView typically sends explicit pip values; cTrader may not.
+ */
 function estimatePipPosition(price) {
-  if (price > 10000) return 0;  // Crypto/stocks - whole numbers
-  if (price > 1000) return 1;   // Gold (XAUUSD)
-  if (price > 10) return 2;     // JPY pairs
-  return 4;                     // Most forex pairs
+  if (price > 10000) return 0;  // Crypto/stocks - whole numbers (e.g., BTCUSD ~95000)
+  if (price > 1000) return 1;   // Gold (XAUUSD ~2000), indices
+  if (price > 10) return 2;     // JPY pairs (USDJPY ~150)
+  return 4;                     // Most forex pairs (EURUSD ~1.08, GBPUSD ~1.27)
 }
 
+/**
+ * @param {number} price - Current price to estimate from
+ * @returns {number} Estimated pip size
+ * @see estimatePipPosition for threshold rationale
+ */
 function estimatePipSize(price) {
-  if (price > 10000) return 1;    // Crypto/stocks - whole numbers
-  if (price > 1000) return 0.1;   // Gold (XAUUSD)
-  if (price > 10) return 0.01;    // JPY pairs
-  return 0.0001;
+  if (price > 10000) return 1;    // Crypto/stocks: 1.0 pip
+  if (price > 1000) return 0.1;   // Gold (XAUUSD): 0.1 pip
+  if (price > 10) return 0.01;    // JPY pairs: 0.01 pip
+  return 0.0001;              // Standard forex: 0.0001 pip (pipette = 0.00001)
 }
 
 function getDirection(currentPrice, prevPrice) {
@@ -23,7 +57,42 @@ function getDirection(currentPrice, prevPrice) {
   return 'neutral';
 }
 
+/**
+ * Process WebSocket data into normalized display format
+ *
+ * @param {import('./dataContracts.js').WebSocketMessage} data - Raw WebSocket message
+ * @param {string} formattedSymbol - Normalized symbol (e.g., 'BTCUSD')
+ * @param {import('./dataContracts.js').DisplayData|null} lastData - Previous display data for state preservation
+ * @returns {import('./dataContracts.js').ProcessResult|null} Processed result or null for unhandled types
+ *
+ * @see dataContracts.js for type definitions
+ */
 export function processSymbolData(data, formattedSymbol, lastData) {
+  // Guard against null/undefined input
+  if (!data || typeof data !== 'object') {
+    if (import.meta.env.DEV) {
+      console.warn('[processSymbolData] Received invalid input:', typeof data, data);
+    }
+    return null;
+  }
+
+  // Dev mode: Validate input message structure
+  if (import.meta.env.DEV) {
+    const inputValidation = validateWebSocketMessage(data, 'processSymbolData');
+    if (!inputValidation.valid) {
+      console.warn('[processSymbolData] Invalid input:', inputValidation.errors, data);
+    }
+
+    // Type-specific validation
+    if (data.type === 'symbolDataPackage') {
+      const pkgValidation = validateSymbolDataPackage(data);
+      logValidationResult('processSymbolData:symbolDataPackage', pkgValidation);
+    } else if (data.type === 'tick') {
+      const tickValidation = validateTickData(data);
+      logValidationResult('processSymbolData:tick', tickValidation);
+    }
+  }
+
   if (data.type === 'error') {
     return { type: 'error', message: data.message };
   }
@@ -91,8 +160,17 @@ export function processSymbolData(data, formattedSymbol, lastData) {
   } : null;
 
   if (displayData) {
+    // Dev mode: Validate output structure
+    if (import.meta.env.DEV) {
+      const outputValidation = validateDisplayData(displayData);
+      logValidationResult('processSymbolData:output', outputValidation, displayData);
+    }
     return { type: 'data', data: displayData };
   } else if (data.type !== 'status' && data.type !== 'ready' && data.type !== 'error') {
+    // Log unhandled message types in dev mode
+    if (import.meta.env.DEV) {
+      console.warn('[processSymbolData] Unhandled message type:', data.type, data);
+    }
     return { type: 'unhandled', messageType: data.type };
   }
 
@@ -125,6 +203,17 @@ export function getWebSocketUrl() {
   return wsUrl;
 }
 
+/**
+ * Format symbol by removing slash and converting to uppercase
+ * @param {string} symbol - Symbol with slash (e.g., 'BTC/USD')
+ * @returns {string} Formatted symbol (e.g., 'BTCUSD')
+ */
 export function formatSymbol(symbol) {
+  if (!symbol || typeof symbol !== 'string') {
+    if (import.meta.env.DEV) {
+      console.warn('[formatSymbol] Received invalid symbol:', typeof symbol, symbol);
+    }
+    return '';
+  }
   return symbol.replace('/', '').toUpperCase();
 }
