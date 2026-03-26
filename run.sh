@@ -496,8 +496,8 @@ clean_old_backups() {
 
 # Save current build as immutable snapshot
 snapshot_save() {
-    # Validate we have something to save
-    if [ ! -d "dist/" ] || [ -z "$(ls -A dist/)" ]; then
+    # Validate we have something to save (vite outputs to src/dist/ due to root: 'src')
+    if [ ! -d "src/dist/" ] || [ -z "$(ls -A src/dist/ 2>/dev/null)" ]; then
         log_error "No valid build to save. Run 'npm run build' first."
         return 1
     fi
@@ -512,7 +512,7 @@ snapshot_save() {
     git tag -a "$TAG" -m "Stable build snapshot - $(date)"
 
     log_success "Saved as: $TAG"
-    log_info "Build artifacts preserved in /dist/"
+    log_info "Build artifacts preserved in src/dist/"
     echo "$TAG"
 }
 
