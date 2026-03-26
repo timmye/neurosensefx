@@ -86,6 +86,8 @@ class TradingViewCandleHandler {
         if (data.initialSent) {
             console.log(`[TradingView] EMITTING m1Bar for ${symbol}:`, JSON.stringify(m1Bar));
             this.emit('m1Bar', m1Bar);
+            // Also emit tick for live ticker stats updates (every minute is better than never)
+            this.emitTickFromCandle(latest, symbol, data);
         } else {
             // During historical load, don't emit individual bars
             // They'll be processed in batch via initializeFromHistory
