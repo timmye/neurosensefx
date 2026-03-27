@@ -1,0 +1,803 @@
+{
+  "schema_version": 2,
+  "plan_id": "centralized-data-function-001",
+  "created_at": "2026-03-27T10:00:00Z",
+  "frozen_at": null,
+  "overview": {
+    "title": "Centralized Market Data Store Implementation",
+    "problem": "NeuroSense FX lacks a single source of truth for market data. Each component (FloatingDisplay, PriceTicker, FxBasketDisplay) maintains its own lastData ref, leading to potential data inconsistencies, duplicated subscription logic, and no latency visibility for trading decisions.",
+    "approach": "Incremental phase-based migration to a centralized marketDataStore.js following the established workspace.js pattern. Create per-symbol writable stores with centralized subscription management, latency instrumentation, and schema versioning. Migrate components one at a time with rollback capability."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-001",
+        "decision": "Incremental phase-based migration with per-phase rollback capability",
+        "reasoning_chain": "Big-bang migration risks system-wide failure -> Per-component rollback allows safe recovery without affecting other components -> Feature flags would add dual-maintenance overhead -> Incremental migration with rollback is the safest approach for a production trading system",
+        "timestamp": "2026-03-27T10:00:00Z"
+      },
+      {
+        "id": "DL-002",
+        "decision": "Per-symbol writable stores with centralized subscription manager",
+        "reasoning_chain": "Single giant store creates monolithic state with poor encapsulation -> Component-scoped stores duplicate subscriptions and miss deduplication -> Per-symbol stores allow independent lifecycle AND centralized subscriptions enable deduplication -> Best of both approaches for a multi-symbol trading system",
+        "timestamp": "2026-03-27T10:00:00Z"
+      },
+      {
+        "id": "DL-003",
+        "decision": "Integrate FX Basket state machine into marketDataStore",
+        "reasoning_chain": "State machine needs access to all 30 symbol stores -> Keeping separate requires circular imports or prop drilling -> Integration provides single source of truth with proper encapsulation while maintaining state machine logic",
+        "timestamp": "2026-03-27T10:00:00Z"
+      },
+      {
+        "id": "DL-004",
+        "decision": "Store follows workspace.js pattern with getState() method",
+        "reasoning_chain": "workspace.js pattern is established in the codebase -> Consistent API reduces learning curve for developers -> getState() enables non-reactive access matching priceMarkerInteraction pattern requirements",
+        "timestamp": "2026-03-27T10:00:00Z"
+      },
+      {
+        "id": "DL-005",
+        "decision": "Dev-mode only validation preserves zero production overhead constraint",
+        "reasoning_chain": "dataContracts.js:335 explicitly requires zero production overhead -> import.meta.env.DEV guards are already established pattern -> Preserves existing validation pattern without runtime cost in production",
+        "timestamp": "2026-03-27T10:00:00Z"
+      },
+      {
+        "id": "DL-006",
+        "decision": "Schema version 1.0.0 added to all WebSocket messages",
+        "reasoning_chain": "No versioning currently exists in WebSocket protocol -> Breaking changes could silently corrupt data without detection -> Version field enables future compatibility checks and incremental rollout with fallback support",
+        "timestamp": "2026-03-27T10:00:00Z"
+      },
+      {
+        "id": "DL-007",
+        "decision": "Symbol change handling preserves reactive cleanup pattern",
+        "reasoning_chain": "Existing components use reactive blocks for symbol changes -> Store subscription must integrate with Svelte reactive lifecycle -> Reactive cleanup with previousSymbol tracking ensures no stale data or subscription leaks",
+        "timestamp": "2026-03-27T10:00:00Z"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Full rewrite of data pipeline",
+        "rejection_reason": "Current architecture is acceptable for visualization purposes. Incremental improvement preferred over risky full rewrite.",
+        "decision_ref": "DL-001"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Backend aggregation in DataRouter",
+        "rejection_reason": "DataRouter is intentionally designed for parallel feeds without aggregation. This is a feature, not a bug.",
+        "decision_ref": "DL-002"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Feature flags for dual implementation",
+        "rejection_reason": "Dual maintenance overhead during transition period. Per-phase rollback provides safety without code duplication.",
+        "decision_ref": "DL-001"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Single global store for all symbols",
+        "rejection_reason": "Creates monolithic state with poor encapsulation. Per-symbol stores allow independent lifecycle management.",
+        "decision_ref": "DL-002"
+      }
+    ],
+    "constraints": [
+      {
+        "id": "C-001",
+        "type": "technical",
+        "description": "Zero production overhead from validation (dataContracts.js:335)",
+        "source": "doc-derived"
+      },
+      {
+        "id": "C-002",
+        "type": "technical",
+        "description": "Maintain backward compatibility with existing WebSocket message format",
+        "source": "user-specified"
+      },
+      {
+        "id": "C-003",
+        "type": "technical",
+        "description": "Keep DataRouter pattern of parallel feeds without aggregation",
+        "source": "user-specified"
+      },
+      {
+        "id": "C-004",
+        "type": "technical",
+        "description": "All components use unified data handling pattern after migration",
+        "source": "user-specified"
+      },
+      {
+        "id": "C-005",
+        "type": "technical",
+        "description": "No latency tracking in hot path that impacts performance",
+        "source": "user-specified"
+      },
+      {
+        "id": "C-006",
+        "type": "technical",
+        "description": "Svelte derived stores must work with existing reactive patterns",
+        "source": "doc-derived"
+      }
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "Symbol change reactive blocks may not clean up subscriptions properly",
+        "mitigation": "Use explicit previousSymbol tracking and unsubscribe in reactive block before new subscription",
+        "anchor": "src/components/PriceTicker.svelte:L169-L176",
+        "decision_ref": "DL-007"
+      },
+      {
+        "id": "R-002",
+        "risk": "FX Basket 30-symbol subscription may overwhelm connection on startup",
+        "mitigation": "Preserve existing 600ms rate limiting between subscriptions",
+        "anchor": "src/components/FxBasketDisplay.svelte:L86",
+        "decision_ref": null
+      },
+      {
+        "id": "R-003",
+        "risk": "Store reference changes when symbol changes may cause Svelte reactivity issues",
+        "mitigation": "Use reactive assignment pattern: $: marketData = getMarketDataStore(formattedSymbol); $: lastData = $marketData;",
+        "anchor": null,
+        "decision_ref": "DL-007"
+      },
+      {
+        "id": "R-004",
+        "risk": "Backend latency timestamps may not be present in all messages",
+        "mitigation": "Make latency fields optional and handle missing timestamps gracefully",
+        "anchor": "services/tick-backend/DataRouter.js",
+        "decision_ref": "DL-006"
+      }
+    ]
+  },
+  "invisible_knowledge": {
+    "system": "Callback-based reactivity with no central store. Each component maintains own lastData ref. WebSocket -> subscriptionManager.dispatch() -> component callback -> Svelte $: reactivity. DataRouter intentionally designed for parallel feeds without aggregation - this is a feature not a bug.",
+    "invariants": [
+      "WebSocket message format must remain stable for backward compatibility",
+      "Schema version field is optional for v1.0.0 - frontend handles missing version gracefully",
+      "Dev-mode only validation via import.meta.env.DEV guards - zero production overhead",
+      "Symbol:source subscription keys (e.g., EURUSD:ctrader) enable multi-source but prevent aggregation",
+      "DataRouter parallel feeds architecture must be preserved - no backend aggregation"
+    ],
+    "tradeoffs": [
+      "Per-symbol stores chosen over single global store for better encapsulation at cost of slight complexity",
+      "Dev-mode validation chosen over production validation to satisfy zero overhead constraint",
+      "Incremental migration chosen over feature flags to avoid dual-maintenance overhead",
+      "Integrated FX Basket state machine chosen over separate module to avoid circular imports"
+    ],
+    "architecture": {
+      "diagram_ascii": "Data Sources                    Frontend\n-------------                   --------\ncTrader API ──┐                 ┌─ FloatingDisplay.svelte\n              ├── DataRouter ───┼─ PriceTicker.svelte\nTradingView ──┘   (backend)     └─ FxBasketDisplay.svelte\n      │                                │\n      ▼                                ▼\nWebSocket broadcast          connectionManager.js\n                                       │\n                                       ▼\n                             subscriptionManager.js\n                                       │\n                                       ▼\n                            marketDataStore.js (NEW)\n                             - per-symbol stores\n                             - subscription dedup\n                             - latency tracking",
+      "description": "Data flows from cTrader/TradingView through DataRouter to WebSocket. Frontend connectionManager dispatches to subscriptionManager which routes to component callbacks. New marketDataStore sits between subscriptionManager and components, providing single source of truth with subscription deduplication."
+    },
+    "data_flow": {
+      "diagram_ascii": "WebSocket message\n       │\n       ▼\nvalidateWebSocketMessage() [DEV ONLY]\n       │\n       ▼\nmarketDataStore.handleUpdate()\n       │\n       ├─ calculateLatency(data)\n       │\n       ├─ normalizeData(data)\n       │\n       └─ store.update(current => ({...current, ...normalized, latency, status}))\n              │\n              ▼\n       Svelte reactive update\n              │\n              ▼\n       Derived stores recalculate\n       - currentPrice\n       - rangePercent\n       - dailyChange",
+      "description": "WebSocket messages enter through validation (dev mode only), flow through marketDataStore for normalization and latency calculation, then update per-symbol stores which trigger Svelte reactive updates and derived store recalculations."
+    }
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "number": 1,
+      "name": "Create marketDataStore.js Foundation",
+      "files": [
+        "/workspaces/neurosensefx/src/stores/marketDataStore.js"
+      ],
+      "flags": ["foundation", "no-rollback-needed"],
+      "requirements": [
+        "Create per-symbol writable stores with getState() method following workspace.js pattern",
+        "Implement centralized subscription manager with reference counting and deduplication",
+        "Add latency calculation from backend timestamps (receivedAt, sentAt)",
+        "Integrate dev-mode validation from dataContracts.js",
+        "Export derived store creators (createCurrentPriceStore, createRangePercentStore, etc.)",
+        "Handle missing latency timestamps gracefully"
+      ],
+      "acceptance_criteria": [
+        "getMarketDataStore(symbol) returns writable store with getState() method",
+        "subscribeToSymbol() returns unsubscribe function and updates store on data",
+        "Multiple calls to subscribeToSymbol with same symbol deduplicate to single WebSocket subscription",
+        "Latency metrics calculated when timestamps present, null when missing",
+        "Dev mode validation logs appear for malformed data",
+        "All existing E2E tests pass (store not yet used by components)"
+      ],
+      "tests": {
+        "files": ["/workspaces/neurosensefx/src/tests/unit/marketDataStore.test.js"],
+        "type": "unit",
+        "backing": "default-derived",
+        "scenarios": {
+          "normal": [
+            "Subscribe to symbol receives data updates",
+            "Derived stores recalculate on base store changes",
+            "Latency calculated correctly from timestamps"
+          ],
+          "edge": [
+            "Multiple subscriptions to same symbol deduplicate",
+            "Missing latency timestamps handled gracefully",
+            "Empty symbol returns store with initial state"
+          ],
+          "error": [
+            "Invalid WebSocket message triggers dev-mode validation warning",
+            "Connection error updates store status to 'error'"
+          ]
+        },
+        "skip_reason": null
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "getMarketDataStore",
+          "behavior": "Returns writable store for symbol, creating if not exists. Store has getState() method following workspace.js pattern. Initial state includes symbol, status='pending', all price fields null.",
+          "decision_refs": ["DL-004"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-001-002",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "subscribeToSymbol",
+          "behavior": "Subscribes to symbol via connectionManager with reference counting. Returns unsubscribe function. Updates store status to 'pending' on subscribe, 'connected' on first data, 'error' on failure.",
+          "decision_refs": ["DL-002"],
+          "params": {
+            "dedup": {
+              "value": true,
+              "unit": "boolean",
+              "decision_ref": "DL-002"
+            }
+          }
+        },
+        {
+          "id": "CI-M-001-003",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "handleStoreUpdate",
+          "behavior": "Processes WebSocket message through processSymbolData, calculates latency from timestamps, updates store with normalized data. Dev-mode validation via dataContracts.js.",
+          "decision_refs": ["DL-005"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-001-004",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "calculateLatency",
+          "behavior": "Calculates backend (sentAt - receivedAt), network (clientReceivedAt - sentAt), and e2e (clientReceivedAt - receivedAt) latency. Returns null for missing timestamps.",
+          "decision_refs": [],
+          "params": {}
+        },
+        {
+          "id": "CI-M-001-005",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "createCurrentPriceStore",
+          "behavior": "Returns derived store that extracts current price from symbol store. Recalculates when base store updates.",
+          "decision_refs": ["DL-002"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-001-006",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "createRangePercentStore",
+          "behavior": "Returns derived store that calculates day range percentage using calculateDayRangePercentage from dayRangeCalculations.js.",
+          "decision_refs": ["DL-002"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-001-007",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "getConnectionStatus",
+          "behavior": "Returns connection status from connectionManager. Replaces useDisplayState for status tracking.",
+          "decision_refs": [],
+          "params": {}
+        }
+      ],
+      "code_changes": [],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "number": 2,
+      "name": "Backend Latency Instrumentation",
+      "files": [
+        "/workspaces/neurosensefx/services/tick-backend/DataRouter.js",
+        "/workspaces/neurosensefx/services/tick-backend/utils/MessageBuilder.js"
+      ],
+      "flags": ["additive-only", "backward-compatible"],
+      "requirements": [
+        "Add receivedAt timestamp at DataRouter entry points (routeFromCTrader, routeFromTradingView)",
+        "Add sentAt timestamp in broadcastToClients before JSON.stringify",
+        "Add schema version field (v: '1.0.0') to all messages in MessageBuilder",
+        "Timestamps are additive - frontend gracefully handles missing fields"
+      ],
+      "acceptance_criteria": [
+        "All WebSocket messages contain v: '1.0.0' field",
+        "All WebSocket messages contain receivedAt timestamp",
+        "All WebSocket messages contain sentAt timestamp",
+        "Existing E2E tests pass (frontend ignores new fields)",
+        "No breaking changes to message format"
+      ],
+      "tests": {
+        "files": [],
+        "type": "integration",
+        "backing": "default-derived",
+        "scenarios": {
+          "normal": [
+            "Message contains version field",
+            "Timestamps are valid Unix milliseconds"
+          ],
+          "edge": [
+            "Timestamps present in both cTrader and TradingView messages"
+          ],
+          "error": []
+        },
+        "skip_reason": "Backend changes verified via existing E2E tests and manual WebSocket inspection"
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "file": "/workspaces/neurosensefx/services/tick-backend/DataRouter.js",
+          "function": "routeFromCTrader",
+          "behavior": "Add tick._receivedAt = Date.now() at method entry before buildCTraderMessage call.",
+          "decision_refs": [],
+          "params": {}
+        },
+        {
+          "id": "CI-M-002-002",
+          "file": "/workspaces/neurosensefx/services/tick-backend/DataRouter.js",
+          "function": "routeFromTradingView",
+          "behavior": "Add candle._receivedAt = Date.now() at method entry before buildTradingViewMessage call.",
+          "decision_refs": [],
+          "params": {}
+        },
+        {
+          "id": "CI-M-002-003",
+          "file": "/workspaces/neurosensefx/services/tick-backend/DataRouter.js",
+          "function": "broadcastToClients",
+          "behavior": "Add message.sentAt = Date.now() before JSON.stringify. Message is mutated in place.",
+          "decision_refs": [],
+          "params": {}
+        },
+        {
+          "id": "CI-M-002-004",
+          "file": "/workspaces/neurosensefx/services/tick-backend/utils/MessageBuilder.js",
+          "function": "buildCTraderMessage",
+          "behavior": "Add v: SCHEMA_VERSION and receivedAt: tick._receivedAt to returned message object. SCHEMA_VERSION constant = '1.0.0'.",
+          "decision_refs": ["DL-006"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-002-005",
+          "file": "/workspaces/neurosensefx/services/tick-backend/utils/MessageBuilder.js",
+          "function": "buildTradingViewMessage",
+          "behavior": "Add v: SCHEMA_VERSION and receivedAt: candle._receivedAt to returned message object. SCHEMA_VERSION constant = '1.0.0'.",
+          "decision_refs": ["DL-006"],
+          "params": {}
+        }
+      ],
+      "code_changes": [],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "number": 3,
+      "name": "Migrate PriceTicker Component",
+      "files": [
+        "/workspaces/neurosensefx/src/components/PriceTicker.svelte"
+      ],
+      "flags": ["migration", "rollback-to-useWebSocketSub"],
+      "requirements": [
+        "Replace useWebSocketSub with marketDataStore subscription",
+        "Remove local lastData and lastMarketProfileData state",
+        "Use reactive store assignment: $: marketData = getMarketDataStore(formattedSymbol)",
+        "Preserve symbol change handling with previousSymbol pattern",
+        "Preserve flash animation behavior on price changes",
+        "All existing PriceTicker functionality maintained"
+      ],
+      "acceptance_criteria": [
+        "PriceTicker displays correct prices from centralized store",
+        "Symbol change triggers proper resubscription and clears stale data",
+        "Flash animations work identically to pre-migration",
+        "Market profile renders correctly from store data",
+        "Daily change percentage calculates correctly",
+        "All E2E tests involving PriceTicker pass",
+        "No console errors in development mode"
+      ],
+      "tests": {
+        "files": ["/workspaces/neurosensefx/src/tests/e2e/price-ticker.spec.js"],
+        "type": "integration",
+        "backing": "existing",
+        "scenarios": {
+          "normal": [
+            "Ticker displays current price from store",
+            "Price updates trigger flash animation"
+          ],
+          "edge": [
+            "Symbol change clears stale data",
+            "Rapid symbol changes do not cause subscription leaks"
+          ],
+          "error": [
+            "Connection error shows appropriate status"
+          ]
+        },
+        "skip_reason": null
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "file": "/workspaces/neurosensefx/src/components/PriceTicker.svelte",
+          "function": "imports",
+          "behavior": "Remove useWebSocketSub import. Add getMarketDataStore, subscribeToSymbol imports from '../stores/marketDataStore.js'.",
+          "decision_refs": ["DL-001"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-003-002",
+          "file": "/workspaces/neurosensefx/src/components/PriceTicker.svelte",
+          "function": "state",
+          "behavior": "Remove webSocketSub variable. Add unsubscribe and previousSymbol variables. Keep lastTrackedPrice for flash logic.",
+          "decision_refs": ["DL-007"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-003-003",
+          "file": "/workspaces/neurosensefx/src/components/PriceTicker.svelte",
+          "function": "reactive-store-access",
+          "behavior": "Add reactive block: $: marketData = getMarketDataStore(formattedSymbol); $: lastData = $marketData; This enables reactive updates when store changes.",
+          "decision_refs": ["DL-007"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-003-004",
+          "file": "/workspaces/neurosensefx/src/components/PriceTicker.svelte",
+          "function": "symbol-change-handler",
+          "behavior": "Replace existing symbol change reactive block with store-based pattern: if (formattedSymbol !== previousSymbol && previousSymbol !== null) { unsubscribe?.(); unsubscribe = subscribeToSymbol(formattedSymbol, source); previousSymbol = formattedSymbol; }",
+          "decision_refs": ["DL-007"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-003-005",
+          "file": "/workspaces/neurosensefx/src/components/PriceTicker.svelte",
+          "function": "onMount",
+          "behavior": "Initialize previousSymbol = formattedSymbol. Call subscribeToSymbol and store unsubscribe. Return cleanup: () => unsubscribe?.(). Remove webSocketSub initialization.",
+          "decision_refs": ["DL-007"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-003-006",
+          "file": "/workspaces/neurosensefx/src/components/PriceTicker.svelte",
+          "function": "handleRefresh",
+          "behavior": "Update to use store pattern: Clear local state, call unsubscribe?.(), resubscribe via subscribeToSymbol.",
+          "decision_refs": [],
+          "params": {}
+        }
+      ],
+      "code_changes": [],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "number": 4,
+      "name": "Migrate FloatingDisplay Component",
+      "files": [
+        "/workspaces/neurosensefx/src/components/FloatingDisplay.svelte"
+      ],
+      "flags": ["migration", "rollback-to-composables"],
+      "requirements": [
+        "Replace useWebSocketSub, useDisplayState, useDataCallback with marketDataStore",
+        "Remove local lastData and lastMarketProfileData state",
+        "Use reactive store assignment pattern",
+        "Preserve symbol change handling with proper cleanup",
+        "Preserve flash animation on price changes",
+        "Replace connectionStatus with getConnectionStatus()"
+      ],
+      "acceptance_criteria": [
+        "FloatingDisplay renders correctly from centralized store",
+        "Symbol change triggers proper resubscription",
+        "Market profile renders from store data",
+        "Connection status displays correctly",
+        "Border flash animations work identically",
+        "Price markers continue to function",
+        "All E2E tests involving FloatingDisplay pass"
+      ],
+      "tests": {
+        "files": ["/workspaces/neurosensefx/src/tests/e2e/floating-display.spec.js"],
+        "type": "integration",
+        "backing": "existing",
+        "scenarios": {
+          "normal": [
+            "Display shows prices from store",
+            "Market profile renders on toggle"
+          ],
+          "edge": [
+            "Symbol change preserves position and size",
+            "Rapid refresh does not cause memory leaks"
+          ],
+          "error": [
+            "Backend error shows in display"
+          ]
+        },
+        "skip_reason": null
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "file": "/workspaces/neurosensefx/src/components/FloatingDisplay.svelte",
+          "function": "imports",
+          "behavior": "Remove useWebSocketSub, useDisplayState, useDataCallback imports. Add getMarketDataStore, subscribeToSymbol, getConnectionStatus from '../stores/marketDataStore.js'.",
+          "decision_refs": ["DL-001"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-004-002",
+          "file": "/workspaces/neurosensefx/src/components/FloatingDisplay.svelte",
+          "function": "state",
+          "behavior": "Remove webSocketSub, displayState, handlers. Add unsubscribe, previousSymbol. Keep lastTrackedPrice for flash logic. lastData remains as reactive assignment from store.",
+          "decision_refs": ["DL-007"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-004-003",
+          "file": "/workspaces/neurosensefx/src/components/FloatingDisplay.svelte",
+          "function": "reactive-store-access",
+          "behavior": "Add: $: marketData = getMarketDataStore(formattedSymbol); $: lastData = $marketData; $: connectionStatus = getConnectionStatus(); Update reactive blocks to use store data.",
+          "decision_refs": ["DL-007"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-004-004",
+          "file": "/workspaces/neurosensefx/src/components/FloatingDisplay.svelte",
+          "function": "symbol-change-handler",
+          "behavior": "Add reactive block for symbol changes with proper cleanup: if (formattedSymbol !== previousSymbol && formattedSymbol) { unsubscribe?.(); unsubscribe = subscribeToSymbol(formattedSymbol, source); lastData = null; lastMarketProfileData = null; previousSymbol = formattedSymbol; }",
+          "decision_refs": ["DL-007"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-004-005",
+          "file": "/workspaces/neurosensefx/src/components/FloatingDisplay.svelte",
+          "function": "onMount",
+          "behavior": "Initialize previousSymbol, call subscribeToSymbol with formattedSymbol and source. Remove useDataCallback.createCallback() and webSocketSub.subscribe() calls. Return cleanup calling unsubscribe?.().",
+          "decision_refs": ["DL-007"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-004-006",
+          "file": "/workspaces/neurosensefx/src/components/FloatingDisplay.svelte",
+          "function": "handlers.refresh",
+          "behavior": "Update to: lastData = null; lastMarketProfileData = null; unsubscribe?.(); unsubscribe = subscribeToSymbol(formattedSymbol, source); canvasRef?.refreshCanvas?.();",
+          "decision_refs": [],
+          "params": {}
+        }
+      ],
+      "code_changes": [],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-005",
+      "number": 5,
+      "name": "Migrate FxBasketDisplay and Integrate State Machine",
+      "files": [
+        "/workspaces/neurosensefx/src/components/FxBasketDisplay.svelte",
+        "/workspaces/neurosensefx/src/stores/marketDataStore.js"
+      ],
+      "flags": ["migration", "complex", "state-machine-integration"],
+      "requirements": [
+        "Integrate FX Basket state machine into marketDataStore",
+        "Replace fxBasketStore, fxBasketStateMachine, fxBasketProcessor with store-based implementation",
+        "Create subscribeBasket() function that manages 30-symbol subscriptions",
+        "Create derived stores for basket values and progress",
+        "Preserve 600ms rate limiting between subscriptions",
+        "Preserve retry logic for missing pairs"
+      ],
+      "acceptance_criteria": [
+        "FxBasketDisplay shows all 30 currency pairs from centralized stores",
+        "State machine tracks received pairs correctly",
+        "Progress indicator shows correct count",
+        "Basket calculations are correct",
+        "Retry mechanism works for failed pairs",
+        "All E2E tests pass",
+        "No subscription leaks or memory issues"
+      ],
+      "tests": {
+        "files": ["/workspaces/neurosensefx/src/tests/e2e/fx-basket.spec.js"],
+        "type": "integration",
+        "backing": "existing",
+        "scenarios": {
+          "normal": [
+            "All 30 pairs display after initial load",
+            "Basket values calculate correctly"
+          ],
+          "edge": [
+            "Partial data shows progress indicator",
+            "Retry recovers missing pairs"
+          ],
+          "error": [
+            "Error state shows after all retries fail"
+          ]
+        },
+        "skip_reason": null
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-005-001",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "basketStateMachine",
+          "behavior": "Integrate fxBasketStateMachine logic into marketDataStore. Create writable store for basket state tracking (receivedPairs, expectedPairs, state, partialData). Export basketProgress derived store.",
+          "decision_refs": ["DL-003"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-005-002",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "subscribeBasket",
+          "behavior": "Subscribe to all 30 FX pairs with 600ms delay between each. Track subscriptions for cleanup. Update basket state machine on each data received. Return unsubscribe function that cleans up all 30 subscriptions.",
+          "decision_refs": ["DL-002", "DL-003"],
+          "params": {
+            "rate_limit_ms": {
+              "value": 600,
+              "unit": "milliseconds",
+              "decision_ref": null
+            }
+          }
+        },
+        {
+          "id": "CI-M-005-003",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "basketValues",
+          "behavior": "Create derived store that calculates basket values (USD, EUR, GBP, etc.) from all symbol stores when basket state is 'ready'. Uses calculateAllBaskets from fxBasketCalculations.js.",
+          "decision_refs": ["DL-002", "DL-003"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-005-004",
+          "file": "/workspaces/neurosensefx/src/stores/marketDataStore.js",
+          "function": "retryMissingPairs",
+          "behavior": "Export function that resubscribes to pairs in ERROR or PENDING state. Preserves existing retry logic with MAX_AUTO_RETRIES = 2.",
+          "decision_refs": ["DL-003"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-005-005",
+          "file": "/workspaces/neurosensefx/src/components/FxBasketDisplay.svelte",
+          "function": "imports",
+          "behavior": "Remove fxBasketStore, fxBasketStateMachine, fxBasketProcessor imports. Add subscribeBasket, basketValues, basketProgress, retryMissingPairs from '../stores/marketDataStore.js'.",
+          "decision_refs": ["DL-003"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-005-006",
+          "file": "/workspaces/neurosensefx/src/components/FxBasketDisplay.svelte",
+          "function": "state",
+          "behavior": "Remove store, stateMachine, basketData variables. Add unsubscribeBasket. Use $basketValues and $basketProgress reactive references.",
+          "decision_refs": ["DL-003"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-005-007",
+          "file": "/workspaces/neurosensefx/src/components/FxBasketDisplay.svelte",
+          "function": "startSubscriptions",
+          "behavior": "Replace with: unsubscribeBasket = subscribeBasket(fxPairs); Store the returned cleanup function.",
+          "decision_refs": ["DL-003"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-005-008",
+          "file": "/workspaces/neurosensefx/src/components/FxBasketDisplay.svelte",
+          "function": "handleRefresh",
+          "behavior": "Update to: unsubscribeBasket?.(); unsubscribeBasket = subscribeBasket(fxPairs); renderCanvas();",
+          "decision_refs": ["DL-003"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-005-009",
+          "file": "/workspaces/neurosensefx/src/components/FxBasketDisplay.svelte",
+          "function": "onDestroy",
+          "behavior": "Add unsubscribeBasket?.() call to cleanup.",
+          "decision_refs": ["DL-003"],
+          "params": {}
+        }
+      ],
+      "code_changes": [],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-006",
+      "number": 6,
+      "name": "Update dataContracts.js with Version and Latency Types",
+      "files": [
+        "/workspaces/neurosensefx/src/lib/dataContracts.js"
+      ],
+      "flags": ["additive-only"],
+      "requirements": [
+        "Add v (version) field to WebSocketMessage typedef",
+        "Add receivedAt and sentAt optional fields to WebSocketMessage typedef",
+        "Add LatencyMetrics typedef for latency tracking",
+        "Add validation for version field (optional for backward compatibility)"
+      ],
+      "acceptance_criteria": [
+        "WebSocketMessage typedef includes v, receivedAt, sentAt fields",
+        "LatencyMetrics typedef documents backend, network, e2e fields",
+        "Dev mode validation handles missing version gracefully",
+        "Existing validation continues to work"
+      ],
+      "tests": {
+        "files": [],
+        "type": "unit",
+        "backing": "default-derived",
+        "scenarios": {
+          "normal": [
+            "JSDoc types document new fields"
+          ],
+          "edge": [
+            "Missing version does not fail validation"
+          ],
+          "error": []
+        },
+        "skip_reason": "Type definition changes verified via TypeScript/JSDoc tooling"
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-006-001",
+          "file": "/workspaces/neurosensefx/src/lib/dataContracts.js",
+          "function": "WebSocketMessage typedef",
+          "behavior": "Add @property {string} [v] - Schema version (e.g., '1.0.0'). Add @property {number} [receivedAt] - Backend receive timestamp. Add @property {number} [sentAt] - WebSocket send timestamp.",
+          "decision_refs": ["DL-006"],
+          "params": {}
+        },
+        {
+          "id": "CI-M-006-002",
+          "file": "/workspaces/neurosensefx/src/lib/dataContracts.js",
+          "function": "LatencyMetrics typedef",
+          "behavior": "Add new typedef: @typedef {Object} LatencyMetrics with @property {number} [backend], @property {number} [network], @property {number} [e2e]. Documents latency metrics structure.",
+          "decision_refs": [],
+          "params": {}
+        },
+        {
+          "id": "CI-M-006-003",
+          "file": "/workspaces/neurosensefx/src/lib/dataContracts.js",
+          "function": "validateWebSocketMessage",
+          "behavior": "Add optional version validation: if version present and not '1.0.0', add warning to result.warnings. Version is optional for backward compatibility.",
+          "decision_refs": ["DL-006"],
+          "params": {}
+        }
+      ],
+      "code_changes": [],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "milestones": ["M-001", "M-002", "M-006"],
+      "rationale": "Foundation work (store creation, backend instrumentation, type updates) can proceed in parallel. No dependencies between these milestones."
+    },
+    {
+      "wave": 2,
+      "milestones": ["M-003"],
+      "rationale": "PriceTicker migration depends on M-001 (marketDataStore). Simplest component for first migration pilot."
+    },
+    {
+      "wave": 3,
+      "milestones": ["M-004"],
+      "rationale": "FloatingDisplay migration depends on M-003 success. Medium complexity with market profile integration."
+    },
+    {
+      "wave": 4,
+      "milestones": ["M-005"],
+      "rationale": "FxBasketDisplay migration is most complex (30 symbols, state machine). Depends on M-004 success and all foundation work."
+    }
+  ],
+  "milestone_dependencies": {
+    "diagram_ascii": "M-001 (Store) ──┬── M-003 (PriceTicker) ── M-004 (FloatingDisplay) ── M-005 (FxBasket)\n                 │\nM-002 (Backend) ─┤\n                 │\nM-006 (Types) ───┘",
+    "waves": [
+      {"wave": 1, "milestones": ["M-001", "M-002", "M-006"]},
+      {"wave": 2, "milestones": ["M-003"]},
+      {"wave": 3, "milestones": ["M-004"]},
+      {"wave": 4, "milestones": ["M-005"]}
+    ]
+  },
+  "diagrams": []
+}
