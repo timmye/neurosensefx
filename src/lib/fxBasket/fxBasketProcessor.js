@@ -6,7 +6,7 @@
  */
 
 import { setDailyOpen, setCurrentPrice } from './fxBasketStore.js';
-import { trackPair, canCalculate, BasketState } from './fxBasketStateMachine.js';
+import { trackPair, trackFailedPair, canCalculate, BasketState } from './fxBasketStateMachine.js';
 import { updateBaskets } from './fxBasketManager.js';
 
 export function createProcessorCallback(store, stateMachine, onUpdate) {
@@ -16,9 +16,15 @@ export function createProcessorCallback(store, stateMachine, onUpdate) {
   return (message) => {
     const pair = message.symbol;
 
-    // Handle error messages from backend
+    // Handle error messages from backend - track as failed pair
     if (message.type === 'error') {
       console.error(`[FX BASKET] Backend error for ${pair}: ${message.message}`);
+      const allAccounted = trackFailedPair(stateMachine, pair, message.message);
+      if (stateMachine.state === BasketState.WAITING) {
+        onUpdate({ _state: BasketState.WAITING, _progress: stateMachine.getProgress() });
+      } else if (allAccounted && stateMachine.state === BasketState.ERROR) {
+        onUpdate({ _state: BasketState.ERROR, _missingPairs: stateMachine.missingPairs, _failedPairs: Array.from(stateMachine.failedPairs) });
+      }
       return;
     }
 

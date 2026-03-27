@@ -179,6 +179,13 @@ class WebSocketServer {
         if (isFirstSubscriber && source === 'ctrader') {
             this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
                 console.error(`Failed to subscribe to ticks for ${symbolName}:`, err);
+                // Notify client of subscription failure so frontend can track failed pairs
+                this.sendToClient(ws, {
+                    type: 'error',
+                    code: err.code || 'SUBSCRIPTION_FAILED',
+                    message: `Failed to subscribe to ticks for ${symbolName}: ${err.message}`,
+                    symbol: symbolName
+                });
             });
         }
 
@@ -188,6 +195,13 @@ class WebSocketServer {
             if (source === 'ctrader') {
                 this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
                     console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err);
+                    // Notify client of subscription failure
+                    this.sendToClient(ws, {
+                        type: 'error',
+                        code: err.code || 'SUBSCRIPTION_FAILED',
+                        message: `Failed to subscribe to M1 bars for ${symbolName}: ${err.message}`,
+                        symbol: symbolName
+                    });
                 });
             }
         };

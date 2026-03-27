@@ -295,6 +295,11 @@ class CTraderSession extends EventEmitter {
             });
             // Track subscription for restoration after reconnect
             this.activeSubscriptions.add(symbolName);
+        } else {
+            const error = new Error(`Symbol ID not found for ${symbolName}`);
+            error.code = 'SYMBOL_NOT_FOUND';
+            error.symbol = symbolName;
+            throw error;
         }
     }
 
@@ -318,6 +323,11 @@ class CTraderSession extends EventEmitter {
                 symbolId: symbolId,
                 period: 'M1'
             });
+        } else {
+            const error = new Error(`Symbol ID not found for ${symbolName}`);
+            error.code = 'SYMBOL_NOT_FOUND';
+            error.symbol = symbolName;
+            throw error;
         }
     }
 

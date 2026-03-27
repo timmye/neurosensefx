@@ -196,9 +196,8 @@ class RequestCoordinator {
         console.error(`[COALESCE] Failed ${requestKey} after ${retries} retries:`, error);
         this.pendingRequests.delete(requestKey);
 
-        if (isRateLimit) {
-            this.notifyClientsError(clients, symbol, error);
-        }
+        // Notify clients of all errors (not just rate limits) so frontend can track failed pairs
+        this.notifyClientsError(clients, symbol, error);
 
         throw error;
     }

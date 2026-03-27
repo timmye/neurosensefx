@@ -8,7 +8,7 @@
   import { checkDataFreshness, refreshConnection } from '../lib/fxBasket/fxBasketConnection.js';
   import { createDebugAPI, exposeDebugAPI } from '../lib/fxBasket/fxBasketDebug.js';
   import { createStore } from '../lib/fxBasket/fxBasketStore.js';
-  import { createStateMachine, BasketState } from '../lib/fxBasket/fxBasketStateMachine.js';
+  import { createStateMachine, BasketState, getMissingPairs, getFailedPairs } from '../lib/fxBasket/fxBasketStateMachine.js';
   import { createProcessorCallback } from '../lib/fxBasket/fxBasketProcessor.js';
   import { renderFxBasket } from '../lib/fxBasket/fxBasketOrchestrator.js';
   import DisplayHeader from './displays/DisplayHeader.svelte';
@@ -53,6 +53,9 @@
     if (freshnessCheckInterval) clearInterval(freshnessCheckInterval);
     if (unsubscribe) unsubscribe();
     if (resizeObserver) resizeObserver.disconnect();
+    // Clean up retry resources
+    if (retryTimeoutId) clearTimeout(retryTimeoutId);
+    retryUnsubscribes.forEach(unsub => unsub());
   });
 
   function setupInteract() {
@@ -148,9 +151,21 @@
     });
   }
 
+  let retryCount = 0;
+  let retryTimeoutId = null;
+  let retryUnsubscribes = [];
+  const MAX_AUTO_RETRIES = 2;
+
   function handleBasketUpdate(baskets) {
     basketData = baskets;
     renderCanvas();
+
+    // Auto-retry on ERROR state (up to MAX_AUTO_RETRIES times)
+    if (baskets._state === BasketState.ERROR && retryCount < MAX_AUTO_RETRIES) {
+      retryCount++;
+      console.log(`[FX BASKET] Auto-retry ${retryCount}/${MAX_AUTO_RETRIES} after ERROR state`);
+      retryTimeoutId = setTimeout(() => retryMissingPairs(), 2000); // Wait 2s before retry
+    }
   }
 
   function setupCanvas() {
@@ -206,7 +221,10 @@
   function setupDebugAPI() {
     return exposeDebugAPI(createDebugAPI(() => ({
       store, stateMachine, basketData, connectionStatus, fxPairs, subscriptionsReady,
-      basketState, lastTickTimes, tickCount, dataPackageCount
+      basketState, lastTickTimes, tickCount, dataPackageCount, retryCount,
+      getMissingPairs: () => getMissingPairs(stateMachine),
+      getFailedPairs: () => getFailedPairs(stateMachine),
+      retryMissingPairs
     })), typeof window !== 'undefined' ? window : null);
   }
 
@@ -215,11 +233,53 @@
   async function handleRefresh() {
     if (connectionManager) {
       if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-      stateMachine = createStateMachine(fxPairs, 60000); // 60s: 11s subscription + 25s coordinator + buffer
+      retryCount = 0; // Reset retry count on manual refresh
+      stateMachine = createStateMachine(fxPairs, 60000);
       basketData = null;
       startSubscriptions();
     }
     renderCanvas();
+  }
+
+  /**
+   * Retry only the missing/failed pairs instead of full re-initialization
+   * More efficient than full refresh when only a few pairs failed
+   */
+  async function retryMissingPairs() {
+    const missing = [...getMissingPairs(stateMachine), ...getFailedPairs(stateMachine)];
+    if (missing.length === 0) {
+      console.log('[FX BASKET] No missing pairs to retry');
+      return;
+    }
+
+    console.log(`[FX BASKET] Retrying ${missing.length} missing/failed pairs: ${missing.join(', ')}`);
+
+    // Clear previous retry subscriptions to avoid duplicates
+    retryUnsubscribes.forEach(unsub => unsub());
+    retryUnsubscribes = [];
+
+    // Create a new processor callback for the retry
+    const processorCallback = createProcessorCallback(store, stateMachine, handleBasketUpdate);
+
+    for (let i = 0; i < missing.length; i++) {
+      const pair = missing[i];
+      console.log(`[FX BASKET] Retrying ${pair} (${i + 1}/${missing.length})`);
+
+      const unsub = connectionManager.subscribeAndRequest(
+        pair,
+        processorCallback,
+        14,
+        'ctrader'
+      );
+
+      retryUnsubscribes.push(unsub);
+
+      if (i < missing.length - 1) {
+        await sleep(600);
+      }
+    }
+
+    console.log(`[FX BASKET] Retry complete for ${missing.length} pairs`);
   }
 </script>
 
