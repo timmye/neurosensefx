@@ -15,6 +15,7 @@ Svelte UI components for the workspace and visualization displays.
 | `WorkspaceModal.svelte` | Workspace configuration dialog | Modifying workspace settings UI |
 | `BackgroundShader.svelte` | WebGL procedural background with simplex noise patterns | Modifying background visuals, debugging Three.js shader |
 | `Workspace.css` | Workspace component styles | Styling workspace components |
+| `README.md` | Component architecture overview | Understanding component architecture, display system design |
 
 ## Subdirectories
 

@@ -13,3 +13,6 @@ Implementation plans for features, refactors, and operational tasks.
 | `market-profile-tradingview-implementation.md` | Market Profile TradingView integration plan | Planning TradingView-based Market Profile implementation |
 | `backend-reinit.md` | Backend reinitialization feature plan | Implementing Alt+R backend reinit |
 | `vps-deployment.md` | VPS deployment plan and checklist | Deploying to production VPS |
+| `housekeeping-cleanup.md` | Repo housekeeping cleanup plan | Reviewing repo cleanup scope, tracking file removals |
+| `repo-cleanup.md` | Repo cleanup plan | Understanding repo cleanup plan |
+| `repo-cleanup-plan.json` | Machine-readable repo cleanup plan | Tracking repo cleanup progress programmatically |

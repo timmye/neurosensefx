@@ -10,6 +10,7 @@ Market Profile visualization with orchestrator pattern.
 | `scaling.js`         | Price-to-Y coordinate mapping, dimensions  | Fixing alignment issues with Day Range Meter      |
 | `rendering.js`       | Canvas drawing (bars, value area, POC)     | Customizing Market Profile appearance              |
 | `calculations.js`    | POC, value area, intensity computations    | Adding calculation types, tuning algorithms        |
+| `README.md`          | Market Profile architecture overview       | Understanding Market Profile rendering pipeline    |
 
 ## README.md
 

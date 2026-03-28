@@ -42,6 +42,16 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `run.sh` | Service management script (start, stop, dev, status, logs, snapshots) | Managing services, starting dev/prod environments |
 | `playwright.config.cjs` | Playwright E2E test configuration | Setting up E2E tests, debugging test runner |
 | `vite.config.js` | Vite build configuration with Svelte plugin | Modifying build settings, adding Vite plugins |
+| `index.html` | Vite SPA entry point | Modifying HTML shell, adding global scripts |
+| `Dockerfile` | Production Docker build | Building production Docker image |
+| `Dockerfile.frontend` | Frontend-specific Dockerfile | Building frontend container |
+| `Dockerfile.performance` | Performance monitoring Dockerfile | Building performance monitoring stack |
+| `docker-compose.yml` | Production compose config | Running full stack locally, configuring service orchestration |
+| `docker-compose.dev.yml` | Dev compose override | Starting dev environment, overriding production compose settings |
+| `docker-compose.perf.yml` | Performance compose override | Running performance benchmarks, monitoring stack |
+| `docker-healthcheck.sh` | Docker health check script | Debugging container health checks |
+| `setup-dev-workaround.sh` | Dev setup workaround | Bootstrapping dev environment on Codespaces |
+| `setup_project.sh` | Project setup script | Initial project setup, onboarding to new machine |
 
 ## Subdirectories
 
@@ -57,6 +67,8 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `skills/` | Solatis claude-config skills for structured LLM workflows | Using development skills |
 | `plans/` | Implementation plans for features and refactors | Executing planned work, reviewing feature scope |
 | `tests/` | Additional E2E test suites (Market Profile) | Running Market Profile E2E tests |
+| `public/` | Static assets | Adding static assets, modifying favicon |
+| `secrets/` | Secrets template | Setting up API credentials, configuring secrets |
 
 ## Development
 

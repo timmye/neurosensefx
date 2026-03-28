@@ -1,13 +1,6 @@
 # docker/
 
-## Files
-
-| File | What | When to read |
-| ---- | ---- | ------------ |
-| `Dockerfile.frontend` | Frontend container build definition | Building frontend container |
-| `docker-compose.yml` | Multi-container orchestration | Running full stack locally |
-| `docker-compose.dev.yml` | Development environment override | Local development setup |
-| `docker-compose.perf.yml` | Performance testing configuration | Running performance benchmarks |
+Container configurations and orchestration support for deploying NeuroSense FX.
 
 ## Subdirectories
 

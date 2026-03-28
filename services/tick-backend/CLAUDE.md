@@ -15,6 +15,11 @@
 | `DataRouter.js` | Data routing from cTrader/TradingView sessions to WebSocket clients using MessageBuilder | Understanding data flow, modifying routing logic, debugging message delivery |
 | `HealthMonitor.js` | Centralized staleness detection service; tracks lastTick timestamp, emits stale/tick_resumed events | Understanding health monitoring logic, debugging staleness detection, modifying timeout thresholds |
 | `MarketProfileService.js` | Market Profile calculation with bucket size determination and level aggregation | Understanding Market Profile logic, modifying bucket calculations, debugging profile generation |
+| `TradingViewDataPackageBuilder.js` | Builds TradingView-compatible data packages | Building data packages for TradingView, debugging data format |
+| `TradingViewSession.js` | TradingView protocol session handler | Debugging TradingView connection, modifying session lifecycle |
+| `TradingViewSubscriptionManager.js` | Manages TradingView symbol subscriptions | Adding subscription types, debugging symbol subscription flow |
+| `TwapService.js` | TWAP (Time-Weighted Average Price) service | Implementing TWAP calculations, debugging time-weighted pricing |
+| `WebSocketServer.js` | WebSocket server for frontend connections | Debugging WebSocket connections, modifying server configuration |
 | `server.js` | WebSocket server entry point | Starting backend, debugging server startup |
 | `stream-real.cjs` | Real-time streaming data test utility | Testing live data streaming |
 | `test-timeframe.js` | Timeframe calculation test utility | Debugging timeframe logic |
@@ -29,6 +34,7 @@
 | Directory | What | When to read |
 | --------- | ---- | ------------ |
 | `utils/` | Shared utility modules (ReconnectionManager, MessageBuilder) | Understanding reconnection logic, using message building utilities, adding shared utilities |
-| `specs/` | cTrader API specifications and OpenAPI definitions | Understanding cTrader integration |
-| `docs/` | Backend design documentation | Understanding backend architecture |
-| `UI/` | Backend UI components | Modifying backend interface |
+| `specs/` | cTrader API specifications and OpenAPI definitions | Looking up cTrader API message schemas, debugging protobuf definitions |
+| `docs/` | Backend design documentation | Adding API endpoints, debugging WebSocket protocol, reviewing service design |
+| `UI/` | Backend UI components | Reviewing ADR visualization mockups, iterating on ticker bar design concepts |
+| `test-results/` | Test run artifacts | Reviewing test run output |

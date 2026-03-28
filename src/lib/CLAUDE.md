@@ -6,8 +6,8 @@
 | ---- | ---- | ------------ |
 | `visualizers.js` | Day range and combined visualization renderers | Registering new visualization types |
 | `connectionManager.js` | WebSocket connection lifecycle management | Debugging connection issues, implementing reconnection |
-| `symbolData.js` | Symbol data cache and management | Working with symbol-specific data |
 | `dataContracts.js` | WebSocket message type definitions and runtime validation | Understanding data shapes, adding new message types, debugging contract violations |
+| `README.md` | Lib module architecture overview | Understanding lib module architecture, data flow patterns |
 
 ## Day Range Rendering
 
