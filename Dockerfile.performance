@@ -30,7 +30,5 @@ RUN apk add --no-cache curl && \
 # Create test results directory
 RUN mkdir -p /app/test-results
 
-WORKDIR /app/tests/performance
-
 # Default to keeping container running for manual tests
 CMD ["tail", "-f", "/dev/null"]

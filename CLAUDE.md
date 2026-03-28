@@ -49,6 +49,7 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | --------- | ---- | ------------ |
 | `src/` | Frontend Svelte application | Developing UI, adding visualizations |
 | `services/` | Backend WebSocket and API services | Working on backend, data streaming |
+| `data/` | Runtime data files (historical analysis JSON) | Working with historical basket data |
 | `libs/` | External library integrations | Integrating with cTrader API |
 | `docker/` | Container configurations | Deploying, containerizing services |
 | `scripts/` | Utility and setup scripts | Setting up development environment |

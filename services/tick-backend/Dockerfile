@@ -41,7 +41,6 @@ RUN apk add --no-cache \
 COPY --from=builder --chown=neurosense:neurosense /build/node_modules ./node_modules
 COPY --from=builder --chown=neurosense:neurosense /build/*.js ./
 COPY --from=builder --chown=neurosense:neurosense /build/utils ./utils
-COPY --from=builder --chown=neurosense:neurosense /build/UI ./UI
 COPY --from=builder --chown=neurosense:neurosense /build/package.json ./
 
 # Create logs directory

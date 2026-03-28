@@ -17,6 +17,7 @@ Frontend Svelte application.
 | `components/` | Svelte UI components | Adding/modifying UI elements |
 | `lib/` | Visualizers, utilities, calculations | Implementing visualizations, business logic |
 | `stores/` | Svelte state management | Working with application state |
+| `composables/` | Deprecated — replaced by `stores/marketDataStore.js` | Checking migration status, understanding composable replacements |
 | `tests/` | Unit and E2E tests | Writing, running tests |
 | `docs/` | Frontend design documentation | Understanding design decisions |
 | `public/` | Static assets | Adding images, fonts, static files |

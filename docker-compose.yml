@@ -21,7 +21,6 @@ services:
     volumes:
       # Mount only necessary files for production
       - ./dist:/app/dist:ro
-      - ./public:/app/public:ro
     depends_on:
       - backend
     networks:

@@ -23,7 +23,6 @@ services:
     volumes:
       # Mount source code for hot reload
       - ./src:/app/src
-      - ./public:/app/public
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
       - ./vite.config.js:/app/vite.config.js
