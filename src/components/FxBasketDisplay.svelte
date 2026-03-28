@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy, tick } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import interact from 'interactjs';
   import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
@@ -7,43 +7,38 @@
   import { getAllPairs } from '../lib/fxBasket/fxBasketCalculations.js';
   import { checkDataFreshness, refreshConnection } from '../lib/fxBasket/fxBasketConnection.js';
   import { createDebugAPI, exposeDebugAPI } from '../lib/fxBasket/fxBasketDebug.js';
-  import { createStore } from '../lib/fxBasket/fxBasketStore.js';
-  import { createStateMachine, BasketState, getMissingPairs, getFailedPairs } from '../lib/fxBasket/fxBasketStateMachine.js';
-  import { createProcessorCallback } from '../lib/fxBasket/fxBasketProcessor.js';
+  import { subscribeBasket, getBasketState, BasketState } from '../stores/marketDataStore.js';
   import { renderFxBasket } from '../lib/fxBasket/fxBasketOrchestrator.js';
   import DisplayHeader from './displays/DisplayHeader.svelte';
 
   export let display;
   let element, interactable, connectionManager;
   let connectionStatus = 'disconnected';
-  let store, stateMachine;
   let basketData = null;
   let fxPairs = [];
   let unsubscribe = null;
+  let unsubscribeStatus = null;
   let freshnessCheckInterval;
   let resizeObserver;
   let ctx, canvas;
-  let subscriptionsReady = false;
-  let tickCount = 0;
-  let dataPackageCount = 0;
-  let lastTickTimes = new Map();
-  let basketState = { lastUpdate: new Date().toISOString() };
 
   $: currentDisplay = $workspaceStore.displays.get(display.id);
 
   onMount(() => {
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
     fxPairs = getAllPairs();
-    store = createStore();
-    stateMachine = createStateMachine(fxPairs, 60000); // 60s: 11s subscription + 25s coordinator + buffer
 
     setupInteract();
-    startSubscriptions();
-    setupDebugAPI();
     setupCanvas();
     setupConnectionMonitoring();
+    setupDebugAPI();
 
-    // Connect immediately - subscriptions will be added as they're registered
+    // Subscribe via centralized store
+    unsubscribe = subscribeBasket(fxPairs, (data) => {
+      basketData = data;
+      renderCanvas();
+    }, 60000);
+
     connectionManager.connect();
   });
 
@@ -53,9 +48,7 @@
     if (freshnessCheckInterval) clearInterval(freshnessCheckInterval);
     if (unsubscribe) unsubscribe();
     if (resizeObserver) resizeObserver.disconnect();
-    // Clean up retry resources
-    if (retryTimeoutId) clearTimeout(retryTimeoutId);
-    retryUnsubscribes.forEach(unsub => unsub());
+    if (unsubscribeStatus) unsubscribeStatus();
   });
 
   function setupInteract() {
@@ -70,102 +63,6 @@
       inertia: true
     };
     interactable = interact(element).draggable(dragConfig).resizable(resizeConfig).on('tap', () => workspaceActions.bringToFront(display.id));
-  }
-
-  async function startSubscriptions() {
-    console.log('[FX BASKET] Starting subscription to', fxPairs.length, 'FX pairs...');
-
-    // Create processor callback - processes messages as they arrive
-    const processorCallback = createProcessorCallback(store, stateMachine, handleBasketUpdate);
-
-    // Wait for connection to be established
-    await waitForConnection();
-
-    // Simple subscription - process messages as they arrive (Crystal Clarity)
-    const subscriptions = [];
-    const REQUEST_DELAY_MS = 600; // Avoids cTrader rate limits (400ms was too fast)
-
-    for (let i = 0; i < fxPairs.length; i++) {
-      const pair = fxPairs[i];
-
-      console.log(`[FX BASKET] Subscribing to ${pair} (${i+1}/${fxPairs.length})`);
-
-      const unsub = connectionManager.subscribeAndRequest(
-        pair,
-        processorCallback,
-        14, // adr
-        'ctrader'
-      );
-
-      subscriptions.push(unsub);
-
-      // Rate limiting: 400ms delay between subscriptions
-      if (i < fxPairs.length - 1) {
-        await sleep(REQUEST_DELAY_MS);
-      }
-    }
-
-    console.log(`[FX BASKET] Subscriptions complete: ${subscriptions.length}`);
-    subscriptionsReady = true;
-    unsubscribe = () => subscriptions.forEach(unsub => unsub());
-  }
-
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  async function waitForConnection() {
-    // Check BOTH status AND actual WebSocket readyState
-    const isReady = connectionManager.status === 'connected'
-      && connectionManager.ws?.readyState === WebSocket.OPEN;
-
-    if (isReady) {
-      console.log('[FX BASKET] Already connected and ready');
-      return;
-    }
-
-    // Otherwise wait for connection with timeout
-    console.log('[FX BASKET] Waiting for connection...');
-    return new Promise(resolve => {
-      let timeoutId;
-
-      const unsubscribe = connectionManager.addStatusCallback(() => {
-        const readyNow = connectionManager.status === 'connected'
-          && connectionManager.ws?.readyState === WebSocket.OPEN;
-
-        if (readyNow) {
-          clearTimeout(timeoutId); // Clear timeout when connected
-          unsubscribe();
-          console.log('[FX BASKET] Connected and ready!');
-          resolve();
-        }
-      });
-
-      // Timeout after 10 seconds - proceed even if not connected
-      // (allows tests to work without WebSocket server)
-      timeoutId = setTimeout(() => {
-        unsubscribe();
-        console.warn('[FX BASKET] Connection timeout - proceeding anyway');
-        resolve();
-      }, 10000);
-    });
-  }
-
-  let retryCount = 0;
-  let retryTimeoutId = null;
-  let retryUnsubscribes = [];
-  const MAX_AUTO_RETRIES = 2;
-
-  function handleBasketUpdate(baskets) {
-    basketData = baskets;
-    renderCanvas();
-
-    // Auto-retry on ERROR state (up to MAX_AUTO_RETRIES times)
-    if (baskets._state === BasketState.ERROR && retryCount < MAX_AUTO_RETRIES) {
-      retryCount++;
-      console.log(`[FX BASKET] Auto-retry ${retryCount}/${MAX_AUTO_RETRIES} after ERROR state`);
-      retryTimeoutId = setTimeout(() => retryMissingPairs(), 2000); // Wait 2s before retry
-    }
   }
 
   function setupCanvas() {
@@ -205,26 +102,27 @@
     if (!ctx || !canvas) return;
     const rect = canvas.getBoundingClientRect();
     const dimensions = { width: rect.width, height: rect.height };
-    const currentData = basketData || { _state: stateMachine.state, _progress: stateMachine.getProgress?.() || { received: 0, total: 30 } };
+    const currentData = basketData || { _state: BasketState.FAILED, _progress: { received: 0, total: 30 } };
     renderFxBasket(ctx, currentData, {}, dimensions);
   }
 
   function setupConnectionMonitoring() {
-    const unsubscribeStatus = connectionManager.addStatusCallback(() => {
+    unsubscribeStatus = connectionManager.addStatusCallback(() => {
       connectionStatus = connectionManager.status;
     });
     connectionStatus = connectionManager.status;
     freshnessCheckInterval = setInterval(() => checkDataFreshness(connectionStatus, () => refreshConnection(connectionManager, connectionStatus)), 5000);
-    return unsubscribeStatus;
   }
 
   function setupDebugAPI() {
     return exposeDebugAPI(createDebugAPI(() => ({
-      store, stateMachine, basketData, connectionStatus, fxPairs, subscriptionsReady,
-      basketState, lastTickTimes, tickCount, dataPackageCount, retryCount,
-      getMissingPairs: () => getMissingPairs(stateMachine),
-      getFailedPairs: () => getFailedPairs(stateMachine),
-      retryMissingPairs
+      basketData,
+      connectionStatus,
+      fxPairs,
+      subscriptionsReady: true,
+      basketState: getBasketState(),
+      getMissingPairs: () => getBasketState()?.missingPairs || [],
+      getFailedPairs: () => getBasketState()?.failedPairs || []
     })), typeof window !== 'undefined' ? window : null);
   }
 
@@ -232,54 +130,14 @@
   function handleFocus() { workspaceActions.bringToFront(display.id); }
   async function handleRefresh() {
     if (connectionManager) {
-      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-      retryCount = 0; // Reset retry count on manual refresh
-      stateMachine = createStateMachine(fxPairs, 60000);
+      if (unsubscribe) { unsubscribe(); }
       basketData = null;
-      startSubscriptions();
+      unsubscribe = subscribeBasket(fxPairs, (data) => {
+        basketData = data;
+        renderCanvas();
+      }, 60000);
     }
     renderCanvas();
-  }
-
-  /**
-   * Retry only the missing/failed pairs instead of full re-initialization
-   * More efficient than full refresh when only a few pairs failed
-   */
-  async function retryMissingPairs() {
-    const missing = [...getMissingPairs(stateMachine), ...getFailedPairs(stateMachine)];
-    if (missing.length === 0) {
-      console.log('[FX BASKET] No missing pairs to retry');
-      return;
-    }
-
-    console.log(`[FX BASKET] Retrying ${missing.length} missing/failed pairs: ${missing.join(', ')}`);
-
-    // Clear previous retry subscriptions to avoid duplicates
-    retryUnsubscribes.forEach(unsub => unsub());
-    retryUnsubscribes = [];
-
-    // Create a new processor callback for the retry
-    const processorCallback = createProcessorCallback(store, stateMachine, handleBasketUpdate);
-
-    for (let i = 0; i < missing.length; i++) {
-      const pair = missing[i];
-      console.log(`[FX BASKET] Retrying ${pair} (${i + 1}/${missing.length})`);
-
-      const unsub = connectionManager.subscribeAndRequest(
-        pair,
-        processorCallback,
-        14,
-        'ctrader'
-      );
-
-      retryUnsubscribes.push(unsub);
-
-      if (i < missing.length - 1) {
-        await sleep(600);
-      }
-    }
-
-    console.log(`[FX BASKET] Retry complete for ${missing.length} pairs`);
   }
 </script>
 

@@ -14,7 +14,7 @@ export const BASKET_DEFINITIONS = {
 
 // cTrader missing inverses: USDGBP, AUDGBP, CADGBP, CHFGBP, NZDGBP
 // Note: CHF basket now includes AUDCHF (7 pairs, consistent with other baskets)
-function getPairPrice(pair, priceMap) {
+export function getPairPrice(pair, priceMap) {
   const price = priceMap.get(pair);
   if (price) return price;
 

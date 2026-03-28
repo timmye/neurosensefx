@@ -2,8 +2,8 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { workspaceStore, workspaceActions } from '../stores/workspace.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
-  import { getWebSocketUrl, formatSymbol, processSymbolData } from '../lib/displayDataProcessor.js';
-  import { useWebSocketSub } from '../composables/useWebSocketSub.js';
+  import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
+  import { getMarketDataStore, subscribeToSymbol } from '../stores/marketDataStore.js';
   import { calculateDayRangePercentage } from '../lib/dayRangeCalculations.js';
   import { formatPrice, formatPriceToPip, getPipetteDigit, splitByPipPosition } from '../lib/priceFormat.js';
   import { renderMiniMarketProfile } from '../lib/marketProfile/orchestrator.js';
@@ -20,20 +20,22 @@
   let interactable;
   let connectionManager;
   let canvasRef;
-  let webSocketSub;
-  let lastData = null;
   let lastMarketProfileData = null;
   let lastTrackedPrice = null;
   let flashTimeout = null;
   let resizeObserver = null;
-  let isFirstRender = true;
-  let previousSymbol = '';
+  let unsubscribeSymbol;
+  let previousSymbol = null;
 
   // Flash state
   let priceFlashClass = '';
   let borderFlashClass = '';
 
   // Reactive display values (auto-update when lastData changes)
+  // Reactive store subscription - store reference changes when symbol changes
+  $: marketData = getMarketDataStore(formattedSymbol);
+  $: lastData = $marketData;
+
   $: currentPrice = lastData?.current ?? null;
   $: highPrice = lastData?.high ?? null;
   $: lowPrice = lastData?.low ?? null;
@@ -113,7 +115,6 @@
 
   onMount(() => {
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
-    webSocketSub = useWebSocketSub(connectionManager);
 
     // Setup ResizeObserver to re-render canvas on browser zoom/resize
     if (typeof ResizeObserver !== 'undefined') {
@@ -125,20 +126,9 @@
       }
     }
 
-    webSocketSub.subscribe(formattedSymbol, ticker.source || 'tradingview', async (data) => {
-      const processed = processSymbolData(data, formattedSymbol, lastData);
-
-      if (processed?.type === 'data') {
-        lastData = processed.data;
-        await tick(); // Ensure Svelte detects state change and updates UI
-      }
-
-      // Handle market profile updates from backend processing
-      if (data.type === 'profileUpdate' && data.profile) {
-        lastMarketProfileData = data.profile.levels;
-        await tick();
-      }
-    }, 14);
+    // Subscribe via centralized store
+    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, ticker.source || 'tradingview', { adr: 14 });
+    previousSymbol = formattedSymbol;
 
     // Setup drag interaction (no resize for ticker)
     interactable = createInteractConfig(element, {
@@ -150,12 +140,9 @@
     connectionManager.connect();
 
     return () => {
-      webSocketSub?.unsubscribeCurrent();
+      unsubscribeSymbol?.();
+      resizeObserver?.disconnect();
     };
-
-    // Mark first render complete after subscription is set up
-    isFirstRender = false;
-    previousSymbol = formattedSymbol;
   });
 
   onDestroy(() => {
@@ -166,13 +153,18 @@
   });
 
   // Track previous symbol to detect changes and resubscribe
-  $: if (formattedSymbol && formattedSymbol !== previousSymbol && webSocketSub && !isFirstRender) {
-    previousSymbol = formattedSymbol;
-    webSocketSub.refreshSubscription(formattedSymbol, ticker.source || 'tradingview', 14);
-    // Clear state to prevent showing data from previous symbol
-    lastData = null;
+  $: if (formattedSymbol !== previousSymbol && previousSymbol !== null) {
+    // Unsubscribe from old symbol
+    unsubscribeSymbol?.();
+
+    // Subscribe to new symbol
+    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, ticker.source || 'tradingview', { adr: 14 });
+
+    // Clear stale data
     lastMarketProfileData = null;
     lastTrackedPrice = null;
+
+    previousSymbol = formattedSymbol;
   }
 
   function handleClose() {
@@ -185,17 +177,17 @@
 
   function handleRefresh() {
     // Clear local state
-    lastData = null;
     lastMarketProfileData = null;
     lastTrackedPrice = null;
     priceFlashClass = '';
     borderFlashClass = '';
     if (flashTimeout) clearTimeout(flashTimeout);
 
-    // Resubscribe (triggers fresh data request from backend)
-    if (webSocketSub) {
-      webSocketSub.refreshSubscription(formattedSymbol, ticker.source || 'tradingview', 14);
+    // Resubscribe via store
+    if (unsubscribeSymbol) {
+      unsubscribeSymbol();
     }
+    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, ticker.source || 'tradingview', { adr: 14 });
   }
 </script>
 

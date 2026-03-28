@@ -3,6 +3,8 @@
  * Centralizes conditional field inclusion pattern
  */
 
+const SCHEMA_VERSION = '1.0.0';
+
 /**
  * Conditionally include a field in message object
  * @param {Object} message - Message object to modify
@@ -26,6 +28,8 @@ function buildCTraderMessage(tick) {
     const message = {
         type: 'tick',
         source: 'ctrader',
+        v: SCHEMA_VERSION,
+        receivedAt: tick._receivedAt,
         ...tick
     };
 
@@ -48,6 +52,8 @@ function buildTradingViewMessage(candle) {
     const message = {
         type: candle.type || 'tick',
         source: 'tradingview',
+        v: SCHEMA_VERSION,
+        receivedAt: candle._receivedAt,
         symbol: candle.symbol,
         price: price,
         timestamp: candle.timestamp

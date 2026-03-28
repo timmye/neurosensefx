@@ -19,17 +19,23 @@
 /**
  * Base WebSocket message structure
  * @typedef {Object} WebSocketMessage
+ * @property {string} [v] - Schema version (e.g., '1.0.0')
  * @property {MessageType} type - Message type discriminator
  * @property {string} [symbol] - Symbol identifier (e.g., 'BTCUSD', 'EUR/USD')
  * @property {string} [source] - Data source ('ctrader' | 'tradingview')
+ * @property {number} [receivedAt] - Backend receive timestamp (ms since epoch)
+ * @property {number} [sentAt] - WebSocket send timestamp (ms since epoch)
  */
 
 /**
  * Initial subscription data package
  * @typedef {Object} SymbolDataPackage
+ * @property {string} [v] - Schema version
  * @property {'symbolDataPackage'} type
  * @property {string} symbol - Symbol identifier
  * @property {string} [source='ctrader'] - Data source
+ * @property {number} [receivedAt] - Backend receive timestamp
+ * @property {number} [sentAt] - WebSocket send timestamp
  * @property {number} [current] - Current price
  * @property {number} [price] - Alternative current price field
  * @property {number} [bid] - Bid price (cTrader)
@@ -59,9 +65,12 @@
 /**
  * Real-time tick update
  * @typedef {Object} TickData
+ * @property {string} [v] - Schema version
  * @property {'tick'} type
  * @property {string} symbol - Symbol identifier (required for matching)
  * @property {string} [source] - Data source
+ * @property {number} [receivedAt] - Backend receive timestamp
+ * @property {number} [sentAt] - WebSocket send timestamp
  * @property {number} [price] - Current price
  * @property {number} [bid] - Bid price
  * @property {number} [ask] - Ask price
@@ -116,6 +125,41 @@
  * @property {number} high - Previous day high
  * @property {number} low - Previous day low
  * @property {number} close - Previous day close
+ */
+
+/**
+ * Latency metrics for data pipeline monitoring
+ * @typedef {Object} LatencyMetrics
+ * @property {number|null} [backend] - Backend processing time (ms): sentAt - receivedAt
+ * @property {number|null} [network] - Network transit time (ms): clientReceivedAt - sentAt
+ * @property {number|null} [e2e] - End-to-end latency (ms): clientReceivedAt - receivedAt
+ */
+
+/**
+ * Market data store state
+ * @typedef {Object} MarketDataState
+ * @property {string} symbol - Symbol identifier
+ * @property {string|null} source - Data source
+ * @property {number|null} current - Current price
+ * @property {number|null} high - Day's high price
+ * @property {number|null} low - Day's low price
+ * @property {number|null} open - Day's open price
+ * @property {number|null} adrHigh - ADR high projection
+ * @property {number|null} adrLow - ADR low projection
+ * @property {number} pipPosition - Decimal position of pip
+ * @property {number} pipSize - Size of one pip
+ * @property {number} pipetteSize - Size of pipette
+ * @property {number|null} previousPrice - Previous tick price
+ * @property {'up'|'down'|'neutral'} direction - Price movement direction
+ * @property {Array|null} marketProfile - Market profile data
+ * @property {number|null} receivedAt - Backend receive timestamp
+ * @property {number|null} sentAt - WebSocket send timestamp
+ * @property {number|null} clientReceivedAt - Frontend receive timestamp
+ * @property {LatencyMetrics} latency - Latency metrics
+ * @property {string|null} error - Error message if failed
+ * @property {'pending'|'connected'|'error'|'stale'} status - Connection status
+ * @property {number|null} lastUpdate - Last update timestamp
+ * @property {string} schemaVersion - Schema version string
  */
 
 /**

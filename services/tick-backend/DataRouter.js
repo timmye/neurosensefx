@@ -14,6 +14,7 @@ class DataRouter {
      * @param {Object} tick - cTrader tick data
      */
     routeFromCTrader(tick) {
+        tick._receivedAt = Date.now();
         const message = buildCTraderMessage(tick);
         this.broadcastToClients(message, tick.symbol, 'ctrader');
     }
@@ -23,6 +24,7 @@ class DataRouter {
      * @param {Object} candle - TradingView candle data (can be tick or symbolDataPackage)
      */
     routeFromTradingView(candle) {
+        candle._receivedAt = Date.now();
         const message = buildTradingViewMessage(candle);
         this.broadcastToClients(message, candle.symbol, 'tradingview');
     }
@@ -87,6 +89,7 @@ class DataRouter {
             return;
         }
 
+        message.sentAt = Date.now();
         let jsonMessage;
         try {
             jsonMessage = JSON.stringify(message);

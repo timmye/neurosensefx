@@ -61,7 +61,7 @@ class WebSocketServer {
         this.tradingViewSession.on('error', (error) => console.error('[TradingView] Backend error:', error));
 
         // Start heartbeat to keep frontend connections alive
-        // Frontend expects messages every 2 seconds, we send every 5 seconds
+        // Frontend expects messages within 10 seconds, we send every 5 seconds
         console.log('[WebSocketServer] Starting heartbeat interval (5s - aggressive for trading)');
         this.heartbeatInterval = setInterval(() => {
             console.log('[WebSocketServer] Heartbeat interval triggered');

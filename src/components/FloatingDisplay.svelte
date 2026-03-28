@@ -1,22 +1,20 @@
 <script>
-  import { onMount, onDestroy, tick } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
-  import { useWebSocketSub } from '../composables/useWebSocketSub.js';
-  import { useDisplayState } from '../composables/useDisplayState.js';
-  import { useDataCallback } from '../composables/useDataCallback.js';
+  import { getMarketDataStore, subscribeToSymbol, getConnectionStatus } from '../stores/marketDataStore.js';
   import DisplayHeader from './displays/DisplayHeader.svelte';
   import DisplayCanvas from './displays/DisplayCanvas.svelte';
   import PriceMarkerManager from './PriceMarkerManager.svelte';
 
   export let display;
   let element, interactable, connectionManager, canvasRef;
-  let lastData = null, lastMarketProfileData = null;
+  let lastMarketProfileData = null;
   let priceMarkers = [], selectedMarker = null, hoverPrice = null, deltaInfo = null;
-  let webSocketSub, displayState, handlers;
-  const { createCallback } = useDataCallback();
+  let unsubscribeSymbol;
+  let previousSymbol = null;
 
   // Flash state
   let borderFlashClass = '';
@@ -26,31 +24,44 @@
   // Flash configuration
   const flashDuration = 500; // ms
 
-  $: ({ currentDisplay, showMarketProfile, selectedMarker, source, formattedSymbol, connectionStatus, handlers } =
+  // Compute source and formattedSymbol first (needed for store subscription)
+  $: source = display.source || 'ctrader';
+  $: formattedSymbol = formatSymbol(display.symbol);
+
+  // Reactive store subscription
+  $: marketData = getMarketDataStore(formattedSymbol);
+  $: lastData = $marketData;
+  $: connectionStatusStore = getConnectionStatus();
+  $: status = $connectionStatusStore;
+
+  $: ({ currentDisplay, showMarketProfile, selectedMarker, connectionStatus, handlers } =
     (() => {
       const d = $workspaceStore.displays.get(display.id) || {};
-      const st = displayState?.connectionStatus ?? 'disconnected';
-      const src = display.source || 'ctrader';
-      const fmt = formatSymbol(display.symbol);
+      const st = status?.status ?? 'disconnected';
       return {
         currentDisplay: d,
         showMarketProfile: d?.showMarketProfile || false,
         selectedMarker: d?.selectedMarker || null,
-        source: src,
-        formattedSymbol: fmt,
         connectionStatus: st,
-        handlers: webSocketSub && ({
+        handlers: {
           close: () => workspaceActions.removeDisplay(display.id),
           focus: () => workspaceActions.bringToFront(display.id),
-          refresh: () => { lastData = null; lastMarketProfileData = null; webSocketSub.refreshSubscription(fmt, src, 14); canvasRef?.refreshCanvas?.(); },
+          refresh: () => {
+            lastMarketProfileData = null;
+            if (unsubscribeSymbol) {
+              unsubscribeSymbol();
+              unsubscribeSymbol = subscribeToSymbol(formattedSymbol, source, { adr: 14 });
+            }
+            canvasRef?.refreshCanvas?.();
+          },
           keydown: (e) => e.altKey && e.key.toLowerCase() === 'm' && (e.preventDefault(), workspaceActions.toggleMarketProfile(display.id))
-        })
+        }
       };
     })()
   );
 
   // Track price changes for border flash
-  $: if (lastData?.current && lastData.current !== lastTrackedPrice) {
+  $: if (lastData?.current && lastTrackedPrice !== null && lastData.current !== lastTrackedPrice) {
     const isUp = lastData.current > lastTrackedPrice;
     const direction = isUp ? 'up' : 'down';
 
@@ -58,51 +69,32 @@
 
     borderFlashClass = `flash-${direction}`;
 
-    tick().then(() => {
-      flashTimeout = setTimeout(() => {
-        borderFlashClass = '';
-      }, flashDuration);
-    });
+    flashTimeout = setTimeout(() => {
+      borderFlashClass = '';
+    }, flashDuration);
 
     lastTrackedPrice = lastData.current;
   }
 
-  $: if (display.symbol && source && connectionManager && webSocketSub?.getCallback()) {
-    const newSymbol = formatSymbol(display.symbol);
-    const newSource = source;
-    if (newSymbol !== formattedSymbol || newSource !== source) {
-      console.log(`[SYMBOL_CHANGE] ${formattedSymbol}:${source} -> ${newSymbol}:${newSource}`);
-      lastData = null; lastMarketProfileData = null;
-      webSocketSub.unsubscribeCurrent();
-      webSocketSub.subscribe(newSymbol, newSource, webSocketSub.getCallback(), 14);
-    }
+  $: if (formattedSymbol && formattedSymbol !== previousSymbol && previousSymbol !== null) {
+    // Unsubscribe from old symbol
+    unsubscribeSymbol?.();
+
+    // Subscribe to new symbol
+    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, source, { adr: 14 });
+
+    // Clear stale data
+    lastMarketProfileData = null;
+
+    previousSymbol = formattedSymbol;
   }
 
   onMount(() => {
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
-    webSocketSub = useWebSocketSub(connectionManager);
-    displayState = useDisplayState(connectionManager);
 
-    const lastDataRef = { value: null }, lastProfileRef = { value: null };
-    const dataCallback = createCallback(formattedSymbol, lastDataRef, lastProfileRef, canvasRef);
-
-    webSocketSub.subscribe(formattedSymbol, source, async (data) => {
-      dataCallback(data);
-      const beforeLastData = lastData;
-      const beforeLastProfile = lastMarketProfileData;
-      lastData = lastDataRef.value;
-      lastMarketProfileData = lastProfileRef.value;
-      console.log('[FloatingDisplay] Updated component variables:', {
-        formattedSymbol,
-        lastDataChanged: beforeLastData !== lastData,
-        lastMarketProfileDataChanged: beforeLastProfile !== lastMarketProfileData,
-        hasLastData: !!lastData,
-        hasLastMarketProfileData: !!lastMarketProfileData,
-        lastMarketProfileDataLength: lastMarketProfileData?.length || 0,
-        lastProfileRefValue: lastProfileRef.value
-      });
-      await tick();
-    }, 14);
+    // Initial subscription via store
+    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, source, { adr: 14 });
+    previousSymbol = formattedSymbol;
 
     interactable = createInteractConfig(element, {
       onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
@@ -110,15 +102,18 @@
       onTap: () => workspaceActions.bringToFront(display.id)
     });
 
-    const unsubscribeStatus = displayState.addStatusCallback(() => displayState.updateStatus());
-    displayState.updateStatus();
     connectionManager.connect();
-    displayState.startFreshnessCheck(() => displayState.refreshIfNeeded());
 
-    return () => { webSocketSub.unsubscribeCurrent(); unsubscribeStatus?.(); displayState.stopFreshnessCheck(); };
+    return () => {
+      unsubscribeSymbol?.();
+    };
   });
 
-  onDestroy(() => { interactable?.unset(); connectionManager?.disconnect(); });
+  onDestroy(() => {
+    if (flashTimeout) clearTimeout(flashTimeout);
+    interactable?.unset();
+    connectionManager?.disconnect();
+  });
 </script>
 
 <div class="floating-display" bind:this={element} data-display-id={display.id}

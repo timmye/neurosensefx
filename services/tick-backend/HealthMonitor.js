@@ -9,6 +9,26 @@ class HealthMonitor extends EventEmitter {
         this.lastTick = null;
         this.isStale = false;
         this.interval = null;
+        this.latencySamples = [];
+        this.maxSamples = 100;
+    }
+
+    recordLatency(latencyMs) {
+        this.latencySamples.push(latencyMs);
+        if (this.latencySamples.length > this.maxSamples) {
+            this.latencySamples.shift();
+        }
+    }
+
+    getLatencyStats() {
+        if (this.latencySamples.length === 0) return null;
+        const sorted = [...this.latencySamples].sort((a, b) => a - b);
+        return {
+            p50: sorted[Math.floor(sorted.length * 0.5)],
+            p95: sorted[Math.floor(sorted.length * 0.95)],
+            p99: sorted[Math.floor(sorted.length * 0.99)],
+            avg: sorted.reduce((a, b) => a + b, 0) / sorted.length
+        };
     }
 
     recordTick() {
