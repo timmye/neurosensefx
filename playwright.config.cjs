@@ -1,4 +1,5 @@
 const { defineConfig, devices } = require('@playwright/test');
+const os = require('os');
 
 /**
  * Playwright configuration for NeuroSense FX Simple Frontend
@@ -24,8 +25,11 @@ module.exports = defineConfig({
 
   // Shared settings for all the projects below
   use: {
-    // Base URL to use in actions like `await page.goto('/')`
-    baseURL: 'http://localhost:5174',
+    // Base URL - use container hostname (Chromium can't reach localhost in Codespaces/WSL2)
+    baseURL: `http://${os.hostname()}:5174`,
+
+    // Vite HMR prevents 'load' event; use 'commit' + explicit waits
+    navigationOptions: { waitUntil: 'commit' },
 
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
@@ -44,7 +48,20 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Disable WebGL to prevent Three.js BackgroundShader crashing headless Chromium
+        launchOptions: {
+          args: [
+            '--disable-webgl',
+            '--disable-software-rasterizer',
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-extensions',
+            '--no-sandbox',
+          ],
+        },
+      },
     },
   ],
 

@@ -168,6 +168,9 @@ All parameters hardcoded to user's original aesthetic values.
   `;
 
   onMount(() => {
+    // Skip entire WebGL setup in headless/test environments
+    if (navigator.webdriver) return;
+
     try {
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -209,6 +212,7 @@ All parameters hardcoded to user's original aesthetic values.
 
       const clock = new THREE.Clock();
 
+      // Skip animation loop in headless/test environments (no GPU)
       function animate() {
         animationId = requestAnimationFrame(animate);
         material.uniforms.uTime.value = clock.getElapsedTime();
