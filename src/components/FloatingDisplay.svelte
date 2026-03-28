@@ -34,6 +34,10 @@
   $: connectionStatusStore = getConnectionStatus();
   $: status = $connectionStatusStore;
 
+  $: if (lastData?.marketProfile && lastData.marketProfile !== lastMarketProfileData) {
+    lastMarketProfileData = lastData.marketProfile;
+  }
+
   $: ({ currentDisplay, showMarketProfile, selectedMarker, connectionStatus, handlers } =
     (() => {
       const d = $workspaceStore.displays.get(display.id) || {};
@@ -112,7 +116,6 @@
   onDestroy(() => {
     if (flashTimeout) clearTimeout(flashTimeout);
     interactable?.unset();
-    connectionManager?.disconnect();
   });
 </script>
 

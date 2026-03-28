@@ -35,14 +35,11 @@ export function renderMarketProfile(ctx, data, config) {
     const maxTpo = calculateMaxTpo(data);
     const tpoScale = calculateTpoScale(maxTpo, dimensions.marketProfileWidth);
 
-    console.log(`[DEBUGGER:orchestrator:34-35] maxTpo=${maxTpo}, marketProfileWidth=${dimensions.marketProfileWidth}, tpoScale=${tpoScale.toFixed(4)}`);
-    console.log(`[DEBUGGER:orchestrator:34-35] data.length=${data.length}, sample levels:`, data.slice(0, 3).map(d => ({price: d.price, tpo: d.tpo})));
-
     const poc = computePOC(data);
     const valueArea = calculateValueArea(data);
 
     drawValueArea(ctx, valueArea, priceScale, dimensions.marketProfileStartX, dimensions.marketProfileWidth);
-    drawBars(ctx, data, priceScale, tpoScale, dimensions.marketProfileStartX);
+    drawBars(ctx, data, priceScale, tpoScale, dimensions.marketProfileStartX, maxTpo);
     drawPOC(ctx, poc, priceScale, dimensions.marketProfileStartX, width);
 
   } catch (error) {
@@ -72,11 +69,6 @@ export function renderMiniMarketProfile(canvas, profile, size) {
     console.warn('[renderMiniMarketProfile] Profile has 0 levels');
     return;
   }
-
-  console.log('[renderMiniMarketProfile] Rendering profile with', profile.length, 'levels, size:', size);
-
-  // DIAGNOSTIC: Log sample data to see what we're actually drawing
-  console.log('[renderMiniMarketProfile] SAMPLE DATA:', profile.slice(0, 3).map(l => ({ price: l.price, tpo: l.tpo })));
 
   const { width, height, pipPosition = 4, currentPrice, openPrice } = size;
 
@@ -182,9 +174,6 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   ctx.beginPath();
   ctx.arc(2, openY, 2, 0, Math.PI * 2);
   ctx.fill();
-
-  // DIAGNOSTIC: Confirm render completed
-  console.log('[renderMiniMarketProfile] RENDER COMPLETE: Drew', profile.length, 'bars, canvas dimensions:', canvas.width, 'x', canvas.height, 'DPR:', window.devicePixelRatio);
 }
 
 export function renderMarketProfileError(ctx, errorMessage) {

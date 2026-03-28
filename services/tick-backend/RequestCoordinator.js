@@ -129,7 +129,6 @@ class RequestCoordinator {
                 projectedAdrHigh: data.projectedAdrHigh,
                 projectedAdrLow: data.projectedAdrLow,
                 initialPrice: data.initialPrice,
-                initialMarketProfile: data.initialMarketProfile || [],
                 pipPosition: data.pipPosition,
                 pipSize: data.pipSize,
                 pipetteSize: data.pipetteSize,

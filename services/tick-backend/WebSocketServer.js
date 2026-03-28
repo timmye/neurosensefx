@@ -38,7 +38,11 @@ class WebSocketServer {
         this.cTraderSession.on('error', (error) => this.statusBroadcaster.broadcastStatus('error', error.message));
         this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar, 'ctrader'));
         this.cTraderSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'ctrader'));
-        this.marketProfileService.on('profileUpdate', (data) => this.dataRouter.routeProfileUpdate(data.symbol, data.profile, data.source || 'ctrader', data.seq));
+        this.marketProfileService.on('profileUpdate', (data) => {
+            const isDelta = !!data.delta;
+            const payload = data.delta || data.profile;
+            this.dataRouter.routeProfileUpdate(data.symbol, payload, data.source || 'ctrader', data.seq, isDelta);
+        });
         this.marketProfileService.on('profileError', (data) => this.dataRouter.routeProfileError(data.symbol, data.error, data.message));
         this.twapService.on('twapUpdate', (data) => this.dataRouter.routeTwapUpdate(data.symbol, data, data.source || 'ctrader'));
 

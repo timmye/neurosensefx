@@ -26,71 +26,45 @@ export function getDisplayType(symbol, showMarketProfile, marketProfileData) {
 
 // Get the appropriate renderer function for the display type
 export function getRenderer(displayType) {
-  console.log('[DISPLAY_CANVAS_RENDERER] Getting renderer for display type:', displayType);
   let renderer;
   switch (displayType) {
     case 'fxBasket':
       renderer = renderFxBasketOrchestrator;
-      console.log('[DISPLAY_CANVAS_RENDERER] Selected fxBasket renderer:', typeof renderer);
       return renderer;
     case 'dayRange':
       renderer = renderDayRange;
-      console.log('[DISPLAY_CANVAS_RENDERER] Selected dayRange renderer:', typeof renderer);
       return renderer;
     case 'dayRangeWithMarketProfile':
       renderer = renderDayRangeWithMarketProfile;
-      console.log('[DISPLAY_CANVAS_RENDERER] Selected dayRangeWithMarketProfile renderer:', typeof renderer);
       return renderer;
     default:
       console.warn('[DISPLAY_CANVAS_RENDERER] Unknown display type:', displayType, 'falling back to dayRange');
       renderer = renderDayRange;
-      console.log('[DISPLAY_CANVAS_RENDERER] Selected fallback renderer:', typeof renderer);
       return renderer;
   }
 }
 
 // Render using the specified renderer
 export function renderWithRenderer(renderer, ctx, data, config, displayType, marketProfileData) {
-  console.log('[DISPLAY_CANVAS_RENDERER] renderWithRenderer called with:', {
-    renderer: typeof renderer,
-    hasContext: !!ctx,
-    hasData: !!data,
-    dataKeys: data ? Object.keys(data) : null,
-    displayType,
-    hasMarketProfileData: !!marketProfileData,
-    config
-  });
-
   if (!renderer || typeof renderer !== 'function') {
     console.error('[DISPLAY_CANVAS_RENDERER] Invalid renderer provided:', renderer);
     return false;
   }
 
   try {
-    console.log('[DISPLAY_CANVAS_RENDERER] Calling renderer function...');
-
     // Handle FX Basket rendering (different signature)
     if (displayType === 'fxBasket') {
-      console.log('[DISPLAY_CANVAS_RENDERER] Rendering fxBasket');
-      console.log('[DISPLAY_CANVAS_RENDERER] Basket data:', data);
-      console.log('[DISPLAY_CANVAS_RENDERER] Dimensions:', config);
       renderer(ctx, data, {}, config); // fxBasket signature: (ctx, basketData, config, dimensions)
       return true;
     }
 
     // For combined display, ensure market data is properly configured
     if (displayType === 'dayRangeWithMarketProfile') {
-      console.log('[DISPLAY_CANVAS_RENDERER] Rendering dayRangeWithMarketProfile');
       const renderConfig = { ...config, marketData: data };
-      console.log('[DISPLAY_CANVAS_RENDERER] Render config:', renderConfig);
       renderer(ctx, marketProfileData, renderConfig);
     } else {
-      console.log('[DISPLAY_CANVAS_RENDERER] Rendering dayRange');
-      console.log('[DISPLAY_CANVAS_RENDERER] Data passed to renderer:', data);
-      console.log('[DISPLAY_CANVAS_RENDERER] Config passed to renderer:', config);
       renderer(ctx, data, config);
     }
-    console.log('[DISPLAY_CANVAS_RENDERER] Renderer completed successfully');
     return true;
   } catch (error) {
     console.error('[DISPLAY_CANVAS_RENDERER] Render error:', error);

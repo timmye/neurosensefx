@@ -1,16 +1,25 @@
 <script>
+  console.log('[DEBUGGER:Workspace.svelte:1] Starting imports');
   import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';
+  console.log('[DEBUGGER:Workspace.svelte:2] workspace store imported');
   import FloatingDisplay from './FloatingDisplay.svelte';
+  console.log('[DEBUGGER:Workspace.svelte:3] FloatingDisplay imported');
   import FxBasketDisplay from './FxBasketDisplay.svelte';
+  console.log('[DEBUGGER:Workspace.svelte:4] FxBasketDisplay imported');
   import PriceTicker from './PriceTicker.svelte';
+  console.log('[DEBUGGER:Workspace.svelte:5] PriceTicker imported');
   import BackgroundShader from './BackgroundShader.svelte';
+  console.log('[DEBUGGER:Workspace.svelte:6] BackgroundShader imported');
   import WorkspaceModal from './WorkspaceModal.svelte';
+  console.log('[DEBUGGER:Workspace.svelte:7] WorkspaceModal imported');
   import KeyboardShortcutsHelp from './KeyboardShortcutsHelp.svelte';
+  console.log('[DEBUGGER:Workspace.svelte:8] KeyboardShortcutsHelp imported');
   import { onMount, onDestroy } from 'svelte';
   import { createKeyboardHandler } from '../lib/keyboardHandler.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
   import './Workspace.css';
+  console.log('[DEBUGGER:Workspace.svelte:9] All imports done');
 
   let keyboardHandler;
   let fileInput;
@@ -92,6 +101,7 @@
   }
 
   onMount(() => {
+    console.log('[DEBUGGER:Workspace.svelte:onMount:1] onMount fired');
     // Expose workspace actions and store to window for testing/debugging
     window.workspaceActions = workspaceActions;
     window.workspaceStore = workspaceStore;

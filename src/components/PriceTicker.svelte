@@ -54,6 +54,10 @@
 
   $: dailyChangeClass = dailyChangePercent > 0 ? 'positive' : dailyChangePercent < 0 ? 'negative' : '';
 
+  $: if (lastData?.marketProfile && lastData.marketProfile !== lastMarketProfileData) {
+    lastMarketProfileData = lastData.marketProfile;
+  }
+
   // Flash on price change
   $: if (currentPrice !== null && currentPrice !== lastTrackedPrice) {
     if (lastTrackedPrice !== null && (flashPriceEnabled || flashBorderEnabled)) {
@@ -149,7 +153,6 @@
     if (flashTimeout) clearTimeout(flashTimeout);
     if (resizeObserver) resizeObserver.disconnect();
     interactable?.unset();
-    connectionManager?.disconnect();
   });
 
   // Track previous symbol to detect changes and resubscribe

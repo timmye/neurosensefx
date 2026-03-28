@@ -44,7 +44,6 @@
 
   onDestroy(() => {
     interactable?.unset();
-    connectionManager?.disconnect();
     if (freshnessCheckInterval) clearInterval(freshnessCheckInterval);
     if (unsubscribe) unsubscribe();
     if (resizeObserver) resizeObserver.disconnect();

@@ -3,6 +3,7 @@ import { ConnectionManager } from '../lib/connectionManager.js';
 import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
 import { validateWebSocketMessage, logValidationResult } from '../lib/dataContracts.js';
 import { calculateBasketValue, normalizeToBaseline, validateCalculationResult, BASKET_DEFINITIONS, getPairPrice } from '../lib/fxBasket/fxBasketCalculations.js';
+import { computePOC, calculateValueArea, calculateMaxTpo } from '../lib/marketProfile/calculations.js';
 
 const SCHEMA_VERSION = '1.0.0';
 
@@ -183,7 +184,8 @@ function normalizeData(data, currentState) {
       pipSize: data.pipSize ?? currentState.pipSize,
       pipetteSize: data.pipetteSize ?? currentState.pipetteSize,
       source: data.source ?? currentState.source,
-      marketProfile: data.initialMarketProfile ?? null,
+      // profileUpdate messages update marketProfile separately; do not overwrite with symbolDataPackage data
+      marketProfile: currentState.marketProfile,
       previousPrice: data.current ?? data.price ?? data.bid ?? data.ask ?? currentState.current ?? null,
       direction: 'neutral',
       receivedAt: data.receivedAt ?? null,
@@ -199,10 +201,10 @@ function normalizeData(data, currentState) {
     }
     return {
       current: newPrice,
-      high: Math.max(currentState.high ?? 0, data.high ?? data.ask ?? data.bid ?? 0),
+      high: Math.max(currentState.high ?? 0, data.high ?? 0),
       low: currentState.low !== null
-        ? Math.min(currentState.low, data.low ?? data.bid ?? data.ask ?? Infinity)
-        : (data.low ?? data.bid ?? data.ask ?? null),
+        ? Math.min(currentState.low, data.low ?? Infinity)
+        : (data.low ?? null),
       previousPrice: prevPrice,
       direction,
       source: data.source ?? currentState.source,
@@ -292,13 +294,34 @@ export function createLatencyStore(symbol) {
   return derived(parent, $data => $data.latency);
 }
 
+export function createProfileMetricsStore(symbol) {
+  const parent = getMarketDataStore(symbol);
+  return derived(parent, $data => {
+    if (!$data.marketProfile || $data.marketProfile.length === 0) return null;
+    const profile = $data.marketProfile;
+    const prices = profile.map(l => l.price);
+    const maxTpo = calculateMaxTpo(profile);
+    const poc = computePOC(profile);
+    const valueArea = calculateValueArea(profile);
+    return {
+      minPrice: Math.min(...prices),
+      maxPrice: Math.max(...prices),
+      maxTpo,
+      poc,
+      valueArea,
+      levelCount: profile.length
+    };
+  });
+}
+
 export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
   const { adr = 14 } = options;
+  const key = `${symbol}:${source}`;
 
-  if (activeSubscriptions.has(symbol)) {
-    const sub = activeSubscriptions.get(symbol);
+  if (activeSubscriptions.has(key)) {
+    const sub = activeSubscriptions.get(key);
     sub.count++;
-    return () => unsubscribeFromSymbol(symbol);
+    return () => unsubscribeFromSymbol(symbol, source);
   }
 
   const connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
@@ -306,6 +329,29 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
   const callback = (data) => {
     if (data.type === 'symbolDataPackage' || data.type === 'tick') {
       handleStoreUpdate(symbol, data);
+    }
+    if (data.type === 'profileUpdate') {
+      const store = getMarketDataStore(symbol);
+      store.update(current => {
+        if (data.profile?.levels) {
+          return { ...current, marketProfile: data.profile.levels, lastUpdate: Date.now() };
+        }
+        if (data.delta) {
+          const profile = current.marketProfile ? [...current.marketProfile] : [];
+          const levelMap = new Map(profile.map(l => [l.price, l]));
+
+          for (const level of data.delta.added || []) {
+            levelMap.set(level.price, level);
+          }
+          for (const level of data.delta.updated || []) {
+            levelMap.set(level.price, level);
+          }
+
+          const merged = Array.from(levelMap.values()).sort((a, b) => a.price - b.price);
+          return { ...current, marketProfile: merged, lastUpdate: Date.now() };
+        }
+        return current;
+      });
     }
     if (data.type === 'error') {
       const store = getMarketDataStore(symbol);
@@ -320,24 +366,25 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
 
   const unsubscribeConnection = connectionManager.subscribeAndRequest(symbol, callback, adr, source);
 
-  activeSubscriptions.set(symbol, {
+  activeSubscriptions.set(key, {
     count: 1,
     unsubscribe: unsubscribeConnection,
     source
   });
 
-  return () => unsubscribeFromSymbol(symbol);
+  return () => unsubscribeFromSymbol(symbol, source);
 }
 
-export function unsubscribeFromSymbol(symbol) {
-  if (!activeSubscriptions.has(symbol)) return;
+export function unsubscribeFromSymbol(symbol, source = 'ctrader') {
+  const key = `${symbol}:${source}`;
+  if (!activeSubscriptions.has(key)) return;
 
-  const sub = activeSubscriptions.get(symbol);
+  const sub = activeSubscriptions.get(key);
   sub.count--;
 
   if (sub.count <= 0) {
     sub.unsubscribe();
-    activeSubscriptions.delete(symbol);
+    activeSubscriptions.delete(key);
 
     if (marketDataStores.has(symbol)) {
       const store = marketDataStores.get(symbol);
@@ -410,8 +457,12 @@ export function getLatencyStats(symbol) {
 }
 
 export function clearStore(symbol) {
-  if (activeSubscriptions.has(symbol)) {
-    unsubscribeFromSymbol(symbol);
+  for (const key of [...activeSubscriptions.keys()]) {
+    if (key.startsWith(`${symbol}:`)) {
+      const sub = activeSubscriptions.get(key);
+      sub.unsubscribe();
+      activeSubscriptions.delete(key);
+    }
   }
   if (marketDataStores.has(symbol)) {
     marketDataStores.delete(symbol);
@@ -422,8 +473,8 @@ export function clearStore(symbol) {
 }
 
 export function clearAllStores() {
-  for (const symbol of activeSubscriptions.keys()) {
-    const sub = activeSubscriptions.get(symbol);
+  for (const key of activeSubscriptions.keys()) {
+    const sub = activeSubscriptions.get(key);
     sub.unsubscribe();
   }
   activeSubscriptions.clear();
@@ -518,6 +569,7 @@ if (typeof window !== 'undefined') {
     createRangePercentStore,
     createDailyChangeStore,
     createLatencyStore,
+    createProfileMetricsStore,
     subscribeToSymbol,
     unsubscribeFromSymbol,
     getConnectionStatus,

@@ -33,6 +33,9 @@ function buildCTraderMessage(tick) {
         ...tick
     };
 
+    // Strip backend-only fields that should not be sent to WebSocket clients
+    delete message.initialMarketProfile;
+
     includeField(message, 'prevDayOpen', tick.prevDayOpen);
     includeField(message, 'prevDayHigh', tick.prevDayHigh);
     includeField(message, 'prevDayLow', tick.prevDayLow);
@@ -67,7 +70,6 @@ function buildTradingViewMessage(candle) {
     includeField(message, 'pipPosition', candle.pipPosition);
     includeField(message, 'pipSize', candle.pipSize);
     includeField(message, 'current', candle.current);
-    includeField(message, 'initialMarketProfile', candle.initialMarketProfile);
     includeField(message, 'prevDayOpen', candle.prevDayOpen);
     includeField(message, 'prevDayHigh', candle.prevDayHigh);
     includeField(message, 'prevDayLow', candle.prevDayLow);
