@@ -17,6 +17,8 @@
   export let deltaInfo = null;
 
   let priceMarkerInteraction = null;
+  let lastSavedMarkersRef = null;
+  let lastSavedMarkersLength = -1;
 
   // Compute formattedSymbol from display.symbol to avoid undefined during mount
   $: localFormattedSymbol = display.symbol ? formatSymbol(display.symbol) : '';
@@ -69,8 +71,10 @@
   $: if (currentDisplay?.priceMarkers) {
     priceMarkers = currentDisplay.priceMarkers;
     const symbol = localFormattedSymbol || formattedSymbol;
-    if (symbol) {
+    if (symbol && (priceMarkers.length !== lastSavedMarkersLength || priceMarkers !== lastSavedMarkersRef)) {
       saveMarkers(symbol, priceMarkers);
+      lastSavedMarkersRef = priceMarkers;
+      lastSavedMarkersLength = priceMarkers.length;
     }
   }
   $: if (currentDisplay?.selectedMarker) selectedMarker = currentDisplay.selectedMarker;

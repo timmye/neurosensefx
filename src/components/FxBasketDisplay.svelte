@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import interact from 'interactjs';
+  import { createInteractConfig } from '../lib/interactSetup.js';
   import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
@@ -10,6 +10,8 @@
   import { subscribeBasket, getBasketState, BasketState } from '../stores/marketDataStore.js';
   import { renderFxBasket } from '../lib/fxBasket/fxBasketOrchestrator.js';
   import DisplayHeader from './displays/DisplayHeader.svelte';
+
+  const MAX_CANVAS_SETUP_RETRIES = 100;
 
   export let display;
   let element, interactable, connectionManager;
@@ -31,7 +33,9 @@
     setupInteract();
     setupCanvas();
     setupConnectionMonitoring();
-    setupDebugAPI();
+    if (import.meta.env.DEV) {
+      setupDebugAPI();
+    }
 
     // Subscribe via centralized store
     unsubscribe = subscribeBasket(fxPairs, (data) => {
@@ -51,30 +55,15 @@
   });
 
   function setupInteract() {
-    const dragConfig = {
-      modifiers: [interact.modifiers.snap({ targets: [interact.snappers.grid({ x: 10, y: 10, range: 15 })], relativePoints: [{ x: 0, y: 0 }] })],
-      onmove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top })
-    };
-    const resizeConfig = {
-      edges: { right: true, bottom: true },
-      listeners: { move: (e) => workspaceActions.updateSize(display.id, { width: e.rect.width, height: e.rect.height }) },
-      modifiers: [interact.modifiers.restrictSize({ min: { width: 150, height: 80 } }), interact.modifiers.snapSize({ targets: [interact.snappers.grid({ width: 10, height: 10, range: 15 })] })],
-      inertia: true
-    };
-    interactable = interact(element).draggable(dragConfig).resizable(resizeConfig).on('tap', () => workspaceActions.bringToFront(display.id));
+    interactable = createInteractConfig(element, {
+      onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
+      onResizeMove: (e) => workspaceActions.updateSize(display.id, { width: e.rect.width, height: e.rect.height }),
+      onTap: () => workspaceActions.bringToFront(display.id)
+    });
   }
 
-  function setupCanvas() {
-    if (!canvas) return;
+  function finishSetup(rect) {
     const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-
-    // Handle case where canvas has no dimensions yet
-    if (rect.width === 0 || rect.height === 0) {
-      requestAnimationFrame(() => setupCanvas());
-      return;
-    }
-
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     ctx = canvas.getContext('2d');
@@ -82,19 +71,42 @@
 
     // Set up ResizeObserver to handle resize events
     resizeObserver = new ResizeObserver(() => {
+      const freshDpr = window.devicePixelRatio || 1;
       const newRect = canvas.getBoundingClientRect();
       if (newRect.width > 0 && newRect.height > 0) {
-        canvas.width = newRect.width * dpr;
-        canvas.height = newRect.height * dpr;
-        // Reset transform and re-apply scale (prevents accumulation)
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        canvas.width = newRect.width * freshDpr;
+        canvas.height = newRect.height * freshDpr;
+        ctx.setTransform(freshDpr, 0, 0, freshDpr, 0, 0);
         renderCanvas();
       }
     });
     resizeObserver.observe(canvas);
 
-    // Initial render
     renderCanvas();
+  }
+
+  function setupCanvas() {
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+
+    if (rect.width === 0 || rect.height === 0) {
+      let retries = 0;
+      const retry = () => {
+        const currentRect = canvas.getBoundingClientRect();
+        if (currentRect.width > 0 && currentRect.height > 0) {
+          finishSetup(currentRect);
+        } else if (retries < MAX_CANVAS_SETUP_RETRIES) {
+          retries++;
+          requestAnimationFrame(retry);
+        } else if (import.meta.env.DEV) {
+          console.warn('[FxBasketDisplay] Canvas setup gave up after', MAX_CANVAS_SETUP_RETRIES, 'retries');
+        }
+      };
+      requestAnimationFrame(retry);
+      return;
+    }
+
+    finishSetup(rect);
   }
 
   function renderCanvas() {

@@ -6,34 +6,20 @@ import { validateMarketData, createDayRangeConfig, createPriceScale, renderBackg
 import { calculateAdaptiveScale, calculateDayRangePercentage } from './dayRangeCalculations.js';
 import { renderCurrentPrice, renderOpenPrice, renderHighLowMarkers, renderPreviousDayOHLC, renderTwapMarker } from './priceMarkerRenderer.js';
 import { renderPercentageMarkers } from './percentageMarkerRenderer.js';
+import { resolveAxisX } from './displayCanvasRenderer.js';
 
 export function renderDayRange(ctx, d, s, getConfig, options = {}) {
-  console.log('[DAY_RANGE_ORCHESTRATOR] renderDayRange called with:', {
-    hasContext: !!ctx,
-    hasData: !!d,
-    dataKeys: d ? Object.keys(d) : null,
-    hasConfig: !!s,
-    configKeys: s ? Object.keys(s) : null,
-    options
-  });
-
   const { width, height } = s;
   const { clearCanvas = true } = options;
 
-  console.log('[DAY_RANGE_ORCHESTRATOR] Dimensions:', { width, height });
-
   if (clearCanvas) {
-    console.log('[DAY_RANGE_ORCHESTRATOR] Clearing canvas');
     // The context is already DPR-scaled, so use logical dimensions
     ctx.clearRect(0, 0, width, height);
   }
 
-  console.log('[DAY_RANGE_ORCHESTRATOR] Validating market data...');
   if (!validateMarketData(d, ctx, s)) {
-    console.log('[DAY_RANGE_ORCHESTRATOR] Market data validation failed');
     return;
   }
-  console.log('[DAY_RANGE_ORCHESTRATOR] Market data validation passed');
 
   const config = createDayRangeConfig(s, width, height, getConfig);
   const adaptiveScale = calculateAdaptiveScale(d, config);
@@ -52,10 +38,7 @@ export function renderDayRange(ctx, d, s, getConfig, options = {}) {
   renderPercentageElements(ctx, config, d, adaptiveScale, height, width);
 
   // Calculate axisX for current price rendering
-  let axisX = config.positioning.adrAxisX;
-  if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {
-    axisX = width * axisX;
-  }
+  let axisX = resolveAxisX(config.positioning.adrAxisX, width);
 
   // Render current price LAST so it's always on top of everything
   renderCurrentPrice(ctx, config, axisX, priceScale, d.current, d);
@@ -79,12 +62,7 @@ function renderStructuralElements(ctx, config, width, height, priceScale, d, ada
 
 function renderPriceElementsExceptCurrent(ctx, config, priceScale, d, s) {
   const { width } = s;
-  let axisX = config.positioning.adrAxisX;
-
-  // Handle percentage (0-1) as fraction of width
-  if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {
-    axisX = width * axisX;
-  }
+  let axisX = resolveAxisX(config.positioning.adrAxisX, width);
 
   const mappedData = createMappedData(d);
 
@@ -100,4 +78,3 @@ function renderPercentageElements(ctx, config, d, adaptiveScale, height, width) 
     renderPercentageMarkers(ctx, config, d, adaptiveScale, height, config.positioning.padding, width);
   }
 }
-

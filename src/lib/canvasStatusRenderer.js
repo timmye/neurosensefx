@@ -1,7 +1,7 @@
 // Canvas Status Renderer - Crystal Clarity Compliant
 // Framework-first: Status and error message rendering
 
-const SYSTEM_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+export const SYSTEM_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
 export function renderStatusMessage(ctx, message, s) {
   const { width, height } = s;
@@ -11,7 +11,9 @@ export function renderStatusMessage(ctx, message, s) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(message, width / 2, height / 2);
-  console.log('[STATUS] Canvas display:', message);
+  if (import.meta.env.DEV) {
+    console.log('[STATUS] Canvas display:', message);
+  }
 }
 
 export function renderErrorMessage(ctx, message, s) {
@@ -22,5 +24,7 @@ export function renderErrorMessage(ctx, message, s) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(`SYSTEM ERROR: ${message}`, width / 2, height / 2);
-  console.log('[SYSTEM ERROR] Canvas display:', message);
+  if (import.meta.env.DEV) {
+    console.log('[SYSTEM ERROR] Canvas display:', message);
+  }
 }

@@ -4,11 +4,6 @@
 import { renderPixelPerfectLine } from '../dayRangeCore.js';
 import { getIntensityColor } from './calculations.js';
 
-export function drawBackground(ctx, startX, width, height) {
-  ctx.fillStyle = 'rgba(74, 158, 255, 0.1)';
-  ctx.fillRect(startX, 0, width, height);
-}
-
 export function drawValueArea(ctx, valueArea, priceScale, startX, width) {
   if (!valueArea.high || !valueArea.low) return;
 
@@ -25,7 +20,7 @@ export function drawBars(ctx, data, priceScale, tpoScale, startX, maxTpo) {
     const x = startX;
     const y = priceScale(level.price);
     const barWidth = Math.max(level.tpo * tpoScale, 1);
-    const color = getIntensityColor(getIntensityLevel(intensity), intensity);
+    const color = getIntensityColor(getIntensityLevel(intensity));
 
     ctx.fillStyle = color;
     ctx.fillRect(x, y, barWidth, 2);

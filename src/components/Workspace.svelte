@@ -1,29 +1,21 @@
 <script>
-  console.log('[DEBUGGER:Workspace.svelte:1] Starting imports');
   import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';
-  console.log('[DEBUGGER:Workspace.svelte:2] workspace store imported');
   import FloatingDisplay from './FloatingDisplay.svelte';
-  console.log('[DEBUGGER:Workspace.svelte:3] FloatingDisplay imported');
   import FxBasketDisplay from './FxBasketDisplay.svelte';
-  console.log('[DEBUGGER:Workspace.svelte:4] FxBasketDisplay imported');
   import PriceTicker from './PriceTicker.svelte';
-  console.log('[DEBUGGER:Workspace.svelte:5] PriceTicker imported');
   import BackgroundShader from './BackgroundShader.svelte';
-  console.log('[DEBUGGER:Workspace.svelte:6] BackgroundShader imported');
   import WorkspaceModal from './WorkspaceModal.svelte';
-  console.log('[DEBUGGER:Workspace.svelte:7] WorkspaceModal imported');
   import KeyboardShortcutsHelp from './KeyboardShortcutsHelp.svelte';
-  console.log('[DEBUGGER:Workspace.svelte:8] KeyboardShortcutsHelp imported');
   import { onMount, onDestroy } from 'svelte';
   import { createKeyboardHandler } from '../lib/keyboardHandler.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
   import './Workspace.css';
-  console.log('[DEBUGGER:Workspace.svelte:9] All imports done');
 
   let keyboardHandler;
   let fileInput;
   let connectionManager;
+  let systemUnsub;
   let unsubscribePersistence;
 
   function exportWorkspace() {
@@ -66,7 +58,7 @@
 
   function reinitAll() {
     if (connectionManager?.status === 'connected') {
-      connectionManager.connectionHandler.getWebSocket().send(JSON.stringify({ type: 'reinit', source: 'all' }));
+      connectionManager.sendRaw({ type: 'reinit', source: 'all' });
       console.log('[Workspace] Reinit requested for: all (cTrader + TradingView)');
     } else {
       console.warn('[Workspace] Cannot reinit: WebSocket not connected. Status:', connectionManager?.status || 'unknown');
@@ -101,7 +93,9 @@
   }
 
   onMount(() => {
-    console.log('[DEBUGGER:Workspace.svelte:onMount:1] onMount fired');
+    if (import.meta.env.DEV) {
+      console.log('[Workspace] onMount fired');
+    }
     // Expose workspace actions and store to window for testing/debugging
     window.workspaceActions = workspaceActions;
     window.workspaceStore = workspaceStore;
@@ -118,11 +112,11 @@
     // Listen for reinit confirmation from backend
     const systemCallback = (d) => {
       if (d.type === 'reinit_started') {
-        console.log(`[Workspace] ✅ Backend acknowledged reinit for: ${d.source}`);
+        console.log(`[Workspace] Backend acknowledged reinit for: ${d.source}`);
       }
     };
     // Add callback for system messages (no backend subscription needed)
-    connectionManager.subscriptionManager.subscriptions.set('__SYSTEM__', new Set([systemCallback]));
+    systemUnsub = connectionManager.addSystemSubscription(systemCallback);
 
     const workspaceEl = document.querySelector('.workspace');
     if (workspaceEl) workspaceEl.focus();
@@ -130,6 +124,7 @@
   });
 
   onDestroy(() => {
+    systemUnsub?.();
     keyboardHandler?.cleanup();
     unsubscribePersistence?.();
   });

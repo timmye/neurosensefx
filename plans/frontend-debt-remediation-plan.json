@@ -1,0 +1,1768 @@
+{
+  "schema_version": 2,
+  "plan_id": "frontend-debt-remediation-57-findings",
+  "created_at": "2026-03-28T12:00:00Z",
+  "frozen_at": null,
+  "overview": {
+    "title": "Frontend Debt Remediation - 57 Findings",
+    "problem": "57 verified findings across the frontend: 2 functional bugs (reconnection double-counting, basket timeout leak), 8 legacy debug artifacts (~35 [DEBUGGER:] console.log statements firing in production hot paths), 17 dead code items (3 entire dead files, 14 unused exports), 15 design debt issues (facade bypasses, resource cleanup gaps), 12 performance inefficiencies (basket recomputation, RAF loops, closure recreation), and 4 cross-cutting concerns (scattered colors, scattered fonts, debug bridges ungated in production).",
+    "approach": "Six-phase incremental remediation ordered by impact and module locality. Phase 1 fixes functional bugs. Phase 2 gates debug logs behind import.meta.env.DEV. Phase 3 removes dead code (3 entire files, 14+ unused exports). Phase 4 hardens the connection layer (facade completion, resource cleanup). Phase 5 cleans up market profile module. Phase 6 addresses low-priority polish items. Each phase is independently deployable."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-001",
+        "decision": "Gate debug logs with import.meta.env.DEV instead of removing them",
+        "reasoning_chain": "Debug logs have value during development -> gating preserves utility while eliminating production overhead -> Vite tree-shakes DEV-false branches in production builds",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-002",
+        "decision": "Remove dead code entirely rather than deprecating",
+        "reasoning_chain": "All dead exports verified as zero-consumer across entire src/ tree -> deprecation annotations add noise without value -> clean removal reduces maintenance burden",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-003",
+        "decision": "Fix reconnection double-count by adding a reconnectScheduled flag in ConnectionManager",
+        "reasoning_chain": "Browser fires onerror then onclose in sequence -> both handlers independently increment attempts and schedule reconnect -> add flag that onError sets and onClose checks -> prevents double increment without changing normal disconnection semantics",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-004",
+        "decision": "Fix basket timeout leak by clearing timeout before deleting state machine in cleanup",
+        "reasoning_chain": "Cleanup function deletes state machine from Map -> dangling setTimeout fires on orphaned object writing to deleted state -> clearTimeout before Map deletion prevents the write",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-005",
+        "decision": "Add sendRaw() and addSystemSubscription() to ConnectionManager facade",
+        "reasoning_chain": "Workspace reaches through facade to connectionHandler.getWebSocket().send() and subscriptionManager.subscriptions.set() -> adding facade methods completes encapsulation -> consumers never need internal handler references",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-006",
+        "decision": "Phase by module/impact rather than by finding category",
+        "reasoning_chain": "Module-based phasing reduces developer context-switching -> impact ordering ensures highest-value fixes ship first -> each phase touches related files making review easier",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-007",
+        "decision": "Gate window debug bridges with import.meta.env.DEV",
+        "reasoning_chain": "Debug bridges provide runtime inspection valuable during development -> gating prevents production exposure -> zero runtime cost in production (tree-shaken by Vite)",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-008",
+        "decision": "Remove visualizationRegistry.js entirely and inline register calls",
+        "reasoning_chain": "Registry populated but never queried (get/list/getDefault are dead) -> visualizers.js calls register() populating an unused Map -> remove registry, remove register calls, visualizers.js exports renderers directly",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-009",
+        "decision": "Replace Math.min/max spread with reduce for large arrays in market profile",
+        "reasoning_chain": "Math.min(...array) throws RangeError on arrays with thousands of elements -> reduce-based approach handles arbitrary sizes -> negligible performance difference on small arrays",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-010",
+        "decision": "Add IDLE state to BasketState enum for semantically correct initial state",
+        "reasoning_chain": "FAILED as initial state is semantically misleading -> IDLE communicates 'not yet started' -> trackPair/trackFailedPair transition from IDLE to WAITING as first action",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-011",
+        "decision": "Replace hard-coded 'fx-basket-main' key with unique subscription keys in subscribeBasket",
+        "reasoning_chain": "Hard-coded key causes second subscribeBasket call to overwrite first -> existing state machine cleanup is bypassed on overwrite -> use unique key per subscription (symbol set hash or UUID) -> cleanup function always called for old state machine when new subscription starts",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-012",
+        "decision": "Use interactSetup.js createInteractConfig in FxBasketDisplay instead of inline config",
+        "reasoning_chain": "FxBasketDisplay duplicates interact.js config that already exists in interactSetup.js -> interactSetup.js provides a factory function -> refactor FxBasketDisplay.setupInteract to use createInteractConfig factory -> eliminates third copy (interactionSetup.js is dead and removed in M-003)",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-013",
+        "decision": "Refresh DPR in ResizeObserver callback rather than capturing at setup time",
+        "reasoning_chain": "DPR captured once at setupCanvas -> stale if user moves window to different DPI monitor -> ResizeObserver already fires on dimension changes -> read devicePixelRatio inside ResizeObserver callback -> ensures DPR stays current",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-014",
+        "decision": "Remove flashPriceEnabled dead prop and associated dead CSS from PriceTicker",
+        "reasoning_chain": "flashPriceEnabled is permanently false -> no parent passes it -> dead CSS at lines 281-287 references it -> remove prop declaration and dead CSS rules",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-015",
+        "decision": "Remove unused intensity parameter from getIntensityColor signature",
+        "reasoning_chain": "Callers pass intensity argument but function body ignores it entirely -> removing parameter does not change behavior -> callers can be simplified to pass only level",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-016",
+        "decision": "Inline createPriceScale as direct import of createDayRangePriceScale at call sites",
+        "reasoning_chain": "createPriceScale is a trivial one-line pass-through -> adds indirection without abstraction value -> callers import createDayRangePriceScale directly -> remove createPriceScale wrapper",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-017",
+        "decision": "Extract axisX resolution to shared utility function",
+        "reasoning_chain": "axisX resolution block copy-pasted in 4+ instances across displayCanvasRenderer.js and dayRangeOrchestrator.js -> same pattern: check if ratio, multiply by width -> extract to shared function in displayCanvasRenderer.js or new utility -> single source of truth for axis position logic",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-018",
+        "decision": "Replace getState() temporary subscription with Svelte get() utility",
+        "reasoning_chain": "store.getState() creates temporary subscription via store.subscribe(v => value = v)() -> Svelte's get() from svelte/store does exactly this idiomatically -> replace custom getState with standard get() at call sites",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-019",
+        "decision": "Replace hardcoded #FFD700 with named constant in displayCanvasRenderer.js",
+        "reasoning_chain": "#FFD700 (gold) used at 4 locations in renderPriceDelta -> extract to DELTA_MARKER_COLOR constant at file top -> single point of change for delta marker color",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-020",
+        "decision": "Add sendRaw() null-check with early return and DEV warning when WebSocket is null",
+        "reasoning_chain": "sendRaw() calls ws.send() -> CI-M-004-003 sets ws=null after onerror -> calling sendRaw during disconnected state would throw TypeError -> add null check returning false + DEV-only warning -> caller can handle gracefully (reinit is not critical during disconnect)",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-021",
+        "decision": "Use 100 as RAF retry limit with MAX_CANVAS_SETUP_RETRIES named constant",
+        "reasoning_chain": "At 60fps RAF rate, 100 retries = ~1.7 seconds of waiting -> reasonable for hidden canvas to become visible after tab switch -> not so long that a permanently-hidden canvas wastes resources -> named constant makes value discoverable and configurable",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-022",
+        "decision": "Add onerror cleanup (stopHeartbeatCheck + ws=null) as defensive hardening for connection error path",
+        "reasoning_chain": "onerror does not call stopHeartbeatCheck (S1) or set ws=null (S4) -> heartbeat interval leaks if onclose never follows onerror -> ws getter returns stale reference -> add both calls to onerror handler before reconnect logic",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-023",
+        "decision": "Store original maxAttempts for resetMaxAttempts reversibility",
+        "reasoning_chain": "permanentDisconnect sets maxAttempts=0 irreversibly -> adding resetMaxAttempts() restoring original value enables reconnection after permanentDisconnect -> store originalMaxAttempts in constructor",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-024",
+        "decision": "Fix flushPending with swap-before-iterate pattern to preserve re-queued items",
+        "reasoning_chain": "flushPending clears pendingSubscriptions after iteration -> items re-queued by sendSubscription during iteration get wiped -> swap array first (copy + clear), then iterate copy -> re-queued items go to fresh array",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-025",
+        "decision": "Extract FloatingDisplay handlers as stable references outside reactive block",
+        "reasoning_chain": "IIFE inside reactive $workspaceStore block creates 4 new function closures per store change -> handlers reference workspaceActions which does not change -> extract to stable references created once in onMount -> eliminates unnecessary allocation",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-026",
+        "decision": "Keep only onDestroy resizeObserver.disconnect, remove onMount return duplicate",
+        "reasoning_chain": "resizeObserver.disconnect() called in both onMount return and onDestroy -> keep onDestroy version for consistency with other cleanup patterns in the component -> onMount return cleanup is redundant",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-027",
+        "decision": "Use dirty-check (length + reference comparison) for PriceMarkerManager localStorage writes",
+        "reasoning_chain": "localStorage.write fires on every $workspaceStore change regardless of marker changes -> dirty check compares length and references of priceMarkers array -> only writes when content actually changed -> no debounce timer overhead",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-028",
+        "decision": "Keep legacy field fallbacks in normalizeData with deprecation logging",
+        "reasoning_chain": "CTraderDataProcessor (lines 129-133) still sends legacy field names (todaysOpen/todaysHigh/todaysLow) -> RequestCoordinator (lines 126-130) forwards them as-is to frontend -> removing fallbacks would break the cTrader data path -> instead keep fallbacks and add DEV-only deprecation logging when legacy names are detected -> backend field name migration tracked as prerequisite for eventual removal",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-029",
+        "decision": "Remove schemaVersion field and SCHEMA_VERSION constant",
+        "reasoning_chain": "schemaVersion set to '1.0.0' but never checked or used by any consumer -> removal reduces noise in data objects",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-030",
+        "decision": "Remove finalTpo dead return from expandArea",
+        "reasoning_chain": "expandArea returns { levels, finalTpo } but callers only destructure { levels } -> finalTpo is computed but never consumed -> remove from return value and stop computing it",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-031",
+        "decision": "Remove dead return fields from calculateDimensions",
+        "reasoning_chain": "calculateDimensions returns 5 fields but callers use only 2 (marketProfileStartX, marketProfileWidth) -> adrAxisX, padding, profileHeight are dead returns -> remove to simplify API surface",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-032",
+        "decision": "Extract magic numbers in scaling.js to named constants",
+        "reasoning_chain": "0.5 (maxAdrPercentage), 0.75 (axis ratio), 5px (padding) appear as raw literals -> named constants improve readability and discoverability -> low risk change",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-033",
+        "decision": "Consolidate SYSTEM_FONT_FAMILY to single definition in canvasStatusRenderer.js",
+        "reasoning_chain": "SYSTEM_FONT_FAMILY defined in both canvasStatusRenderer.js and colors.js -> displayCanvasRenderer.js uses inline font string -> export from canvasStatusRenderer.js, import in other consumers -> single source of truth",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-034",
+        "decision": "Remove redundant clearRect before opaque fillRect in visualizers.js",
+        "reasoning_chain": "clearRect at line 24 clears canvas area immediately before opaque fillRect at line 28 covers same area -> fillRect with opaque color makes clearRect redundant -> removal is safe and reduces unnecessary GPU operation",
+        "timestamp": "2026-03-28T12:00:00Z"
+      },
+      {
+        "id": "DL-035",
+        "decision": "Replace basket recomputation with change-aware selective recalculation",
+        "reasoning_chain": "updateBasketsLocal recomputes all 8 currencies on every tick -> only the currency containing the changed pair needs recalculation -> track which currency each pair belongs to -> on tick, recompute only affected currency -> reduces 40 function calls/tick to ~5",
+        "timestamp": "2026-03-28T12:00:00Z"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Remove all debug console.log statements entirely",
+        "rejection_reason": "Loses development debugging capability; DEV-gating preserves utility at zero production cost",
+        "decision_ref": "DL-001"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Fix reconnection double-count by nullifying onClose in onerror handler",
+        "rejection_reason": "Changes onclose semantics for non-error disconnections; flag approach is safer and more readable",
+        "decision_ref": "DL-003"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Keep visualizationRegistry.js for future extensibility",
+        "rejection_reason": "Registry was never queried since creation; YAGNI principle applies; can be re-added when actually needed",
+        "decision_ref": "DL-008"
+      }
+    ],
+    "constraints": [
+      {
+        "id": "C-001",
+        "type": "technical",
+        "description": "Each fix must be isolated and testable - no cascading changes",
+        "source": "user-specified"
+      },
+      {
+        "id": "C-002",
+        "type": "technical",
+        "description": "Preserve all currently-active API surfaces (only remove dead exports)",
+        "source": "user-specified"
+      },
+      {
+        "id": "C-003",
+        "type": "technical",
+        "description": "No backend API or data format changes",
+        "source": "user-specified"
+      },
+      {
+        "id": "C-004",
+        "type": "technical",
+        "description": "No new dependencies",
+        "source": "user-specified"
+      },
+      {
+        "id": "C-005",
+        "type": "technical",
+        "description": "No CSS/styling overhaul",
+        "source": "user-specified"
+      }
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "Removing dead exports that are consumed by code not yet committed",
+        "mitigation": "All consumers verified via grep across full src/ tree; assessment independently verified by 5 agents",
+        "anchor": "docs/analysis/frontend-debt-assessment.md",
+        "decision_ref": "DL-002"
+      },
+      {
+        "id": "R-002",
+        "risk": "Reconnection flag logic may interact with visibility change reconnect path",
+        "mitigation": "visibility change path calls connect() directly, not scheduleReconnect(); flag only gates scheduleReconnect",
+        "anchor": "src/lib/connectionManager.js:100-109",
+        "decision_ref": "DL-003"
+      },
+      {
+        "id": "R-003",
+        "risk": "Adding IDLE state to BasketState enum is a breaking change for any code that checks state === FAILED as initial condition",
+        "mitigation": "CI-M-001-003 updates trackPair/trackFailedPair to check for both IDLE and FAILED when transitioning to WAITING. Grep all consumers of BasketState to verify no external code relies on FAILED as initial state. The only consumer is FxBasketDisplay.svelte which checks for READY/WAITING/ERROR states only.",
+        "anchor": "src/stores/marketDataStore.js:18-23",
+        "decision_ref": "DL-010"
+      },
+      {
+        "id": "R-004",
+        "risk": "Keeping legacy field fallbacks in normalizeData means the dual-field pattern persists until backend is updated",
+        "mitigation": "CTraderDataProcessor (lines 129-133) confirmed still sending legacy names (todaysOpen/todaysHigh/todaysLow). RequestCoordinator (lines 126-130) forwards them as-is. QA-012 verified that removal would break the cTrader data path. Fallbacks are retained with DEV-only deprecation logging to track usage. Backend field name migration to canonical names is a prerequisite for eventual fallback removal.",
+        "anchor": "services/tick-backend/CTraderDataProcessor.js:129-133, services/tick-backend/RequestCoordinator.js:126-130",
+        "decision_ref": "DL-028"
+      }
+    ]
+  },
+  "invisible_knowledge": {
+    "system": "NeuroSense FX is a real-time FX trading visualization platform using Svelte + Canvas 2D rendering over WebSocket. The connection layer uses a facade pattern (ConnectionManager) delegating to ConnectionHandler, SubscriptionManager, and ReconnectionHandler. Market data flows through a centralized store (marketDataStore.js) with derived stores for individual symbols. The visualization pipeline uses an orchestrator pattern for market profile rendering. The mini market profile renderer in orchestrator.js is a parallel implementation that does NOT delegate to sibling modules - it reimplements scaling, calculations, and rendering inline with different colors.",
+    "invariants": [
+      "Workspace is the only component that bypasses ConnectionManager facade",
+      "Mini market profile renderer duplicates sibling module logic intentionally for different visual style (compact ticker display)",
+      "BasketState.FAILED initial state is intentional but misleading (to be replaced with IDLE)",
+      "All 57 findings were independently verified by 5 parallel debugger agents with zero refutations",
+      "Visualization registry was populated on module init but never queried at runtime",
+      "Browser guarantees onerror fires before onclose for WebSocket disconnections"
+    ],
+    "tradeoffs": [
+      "DEV-gating debug logs preserves development utility but requires Vite build system to tree-shake",
+      "Removing visualizationRegistry.js reduces extensibility surface but the registry was never used since creation",
+      "Adding IDLE state to BasketState enum is a breaking change for any code that checks state === FAILED as initial condition"
+    ]
+  },
+  "file_overlap_note": "This is a phased debt remediation plan. Multiple milestones touch the same files at different phases because the same file needs different categories of fixes. Each milestone's code_intents specify exactly which functions/lines change. Files are listed in every milestone that modifies them, which is intentional for sequential phased deployment.",
+  "milestones": [
+    {
+      "id": "M-001",
+      "number": 1,
+      "name": "Fix functional bugs",
+      "files": [
+        "src/lib/connectionManager.js",
+        "src/stores/marketDataStore.js"
+      ],
+      "flags": [
+        "bug-fix"
+      ],
+      "requirements": [
+        "Reconnection attempt counter must not double-increment when onerror and onclose both fire",
+        "Basket state machine cleanup must clear dangling timeout before deleting from Map",
+        "BasketState enum must include IDLE as initial state instead of FAILED"
+      ],
+      "acceptance_criteria": [
+        "With finite VITE_MAX_RECONNECT_ATTEMPTS set, a single disconnection increments attempts by exactly 1",
+        "Calling subscribeBasket cleanup function does not leave a dangling setTimeout",
+        "New basket state machines start in IDLE state, not FAILED"
+      ],
+      "tests": {
+        "files": [],
+        "type": "manual",
+        "backing": "default-derived",
+        "scenarios": {
+          "normal": [
+            "Reconnection attempt counter increments once per disconnection cycle"
+          ],
+          "edge": [
+            "Finite maxAttempts allows correct number of reconnects before giving up"
+          ],
+          "error": [
+            "Basket cleanup after timeout fires does not throw on orphaned state"
+          ]
+        },
+        "skip_reason": "Bugs are in WebSocket lifecycle and async state machine code; E2E tests cover the integration path"
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "file": "src/lib/connectionManager.js",
+          "function": "connect",
+          "behavior": "Add reconnectScheduled flag to ConnectionManager instance. In onError handler, set reconnectScheduled=true, increment attempts, and schedule reconnect. In onClose handler, check reconnectScheduled flag - if true, skip increment and schedule (already done by onError); if false, proceed normally. Reset flag at start of connect() method.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "file": "src/stores/marketDataStore.js",
+          "function": "subscribeBasket cleanup (return function)",
+          "behavior": "Before deleting from basketStateMachines Map, retrieve the state machine and call clearTimeout(sm.timeoutId) if timeoutId exists. This prevents the dangling timeout from firing on the orphaned state machine object.",
+          "decision_refs": [
+            "DL-004"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "file": "src/stores/marketDataStore.js",
+          "function": "BasketState enum and createBasketStateMachine",
+          "behavior": "Add IDLE: 'idle' to BasketState enum. Change createBasketStateMachine initial state from BasketState.FAILED to BasketState.IDLE. Update trackPair and trackFailedPair to check for IDLE in addition to FAILED when transitioning to WAITING.",
+          "decision_refs": [
+            "DL-010"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-CI-M-001-001",
+          "version": 1,
+          "intent_ref": "CI-M-001-001",
+          "file": "src/lib/connectionManager.js",
+          "diff": "--- a/src/lib/connectionManager.js\n+++ b/src/lib/connectionManager.js\n@@ -9,6 +9,7 @@\n export class ConnectionManager {\n   constructor(url) {\n+    this.reconnectScheduled = false;\n     this.url = url;\n     this.connectionHandler = new ConnectionHandler(url);\n     this.subscriptionManager = new SubscriptionManager();\n@@ -43,13 +44,17 @@\n     h.onClose = () => {\n-      const shouldReconnect = this.reconnectionHandler.shouldReconnect();\n-      if (shouldReconnect) {\n-        const attempts = this.reconnectionHandler.incrementAttempts();\n-        const delay = this.reconnectionHandler.getDelay(attempts);\n-        this.scheduleReconnect(delay);\n+      if (this.reconnectScheduled) {\n+        this.reconnectScheduled = false;\n+      } else {\n+        const shouldReconnect = this.reconnectionHandler.shouldReconnect();\n+        if (shouldReconnect) {\n+          const attempts = this.reconnectionHandler.incrementAttempts();\n+          const delay = this.reconnectionHandler.getDelay(attempts);\n+          this.scheduleReconnect(delay);\n+        }\n       }\n       this.notifyStatusChange();\n     };\n     h.onError = (e) => {\n       console.error('[ConnectionManager] WebSocket error:', e);\n-      if (this.reconnectionHandler.shouldReconnect()) {\n-        const attempts = this.reconnectionHandler.incrementAttempts();\n-        const delay = this.reconnectionHandler.getDelay(attempts);\n-        this.scheduleReconnect(delay);\n+      if (!this.reconnectScheduled && this.reconnectionHandler.shouldReconnect()) {\n+        this.reconnectScheduled = true;\n+        const attempts = this.reconnectionHandler.incrementAttempts();\n+        const delay = this.reconnectionHandler.getDelay(attempts);\n+        this.scheduleReconnect(delay);\n       }\n       this.notifyStatusChange();\n     };\n@@ -86,6 +91,7 @@\n   scheduleReconnect(delay) {\n+    this.reconnectScheduled = true;\n     if (!this.isTabVisible) {\n         const hiddenDelay = Math.min(delay * 3, 60000);\n         this.reconnectTimeout = setTimeout(() => {\n@@ -95,6 +101,7 @@\n         return;\n     }\n     this.reconnectTimeout = setTimeout(() => {\n+      this.reconnectScheduled = false;\n       this.connect(true);\n     }, delay);\n   }",
+          "doc_diff": "",
+          "comments": "DL-003: onError sets reconnectScheduled flag and increments; onClose checks flag to prevent double increment"
+        },
+        {
+          "id": "CC-CI-M-001-002",
+          "version": 1,
+          "intent_ref": "CI-M-001-002",
+          "file": "src/stores/marketDataStore.js",
+          "diff": "--- a/src/stores/marketDataStore.js\n+++ b/src/stores/marketDataStore.js\n@@ -543,8 +543,12 @@\n \n   return () => {\n     subscriptions.forEach(unsub => unsub());\n+    const sm = basketStateMachines.get(key);\n+    if (sm?.timeoutId) {\n+      clearTimeout(sm.timeoutId);\n+    }\n     basketStores.delete(key);\n     basketStateMachines.delete(key);\n   };\n }",
+          "doc_diff": "",
+          "comments": "DL-004: clearTimeout before Map deletion prevents dangling timeout firing on orphaned state"
+        },
+        {
+          "id": "CC-CI-M-001-003",
+          "version": 1,
+          "intent_ref": "CI-M-001-003",
+          "file": "src/stores/marketDataStore.js",
+          "diff": "--- a/src/stores/marketDataStore.js\n+++ b/src/stores/marketDataStore.js\n@@ -17,7 +17,8 @@\n \n const BasketState = {\n-  FAILED: 'failed',\n+  IDLE: 'idle',\n+  FAILED: 'failed',\n   WAITING: 'waiting',\n   READY: 'ready',\n   ERROR: 'error'\n@@ -26,7 +27,7 @@\n function createBasketStateMachine(expectedPairs, timeoutMs = 60000) {\n   return {\n-    state: BasketState.FAILED,\n+    state: BasketState.IDLE,\n     expectedPairs,\n     receivedPairs: new Set(),\n     failedPairs: new Set(),\n@@ -48,7 +49,7 @@\n function trackPair(sm, pair, dailyOpen, currentPrice) {\n   if (!dailyOpen || !currentPrice) return false;\n \n-  if (sm.state === BasketState.FAILED) {\n+  if (sm.state === BasketState.IDLE || sm.state === BasketState.FAILED) {\n     sm.state = BasketState.WAITING;\n     sm.startTime = Date.now();\n     sm.timeoutId = setTimeout(() => finalizeBasketState(sm), sm.timeoutMs);\n@@ -68,7 +69,7 @@\n }\n \n function trackFailedPair(sm, pair, reason) {\n-  if (sm.state === BasketState.FAILED) {\n+  if (sm.state === BasketState.IDLE || sm.state === BasketState.FAILED) {\n     sm.state = BasketState.WAITING;\n     sm.startTime = Date.now();\n     sm.timeoutId = setTimeout(() => finalizeBasketState(sm), sm.timeoutMs);\n@@ -103,6 +104,8 @@\n   const baselineMap = store.baseline;\n   const currentMap = store.current;\n   const baskets = {};\n",
+          "doc_diff": "",
+          "comments": "DL-010: IDLE replaces FAILED as initial state; both IDLE and FAILED transition to WAITING on first pair"
+        }
+      ],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "number": 2,
+      "name": "Gate debug logs behind DEV",
+      "files": [
+        "src/lib/connection/connectionHandler.js",
+        "src/components/Workspace.svelte",
+        "src/App.svelte",
+        "src/main.js",
+        "src/lib/dayRangeOrchestrator.js",
+        "src/lib/canvasStatusRenderer.js"
+      ],
+      "flags": [
+        "debug-cleanup"
+      ],
+      "requirements": [
+        "All ~35 [DEBUGGER:...] console.log statements wrapped in import.meta.env.DEV guards",
+        "The onmessage logger at connectionHandler.js:82 that fires on every tick must be DEV-gated",
+        "dayRangeOrchestrator.js render-cycle logs must be DEV-gated",
+        "canvasStatusRenderer.js status/error render logs must be DEV-gated",
+        "Workspace.svelte import-step logs and onMount log must be DEV-gated",
+        "App.svelte import-step logs must be DEV-gated",
+        "main.js bootstrap logs must be DEV-gated"
+      ],
+      "acceptance_criteria": [
+        "Production build contains zero [DEBUGGER:] string literals in bundle",
+        "Development build retains all debug logging",
+        "No console.log statements with [DEBUGGER:] prefix exist outside DEV guards"
+      ],
+      "tests": {
+        "files": [],
+        "type": "manual",
+        "backing": "default-derived",
+        "scenarios": {
+          "normal": [
+            "Debug logs appear in browser console during development"
+          ],
+          "edge": [
+            "Production build bundle size decreases from debug log removal"
+          ],
+          "error": []
+        },
+        "skip_reason": "Grep verification confirms DEV-gating; production bundle grep confirms absence"
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "file": "src/lib/connection/connectionHandler.js",
+          "function": "connect, onopen, onclose, onerror, onmessage, startHeartbeatCheck, heartbeat interval, stopHeartbeatCheck",
+          "behavior": "Wrap all 14 [DEBUGGER:] console.log statements in `if (import.meta.env.DEV)` guards. The onmessage logger at line 82 is the highest priority - it fires on every WebSocket tick with string concatenation and Date arithmetic.",
+          "decision_refs": [
+            "DL-001"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "file": "src/components/Workspace.svelte",
+          "function": "script block",
+          "behavior": "Wrap all 10 [DEBUGGER:] console.log statements (lines 2,4,6,8,10,12,14,16,22,104) in `if (import.meta.env.DEV)` guards. These fire during module initialization and onMount.",
+          "decision_refs": [
+            "DL-001"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "file": "src/App.svelte",
+          "function": "script block imports",
+          "behavior": "Wrap 3 [DEBUGGER:] console.log statements (lines 2,4,6) in DEV guards.",
+          "decision_refs": [
+            "DL-001"
+          ]
+        },
+        {
+          "id": "CI-M-002-004",
+          "file": "src/main.js",
+          "function": "bootstrap code",
+          "behavior": "Wrap 2 [DEBUGGER:] console.log statements (lines 3,7) in DEV guards.",
+          "decision_refs": [
+            "DL-001"
+          ]
+        },
+        {
+          "id": "CI-M-002-005",
+          "file": "src/lib/dayRangeOrchestrator.js",
+          "function": "renderDayRange",
+          "behavior": "Wrap all 6 console.log statements (lines 11-36) in DEV guards. These fire on every render frame at 60fps.",
+          "decision_refs": [
+            "DL-001"
+          ]
+        },
+        {
+          "id": "CI-M-002-006",
+          "file": "src/lib/canvasStatusRenderer.js",
+          "function": "renderStatusMessage, renderErrorMessage",
+          "behavior": "Wrap 2 console.log statements (lines 14,25) in DEV guards. These fire on every status/error render.",
+          "decision_refs": [
+            "DL-001"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-CI-M-002-001",
+          "version": 1,
+          "intent_ref": "CI-M-002-001",
+          "file": "src/lib/connection/connectionHandler.js",
+          "diff": "--- a/src/lib/connection/connectionHandler.js\n+++ b/src/lib/connection/connectionHandler.js\n@@ -46,9 +46,11 @@\n \n     this.ws.onopen = () => {\n-      console.log('[DEBUGGER:ConnectionHandler:onopen:45] WebSocket connected, readyState=' + this.ws.readyState);\n       this.connecting = false;\n       this.status = 'connected';\n       this.lastMessageTime = Date.now();\n-      console.log('[DEBUGGER:ConnectionHandler:onopen:49] lastMessageTime initialized to ' + this.lastMessageTime);\n-      console.log('[DEBUGGER:ConnectionHandler:onopen:50] About to call startHeartbeatCheck()');\n+      if (import.meta.env.DEV) {\n+        console.log('[ConnectionHandler] WebSocket connected, readyState=' + this.ws.readyState);\n+        console.log('[ConnectionHandler] lastMessageTime initialized to ' + this.lastMessageTime);\n+      }\n       this.startHeartbeatCheck();\n-      console.log('[DEBUGGER:ConnectionHandler:onopen:52] startHeartbeatCheck() completed, calling onOpen callback');\n       if (this.onOpen) this.onOpen();\n     };\n \n     this.ws.onclose = () => {\n-      console.log('[DEBUGGER:ConnectionHandler:onclose:54] WebSocket disconnected, readyState=' + this.ws.readyState);\n       this.connecting = false;\n       this.status = 'disconnected';\n       this.ws = null;\n-      console.log('[DEBUGGER:ConnectionHandler:onclose:58] ws set to null, calling stopHeartbeatCheck');\n       this.stopHeartbeatCheck();\n-      console.log('[DEBUGGER:ConnectionHandler:onclose:60] About to call onClose callback');\n+      if (import.meta.env.DEV) {\n+        console.log('[ConnectionHandler] WebSocket disconnected');\n+      }\n       if (this.onClose) this.onClose();\n-      console.log('[DEBUGGER:ConnectionHandler:onclose:62] onClose callback completed');\n     };\n \n     this.ws.onerror = (error) => {\n@@ -80,7 +78,9 @@\n       try {\n         const data = JSON.parse(event.data);\n-        console.log('[DEBUGGER:ConnectionHandler:onmessage:70] Received message type=' + data.type + ', previousTime=' + previousTime + ', newTime=' + this.lastMessageTime + ', gap=' + (previousTime ? (this.lastMessageTime - previousTime) + 'ms' : 'first message'));\n+        if (import.meta.env.DEV) {\n+          console.log('[ConnectionHandler] Received message type=' + data.type + ', gap=' + (previousTime ? (this.lastMessageTime - previousTime) + 'ms' : 'first message'));\n+        }\n         if (this.onMessage) this.onMessage(data);\n       } catch (error) {\n         console.error('[DEBUGGER:ConnectionHandler:onmessage:75] Message parse error:', error);\n@@ -97,8 +97,10 @@\n \n   startHeartbeatCheck() {\n-    console.log('[DEBUGGER:ConnectionHandler:startHeartbeatCheck:88] Starting heartbeat check, status=' + this.status + ', ws.readyState=' + (this.ws?.readyState));\n     this.stopHeartbeatCheck();\n+    if (import.meta.env.DEV) {\n+      console.log('[ConnectionHandler] Starting heartbeat check');\n+    }\n     this.heartbeatCheckInterval = setInterval(() => {\n@@ -104,7 +106,9 @@\n       const timeSinceLastMessage = this.lastMessageTime ? now - this.lastMessageTime : Infinity;\n \n-      console.log('[DEBUGGER:ConnectionHandler:heartbeatCheck:92] status=' + this.status + ', timeSinceLastMessage=' + Math.round(timeSinceLastMessage / 1000) + 's, threshold=' + (this.heartbeatTimeoutMs / 1000) + 's, ws.readyState=' + (this.ws?.readyState));\n+      if (import.meta.env.DEV) {\n+        console.log('[ConnectionHandler] Heartbeat check: timeSinceLastMessage=' + Math.round(timeSinceLastMessage / 1000) + 's');\n+      }\n \n       if (this.status === 'connected' && timeSinceLastMessage > this.heartbeatTimeoutMs) {\n@@ -147,8 +151,10 @@\n \n   stopHeartbeatCheck() {\n-    console.log('[DEBUGGER:ConnectionHandler:stopHeartbeatCheck:105] Stopping heartbeat check');\n     if (this.heartbeatCheckInterval) {\n       clearInterval(this.heartbeatCheckInterval);\n       this.heartbeatCheckInterval = null;\n-      console.log('[DEBUGGER:ConnectionHandler:stopHeartbeatCheck:108] Heartbeat check cleared');\n+      if (import.meta.env.DEV) {\n+        console.log('[ConnectionHandler] Heartbeat check cleared');\n+      }\n     }\n   }",
+          "doc_diff": "",
+          "comments": "DL-001: Gate all [DEBUGGER:] logs with import.meta.env.DEV; remove [DEBUGGER:] prefix from kept logs"
+        },
+        {
+          "id": "CC-CI-M-002-002",
+          "version": 1,
+          "intent_ref": "CI-M-002-002",
+          "file": "src/components/Workspace.svelte",
+          "diff": "--- a/src/components/Workspace.svelte\n+++ b/src/components/Workspace.svelte\n@@ -1,21 +1,21 @@\n <script>\n-  console.log('[DEBUGGER:Workspace.svelte:1] Starting imports');\n   import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';\n-  console.log('[DEBUGGER:Workspace.svelte:2] workspace store imported');\n   import FloatingDisplay from './FloatingDisplay.svelte';\n-  console.log('[DEBUGGER:Workspace.svelte:3] FloatingDisplay imported');\n   import FxBasketDisplay from './FxBasketDisplay.svelte';\n-  console.log('[DEBUGGER:Workspace.svelte:4] FxBasketDisplay imported');\n   import PriceTicker from './PriceTicker.svelte';\n-  console.log('[DEBUGGER:Workspace.svelte:5] PriceTicker imported');\n   import BackgroundShader from './BackgroundShader.svelte';\n-  console.log('[DEBUGGER:Workspace.svelte:6] BackgroundShader imported');\n   import WorkspaceModal from './WorkspaceModal.svelte';\n-  console.log('[DEBUGGER:Workspace.svelte:7] WorkspaceModal imported');\n   import KeyboardShortcutsHelp from './KeyboardShortcutsHelp.svelte';\n   import { onMount, onDestroy } from 'svelte';\n   import { createKeyboardHandler } from '../lib/keyboardHandler.js';\n   import { ConnectionManager } from '../lib/connectionManager.js';\n   import { getWebSocketUrl } from '../lib/displayDataProcessor.js';\n   import './Workspace.css';\n-  console.log('[DEBUGGER:Workspace.svelte:9] All imports done');\n@@ -103,7 +103,9 @@\n   onMount(() => {\n-    console.log('[DEBUGGER:Workspace.svelte:onMount:1] onMount fired');\n+    if (import.meta.env.DEV) {\n+      console.log('[Workspace] onMount fired');\n+    }\n     window.workspaceActions = workspaceActions;\n     window.workspaceStore = workspaceStore;\n",
+          "doc_diff": "",
+          "comments": "DL-001: Gate all [DEBUGGER:] logs with import.meta.env.DEV guard"
+        },
+        {
+          "id": "CC-CI-M-002-003",
+          "version": 1,
+          "intent_ref": "CI-M-002-003",
+          "file": "src/App.svelte",
+          "diff": "--- a/src/App.svelte\n+++ b/src/App.svelte\n@@ -1,7 +1,5 @@\n <script>\n-  console.log('[DEBUGGER:App.svelte:1] Starting imports');\n   import Workspace from './components/Workspace.svelte';\n-  console.log('[DEBUGGER:App.svelte:2] Workspace imported');\n   import './lib/visualizers.js';\n-  console.log('[DEBUGGER:App.svelte:3] visualizers imported');\n </script>",
+          "doc_diff": "",
+          "comments": "DL-001: Remove import-order debug logs (no value in production)"
+        },
+        {
+          "id": "CC-CI-M-002-004",
+          "version": 1,
+          "intent_ref": "CI-M-002-004",
+          "file": "src/main.js",
+          "diff": "--- a/src/main.js\n+++ b/src/main.js\n@@ -1,8 +1,6 @@\n import App from './App.svelte';\n \n-console.log('[DEBUGGER:main.js:1] Before App constructor');\n const app = new App({\n   target: document.body\n });\n-console.log('[DEBUGGER:main.js:2] After App constructor');\n export default app;",
+          "doc_diff": "",
+          "comments": "DL-001: Remove bootstrap-order debug logs (no value in production)"
+        },
+        {
+          "id": "CC-CI-M-002-005",
+          "version": 1,
+          "intent_ref": "CI-M-002-005",
+          "file": "src/lib/dayRangeOrchestrator.js",
+          "diff": "--- a/src/lib/dayRangeOrchestrator.js\n+++ b/src/lib/dayRangeOrchestrator.js\n@@ -10,12 +10,6 @@\n \n export function renderDayRange(ctx, d, s, getConfig, options = {}) {\n-  console.log('[DAY_RANGE_ORCHESTRATOR] renderDayRange called with:', {\n-    hasContext: !!ctx,\n-    hasData: !!d,\n-    dataKeys: d ? Object.keys(d) : null,\n-    hasConfig: !!s,\n-    configKeys: s ? Object.keys(s) : null,\n-    options\n-  });\n \n   const { width, height } = s;\n   const { clearCanvas = true } = options;\n \n-  console.log('[DAY_RANGE_ORCHESTRATOR] Dimensions:', { width, height });\n \n   if (clearCanvas) {\n-    console.log('[DAY_RANGE_ORCHESTRATOR] Clearing canvas');\n     ctx.clearRect(0, 0, width, height);\n   }\n \n-  console.log('[DAY_RANGE_ORCHESTRATOR] Validating market data...');\n   if (!validateMarketData(d, ctx, s)) {\n-    console.log('[DAY_RANGE_ORCHESTRATOR] Market data validation failed');\n     return;\n   }\n-  console.log('[DAY_RANGE_ORCHESTRATOR] Market data validation passed');\n \n   const config = createDayRangeConfig(s, width, height, getConfig);\n",
+          "doc_diff": "",
+          "comments": "DL-001: Remove hot-path debug logs that fire every render frame at 60fps"
+        },
+        {
+          "id": "CC-CI-M-002-006",
+          "version": 1,
+          "intent_ref": "CI-M-002-006",
+          "file": "src/lib/canvasStatusRenderer.js",
+          "diff": "--- a/src/lib/canvasStatusRenderer.js\n+++ b/src/lib/canvasStatusRenderer.js\n@@ -11,3 +11,5 @@\n   ctx.fillText(message, width / 2, height / 2);\n-  console.log('[STATUS] Canvas display:', message);\n+  if (import.meta.env.DEV) {\n+    console.log('[STATUS] Canvas display:', message);\n+  }\n }\n@@ -23,3 +25,5 @@\n   ctx.fillText(`SYSTEM ERROR: ${message}`, width / 2, height / 2);\n-  console.log('[SYSTEM ERROR] Canvas display:', message);\n+  if (import.meta.env.DEV) {\n+    console.log('[SYSTEM ERROR] Canvas display:', message);\n+  }\n }",
+          "doc_diff": "",
+          "comments": "DL-001: Gate status/error render logs with DEV guard"
+        }
+      ],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "number": 3,
+      "name": "Remove dead code",
+      "files": [
+        "src/lib/visualizationRegistry.js",
+        "src/lib/dayRange.js",
+        "src/lib/interactionSetup.js",
+        "src/lib/visualizers.js",
+        "src/stores/marketDataStore.js",
+        "src/lib/marketProfile/calculations.js",
+        "src/lib/marketProfile/rendering.js",
+        "src/lib/marketProfile/scaling.js",
+        "src/lib/marketProfile/orchestrator.js",
+        "src/lib/dataContracts.js",
+        "src/lib/fxBasket/test-basket-adr.js",
+        "src/lib/fxBasket/test-fxBasket.js",
+        "src/lib/connectionManager.js"
+      ],
+      "flags": [
+        "dead-code-removal"
+      ],
+      "requirements": [
+        "Delete 3 entire dead files: visualizationRegistry.js, dayRange.js, interactionSetup.js",
+        "Remove 14+ unused exports across market profile, market data store, and visualization modules",
+        "Remove test files from production source tree (test-basket-adr.js, test-fxBasket.js)",
+        "Remove visualizationRegistry import and register() calls from visualizers.js",
+        "Remove renderMarketProfileVisualization unused export from visualizers.js",
+        "Remove renderStatusMessage/renderErrorMessage re-exports from visualizers.js (consumers import directly from canvasStatusRenderer.js)",
+        "Remove dead subscribeCoordinated() and resubscribeSymbol() from connectionManager.js (finding 10)"
+      ],
+      "acceptance_criteria": [
+        "Deleted files have zero imports in src/**/*.{js,svelte}",
+        "Removed exports have zero consumers in src/**/*.{js,svelte}",
+        "visualizers.js no longer imports from visualizationRegistry.js",
+        "Application builds and runs without errors after dead code removal",
+        "Production source tree contains no test files in src/lib/fxBasket/"
+      ],
+      "tests": {
+        "files": [],
+        "type": "manual",
+        "backing": "default-derived",
+        "scenarios": {
+          "normal": [
+            "Application builds successfully after removal"
+          ],
+          "edge": [
+            "No runtime errors from missing imports"
+          ],
+          "error": []
+        },
+        "skip_reason": "Grep verification confirms zero consumers; build verification catches import errors"
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "file": "src/lib/visualizationRegistry.js",
+          "function": "(entire file)",
+          "behavior": "Delete the entire file. It is populated but never queried at runtime.",
+          "decision_refs": [
+            "DL-002",
+            "DL-008"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "file": "src/lib/dayRange.js",
+          "function": "(entire file)",
+          "behavior": "Delete the entire file. Zero imports across src/.",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-003",
+          "file": "src/lib/interactionSetup.js",
+          "function": "(entire file)",
+          "behavior": "Delete the entire file. Superseded by interactSetup.js (different filename). Zero imports.",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-004",
+          "file": "src/lib/fxBasket/test-basket-adr.js",
+          "function": "(entire file)",
+          "behavior": "Delete test file from production source tree.",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-005",
+          "file": "src/lib/fxBasket/test-fxBasket.js",
+          "function": "(entire file)",
+          "behavior": "Delete test file from production source tree.",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-006",
+          "file": "src/lib/visualizers.js",
+          "function": "module imports and exports",
+          "behavior": "Remove `import { register } from './visualizationRegistry.js'` line. Remove `register('dayRange', ...)` and `register('dayRangeWithMarketProfile', ...)` calls at bottom. Remove `renderMarketProfileVisualization` function (dead export). Remove re-exports of `renderStatusMessage` and `renderErrorMessage` from canvasStatusRenderer.js (all consumers import directly). Keep renderDayRange and renderDayRangeWithMarketProfile functions.",
+          "decision_refs": [
+            "DL-002",
+            "DL-008"
+          ]
+        },
+        {
+          "id": "CI-M-003-007",
+          "file": "src/stores/marketDataStore.js",
+          "function": "createCurrentPriceStore, createRangePercentStore, createDailyChangeStore, createLatencyStore, createProfileMetricsStore",
+          "behavior": "Remove all 5 dead derived store factory functions (lines 264-315). Remove their references from the window.marketDataStore debug bridge. Remove unused imports: BASKET_DEFINITIONS and getPairPrice from fxBasketCalculations.js. Remove recordLatency and getLatencyStats functions and their latencySamples Map (entire latency pipeline is unused by any UI component).",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-008",
+          "file": "src/lib/marketProfile/calculations.js",
+          "function": "calculateIntensity, getIntensityLevel",
+          "behavior": "Remove dead export `calculateIntensity` (never imported). Remove dead export `getIntensityLevel` (shadowed by identical private copy in rendering.js:35-39).",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-009",
+          "file": "src/lib/marketProfile/rendering.js",
+          "function": "drawBackground",
+          "behavior": "Remove dead export `drawBackground` (never called).",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-010",
+          "file": "src/lib/marketProfile/scaling.js",
+          "function": "priceToY, yToPrice",
+          "behavior": "Remove dead exports `priceToY` and `yToPrice` (never imported).",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-011",
+          "file": "src/lib/marketProfile/orchestrator.js",
+          "function": "renderMarketProfileError, commented-out POC block",
+          "behavior": "Remove dead export `renderMarketProfileError` (never imported). Remove commented-out POC rendering block (lines 138-147).",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-012",
+          "file": "src/lib/dataContracts.js",
+          "function": "withValidation, validateSymbolDataPackage, validateTickData, validateDisplayData",
+          "behavior": "Note: withValidation is the single unused entry point (lines 393-421). The other 3 validators are only called internally by withValidation. The entire chain has zero external consumers. Remove the 4 validation functions: withValidation, validateSymbolDataPackage, validateTickData, validateDisplayData. Keep validateWebSocketMessage and logValidationResult which are consumed by marketDataStore.js.",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-003-013",
+          "file": "src/lib/connectionManager.js",
+          "function": "subscribeCoordinated, resubscribeSymbol",
+          "behavior": "Remove the dead subscribeCoordinated() method (lines 126-139) and resubscribeSymbol() method (lines 141-144). Both have zero callers across the entire src/ tree. Also remove any associated imports that become unused (e.g., createMessageCoordinator if only used by subscribeCoordinated).",
+          "decision_refs": [
+            "DL-002"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-CI-M-003-001",
+          "version": 1,
+          "intent_ref": "CI-M-003-001",
+          "file": "src/lib/visualizationRegistry.js",
+          "diff": "--- a/src/lib/visualizationRegistry.js\n+++ /dev/null\n@@ -1,31 +0,0 @@\n-// Visualization Registry - Crystal Clarity compliant\n-// Simple registry for 6+ visualizations\n-\n-import { renderDayRange } from './dayRangeOrchestrator.js';\n-import { renderFxBasket } from './fxBasket/fxBasketOrchestrator.js';\n-\n-const registry = new Map();\n-const DEFAULT_TYPE = 'dayRange';\n-\n-// Register visualizations\n-register('dayRange', renderDayRange);\n-register('fxBasket', renderFxBasket);\n-\n-export function register(type, renderer) {\n-  if (typeof renderer === 'function') {\n-    registry.set(type, renderer);\n-    console.log('[REGISTRY] Registered:', type);\n-  }\n-}\n-\n-export function get(type) {\n-  return registry.get(type) || registry.get(DEFAULT_TYPE);\n-}\n-\n-export function list() {\n-  return Array.from(registry.keys());\n-}\n-\n-export function getDefault() {\n-  return registry.get(DEFAULT_TYPE);\n-}",
+          "doc_diff": "",
+          "comments": "DL-002/DL-008: Entire file is populated but never queried at runtime"
+        },
+        {
+          "id": "CC-CI-M-003-002",
+          "version": 1,
+          "intent_ref": "CI-M-003-002",
+          "file": "src/lib/dayRange.js",
+          "diff": "--- a/src/lib/dayRange.js\n+++ /dev/null\n@@ -1,104 +0,0 @@\n-DELETE ENTIRE FILE: Zero imports across src/",
+          "doc_diff": "",
+          "comments": "DL-002: Entire file has zero imports"
+        },
+        {
+          "id": "CC-CI-M-003-003",
+          "version": 1,
+          "intent_ref": "CI-M-003-003",
+          "file": "src/lib/interactionSetup.js",
+          "diff": "--- a/src/lib/interactionSetup.js\n+++ /dev/null\n@@ -1,36 +0,0 @@\n-DELETE ENTIRE FILE: Superseded by interactSetup.js, zero imports",
+          "doc_diff": "",
+          "comments": "DL-002: Superseded by interactSetup.js (different filename), zero imports"
+        },
+        {
+          "id": "CC-CI-M-003-004",
+          "version": 1,
+          "intent_ref": "CI-M-003-004",
+          "file": "src/lib/fxBasket/test-basket-adr.js",
+          "diff": "--- a/src/lib/fxBasket/test-basket-adr.js\n+++ /dev/null\n@@ -1,122 +0,0 @@\n-DELETE ENTIRE FILE: Test file in production source tree",
+          "doc_diff": "",
+          "comments": "DL-002: Test file in production source tree"
+        },
+        {
+          "id": "CC-CI-M-003-005",
+          "version": 1,
+          "intent_ref": "CI-M-003-005",
+          "file": "src/lib/fxBasket/test-fxBasket.js",
+          "diff": "--- a/src/lib/fxBasket/test-fxBasket.js\n+++ /dev/null\n@@ -1,89 +0,0 @@\n-DELETE ENTIRE FILE: Test file in production source tree",
+          "doc_diff": "",
+          "comments": "DL-002: Test file in production source tree"
+        },
+        {
+          "id": "CC-CI-M-003-006",
+          "version": 1,
+          "intent_ref": "CI-M-003-006",
+          "file": "src/lib/visualizers.js",
+          "diff": "--- a/src/lib/visualizers.js\n+++ b/src/lib/visualizers.js\n@@ -1,8 +1,5 @@\n // Enhanced Canvas Visualizers - Crystal Clarity Compliant\n // Framework-first: Canvas 2D API, professional trading visualization\n // Week 2: Market Profile integration + Day Range Meter\n \n-import { register } from './visualizationRegistry.js';\n import { renderDayRange as renderDayRangeOrchestrated } from './dayRangeOrchestrator.js';\n import { getConfig } from './dayRangeConfig.js';\n import { renderStatusMessage, renderErrorMessage } from './canvasStatusRenderer.js';\n@@ -14,13 +11,6 @@\n   renderDayRangeOrchestrated(ctx, d, s, getConfig);\n }\n \n-// Export market profile rendering function\n-export function renderMarketProfileVisualization(ctx, d, s) {\n-  renderMarketProfile(ctx, d, s);\n-}\n-\n // Combined renderer: Market Profile behind Day Range Meter\n export function renderDayRangeWithMarketProfile(ctx, d, s) {\n   // Clear canvas once at the start\n@@ -44,8 +34,3 @@\n \n // Export status and error rendering functions\n export { renderStatusMessage, renderErrorMessage };\n-\n-// Register the visualizations\n-register('dayRange', renderDayRange);\n-register('dayRangeWithMarketProfile', renderDayRangeWithMarketProfile);",
+          "doc_diff": "",
+          "comments": "DL-002/DL-008: Remove registry import, register() calls, and dead renderMarketProfileVisualization export"
+        },
+        {
+          "id": "CC-CI-M-003-007",
+          "version": 1,
+          "intent_ref": "CI-M-003-007",
+          "file": "src/stores/marketDataStore.js",
+          "diff": "--- a/src/stores/marketDataStore.js\n+++ b/src/stores/marketDataStore.js\n@@ -4,7 +4,7 @@\n import { ConnectionManager } from '../lib/connectionManager.js';\n import { getWebSocketUrl } from '../lib/displayDataProcessor.js';\n import { validateWebSocketMessage, logValidationResult } from '../lib/dataContracts.js';\n-import { calculateBasketValue, normalizeToBaseline, validateCalculationResult, BASKET_DEFINITIONS, getPairPrice } from '../lib/fxBasket/fxBasketCalculations.js';\n+import { calculateBasketValue, normalizeToBaseline, validateCalculationResult } from '../lib/fxBasket/fxBasketCalculations.js';\n-import { computePOC, calculateValueArea, calculateMaxTpo } from '../lib/marketProfile/calculations.js';\n+import { } from '../lib/marketProfile/calculations.js';\n \n@@ -263,52 +263,6 @@\n   return marketDataStores.get(symbol);\n }\n \n-export function createCurrentPriceStore(symbol) {\n-  const parent = getMarketDataStore(symbol);\n-  return derived(parent, $data => $data.current);\n-}\n-\n-export function createRangePercentStore(symbol) {\n-  const parent = getMarketDataStore(symbol);\n-  return derived(parent, $data => {\n-    if ($data.current === null || $data.high === null || $data.low === null) {\n-      return null;\n-    }\n-    const range = $data.high - $data.low;\n-    if (range === 0) return 0;\n-    return (($data.current - $data.low) / range) * 100;\n-  });\n-}\n-\n-export function createDailyChangeStore(symbol) {\n-  const parent = getMarketDataStore(symbol);\n-  return derived(parent, $data => {\n-    if ($data.current === null || $data.open === null) {\n-      return null;\n-    }\n-    if ($data.open === 0) return 0;\n-    return (($data.current - $data.open) / $data.open) * 100;\n-  });\n-}\n-\n-export function createLatencyStore(symbol) {\n-  const parent = getMarketDataStore(symbol);\n-  return derived(parent, $data => $data.latency);\n-}\n-\n-export function createProfileMetricsStore(symbol) {\n-  const parent = getMarketDataStore(symbol);\n-  return derived(parent, $data => {\n-    if (!$data.marketProfile || $data.marketProfile.length === 0) return null;\n-    const profile = $data.marketProfile;\n-    const prices = profile.map(l => l.price);\n-    const maxTpo = calculateMaxTpo(profile);\n-    const poc = computePOC(profile);\n-    const valueArea = calculateValueArea(profile);\n-    return {\n-      minPrice: Math.min(...prices),\n-      maxPrice: Math.max(...prices),\n-      maxTpo,\n-      poc,\n-      valueArea,\n-      levelCount: profile.length\n-    };\n-  });\n-}\n-\n export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {",
+          "doc_diff": "",
+          "comments": "DL-002: Remove 5 dead derived store factories and their unused imports (BASKET_DEFINITIONS, getPairPrice, computePOC, calculateValueArea, calculateMaxTpo). Also remove marketProfile calculation import entirely since no remaining code uses it."
+        },
+        {
+          "id": "CC-CI-M-003-008",
+          "version": 1,
+          "intent_ref": "CI-M-003-008",
+          "file": "src/lib/marketProfile/calculations.js",
+          "diff": "--- a/src/lib/marketProfile/calculations.js\n+++ b/src/lib/marketProfile/calculations.js\n@@ -1,8 +1,3 @@\n // Market Profile Calculations - Crystal Clarity Compliant\n // Pure calculation functions: POC, value area, intensity\n \n-export function calculateIntensity(level, maxTpo) {\n-  return maxTpo > 0 ? level.tpo / maxTpo : 0;\n-}\n-\n export function calculateMaxTpo(profile) {\n@@ -17,11 +12,6 @@\n   return maxTpo > 0 ? marketProfileWidth / maxTpo : 1;\n }\n \n-export function getIntensityLevel(intensity) {\n-  if (intensity <= 0.6) return 'low';\n-  if (intensity <= 0.8) return 'medium';\n-  return 'high';\n-}\n-\n export function getIntensityColor(level, intensity = 0.5) {",
+          "doc_diff": "",
+          "comments": "DL-002: Remove dead calculateIntensity (never imported) and getIntensityLevel (shadowed by private copy in rendering.js)"
+        },
+        {
+          "id": "CC-CI-M-003-009",
+          "version": 1,
+          "intent_ref": "CI-M-003-009",
+          "file": "src/lib/marketProfile/rendering.js",
+          "diff": "--- a/src/lib/marketProfile/rendering.js\n+++ b/src/lib/marketProfile/rendering.js\n@@ -5,11 +5,6 @@\n import { renderPixelPerfectLine } from '../dayRangeCore.js';\n import { getIntensityColor } from './calculations.js';\n \n-export function drawBackground(ctx, startX, width, height) {\n-  ctx.fillStyle = 'rgba(74, 158, 255, 0.1)';\n-  ctx.fillRect(startX, 0, width, height);\n-}\n-\n export function drawValueArea(ctx, valueArea, priceScale, startX, width) {",
+          "doc_diff": "",
+          "comments": "DL-002: Remove dead drawBackground export (never called)"
+        },
+        {
+          "id": "CC-CI-M-003-010",
+          "version": 1,
+          "intent_ref": "CI-M-003-010",
+          "file": "src/lib/marketProfile/scaling.js",
+          "diff": "--- a/src/lib/marketProfile/scaling.js\n+++ b/src/lib/marketProfile/scaling.js\n@@ -46,15 +46,6 @@\n   return createDayRangePriceScale(config, adaptiveScale, height);\n }\n \n-export function priceToY(price, priceScale) {\n-  return priceScale(price);\n-}\n-\n-export function yToPrice(y, adaptiveScale, height) {\n-  const { min, max } = adaptiveScale;\n-  const labelPadding = 5;\n-  const normalized = (y - labelPadding) / (height - 2 * labelPadding);\n-  return max - (normalized * (max - min));\n-}\n-\n export function calculateDimensions(width, height, config) {",
+          "doc_diff": "",
+          "comments": "DL-002: Remove dead exports priceToY and yToPrice (never imported)"
+        },
+        {
+          "id": "CC-CI-M-003-011",
+          "version": 1,
+          "intent_ref": "CI-M-003-011",
+          "file": "src/lib/marketProfile/orchestrator.js",
+          "diff": "--- a/src/lib/marketProfile/orchestrator.js\n+++ b/src/lib/marketProfile/orchestrator.js\n@@ -136,15 +136,3 @@\n   ctx.fill();\n }\n-\n-export function renderMarketProfileError(ctx, errorMessage) {\n-  renderStatusMessage(ctx, `Market Profile Error: ${errorMessage}`);\n-}\n-  // const pocLevel = profile.reduce((max, level) =>\n-  //   level.tpo > max.tpo ? level : max, profile[0]);\n-\n-  // if (pocLevel) {\n-  //   const pocY = Math.round(priceScale(pocLevel.price));\n-\n-  //   ctx.strokeStyle = '#FFCC00';\n-  //   ctx.lineWidth = 1;\n-  //   renderPixelPerfectLine(ctx, 0, pocY, width, pocY);\n-  // }\n-",
+          "doc_diff": "",
+          "comments": "DL-002: Remove dead renderMarketProfileError export and commented-out POC rendering block"
+        },
+        {
+          "id": "CC-CI-M-003-012",
+          "version": 1,
+          "intent_ref": "CI-M-003-012",
+          "file": "src/lib/dataContracts.js",
+          "diff": "--- a/src/lib/dataContracts.js\n+++ b/src/lib/dataContracts.js\n@@ -387,35 +387,3 @@\n     }\n   }\n }\n-\n-/**\n- * Create a validated wrapper for processSymbolData\n- * @param {Function} processor - Original processSymbolData function\n- * @returns {Function} Wrapped function with validation\n- */\n-export function withValidation(processor) {\n-  return function validatedProcessSymbolData(data, formattedSymbol, lastData) {\n-    if (import.meta.env.DEV) {\n-      // Validate input\n-      const inputValidation = validateWebSocketMessage(data, 'processSymbolData');\n-      logValidationResult('processSymbolData:input', inputValidation, data);\n-\n-      // Type-specific validation\n-      if (data?.type === 'symbolDataPackage') {\n-        const pkgValidation = validateSymbolDataPackage(data);\n-        logValidationResult('processSymbolData:symbolDataPackage', pkgValidation);\n-      } else if (data?.type === 'tick') {\n-        const tickValidation = validateTickData(data);\n-        logValidationResult('processSymbolData:tick', tickValidation);\n-      }\n-    }\n-\n-    // Call original processor\n-    const result = processor(data, formattedSymbol, lastData);\n-\n-    if (import.meta.env.DEV && result?.type === 'data') {\n-      // Validate output\n-      const outputValidation = validateDisplayData(result.data);\n-      logValidationResult('processSymbolData:output', outputValidation, result.data);\n-    }\n-\n-    return result;\n-  };\n-}\n",
+          "doc_diff": "",
+          "comments": "DL-002: Remove withValidation (zero external consumers). validateSymbolDataPackage, validateTickData, validateDisplayData only called internally by withValidation chain - remove with the wrapper."
+        },
+        {
+          "id": "CC-CI-M-003-013",
+          "version": 1,
+          "intent_ref": "CI-M-003-013",
+          "file": "src/lib/connectionManager.js",
+          "diff": "--- a/src/lib/connectionManager.js\n+++ b/src/lib/connectionManager.js\n@@ -4,7 +4,6 @@\n import { ConnectionHandler } from './connection/connectionHandler.js';\n import { SubscriptionManager } from './connection/subscriptionManager.js';\n import { ReconnectionHandler } from './connection/reconnectionHandler.js';\n-import { createMessageCoordinator } from './websocket/messageCoordinator.js';\n \n@@ -124,20 +123,0 @@\n-\n-  subscribeCoordinated(symbol, onAllReceived, onTimeout, adr = 14, source = 'ctrader', timeoutMs = 5000) {\n-    const coordinator = createMessageCoordinator({\n-      requiredTypes: ['symbolDataPackage', 'tick'], timeoutMs,\n-      onAllReceived: (sym, data) => onAllReceived(data.symbolDataPackage, data.tick),\n-      onTimeout: (sym, partial, received) => onTimeout(partial, received)\n-    });\n-    const key = this.subscriptionManager.makeKey(symbol, source);\n-    const callback = (msg) => {\n-      if (msg.type === 'symbolDataPackage' || msg.type === 'tick') coordinator.onMessage(symbol, msg.type, msg);\n-    };\n-    this.subscriptionManager.subscribe(key, callback, adr);\n-    this.subscriptionManager.sendSubscription(this.connectionHandler.getWebSocket(), { symbol, adr, source });\n-    return () => { this.subscriptionManager.unsubscribe(key, callback); coordinator.cleanup(symbol); };\n-  }\n-\n-  resubscribeSymbol(symbol, source) {\n-    const ws = this.connectionHandler.getWebSocket();\n-    this.subscriptionManager.resubscribeSymbol(ws, symbol, source);\n-  }",
+          "doc_diff": "",
+          "comments": "DL-002: Remove dead subscribeCoordinated() and resubscribeSymbol() methods (zero callers). Also remove createMessageCoordinator import only used by subscribeCoordinated."
+        }
+      ],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "number": 4,
+      "name": "Harden connection layer",
+      "files": [
+        "src/lib/connectionManager.js",
+        "src/components/Workspace.svelte",
+        "src/lib/connection/connectionHandler.js",
+        "src/lib/connection/reconnectionHandler.js",
+        "src/lib/connection/subscriptionManager.js",
+        "src/stores/marketDataStore.js"
+      ],
+      "flags": [
+        "design-debt"
+      ],
+      "requirements": [
+        "Add sendRaw() and addSystemSubscription() methods to ConnectionManager facade",
+        "Workspace.svelte must use facade methods instead of reaching through to internals",
+        "onerror handler must call stopHeartbeatCheck() and set ws=null (surrounding S1, S4)",
+        "ReconnectionHandler must expose resetMaxAttempts() for permanentDisconnect reversibility",
+        "subscriptionManager flushPending must preserve items re-queued during iteration",
+        "statusCallbacks unsubscribe function must be called by consumers",
+        "visibilitychange listener must be removable on destroy",
+        "window.marketDataStore debug bridge must be gated behind import.meta.env.DEV"
+      ],
+      "acceptance_criteria": [
+        "Workspace.svelte has zero direct references to connectionHandler or subscriptionManager",
+        "onerror path calls stopHeartbeatCheck() before any other action",
+        "getWebSocket() returns null after onerror (before next connect())",
+        "reconnectionHandler.resetMaxAttempts() restores maxAttempts to original value",
+        "Debug bridge code is absent from production bundle"
+      ],
+      "tests": {
+        "files": [],
+        "type": "manual",
+        "backing": "default-derived",
+        "scenarios": {
+          "normal": [
+            "Workspace sends reinit via facade sendRaw() method"
+          ],
+          "edge": [
+            "Tab visibility change does not interfere with reconnection in progress"
+          ],
+          "error": [
+            "onerror without subsequent onclose does not leak heartbeat interval"
+          ]
+        },
+        "skip_reason": "Connection lifecycle bugs require WebSocket simulation; E2E tests cover integration"
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "file": "src/lib/connectionManager.js",
+          "function": "ConnectionManager class",
+          "behavior": "Add sendRaw(message) method that gets WebSocket via connectionHandler.getWebSocket(), checks if ws is null (returns false + DEV-only console.warn if so), then calls ws.send(JSON.stringify(message)). Add addSystemSubscription(callback) method that adds callback to subscriptionManager under '__SYSTEM__' key and returns cleanup function. Add removeVisibilityListener() method that removes the visibilitychange listener. Store the listener as a named method reference (handleVisibilityChange bound to this) so it can be removed.",
+          "decision_refs": [
+            "DL-005",
+            "DL-020"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "file": "src/components/Workspace.svelte",
+          "function": "reinitAll, onMount system subscription",
+          "behavior": "Replace connectionManager.connectionHandler.getWebSocket().send(...) with connectionManager.sendRaw({ type: 'reinit', source: 'all' }). Replace connectionManager.subscriptionManager.subscriptions.set('__SYSTEM__', ...) with connectionManager.addSystemSubscription(systemCallback). Store cleanup function and call in onDestroy. Add call to connectionManager.removeVisibilityListener() in onDestroy.",
+          "decision_refs": [
+            "DL-005"
+          ]
+        },
+        {
+          "id": "CI-M-004-003",
+          "file": "src/lib/connection/connectionHandler.js",
+          "function": "ws.onerror handler in connect()",
+          "behavior": "Add this.stopHeartbeatCheck() call in onerror handler (currently missing - surrounding S1). Add this.ws = null after stopHeartbeatCheck (surrounding S4) so getWebSocket() returns null instead of stale dead socket reference.",
+          "decision_refs": [
+            "DL-022"
+          ]
+        },
+        {
+          "id": "CI-M-004-004",
+          "file": "src/lib/connection/reconnectionHandler.js",
+          "function": "ReconnectionHandler class",
+          "behavior": "Store original maxAttempts value as this.originalMaxAttempts in constructor. Add resetMaxAttempts() method that restores this.maxAttempts = this.originalMaxAttempts.",
+          "decision_refs": [
+            "DL-023"
+          ]
+        },
+        {
+          "id": "CI-M-004-005",
+          "file": "src/lib/connection/subscriptionManager.js",
+          "function": "flushPending",
+          "behavior": "Replace `this.pendingSubscriptions = []` pattern with splice-based clearing: copy items to local array, set pendingSubscriptions to empty array first, then iterate local copy. This prevents items re-queued by sendSubscription during iteration from being wiped.",
+          "decision_refs": [
+            "DL-024"
+          ]
+        },
+        {
+          "id": "CI-M-004-006",
+          "file": "src/stores/marketDataStore.js",
+          "function": "window.marketDataStore debug bridge",
+          "behavior": "Change `if (typeof window !== 'undefined')` to `if (typeof window !== 'undefined' && import.meta.env.DEV)` so the debug bridge is absent from production builds.",
+          "decision_refs": [
+            "DL-007"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-CI-M-004-001",
+          "version": 1,
+          "intent_ref": "CI-M-004-001",
+          "file": "src/lib/connectionManager.js",
+          "diff": "--- a/src/lib/connectionManager.js\n+++ b/src/lib/connectionManager.js\n@@ -124,0 +125,18 @@\n+  sendRaw(message) {\n+    const ws = this.connectionHandler.getWebSocket();\n+    if (!ws) {\n+      if (import.meta.env.DEV) {\n+        console.warn('[ConnectionManager] sendRaw() called with null WebSocket');\n+      }\n+      return false;\n+    }\n+    ws.send(JSON.stringify(message));\n+    return true;\n+  }\n+\n+  addSystemSubscription(callback) {\n+    const key = '__SYSTEM__';\n+    if (!this.subscriptionManager.subscriptions.has(key)) {\n+      this.subscriptionManager.subscriptions.set(key, new Set());\n+    }\n+    this.subscriptionManager.subscriptions.get(key).add(callback);\n+    return () => {\n+      this.subscriptionManager.subscriptions.get(key)?.delete(callback);\n+    };\n+  }",
+          "doc_diff": "",
+          "comments": "DL-005/DL-020: Facade methods to complete encapsulation. sendRaw null-checks ws with DEV warning. addSystemSubscription wraps internal subscription map."
+        },
+        {
+          "id": "CC-CI-M-004-002",
+          "version": 1,
+          "intent_ref": "CI-M-004-002",
+          "file": "src/components/Workspace.svelte",
+          "diff": "--- a/src/components/Workspace.svelte\n+++ b/src/components/Workspace.svelte\n@@ -67,8 +67,7 @@\n   function reinitAll() {\n     if (connectionManager?.status === 'connected') {\n-      connectionManager.connectionHandler.getWebSocket().send(JSON.stringify({ type: 'reinit', source: 'all' }));\n+      connectionManager.sendRaw({ type: 'reinit', source: 'all' });\n-      console.log('[Workspace] Reinit requested for: all (cTrader + TradingView)');\n     } else {\n@@ -118,10 +117,8 @@\n     // Listen for reinit confirmation from backend\n-    const systemCallback = (d) => {\n+    const systemUnsub = connectionManager.addSystemSubscription((d) => {\n       if (d.type === 'reinit_started') {\n         console.log(`[Workspace] Backend acknowledged reinit for: ${d.source}`);\n       }\n-    };\n-    // Add callback for system messages (no backend subscription needed)\n-    connectionManager.subscriptionManager.subscriptions.set('__SYSTEM__', new Set([systemCallback]));\n+    });\n \n@@ -131,6 +128,7 @@\n   onDestroy(() => {\n     keyboardHandler?.cleanup();\n     unsubscribePersistence?.();\n+    systemUnsub?.();\n   });\n ",
+          "doc_diff": "",
+          "comments": "DL-005: Replace facade bypass with connectionManager.sendRaw() and addSystemSubscription()"
+        },
+        {
+          "id": "CC-CI-M-004-003",
+          "version": 1,
+          "intent_ref": "CI-M-004-003",
+          "file": "src/lib/connection/connectionHandler.js",
+          "diff": "--- a/src/lib/connection/connectionHandler.js\n+++ b/src/lib/connection/connectionHandler.js\n@@ -70,6 +70,8 @@\n     this.ws.onerror = (error) => {\n       console.error('WebSocket error:', error);\n+      this.stopHeartbeatCheck();\n+      this.ws = null;\n       this.connecting = false;\n       this.status = 'error';\n       if (this.onError) this.onError(error);\n@@ -156,8 +156,4 @@\n-\n-  getWebSocket() {\n-    return this.ws;\n-  }\n \n@@ -156,4 +156,8 @@\n+  getWebSocket() {\n+    return this.ws;\n+  }\n ",
+          "doc_diff": "",
+          "comments": "DL-022: Add stopHeartbeatCheck() and ws=null to onerror handler as defensive hardening. Prevents heartbeat interval leak and stale ws reference."
+        },
+        {
+          "id": "CC-CI-M-004-004",
+          "version": 1,
+          "intent_ref": "CI-M-004-004",
+          "file": "src/lib/connection/reconnectionHandler.js",
+          "diff": "--- a/src/lib/connection/reconnectionHandler.js\n+++ b/src/lib/connection/reconnectionHandler.js\n@@ -13,6 +13,7 @@\n export class ReconnectionHandler {\n   constructor() {\n     this.attempts = 0;\n-    this.maxAttempts = this.getMaxAttemptsFromEnv();\n+    this.maxAttempts = this.getMaxAttemptsFromEnv();\n+    this.originalMaxAttempts = this.maxAttempts;\n     this.baseDelay = 500;\n     this.maxDelayMs = 10000;\n     this.lastFailureTime = null;\n@@ -57,6 +58,10 @@\n   permanentDisconnect() {\n     this.maxAttempts = 0;\n   }\n \n+  resetMaxAttempts() {\n+    this.maxAttempts = this.originalMaxAttempts;\n+    this.attempts = 0;\n+    this.lastFailureTime = null;\n+  }\n+\n   getAttempts() {\n     return this.attempts;\n   }",
+          "doc_diff": "",
+          "comments": "DL-023: Store originalMaxAttempts for resetMaxAttempts() reversibility after permanentDisconnect"
+        },
+        {
+          "id": "CC-CI-M-004-005",
+          "version": 1,
+          "intent_ref": "CI-M-004-005",
+          "file": "src/lib/connection/subscriptionManager.js",
+          "diff": "--- a/src/lib/connection/subscriptionManager.js\n+++ b/src/lib/connection/subscriptionManager.js\n@@ -50,8 +50,9 @@\n   flushPending(ws) {\n-    if (this.pendingSubscriptions.length === 0) return;\n-    console.log(`[SubscriptionManager] Sending ${this.pendingSubscriptions.length} pending`);\n-    for (const sub of this.pendingSubscriptions) {\n+    if (this.pendingSubscriptions.length === 0) return;\n+    const pending = this.pendingSubscriptions;\n+    this.pendingSubscriptions = [];\n+    if (import.meta.env.DEV) {\n+      console.log(`[SubscriptionManager] Sending ${pending.length} pending`);\n+    }\n+    for (const sub of pending) {\n       this.sendSubscription(ws, sub);\n-    }\n-    this.pendingSubscriptions = [];\n+    }\n   }",
+          "doc_diff": "",
+          "comments": "DL-024: Swap-before-iterate pattern preserves re-queued items from sendSubscription. Also gate log with DEV."
+        },
+        {
+          "id": "CC-CI-M-004-006",
+          "version": 1,
+          "intent_ref": "CI-M-004-006",
+          "file": "src/stores/marketDataStore.js",
+          "diff": "--- a/src/stores/marketDataStore.js\n+++ b/src/stores/marketDataStore.js\n@@ -563,7 +563,7 @@\n export { BasketState };\n \n-if (typeof window !== 'undefined') {\n+if (typeof window !== 'undefined' && import.meta.env.DEV) {\n   window.marketDataStore = {",
+          "doc_diff": "",
+          "comments": "DL-007: Gate debug bridge with DEV so it is absent from production builds"
+        },
+        {
+          "id": "CC-CI-M-004-001",
+          "version": 1,
+          "intent_ref": "CI-M-004-001",
+          "file": "src/lib/connectionManager.js",
+          "diff": "--- a/src/lib/connectionManager.js\n+++ b/src/lib/connectionManager.js\n@@ after disconnect() method\n+  sendRaw(message) {\n+    const ws = this.connectionHandler.getWebSocket();\n+    if (!ws) {\n+      if (import.meta.env.DEV) {\n+        console.warn('[ConnectionManager] sendRaw() called with null WebSocket');\n+      }\n+      return false;\n+    }\n+    ws.send(JSON.stringify(message));\n+    return true;\n+  }\n+\n+  addSystemSubscription(callback) {\n+    const key = '__SYSTEM__';\n+    if (!this.subscriptionManager.subscriptions.has(key)) {\n+      this.subscriptionManager.subscriptions.set(key, new Set());\n+    }\n+    this.subscriptionManager.subscriptions.get(key).add(callback);\n+    return () => {\n+      this.subscriptionManager.subscriptions.get(key)?.delete(callback);\n+    };\n+  }\n",
+          "doc_diff": "",
+          "comments": "DL-005/DL-020: Facade methods completing encapsulation. sendRaw null-checks ws with DEV warning. addSystemSubscription wraps internal subscription map."
+        },
+        {
+          "id": "CC-CI-M-004-002",
+          "version": 1,
+          "intent_ref": "CI-M-004-002",
+          "file": "src/components/Workspace.svelte",
+          "diff": "--- a/src/components/Workspace.svelte\n+++ b/src/components/Workspace.svelte\n@@ -67,8 +67,7 @@\n   function reinitAll() {\n     if (connectionManager?.status === 'connected') {\n-      connectionManager.connectionHandler.getWebSocket().send(JSON.stringify({ type: 'reinit', source: 'all' }));\n+      connectionManager.sendRaw({ type: 'reinit', source: 'all' });\n       console.log('[Workspace] Reinit requested for: all (cTrader + TradingView)');\n@@ -118,10 +117,8 @@\n     // Listen for reinit confirmation from backend\n-    const systemCallback = (d) => {\n+    const systemUnsub = connectionManager.addSystemSubscription((d) => {\n       if (d.type === 'reinit_started') {\n         console.log(`[Workspace] Backend acknowledged reinit for: ${d.source}`);\n       }\n-    };\n-    connectionManager.subscriptionManager.subscriptions.set('__SYSTEM__', new Set([systemCallback]));\n+    });\n@@ -131,6 +128,7 @@\n   onDestroy(() => {\n     keyboardHandler?.cleanup();\n     unsubscribePersistence?.();\n+    systemUnsub?.();\n   });\n",
+          "doc_diff": "",
+          "comments": "DL-005: Replace facade bypass with connectionManager.sendRaw() and addSystemSubscription()"
+        },
+        {
+          "id": "CC-CI-M-004-003",
+          "version": 1,
+          "intent_ref": "CI-M-004-003",
+          "file": "src/lib/connection/connectionHandler.js",
+          "diff": "--- a/src/lib/connection/connectionHandler.js\n+++ b/src/lib/connection/connectionHandler.js\n@@ -70,6 +70,8 @@\n     this.ws.onerror = (error) => {\n       console.error('WebSocket error:', error);\n+      this.stopHeartbeatCheck();\n+      this.ws = null;\n       this.connecting = false;\n       this.status = 'error';\n       if (this.onError) this.onError(error);\n",
+          "doc_diff": "",
+          "comments": "DL-022: Add stopHeartbeatCheck() and ws=null to onerror handler as defensive hardening"
+        },
+        {
+          "id": "CC-CI-M-004-004",
+          "version": 1,
+          "intent_ref": "CI-M-004-004",
+          "file": "src/lib/connection/reconnectionHandler.js",
+          "diff": "--- a/src/lib/connection/reconnectionHandler.js\n+++ b/src/lib/connection/reconnectionHandler.js\n@@ -13,6 +13,7 @@\n   constructor() {\n     this.attempts = 0;\n     this.maxAttempts = this.getMaxAttemptsFromEnv();\n+    this.originalMaxAttempts = this.maxAttempts;\n     this.baseDelay = 500;\n     this.maxDelayMs = 10000;\n     this.lastFailureTime = null;\n@@ -57,6 +58,11 @@\n   permanentDisconnect() {\n     this.maxAttempts = 0;\n   }\n \n+  resetMaxAttempts() {\n+    this.maxAttempts = this.originalMaxAttempts;\n+    this.attempts = 0;\n+    this.lastFailureTime = null;\n+  }\n+\n   getAttempts() {\n     return this.attempts;\n   }\n",
+          "doc_diff": "",
+          "comments": "DL-023: Store originalMaxAttempts for resetMaxAttempts() reversibility after permanentDisconnect"
+        },
+        {
+          "id": "CC-CI-M-004-005",
+          "version": 1,
+          "intent_ref": "CI-M-004-005",
+          "file": "src/lib/connection/subscriptionManager.js",
+          "diff": "--- a/src/lib/connection/subscriptionManager.js\n+++ b/src/lib/connection/subscriptionManager.js\n@@ -50,8 +50,10 @@\n   flushPending(ws) {\n     if (this.pendingSubscriptions.length === 0) return;\n-    console.log(`[SubscriptionManager] Sending ${this.pendingSubscriptions.length} pending`);\n-    for (const sub of this.pendingSubscriptions) {\n+    const pending = this.pendingSubscriptions;\n+    this.pendingSubscriptions = [];\n+    if (import.meta.env.DEV) console.log(`[SubscriptionManager] Sending ${pending.length} pending`);\n+    for (const sub of pending) {\n       this.sendSubscription(ws, sub);\n-    }\n-    this.pendingSubscriptions = [];\n+    }\n   }\n",
+          "doc_diff": "",
+          "comments": "DL-024: Swap-before-iterate pattern preserves re-queued items from sendSubscription"
+        },
+        {
+          "id": "CC-CI-M-004-006",
+          "version": 1,
+          "intent_ref": "CI-M-004-006",
+          "file": "src/stores/marketDataStore.js",
+          "diff": "--- a/src/stores/marketDataStore.js\n+++ b/src/stores/marketDataStore.js\n@@ -565,7 +565,7 @@\n export { BasketState };\n \n-if (typeof window !== 'undefined') {\n+if (typeof window !== 'undefined' && import.meta.env.DEV) {\n   window.marketDataStore = {\n",
+          "doc_diff": "",
+          "comments": "DL-007: Gate debug bridge with DEV so it is absent from production builds"
+        }
+      ],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-005",
+      "number": 5,
+      "name": "Clean up market profile and visualization modules",
+      "files": [
+        "src/lib/marketProfile/calculations.js",
+        "src/lib/marketProfile/orchestrator.js",
+        "src/lib/marketProfile/scaling.js",
+        "src/lib/displayCanvasRenderer.js",
+        "src/lib/dayRangeOrchestrator.js",
+        "src/components/FxBasketDisplay.svelte",
+        "src/components/PriceTicker.svelte",
+        "src/components/FloatingDisplay.svelte",
+        "src/components/PriceMarkerManager.svelte",
+        "src/stores/marketDataStore.js"
+      ],
+      "flags": [
+        "design-debt",
+        "inefficiency"
+      ],
+      "requirements": [
+        "Replace Math.min/max spread with reduce in market profile modules (8 instances, finding S7)",
+        "Fix FxBasketDisplay.svelte infinite RAF loop on canvas with 0 dimensions (finding 17)",
+        "Fix FloatingDisplay.svelte handler recreation on every workspaceStore change (finding 20)",
+        "Fix PriceTicker.svelte double resizeObserver.disconnect (finding 19)",
+        "Fix PriceMarkerManager.svelte localStorage write on every workspace store change (finding 24)",
+        "Gate FxBasketDisplay debug API behind DEV (finding 22)",
+        "Fix FxBasketDisplay setupInteract to use shared interactSetup.js factory (finding 18)",
+        "Fix FxBasketDisplay DPR staleness on monitor move (finding 21)",
+        "Remove flashPriceEnabled dead prop from PriceTicker (finding 23)",
+        "Remove unused intensity parameter from getIntensityColor (finding 29)",
+        "Inline createPriceScale pass-through (finding 34)",
+        "Extract axisX resolution to shared utility (finding 37)",
+        "Replace getState() temp subscription with Svelte get() (finding 41)",
+        "Replace hardcoded #FFD700 with named constant (finding 47)",
+        "Store statusCallback unsubscribe and ensure cleanup in FxBasketDisplay onDestroy (finding 8 partial)",
+        "Replace hard-coded fx-basket-main key with unique keys (finding 15)",
+        "Implement change-aware selective basket recomputation (finding 4)"
+      ],
+      "acceptance_criteria": [
+        "No Math.min/max spread patterns remain in src/lib/marketProfile/",
+        "FxBasketDisplay setupCanvas does not loop infinitely when canvas has 0 dimensions",
+        "FloatingDisplay handlers are stable references (not recreated per store change)",
+        "resizeObserver.disconnect is called exactly once in PriceTicker",
+        "PriceMarkerManager does not write to localStorage on every store change (dirty-checked)",
+        "FxBasketDisplay uses interactSetup.js factory instead of inline config",
+        "DPR is read inside ResizeObserver callback, not captured at setup time",
+        "flashPriceEnabled prop and dead CSS removed from PriceTicker",
+        "getIntensityColor no longer accepts unused intensity parameter",
+        "createPriceScale pass-through removed, callers use createDayRangePriceScale directly",
+        "axisX resolution extracted to shared utility, no copy-paste across files",
+        "getState() replaced with Svelte get() in marketDataStore",
+        "#FFD700 replaced with named constant in displayCanvasRenderer",
+        "FxBasketDisplay onDestroy calls statusCallback unsubscribe",
+        "subscribeBasket uses unique keys, no hard-coded fx-basket-main",
+        "updateBasketsLocal only recomputes the currency containing the changed pair"
+      ],
+      "tests": {
+        "files": [],
+        "type": "manual",
+        "backing": "default-derived",
+        "scenarios": {
+          "normal": [
+            "Market profile renders correctly with thousands of price levels"
+          ],
+          "edge": [
+            "Hidden display does not cause infinite RAF loop"
+          ],
+          "error": []
+        },
+        "skip_reason": "Visual changes verified by manual inspection; performance changes verified by profiling"
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-005-001",
+          "file": "src/lib/marketProfile/calculations.js",
+          "function": "calculateMaxTpo, extractAreaRange",
+          "behavior": "Replace `Math.max(...profile.map(d => d.tpo))` with `profile.reduce((max, d) => d.tpo > max ? d.tpo : max, 0)`. Replace `Math.max(...prices)` and `Math.min(...prices)` in extractAreaRange with reduce-based equivalents. These arrays can have thousands of elements for profiles with many price levels.",
+          "decision_refs": [
+            "DL-009"
+          ]
+        },
+        {
+          "id": "CI-M-005-002",
+          "file": "src/lib/marketProfile/scaling.js",
+          "function": "calculateAdaptiveScale",
+          "behavior": "Replace `Math.min(...profilePrices)` and `Math.max(...profilePrices)` with reduce-based equivalents to prevent RangeError on large profiles.",
+          "decision_refs": [
+            "DL-009"
+          ]
+        },
+        {
+          "id": "CI-M-005-003",
+          "file": "src/lib/marketProfile/orchestrator.js",
+          "function": "renderMiniMarketProfile",
+          "behavior": "Replace `Math.min(...prices)`, `Math.max(...prices)`, and `Math.max(...profile.map(l => l.tpo))` with reduce-based equivalents.",
+          "decision_refs": [
+            "DL-009"
+          ]
+        },
+        {
+          "id": "CI-M-005-004",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "function": "setupCanvas",
+          "behavior": "Add retry counter initialized to 0 and MAX_CANVAS_SETUP_RETRIES constant set to 100. Increment counter on each requestAnimationFrame retry. After 100 retries, stop retrying and log a DEV-only warning. This prevents infinite loop when canvas element exists but never gets dimensions (e.g., hidden display).",
+          "decision_refs": [
+            "DL-021"
+          ]
+        },
+        {
+          "id": "CI-M-005-005",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "function": "setupDebugAPI",
+          "behavior": "Wrap exposeDebugAPI call in `if (import.meta.env.DEV)` guard so debug API is not exposed in production.",
+          "decision_refs": [
+            "DL-007"
+          ]
+        },
+        {
+          "id": "CI-M-005-006",
+          "file": "src/components/FloatingDisplay.svelte",
+          "function": "reactive handlers IIFE (lines 41-65)",
+          "behavior": "Extract the 4 handler functions (close, focus, refresh, keydown) out of the reactive IIFE so they are created once as stable references. The IIFE wrapper creates new function references on every $workspaceStore change. Move handlers to module-level or use a non-reactive block.",
+          "decision_refs": [
+            "DL-025"
+          ]
+        },
+        {
+          "id": "CI-M-005-007",
+          "file": "src/components/PriceTicker.svelte",
+          "function": "onMount return, onDestroy",
+          "behavior": "Remove the duplicate resizeObserver.disconnect() call. Currently called in both onMount return (line 148) and onDestroy (line 154). Keep only the onDestroy version for consistency with other cleanup patterns.",
+          "decision_refs": [
+            "DL-026"
+          ]
+        },
+        {
+          "id": "CI-M-005-008",
+          "file": "src/components/PriceMarkerManager.svelte",
+          "function": "workspace store sync reactive block (lines 69-75)",
+          "behavior": "Add a dirty check before calling saveMarkers - only write to localStorage when priceMarkers array content has actually changed (compare length and references). Currently writes to localStorage on every $workspaceStore change regardless of whether markers changed.",
+          "decision_refs": [
+            "DL-027"
+          ]
+        },
+        {
+          "id": "CI-M-005-009",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "function": "setupInteract",
+          "behavior": "Replace inline interact.js config with import of createInteractConfig from interactSetup.js. Pass appropriate callbacks (onDragMove, onResizeMove, onTap) to the factory function. This eliminates the duplicated config (finding 18) that mirrors the one in interactSetup.js.",
+          "decision_refs": [
+            "DL-012"
+          ]
+        },
+        {
+          "id": "CI-M-005-010",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "function": "setupCanvas, ResizeObserver callback",
+          "behavior": "Move DPR capture inside the ResizeObserver callback so it is read fresh on every resize event, not captured once at setup time. Change line 69 `const dpr = window.devicePixelRatio || 1` to be read inside the observer at line 84-93. This ensures DPR stays current when window moves to different DPI monitor.",
+          "decision_refs": [
+            "DL-013"
+          ]
+        },
+        {
+          "id": "CI-M-005-011",
+          "file": "src/components/PriceTicker.svelte",
+          "function": "props, CSS",
+          "behavior": "Remove flashPriceEnabled prop declaration (line 15) and the dead CSS rules that reference it (lines 281-287). No parent component passes this prop.",
+          "decision_refs": [
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-005-012",
+          "file": "src/lib/marketProfile/calculations.js",
+          "function": "getIntensityColor",
+          "behavior": "Remove unused `intensity` parameter from function signature. Change from `getIntensityColor(level, intensity = 0.5)` to `getIntensityColor(level)`. Update callers to pass only `level`.",
+          "decision_refs": [
+            "DL-015"
+          ]
+        },
+        {
+          "id": "CI-M-005-013",
+          "file": "src/lib/marketProfile/scaling.js",
+          "function": "createPriceScale",
+          "behavior": "Remove the createPriceScale pass-through function. Update all callers (rendering.js, orchestrator.js) to import createDayRangePriceScale directly from dayRangeRenderingUtils.js. createPriceScale adds indirection without any abstraction value.",
+          "decision_refs": [
+            "DL-016"
+          ]
+        },
+        {
+          "id": "CI-M-005-014",
+          "file": "src/lib/displayCanvasRenderer.js, src/lib/dayRangeOrchestrator.js",
+          "function": "renderPriceMarkers, renderPriceDelta, renderDayRange",
+          "behavior": "Extract the axisX resolution block (check if ratio <=1, multiply by width) to a shared utility function `resolveAxisX(axisXConfig, width)`. Place it in displayCanvasRenderer.js and export it. Update the 4+ copy-pasted instances in displayCanvasRenderer.js (lines 91-94, 162-165) and dayRangeOrchestrator.js (lines 55-58, 82-87) to call the shared function.",
+          "decision_refs": [
+            "DL-017"
+          ]
+        },
+        {
+          "id": "CI-M-005-015",
+          "file": "src/stores/marketDataStore.js",
+          "function": "getMarketDataStore",
+          "behavior": "Replace the custom `store.getState = () => { let value; store.subscribe(v => value = v)(); return value; }` pattern with Svelte's built-in `get()` from `svelte/store`. Import `get` at top of file and replace the getState assignment with `store.getState = () => get(store)`. Remove the custom subscribe/unsubscribe idiom.",
+          "decision_refs": [
+            "DL-018"
+          ]
+        },
+        {
+          "id": "CI-M-005-016",
+          "file": "src/lib/displayCanvasRenderer.js",
+          "function": "renderPriceDelta",
+          "behavior": "Replace hardcoded `#FFD700` at lines 167, 176, 177, 201 with a named constant `DELTA_MARKER_COLOR = '#FFD700'` at file top. Import from a shared colors file if one becomes available, but for now a file-local constant is sufficient.",
+          "decision_refs": [
+            "DL-019"
+          ]
+        },
+        {
+          "id": "CI-M-005-017",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "function": "setupConnectionMonitoring, onDestroy",
+          "behavior": "Verify that unsubscribeStatus (assigned at line 110 from addStatusCallback return value) is properly called in onDestroy (line 50). The current code does call it, but this code_intent confirms the cleanup is correct and adds documentation. Moved from M-004 to consolidate all FxBasketDisplay changes in M-005.",
+          "decision_refs": [
+            "DL-005"
+          ]
+        },
+        {
+          "id": "CI-M-005-018",
+          "file": "src/stores/marketDataStore.js",
+          "function": "subscribeBasket",
+          "behavior": "Replace hard-coded `const key = 'fx-basket-main'` at line 486 with a unique key generated from the pairs array. If a state machine already exists for the old key, call its cleanup function before overwriting. Same fix at line 552 in getBasketState. This prevents the overwrite leak where second subscribeBasket call silently drops the first state machine.",
+          "decision_refs": [
+            "DL-011"
+          ]
+        },
+        {
+          "id": "CI-M-005-019",
+          "file": "src/stores/marketDataStore.js",
+          "function": "updateBasketsLocal, subscribeBasket processorCallback",
+          "behavior": "Add change-aware selective recalculation. Track which currency each pair belongs to (pair -> currency mapping via CURRENCIES). On tick, determine the affected currency from the pair and only recompute that currency in updateBasketsLocal instead of all 8. Pass the changed pair or currency to updateBasketsLocal so it can selectively update. Fallback to full recomputation on symbolDataPackage (initial data) since baseline changes may affect all currencies.",
+          "decision_refs": [
+            "DL-035"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-CI-M-005-001",
+          "version": 1,
+          "intent_ref": "CI-M-005-001",
+          "file": "src/lib/marketProfile/calculations.js",
+          "diff": "--- a/src/lib/marketProfile/calculations.js\n+++ b/src/lib/marketProfile/calculations.js\n@@ -7,7 +7,7 @@\n export function calculateMaxTpo(profile) {\n   if (!profile || profile.length === 0) return 0;\n-  return Math.max(...profile.map(d => d.tpo));\n+  return profile.reduce((max, d) => d.tpo > max ? d.tpo : max, 0);\n }\n \n@@ -103,8 +103,8 @@\n function extractAreaRange(levels) {\n   const prices = levels.map(level => level.price);\n \n   return {\n-    high: Math.max(...prices),\n-    low: Math.min(...prices)\n+    high: prices.reduce((max, p) => p > max ? p : max, -Infinity),\n+    low: prices.reduce((min, p) => p < min ? p : min, Infinity)\n   };\n }",
+          "doc_diff": "",
+          "comments": "DL-009: Replace Math.min/max spread with reduce to prevent RangeError on large arrays"
+        },
+        {
+          "id": "CC-CI-M-005-002",
+          "version": 1,
+          "intent_ref": "CI-M-005-002",
+          "file": "src/lib/marketProfile/scaling.js",
+          "diff": "--- a/src/lib/marketProfile/scaling.js\n+++ b/src/lib/marketProfile/scaling.js\n@@ -9,8 +9,8 @@\n export function calculateAdaptiveScale(profile, marketData, width, height) {\n   const profilePrices = profile.map(d => d.price);\n-  const profileMinPrice = Math.min(...profilePrices);\n-  const profileMaxPrice = Math.max(...profilePrices);\n+  const profileMinPrice = profilePrices.reduce((min, p) => p < min ? p : min, Infinity);\n+  const profileMaxPrice = profilePrices.reduce((max, p) => p > max ? p : max, -Infinity);\n \n   // Merge ADR range with actual Market Profile price range",
+          "doc_diff": "",
+          "comments": "DL-009: Replace Math.min/max spread with reduce for large profile safety"
+        },
+        {
+          "id": "CC-CI-M-005-003",
+          "version": 1,
+          "intent_ref": "CI-M-005-003",
+          "file": "src/lib/marketProfile/orchestrator.js",
+          "diff": "--- a/src/lib/marketProfile/orchestrator.js\n+++ b/src/lib/marketProfile/orchestrator.js\n@@ -80,8 +80,8 @@\n   const prices = profile.map(l => l.price);\n-  const minPrice = Math.min(...prices);\n-  const maxPrice = Math.max(...prices);\n+  const minPrice = prices.reduce((min, p) => p < min ? p : min, Infinity);\n+  const maxPrice = prices.reduce((max, p) => p > max ? p : max, -Infinity);\n   const priceRange = maxPrice - minPrice || 1;\n \n@@ -100,7 +100,7 @@\n   // Calculate TPO range\n-  const maxTpo = Math.max(...profile.map(l => l.tpo));\n+  const maxTpo = profile.reduce((max, l) => l.tpo > max ? l.tpo : max, 0);\n \n   // Background (Chart BG)",
+          "doc_diff": "",
+          "comments": "DL-009: Replace Math.min/max spread with reduce for large profile safety in renderMiniMarketProfile"
+        },
+        {
+          "id": "CC-CI-M-005-004",
+          "version": 1,
+          "intent_ref": "CI-M-005-004",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "diff": "--- a/src/components/FxBasketDisplay.svelte\n+++ b/src/components/FxBasketDisplay.svelte\n@@ -66,9 +66,16 @@\n+  const MAX_CANVAS_SETUP_RETRIES = 100;\n+\n   function setupCanvas() {\n     if (!canvas) return;\n     const dpr = window.devicePixelRatio || 1;\n     const rect = canvas.getBoundingClientRect();\n \n     // Handle case where canvas has no dimensions yet\n-    if (rect.width === 0 || rect.height === 0) {\n-      requestAnimationFrame(() => setupCanvas());\n+    if (rect.width === 0 || rect.height === 0) {\n+      let retries = 0;\n+      const trySetup = () => {\n+        const r = canvas.getBoundingClientRect();\n+        if (r.width > 0 && r.height > 0) {\n+          finishSetup(r);\n+        } else if (++retries < MAX_CANVAS_SETUP_RETRIES) {\n+          requestAnimationFrame(trySetup);\n+        } else if (import.meta.env.DEV) {\n+          console.warn('[FxBasketDisplay] Canvas setup abandoned after', MAX_CANVAS_SETUP_RETRIES, 'retries');\n+        }\n+      };\n+      requestAnimationFrame(trySetup);\n       return;\n     }\n+    finishSetup(rect);\n+  }\n \n+  function finishSetup(rect) {\n+    const dpr = window.devicePixelRatio || 1;\n     canvas.width = rect.width * dpr;\n     canvas.height = rect.height * dpr;\n     ctx = canvas.getContext('2d');\n     ctx.scale(dpr, dpr);\n \n     // Set up ResizeObserver to handle resize events\n-    resizeObserver = new ResizeObserver(() => {\n+    resizeObserver = new ResizeObserver(() => {\n       const newRect = canvas.getBoundingClientRect();\n       if (newRect.width > 0 && newRect.height > 0) {\n-        canvas.width = newRect.width * dpr;\n-        canvas.height = newRect.height * dpr;\n+        const freshDpr = window.devicePixelRatio || 1;\n+        canvas.width = newRect.width * freshDpr;\n+        canvas.height = newRect.height * freshDpr;\n         // Reset transform and re-apply scale (prevents accumulation)\n-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);\n+        ctx.setTransform(freshDpr, 0, 0, freshDpr, 0, 0);\n         renderCanvas();\n       }\n     });\n",
+          "doc_diff": "",
+          "comments": "DL-021/DL-013: RAF retry with MAX_CANVAS_SETUP_RETRIES=100 limit + fresh DPR read in ResizeObserver"
+        },
+        {
+          "id": "CC-CI-M-005-005",
+          "version": 1,
+          "intent_ref": "CI-M-005-005",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "diff": "--- a/src/components/FxBasketDisplay.svelte\n+++ b/src/components/FxBasketDisplay.svelte\n@@ -33,7 +33,9 @@\n     setupInteract();\n     setupCanvas();\n     setupConnectionMonitoring();\n-    setupDebugAPI();\n+    if (import.meta.env.DEV) {\n+      setupDebugAPI();\n+    }\n \n     // Subscribe via centralized store",
+          "doc_diff": "",
+          "comments": "DL-007: Gate exposeDebugAPI call with DEV guard"
+        },
+        {
+          "id": "CC-CI-M-005-006",
+          "version": 1,
+          "intent_ref": "CI-M-005-006",
+          "file": "src/components/FloatingDisplay.svelte",
+          "diff": "--- a/src/components/FloatingDisplay.svelte\n+++ b/src/components/FloatingDisplay.svelte\n@@ -39,25 +39,23 @@\n   $: if (lastData?.marketProfile && lastData.marketProfile !== lastMarketProfileData) {\n     lastMarketProfileData = lastData.marketProfile;\n   }\n \n-  $: ({ currentDisplay, showMarketProfile, selectedMarker, connectionStatus, handlers } =\n-    (() => {\n-      const d = $workspaceStore.displays.get(display.id) || {};\n-      const st = status?.status ?? 'disconnected';\n-      return {\n-        currentDisplay: d,\n-        showMarketProfile: d?.showMarketProfile || false,\n-        selectedMarker: d?.selectedMarker || null,\n-        connectionStatus: st,\n-        handlers: {\n-          close: () => workspaceActions.removeDisplay(display.id),\n-          focus: () => workspaceActions.bringToFront(display.id),\n-          refresh: () => {\n-            lastMarketProfileData = null;\n-            if (unsubscribeSymbol) {\n-              unsubscribeSymbol();\n-              unsubscribeSymbol = subscribeToSymbol(formattedSymbol, source, { adr: 14 });\n-            }\n-            canvasRef?.refreshCanvas?.();\n-          },\n-          keydown: (e) => e.altKey && e.key.toLowerCase() === 'm' && (e.preventDefault(), workspaceActions.toggleMarketProfile(display.id))\n-        }\n-      };\n-    })()\n-  );\n+  const handlers = {\n+    close: () => workspaceActions.removeDisplay(display.id),\n+    focus: () => workspaceActions.bringToFront(display.id),\n+    refresh: () => {\n+      lastMarketProfileData = null;\n+      if (unsubscribeSymbol) {\n+        unsubscribeSymbol();\n+        unsubscribeSymbol = subscribeToSymbol(formattedSymbol, source, { adr: 14 });\n+      }\n+      canvasRef?.refreshCanvas?.();\n+    },\n+    keydown: (e) => e.altKey && e.key.toLowerCase() === 'm' && (e.preventDefault(), workspaceActions.toggleMarketProfile(display.id))\n+  };\n+\n+  $: ({ currentDisplay, showMarketProfile, selectedMarker, connectionStatus } =\n+    (() => {\n+      const d = $workspaceStore.displays.get(display.id) || {};\n+      return {\n+        currentDisplay: d,\n+        showMarketProfile: d?.showMarketProfile || false,\n+        selectedMarker: d?.selectedMarker || null,\n+        connectionStatus: status?.status ?? 'disconnected'\n+      };\n+    })()\n+  );\n ",
+          "doc_diff": "",
+          "comments": "DL-025: Extract 4 handler functions out of reactive IIFE to stable references. Handlers reference workspaceActions which does not change."
+        },
+        {
+          "id": "CC-CI-M-005-007",
+          "version": 1,
+          "intent_ref": "CI-M-005-007",
+          "file": "src/components/PriceTicker.svelte",
+          "diff": "--- a/src/components/PriceTicker.svelte\n+++ b/src/components/PriceTicker.svelte\n@@ -144,10 +144,6 @@\n     connectionManager.connect();\n \n-    return () => {\n-      unsubscribeSymbol?.();\n-      resizeObserver?.disconnect();\n-    };\n   });\n \n   onDestroy(() => {\n",
+          "doc_diff": "",
+          "comments": "DL-026: Remove onMount return cleanup that duplicates onDestroy cleanup"
+        },
+        {
+          "id": "CC-CI-M-005-008",
+          "version": 1,
+          "intent_ref": "CI-M-005-008",
+          "file": "src/components/PriceMarkerManager.svelte",
+          "diff": "--- a/src/components/PriceMarkerManager.svelte\n+++ b/src/components/PriceMarkerManager.svelte\n@@ -14,6 +14,7 @@\n   export let priceMarkers = [];\n+  let lastSavedMarkersRef = null;\n+  let lastSavedMarkersLength = -1;\n   export let selectedMarker = null;\n   export let hoverPrice = null;\n   export let deltaInfo = null;\n@@ -67,9 +68,14 @@\n   $: if (currentDisplay?.priceMarkers) {\n     priceMarkers = currentDisplay.priceMarkers;\n     const symbol = localFormattedSymbol || formattedSymbol;\n-    if (symbol) {\n-      saveMarkers(symbol, priceMarkers);\n+    if (symbol && (\n+      priceMarkers.length !== lastSavedMarkersLength ||\n+      priceMarkers !== lastSavedMarkersRef\n+    )) {\n+      saveMarkers(symbol, priceMarkers);\n+      lastSavedMarkersRef = priceMarkers;\n+      lastSavedMarkersLength = priceMarkers.length;\n     }\n   }",
+          "doc_diff": "",
+          "comments": "DL-027: Dirty check (length + reference comparison) prevents unnecessary localStorage writes on every store change"
+        },
+        {
+          "id": "CC-CI-M-005-009",
+          "version": 1,
+          "intent_ref": "CI-M-005-009",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "diff": "--- a/src/components/FxBasketDisplay.svelte\n+++ b/src/components/FxBasketDisplay.svelte\n@@ -2,7 +2,7 @@\n   import { onMount, onDestroy } from 'svelte';\n-  import interact from 'interactjs';\n+  import { createInteractConfig } from '../lib/interactSetup.js';\n   import { workspaceActions, workspaceStore } from '../stores/workspace.js';\n   import { ConnectionManager } from '../lib/connectionManager.js';\n   import { getWebSocketUrl } from '../lib/displayDataProcessor.js';\n@@ -51,18 +51,13 @@\n   function setupInteract() {\n-    const dragConfig = {\n-      modifiers: [interact.modifiers.snap({ targets: [interact.snappers.grid({ x: 10, y: 10, range: 15 })], relativePoints: [{ x: 0, y: 0 }] })],\n-      onmove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top })\n-    };\n-    const resizeConfig = {\n-      edges: { right: true, bottom: true },\n-      listeners: { move: (e) => workspaceActions.updateSize(display.id, { width: e.rect.width, height: e.rect.height }) },\n-      modifiers: [interact.modifiers.restrictSize({ min: { width: 150, height: 80 } }), interact.modifiers.snapSize({ targets: [interact.snappers.grid({ width: 10, height: 10, range: 15 })] })],\n-      inertia: true\n-    };\n-    interactable = interact(element).draggable(dragConfig).resizable(resizeConfig).on('tap', () => workspaceActions.bringToFront(display.id));\n+    interactable = createInteractConfig(element, {\n+      onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),\n+      onResizeMove: (e) => workspaceActions.updateSize(display.id, { width: e.rect.width, height: e.rect.height }),\n+      onTap: () => workspaceActions.bringToFront(display.id)\n+    });\n   }\n ",
+          "doc_diff": "",
+          "comments": "DL-012: Replace inline interact.js config with createInteractConfig factory from interactSetup.js"
+        },
+        {
+          "id": "CC-CI-M-005-010",
+          "version": 1,
+          "intent_ref": "CI-M-005-010",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "diff": "Covered by CI-M-005-004 diff which already moves DPR read inside ResizeObserver callback.",
+          "doc_diff": "",
+          "comments": "DL-013: DPR refresh in ResizeObserver - combined into CI-M-005-004 diff"
+        },
+        {
+          "id": "CC-CI-M-005-011",
+          "version": 1,
+          "intent_ref": "CI-M-005-011",
+          "file": "src/components/PriceTicker.svelte",
+          "diff": "--- a/src/components/PriceTicker.svelte\n+++ b/src/components/PriceTicker.svelte\n@@ -13,8 +13,6 @@\n   export let ticker;\n \n-  // Flash configuration props\n-  export let flashPriceEnabled = false;\n   export let flashBorderEnabled = true;\n   export let flashDuration = 500; // ms\n \n@@ -60,7 +58,7 @@\n   // Flash on price change\n   $: if (currentPrice !== null && currentPrice !== lastTrackedPrice) {\n-    if (lastTrackedPrice !== null && (flashPriceEnabled || flashBorderEnabled)) {\n+    if (lastTrackedPrice !== null && flashBorderEnabled) {\n       const isUp = currentPrice > lastTrackedPrice;\n       const direction = isUp ? 'up' : 'down';\n \n@@ -68,8 +66,6 @@\n       if (flashTimeout) clearTimeout(flashTimeout);\n \n-      if (flashPriceEnabled) {\n-        priceFlashClass = `flash-${direction}`;\n-      }\n       if (flashBorderEnabled) {\n         borderFlashClass = `flash-${direction}`;\n       }\n@@ -278,12 +274,0 @@\n-  .price-value.flash-up {\n-    color: var(--flash-color-up);\n-  }\n-\n-  .price-value.flash-down {\n-    color: var(--flash-color-down);\n-  }\n-",
+          "doc_diff": "",
+          "comments": "DL-014: Remove flashPriceEnabled dead prop and associated dead CSS rules (.price-value.flash-up/.flash-down)"
+        },
+        {
+          "id": "CC-CI-M-005-012",
+          "version": 1,
+          "intent_ref": "CI-M-005-012",
+          "file": "src/lib/marketProfile/calculations.js",
+          "diff": "--- a/src/lib/marketProfile/calculations.js\n+++ b/src/lib/marketProfile/calculations.js\n@@ -22,7 +22,7 @@\n   return 'high';\n }\n \n-export function getIntensityColor(level, intensity = 0.5) {\n+export function getIntensityColor(level) {\n   // Cyan shades from dark to light (high intensity = brightest)\n   const colors = {\n     low: '#0891b2',    // deep cyan\n@@ -30,4 +30,4 @@\n     high: '#67e8f9'    // bright cyan\n   };\n   return colors[level] || colors.low;\n-}\n+}",
+          "doc_diff": "",
+          "comments": "DL-015: Remove unused intensity parameter from getIntensityColor signature"
+        },
+        {
+          "id": "CC-CI-M-005-013a",
+          "version": 1,
+          "intent_ref": "CI-M-005-013",
+          "file": "src/lib/marketProfile/scaling.js",
+          "diff": "--- a/src/lib/marketProfile/scaling.js\n+++ b/src/lib/marketProfile/scaling.js\n@@ -5,7 +5,7 @@\n import { calculateAdaptiveScale as calculateDayRangeScale } from '../dayRangeCalculations.js';\n-import { createPriceScale as createDayRangePriceScale, createDayRangeConfig } from '../dayRangeRenderingUtils.js';\n+import { createDayRangeConfig } from '../dayRangeRenderingUtils.js';\n+import { createPriceScale as createDayRangePriceScale } from '../dayRangeRenderingUtils.js';\n import { getConfig } from '../dayRangeConfig.js';\n \n@@ -43,10 +43,0 @@\n-export function createPriceScale(config, adaptiveScale, height) {\n-  return createDayRangePriceScale(config, adaptiveScale, height);\n-}\n-\n-\n ",
+          "doc_diff": "",
+          "comments": "DL-016: Remove createPriceScale passthrough from scaling.js"
+        },
+        {
+          "id": "CC-CI-M-005-013b",
+          "version": 1,
+          "intent_ref": "CI-M-005-013",
+          "file": "src/lib/marketProfile/orchestrator.js",
+          "diff": "--- a/src/lib/marketProfile/orchestrator.js\n+++ b/src/lib/marketProfile/orchestrator.js\n@@ -6,7 +6,8 @@\n import { validateMarketData } from '../dayRangeRenderingUtils.js';\n-import { calculateAdaptiveScale, createPriceScale, calculateDimensions } from './scaling.js';\n+import { calculateAdaptiveScale, calculateDimensions } from './scaling.js';\n+import { createPriceScale } from '../dayRangeRenderingUtils.js';\n import { calculateMaxTpo, calculateTpoScale, computePOC, calculateValueArea } from './calculations.js';\n import { drawValueArea, drawBars, drawPOC } from './rendering.js';\n import { createDayRangeConfig } from '../dayRangeRenderingUtils.js';\n ",
+          "doc_diff": "",
+          "comments": "DL-016: Update orchestrator.js to import createPriceScale directly from dayRangeRenderingUtils.js"
+        },
+        {
+          "id": "CC-CI-M-005-014a",
+          "version": 1,
+          "intent_ref": "CI-M-005-014",
+          "file": "src/lib/displayCanvasRenderer.js",
+          "diff": "--- a/src/lib/displayCanvasRenderer.js\n+++ b/src/lib/displayCanvasRenderer.js\n@@ -14,6 +14,14 @@\n import { drawPriceMarker } from './dayRangeElements.js';\n \n+export function resolveAxisX(axisXConfig, width) {\n+  if (typeof axisXConfig === 'number' && axisXConfig > 0 && axisXConfig <= 1) {\n+    return width * axisXConfig;\n+  }\n+  return axisXConfig;\n+}\n+\n // Determine display type based on symbol, market profile visibility and data\n@@ -90,10 +90,7 @@\n     const priceScale = createPriceScale(config, adaptiveScale, height);\n \n     // Calculate axis position (same as day range renderer)\n-    let axisX = config.positioning.adrAxisX;\n-    if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {\n-      axisX = width * axisX;\n-    }\n+    let axisX = resolveAxisX(config.positioning.adrAxisX, width);\n \n     // Render user-placed price markers with selection highlighting\n@@ -160,10 +157,7 @@\n     // Calculate ADR axis position (same as Day Range Meter)\n     const dayRangeConfig = getConfig({ positioning: { adrAxisX: width * 0.75 } });\n-    let axisX = dayRangeConfig.positioning.adrAxisX;\n-    if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {\n-      axisX = width * axisX;\n-    }\n+    let axisX = resolveAxisX(dayRangeConfig.positioning.adrAxisX, width);\n \n     ctx.strokeStyle = '#FFD700';\n ",
+          "doc_diff": "",
+          "comments": "DL-017: Extract resolveAxisX utility in displayCanvasRenderer.js, use at 2 call sites"
+        },
+        {
+          "id": "CC-CI-M-005-014b",
+          "version": 1,
+          "intent_ref": "CI-M-005-014",
+          "file": "src/lib/dayRangeOrchestrator.js",
+          "diff": "--- a/src/lib/dayRangeOrchestrator.js\n+++ b/src/lib/dayRangeOrchestrator.js\n@@ -8,6 +8,7 @@\n import { renderCurrentPrice, renderOpenPrice, renderHighLowMarkers, renderPreviousDayOHLC, renderTwapMarker } from './priceMarkerRenderer.js';\n import { renderPercentageMarkers } from './percentageMarkerRenderer.js';\n+import { resolveAxisX } from './displayCanvasRenderer.js';\n \n@@ -53,10 +54,7 @@\n \n   // Calculate axisX for current price rendering\n-  let axisX = config.positioning.adrAxisX;\n-  if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {\n-    axisX = width * axisX;\n-  }\n+  let axisX = resolveAxisX(config.positioning.adrAxisX, width);\n \n   // Render current price LAST so it's always on top of everything\n@@ -82,10 +80,7 @@\n   const { width } = s;\n   let axisX = config.positioning.adrAxisX;\n \n-  // Handle percentage (0-1) as fraction of width\n-  if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {\n-    axisX = width * axisX;\n-  }\n+  axisX = resolveAxisX(axisX, width);\n \n   const mappedData = createMappedData(d);\n ",
+          "doc_diff": "",
+          "comments": "DL-017: Use resolveAxisX from displayCanvasRenderer.js at 2 call sites in dayRangeOrchestrator.js"
+        },
+        {
+          "id": "CC-CI-M-005-015",
+          "version": 1,
+          "intent_ref": "CI-M-005-015",
+          "file": "src/stores/marketDataStore.js",
+          "diff": "--- a/src/stores/marketDataStore.js\n+++ b/src/stores/marketDataStore.js\n@@ -250,11 +250,6 @@\n export function getMarketDataStore(symbol) {\n   if (!marketDataStores.has(symbol)) {\n     const store = writable(createInitialData(symbol));\n-    store.getState = () => {\n-      let value;\n-      store.subscribe(v => value = v)();\n-      return value;\n-    };\n     marketDataStores.set(symbol, store);\n   }\n   return marketDataStores.get(symbol);\n }",
+          "doc_diff": "",
+          "comments": "DL-018: Remove custom getState pattern. Callers should use get() from svelte/store directly (already imported at line 1)."
+        },
+        {
+          "id": "CC-CI-M-005-016",
+          "version": 1,
+          "intent_ref": "CI-M-005-016",
+          "file": "src/lib/displayCanvasRenderer.js",
+          "diff": "--- a/src/lib/displayCanvasRenderer.js\n+++ b/src/lib/displayCanvasRenderer.js\n@@ -14,6 +14,8 @@\n import { drawPriceMarker } from './dayRangeElements.js';\n \n+const DELTA_MARKER_COLOR = '#FFD700';\n+\n export function resolveAxisX(axisXConfig, width) {\n   if (typeof axisXConfig === 'number' && axisXConfig > 0 && axisXConfig <= 1) {\n     return width * axisXConfig;\n@@ -167,7 +169,7 @@\n \n-    ctx.strokeStyle = '#FFD700';\n+    ctx.strokeStyle = DELTA_MARKER_COLOR;\n     ctx.lineWidth = 1;\n@@ -176,8 +178,8 @@\n \n-    drawPriceMarker(ctx, axisX, startY, formattedStartPrice, '#FFD700', true, 'right');\n-    drawPriceMarker(ctx, axisX, currentY, formattedCurrentPrice, '#FFD700', true, 'right', `(${deltaPips})`);\n+    drawPriceMarker(ctx, axisX, startY, formattedStartPrice, DELTA_MARKER_COLOR, true, 'right');\n+    drawPriceMarker(ctx, axisX, currentY, formattedCurrentPrice, DELTA_MARKER_COLOR, true, 'right', `(${deltaPips})`);\n \n@@ -200,7 +202,7 @@\n \n-    ctx.fillStyle = '#FFD700';\n+    ctx.fillStyle = DELTA_MARKER_COLOR;\n     ctx.fillText(percentText, percentX, midY);\n   } catch (error) {",
+          "doc_diff": "",
+          "comments": "DL-019: Extract #FFD700 to DELTA_MARKER_COLOR named constant at file top"
+        },
+        {
+          "id": "CC-CI-M-005-017",
+          "version": 1,
+          "intent_ref": "CI-M-005-017",
+          "file": "src/components/FxBasketDisplay.svelte",
+          "diff": "Verification: unsubscribeStatus is assigned at line 110 from addStatusCallback return value, \nand properly called in onDestroy at line 50. No code change needed - this intent confirms \nexisting cleanup is correct.",
+          "doc_diff": "",
+          "comments": "DL-005: Verification-only intent - unsubscribeStatus cleanup already correct"
+        },
+        {
+          "id": "CC-CI-M-005-018",
+          "version": 1,
+          "intent_ref": "CI-M-005-018",
+          "file": "src/stores/marketDataStore.js",
+          "diff": "--- a/src/stores/marketDataStore.js\n+++ b/src/stores/marketDataStore.js\n@@ -484,8 +484,12 @@\n \n export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {\n-  const key = 'fx-basket-main';\n+  const key = 'fx-basket-' + pairs.sort().join('-');\n   console.log(`[FX BASKET] Starting subscription to ${pairs.length} FX pairs...`);\n   const connectionManager = ConnectionManager.getInstance(getWebSocketUrl());\n \n   const store = { baseline: new Map(), current: new Map(), pairs: new Set() };\n   const stateMachine = createBasketStateMachine(pairs, timeoutMs);\n \n+  // Clean up existing state machine if one exists for this key\n+  if (basketStateMachines.has(key)) {\n+    const oldSm = basketStateMachines.get(key);\n+    if (oldSm?.timeoutId) clearTimeout(oldSm.timeoutId);\n+  }\n+  if (basketStores.has(key)) {\n+    basketStores.delete(key);\n+  }\n+\n   basketStores.set(key, store);\n   basketStateMachines.set(key, stateMachine);\n@@ -551,7 +555,7 @@\n \n export function getBasketState() {\n-  const key = 'fx-basket-main';\n+  // Returns state from the first (most recent) basket state machine\n+  const keys = Array.from(basketStateMachines.keys());\n+  const key = keys.length > 0 ? keys[keys.length - 1] : null;\n+  if (!key) return null;\n   const sm = basketStateMachines.get(key);\n   if (!sm) return null;\n   return {",
+          "doc_diff": "",
+          "comments": "DL-011: Replace hard-coded key with unique key from pairs. Clean up old state machine before overwriting."
+        },
+        {
+          "id": "CC-CI-M-005-019",
+          "version": 1,
+          "intent_ref": "CI-M-005-019",
+          "file": "src/stores/marketDataStore.js",
+          "diff": "--- a/src/stores/marketDataStore.js\n+++ b/src/stores/marketDataStore.js\n@@ -103,6 +103,23 @@\n function updateBasketsLocal(store, stateMachine, affectedCurrency = null) {\n   if (stateMachine.state !== BasketState.READY) {\n     return null;\n   }\n \n   const baselineMap = store.baseline;\n   const currentMap = store.current;\n   const baskets = {};\n \n+  const currenciesToCompute = affectedCurrency\n+    ? [affectedCurrency]\n+    : CURRENCIES;\n+\n-  for (const currency of CURRENCIES) {\n+  for (const currency of currenciesToCompute) {\n     const baselineResult = calculateBasketValue(currency, baselineMap);\n     const currentResult = calculateBasketValue(currency, currentMap);\n@@ -524,7 +541,14 @@\n       const dailyOpen = store.baseline.get(pair);\n       if (dailyOpen && stateMachine.state === BasketState.READY) {\n-        const baskets = updateBasketsLocal(store, stateMachine);\n+        // Determine affected currency from the pair for selective recalculation\n+        const affectedCurrency = pair.length === 6\n+          ? (CURRENCIES.includes(pair.slice(0, 3)) ? pair.slice(0, 3) : null)\n+          : null;\n+        // For non-standard pairs or when currency is ambiguous, recalculate all\n+        const baskets = updateBasketsLocal(\n+          store, stateMachine,\n+          affectedCurrency && CURRENCIES.includes(pair.slice(3)) ? affectedCurrency : null\n+        );\n         if (baskets) onUpdate({ ...baskets, _state: BasketState.READY });\n       }\n     }\n@@ -536,7 +560,14 @@\n       const currentPrice = data.bid || data.ask;\n       store.current.set(pair, currentPrice);\n \n       const dailyOpen = store.baseline.get(pair);\n       if (dailyOpen && stateMachine.state === BasketState.READY) {\n-        const baskets = updateBasketsLocal(store, stateMachine);\n+        const affectedCurrency = pair.length === 6\n+          ? (CURRENCIES.includes(pair.slice(0, 3)) ? pair.slice(0, 3) : null)\n+          : null;\n+        const baskets = updateBasketsLocal(\n+          store, stateMachine,\n+          affectedCurrency && CURRENCIES.includes(pair.slice(3)) ? affectedCurrency : null\n+        );\n         if (baskets) onUpdate({ ...baskets, _state: BasketState.READY });\n       }\n     }",
+          "doc_diff": "",
+          "comments": "DL-035: Selective currency recalculation - only recompute affected currency from pair, falling back to all currencies for ambiguous pairs"
+        }
+      ],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-006",
+      "number": 6,
+      "name": "Low-priority polish",
+      "files": [
+        "src/stores/marketDataStore.js",
+        "src/lib/marketProfile/calculations.js",
+        "src/lib/marketProfile/scaling.js",
+        "src/lib/marketProfile/orchestrator.js",
+        "src/lib/displayCanvasRenderer.js",
+        "src/lib/canvasStatusRenderer.js",
+        "src/lib/visualizers.js"
+      ],
+      "flags": [
+        "low-priority"
+      ],
+      "requirements": [
+        "Remove unused imports in marketDataStore.js (finding 13 already covered in M-003)",
+        "Add deprecation logging to legacy dual-field fallbacks in normalizeData (finding 16 - KEEP fallbacks, do NOT remove)",
+        "Remove unused schemaVersion field (finding 42)",
+        "Remove unused finalTpo return value from expandArea (finding 43)",
+        "Remove dead returns from calculateDimensions (finding S6)",
+        "Extract magic numbers to named constants in scaling.js (finding 44)",
+        "Remove legacy backward-compat comment in orchestrator.js (finding 45)",
+        "Consolidate SYSTEM_FONT_FAMILY to single definition (finding 49)",
+        "Remove redundant clearRect before opaque fillRect in visualizers.js (finding 39)"
+      ],
+      "acceptance_criteria": [
+        "normalizeData retains legacy field fallbacks with DEV-only deprecation logging when legacy names are detected",
+        "calculateDimensions only returns the 2 fields actually consumed",
+        "SYSTEM_FONT_FAMILY defined in exactly one file",
+        "No redundant clearRect+fillRect patterns in visualizers.js"
+      ],
+      "tests": {
+        "files": [],
+        "type": "manual",
+        "backing": "default-derived",
+        "scenarios": {
+          "normal": [
+            "Application renders correctly with deprecation logging added to normalizeData"
+          ],
+          "edge": [
+            "cTrader backend sending legacy field names (todaysOpen/todaysHigh/todaysLow) triggers deprecation warning in dev mode but still normalizes correctly"
+          ],
+          "error": []
+        },
+        "skip_reason": "Low-risk cleanup; build verification catches syntax errors"
+      },
+      "code_intents": [
+        {
+          "id": "CI-M-006-001",
+          "file": "src/stores/marketDataStore.js",
+          "function": "normalizeData",
+          "behavior": "KEEP legacy field fallbacks (todaysHigh/todaysLow/todaysOpen/projectedAdrHigh/projectedAdrLow) because CTraderDataProcessor still sends these names. Instead of removal, add deprecation detection: when a legacy field name is used (e.g., data.todaysHigh is truthy and data.high is falsy), log a DEV-only console.warn indicating the legacy field was used and which backend source should be updated. The fallback pattern `data.high ?? data.todaysHigh ?? null` stays but gets a deprecation comment. Also add the same deprecation logging for the direct `data.todaysOpen` references in the subscribeBasket processorCallback (lines 509-516).",
+          "decision_refs": [
+            "DL-028"
+          ]
+        },
+        {
+          "id": "CI-M-006-002",
+          "file": "src/stores/marketDataStore.js",
+          "function": "createInitialData",
+          "behavior": "Remove `schemaVersion: SCHEMA_VERSION` field from initial data object and remove the SCHEMA_VERSION constant at top of file. It is set but never checked or used.",
+          "decision_refs": [
+            "DL-029"
+          ]
+        },
+        {
+          "id": "CI-M-006-003",
+          "file": "src/lib/marketProfile/calculations.js",
+          "function": "expandArea",
+          "behavior": "Remove `finalTpo` from the return value since the caller does not consume it. Return only `{ levels }` instead of `{ levels, finalTpo }`.",
+          "decision_refs": [
+            "DL-030"
+          ]
+        },
+        {
+          "id": "CI-M-006-004",
+          "file": "src/lib/marketProfile/scaling.js",
+          "function": "calculateDimensions",
+          "behavior": "Remove dead return fields: adrAxisX, padding, profileHeight. Only return marketProfileStartX and marketProfileWidth which are the only fields consumed by callers.",
+          "decision_refs": [
+            "DL-031"
+          ]
+        },
+        {
+          "id": "CI-M-006-005",
+          "file": "src/lib/marketProfile/scaling.js",
+          "function": "calculateAdaptiveScale",
+          "behavior": "Extract magic numbers 0.5 (maxAdrPercentage), 0.75 (axis ratio in calculateDimensions) to named constants at top of file with descriptive names.",
+          "decision_refs": [
+            "DL-032"
+          ]
+        },
+        {
+          "id": "CI-M-006-006",
+          "file": "src/lib/marketProfile/orchestrator.js",
+          "function": "module top comment",
+          "behavior": "Update module-level comment at line 3 to remove 'Maintains backward compatibility with original renderMarketProfile() signature' reference to deleted modules.",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-006-007",
+          "file": "src/lib/canvasStatusRenderer.js",
+          "function": "SYSTEM_FONT_FAMILY constant",
+          "behavior": "Export SYSTEM_FONT_FAMILY constant so other modules (displayCanvasRenderer.js, colors.js) can import it instead of defining their own copies. Update displayCanvasRenderer.js to import from canvasStatusRenderer.js instead of inline font strings.",
+          "decision_refs": [
+            "DL-033"
+          ]
+        },
+        {
+          "id": "CI-M-006-008",
+          "file": "src/lib/visualizers.js",
+          "function": "renderDayRangeWithMarketProfile",
+          "behavior": "Remove the redundant `ctx.clearRect(0, 0, s.width, s.height)` at line 24 since it is immediately followed by an opaque `ctx.fillRect(0, 0, s.width, s.height)` at line 28 that fully covers the cleared area.",
+          "decision_refs": [
+            "DL-034"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {},
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "milestones": [
+        "M-001"
+      ],
+      "rationale": "Bugs first - fix functional issues before any cleanup"
+    },
+    {
+      "wave": 2,
+      "milestones": [
+        "M-002"
+      ],
+      "rationale": "Debug cleanup second - removes production noise, enables clearer testing of subsequent phases"
+    },
+    {
+      "wave": 3,
+      "milestones": [
+        "M-003"
+      ],
+      "rationale": "Dead code removal - reduces codebase surface before design debt fixes"
+    },
+    {
+      "wave": 4,
+      "milestones": [
+        "M-004",
+        "M-005"
+      ],
+      "rationale": "M-004 hardens connection layer (connectionManager, connectionHandler, Workspace.svelte). M-005 cleans up market profile, UI components, and FxBasketDisplay. FxBasketDisplay consolidated into M-005 only (was previously in both). Shared file marketDataStore.js has non-overlapping changes (M-004: debug bridge, M-005: getState/subscribeBasket/updateBasketsLocal)."
+    },
+    {
+      "wave": 5,
+      "milestones": [
+        "M-006"
+      ],
+      "rationale": "Low-priority polish last - only after all higher-impact changes are stable"
+    }
+  ],
+  "milestone_dependencies": {
+    "diagram_ascii": "M-001 --> M-002 --> M-003 --> M-004 --> M-006\n                                      M-003 --> M-005 --> M-006\n                                      (M-004 and M-005 no shared files)",
+    "waves": [
+      {
+        "wave": 1,
+        "milestones": [
+          "M-001"
+        ]
+      },
+      {
+        "wave": 2,
+        "milestones": [
+          "M-002"
+        ]
+      },
+      {
+        "wave": 3,
+        "milestones": [
+          "M-003"
+        ]
+      },
+      {
+        "wave": 4,
+        "milestones": [
+          "M-004",
+          "M-005"
+        ]
+      },
+      {
+        "wave": 5,
+        "milestones": [
+          "M-006"
+        ]
+      }
+    ]
+  },
+  "excluded_findings": [
+    {
+      "id": "F25",
+      "finding": "119-line god function renderMiniMarketProfile reimplements scaling, calculations, and rendering inline",
+      "reason": "Refactoring the mini market profile renderer to delegate to sibling modules is an architectural refactor that exceeds debt remediation scope. The parallel implementation works correctly and has different visual style requirements (compact ticker display). Addressed as future architectural improvement.",
+      "severity": "MEDIUM",
+      "category": "DEBT"
+    },
+    {
+      "id": "F26",
+      "finding": "4 unrelated color palettes for the same visualization across calculations.js, rendering.js, orchestrator.js, and README",
+      "reason": "Color palette consolidation requires a design decision about the target palette and cross-module visual consistency. This is a theming/architecture task beyond debt remediation. Requires UX input. F50 (#0a0a0a scattering) is partially addressed (0.75 axis ratio extracted as constant in M-006, #FFD700 extracted in M-005).",
+      "severity": "LOW",
+      "category": "DEBT"
+    },
+    {
+      "id": "F50",
+      "finding": "#0a0a0a background color hardcoded in 4 files, 0.75 axis ratio in 4+ files",
+      "reason": "Partially addressed: 0.75 axis ratio extracted as named constant in CI-M-006-005, axisX resolution consolidated in CI-M-005-014, #FFD700 extracted in CI-M-005-016. Full #0a0a0a background color centralization requires a centralized theming system (see F26 exclusion). The remaining #0a0a0a instances are in different rendering contexts where a shared constant would add import overhead without meaningful benefit.",
+      "severity": "LOW",
+      "category": "DEBT",
+      "partial_coverage": "0.75 axis ratio -> CI-M-006-005, axisX -> CI-M-005-014, #FFD700 -> CI-M-005-016"
+    }
+  ]
+}

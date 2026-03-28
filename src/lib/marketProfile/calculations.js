@@ -1,26 +1,16 @@
 // Market Profile Calculations - Crystal Clarity Compliant
 // Pure calculation functions: POC, value area, intensity
 
-export function calculateIntensity(level, maxTpo) {
-  return maxTpo > 0 ? level.tpo / maxTpo : 0;
-}
-
 export function calculateMaxTpo(profile) {
   if (!profile || profile.length === 0) return 0;
-  return Math.max(...profile.map(d => d.tpo));
+  return profile.reduce((max, d) => d.tpo > max ? d.tpo : max, 0);
 }
 
 export function calculateTpoScale(maxTpo, marketProfileWidth) {
   return maxTpo > 0 ? marketProfileWidth / maxTpo : 1;
 }
 
-export function getIntensityLevel(intensity) {
-  if (intensity <= 0.6) return 'low';
-  if (intensity <= 0.8) return 'medium';
-  return 'high';
-}
-
-export function getIntensityColor(level, intensity = 0.5) {
+export function getIntensityColor(level) {
   // Cyan shades from dark to light (high intensity = brightest)
   const colors = {
     low: '#0891b2',    // deep cyan
@@ -48,7 +38,7 @@ export function calculateValueArea(profile, targetPercentage = 0.7) {
   const totalTpo = profile.reduce((sum, level) => sum + level.tpo, 0);
   const targetTpo = totalTpo * targetPercentage;
   const pocIndex = findPOCIndex(profile);
-  const { levels, finalTpo } = expandArea(profile, pocIndex, targetTpo);
+  const { levels } = expandArea(profile, pocIndex, targetTpo);
 
   return extractAreaRange(levels);
 }
@@ -76,7 +66,7 @@ function expandArea(profile, pocIndex, targetTpo) {
     }
   }
 
-  return { levels, finalTpo: currentTpo };
+  return { levels };
 }
 
 function selectNextLevel(profile, upperIndex, lowerIndex) {
@@ -104,7 +94,7 @@ function extractAreaRange(levels) {
   const prices = levels.map(level => level.price);
 
   return {
-    high: Math.max(...prices),
-    low: Math.min(...prices)
+    high: prices.reduce((max, p) => p > max ? p : max, -Infinity),
+    low: prices.reduce((min, p) => p < min ? p : min, Infinity)
   };
 }

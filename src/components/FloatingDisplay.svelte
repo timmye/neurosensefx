@@ -24,6 +24,20 @@
   // Flash configuration
   const flashDuration = 500; // ms
 
+  const handlers = {
+    close: () => workspaceActions.removeDisplay(display.id),
+    focus: () => workspaceActions.bringToFront(display.id),
+    refresh: () => {
+      lastMarketProfileData = null;
+      if (unsubscribeSymbol) {
+        unsubscribeSymbol();
+        unsubscribeSymbol = subscribeToSymbol(formattedSymbol, source, { adr: 14 });
+      }
+      canvasRef?.refreshCanvas?.();
+    },
+    keydown: (e) => e.altKey && e.key.toLowerCase() === 'm' && (e.preventDefault(), workspaceActions.toggleMarketProfile(display.id))
+  };
+
   // Compute source and formattedSymbol first (needed for store subscription)
   $: source = display.source || 'ctrader';
   $: formattedSymbol = formatSymbol(display.symbol);
@@ -38,7 +52,7 @@
     lastMarketProfileData = lastData.marketProfile;
   }
 
-  $: ({ currentDisplay, showMarketProfile, selectedMarker, connectionStatus, handlers } =
+  $: ({ currentDisplay, showMarketProfile, selectedMarker, connectionStatus } =
     (() => {
       const d = $workspaceStore.displays.get(display.id) || {};
       const st = status?.status ?? 'disconnected';
@@ -46,20 +60,7 @@
         currentDisplay: d,
         showMarketProfile: d?.showMarketProfile || false,
         selectedMarker: d?.selectedMarker || null,
-        connectionStatus: st,
-        handlers: {
-          close: () => workspaceActions.removeDisplay(display.id),
-          focus: () => workspaceActions.bringToFront(display.id),
-          refresh: () => {
-            lastMarketProfileData = null;
-            if (unsubscribeSymbol) {
-              unsubscribeSymbol();
-              unsubscribeSymbol = subscribeToSymbol(formattedSymbol, source, { adr: 14 });
-            }
-            canvasRef?.refreshCanvas?.();
-          },
-          keydown: (e) => e.altKey && e.key.toLowerCase() === 'm' && (e.preventDefault(), workspaceActions.toggleMarketProfile(display.id))
-        }
+        connectionStatus: st
       };
     })()
   );

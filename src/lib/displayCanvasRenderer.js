@@ -4,13 +4,22 @@
 
 import { renderDayRange, renderDayRangeWithMarketProfile } from './visualizers.js';
 import { renderFxBasket as renderFxBasketOrchestrator } from './fxBasket/fxBasketOrchestrator.js';
-import { renderStatusMessage, renderErrorMessage } from './canvasStatusRenderer.js';
+import { renderStatusMessage, renderErrorMessage, SYSTEM_FONT_FAMILY } from './canvasStatusRenderer.js';
 import { renderUserPriceMarkers, renderHoverPreview } from './priceMarkerRenderer.js';
 import { createPriceScale } from './dayRangeRenderingUtils.js';
 import { calculateAdaptiveScale } from './dayRangeCalculations.js';
 import { getConfig } from './dayRangeConfig.js';
 import { formatPriceToPipLevel, formatPipMovement, formatPriceWithPipPosition } from './priceFormat.js';
 import { drawPriceMarker } from './dayRangeElements.js';
+
+const DELTA_MARKER_COLOR = '#FFD700';
+
+export function resolveAxisX(axisXConfig, width) {
+  if (typeof axisXConfig === 'number' && axisXConfig > 0 && axisXConfig <= 1) {
+    return width * axisXConfig;
+  }
+  return axisXConfig;
+}
 
 // Determine display type based on symbol, market profile visibility and data
 export function getDisplayType(symbol, showMarketProfile, marketProfileData) {
@@ -88,10 +97,7 @@ export function renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hove
     const priceScale = createPriceScale(config, adaptiveScale, height);
 
     // Calculate axis position (same as day range renderer)
-    let axisX = config.positioning.adrAxisX;
-    if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {
-      axisX = width * axisX;
-    }
+    let axisX = resolveAxisX(config.positioning.adrAxisX, width);
 
     // Render user-placed price markers with selection highlighting
     renderUserPriceMarkers(ctx, config, axisX, priceScale, priceMarkers, selectedMarker, data);
@@ -159,12 +165,9 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
 
     // Calculate ADR axis position (same as Day Range Meter)
     const dayRangeConfig = getConfig({ positioning: { adrAxisX: width * 0.75 } });
-    let axisX = dayRangeConfig.positioning.adrAxisX;
-    if (typeof axisX === 'number' && axisX > 0 && axisX <= 1) {
-      axisX = width * axisX;
-    }
+    let axisX = resolveAxisX(dayRangeConfig.positioning.adrAxisX, width);
 
-    ctx.strokeStyle = '#FFD700';
+    ctx.strokeStyle = DELTA_MARKER_COLOR;
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 3]);
     ctx.beginPath();
@@ -173,11 +176,11 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    drawPriceMarker(ctx, axisX, startY, formattedStartPrice, '#FFD700', true, 'right');
-    drawPriceMarker(ctx, axisX, currentY, formattedCurrentPrice, '#FFD700', true, 'right', `(${deltaPips})`);
+    drawPriceMarker(ctx, axisX, startY, formattedStartPrice, DELTA_MARKER_COLOR, true, 'right');
+    drawPriceMarker(ctx, axisX, currentY, formattedCurrentPrice, DELTA_MARKER_COLOR, true, 'right', `(${deltaPips})`);
 
     // Setup font for percentage text
-    ctx.font = config.fonts?.statusMessages || '400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+    ctx.font = config.fonts?.statusMessages || `400 12px ${SYSTEM_FONT_FAMILY}`;
     ctx.textAlign = 'right';
     const midY = (startY + currentY) / 2;
     const percentText = `${deltaPercent}%`;
@@ -198,7 +201,7 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
     );
 
     // Draw percentage text
-    ctx.fillStyle = '#FFD700';
+    ctx.fillStyle = DELTA_MARKER_COLOR;
     ctx.fillText(percentText, percentX, midY);
   } catch (error) {
     console.error('[DISPLAY_CANVAS_RENDERER] Error rendering price delta:', error);

@@ -1,10 +1,10 @@
 // Market Profile Orchestrator - Crystal Clarity Compliant
 // Orchestrates Market Profile rendering by delegating to specialized modules
-// Maintains backward compatibility with original renderMarketProfile() signature
+// Orchestrates rendering pipeline: validate → scale → draw
 
 import { renderStatusMessage, renderErrorMessage } from '../canvasStatusRenderer.js';
-import { validateMarketData } from '../dayRangeRenderingUtils.js';
-import { calculateAdaptiveScale, createPriceScale, calculateDimensions } from './scaling.js';
+import { validateMarketData, createPriceScale } from '../dayRangeRenderingUtils.js';
+import { calculateAdaptiveScale, calculateDimensions } from './scaling.js';
 import { calculateMaxTpo, calculateTpoScale, computePOC, calculateValueArea } from './calculations.js';
 import { drawValueArea, drawBars, drawPOC } from './rendering.js';
 import { createDayRangeConfig } from '../dayRangeRenderingUtils.js';
@@ -26,7 +26,7 @@ export function renderMarketProfile(ctx, data, config) {
     }
 
     const marketData = config.marketData || {};
-    const dimensions = calculateDimensions(width, height, config);
+    const dimensions = calculateDimensions(width);
     const adaptiveScale = calculateAdaptiveScale(data, marketData, width, height);
 
     const baseConfig = createDayRangeConfig({ marketData }, width, height, getConfig);
@@ -78,8 +78,8 @@ export function renderMiniMarketProfile(canvas, profile, size) {
 
   // Calculate price range and create proper price scale
   const prices = profile.map(l => l.price);
-  const minPrice = Math.min(...prices);
-  const maxPrice = Math.max(...prices);
+  const minPrice = prices.reduce((min, p) => p < min ? p : min, Infinity);
+  const maxPrice = prices.reduce((max, p) => p > max ? p : max, -Infinity);
   const priceRange = maxPrice - minPrice || 1;
 
   // Create adaptive scale for proper price-to-Y mapping
@@ -98,7 +98,7 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   };
 
   // Calculate TPO range
-  const maxTpo = Math.max(...profile.map(l => l.tpo));
+  const maxTpo = profile.reduce((max, l) => l.tpo > max ? l.tpo : max, 0);
 
   // Background (Chart BG)
   ctx.fillStyle = '#1a1a1a';
@@ -133,19 +133,6 @@ export function renderMiniMarketProfile(canvas, profile, size) {
     ctx.fillRect(0, y, barWidth, barHeight);
   });
 
-  // Draw POC line (level with highest TPO)
-  // POC Bar color from spec: #FFCC00
-  // const pocLevel = profile.reduce((max, level) =>
-  //   level.tpo > max.tpo ? level : max, profile[0]);
-
-  // if (pocLevel) {
-  //   const pocY = Math.round(priceScale(pocLevel.price));
-
-  //   ctx.strokeStyle = '#FFCC00';
-  //   ctx.lineWidth = 1;
-  //   renderPixelPerfectLine(ctx, 0, pocY, width, pocY);
-  // }
-
   // Draw current price marker (clamp to visible range if price exceeds profile bounds)
   if (currentPrice != null) {
     // Clamp price to visible range for rendering
@@ -176,6 +163,3 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   ctx.fill();
 }
 
-export function renderMarketProfileError(ctx, errorMessage) {
-  renderStatusMessage(ctx, `Market Profile Error: ${errorMessage}`);
-}

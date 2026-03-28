@@ -1,9 +1,6 @@
 <script>
-  console.log('[DEBUGGER:App.svelte:1] Starting imports');
   import Workspace from './components/Workspace.svelte';
-  console.log('[DEBUGGER:App.svelte:2] Workspace imported');
   import './lib/visualizers.js'; // Ensure visualizations are registered
-  console.log('[DEBUGGER:App.svelte:3] visualizers imported');
 </script>
 
 <main>

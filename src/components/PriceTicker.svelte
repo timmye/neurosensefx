@@ -12,7 +12,6 @@
   export let ticker;
 
   // Flash configuration props
-  export let flashPriceEnabled = false;
   export let flashBorderEnabled = true;
   export let flashDuration = 500; // ms
 
@@ -60,16 +59,13 @@
 
   // Flash on price change
   $: if (currentPrice !== null && currentPrice !== lastTrackedPrice) {
-    if (lastTrackedPrice !== null && (flashPriceEnabled || flashBorderEnabled)) {
+    if (lastTrackedPrice !== null && flashBorderEnabled) {
       const isUp = currentPrice > lastTrackedPrice;
       const direction = isUp ? 'up' : 'down';
 
       // Clear any existing timeout
       if (flashTimeout) clearTimeout(flashTimeout);
 
-      if (flashPriceEnabled) {
-        priceFlashClass = `flash-${direction}`;
-      }
       if (flashBorderEnabled) {
         borderFlashClass = `flash-${direction}`;
       }
@@ -145,7 +141,6 @@
 
     return () => {
       unsubscribeSymbol?.();
-      resizeObserver?.disconnect();
     };
   });
 
@@ -276,14 +271,6 @@
   /* Pip digits at full normal size */
   .price-pip-digits {
     font-size: 1em; /* Normal size */
-  }
-
-  .price-value.flash-up {
-    color: var(--flash-color-up);
-  }
-
-  .price-value.flash-down {
-    color: var(--flash-color-down);
   }
 
   /* Tiny top-aligned pipette digit (FX standard) */

@@ -20,10 +20,3 @@ FX basket calculations, state management, and rendering for currency strength di
 | `fxBasketSubscription.js` | Symbol subscription management | Adding basket symbols to subscriptions |
 | `fxBasketValidation.js` | Basket data validation utilities | Validating basket calculations |
 | `README.md` | FX Basket architecture and design | Understanding basket system design |
-
-## Test Files
-
-| File | What | When to read |
-| ---- | ---- | ------------ |
-| `test-basket-adr.js` | ADR calculation unit tests | Testing basket ADR functionality |
-| `test-fxBasket.js` | Basket calculation unit tests | Verifying basket calculations |

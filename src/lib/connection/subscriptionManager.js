@@ -49,11 +49,14 @@ export class SubscriptionManager {
 
   flushPending(ws) {
     if (this.pendingSubscriptions.length === 0) return;
-    console.log(`[SubscriptionManager] Sending ${this.pendingSubscriptions.length} pending`);
-    for (const sub of this.pendingSubscriptions) {
+    const pending = this.pendingSubscriptions;
+    this.pendingSubscriptions = [];
+    if (import.meta.env.DEV) {
+      console.log(`[SubscriptionManager] Sending ${pending.length} pending`);
+    }
+    for (const sub of pending) {
       this.sendSubscription(ws, sub);
     }
-    this.pendingSubscriptions = [];
   }
 
   dispatch(message) {

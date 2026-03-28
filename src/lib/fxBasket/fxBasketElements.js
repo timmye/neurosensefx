@@ -4,8 +4,7 @@
 
 import { renderPixelPerfectLine } from '../dayRangeCore.js';
 import { ZONE_COLORS, BASKET_ZONES } from './fxBasketConfig.js';
-
-const SYSTEM_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+import { SYSTEM_FONT_FAMILY } from '../canvasStatusRenderer.js';
 
 export function measureTextHeight(ctx, config) {
   ctx.font = config.fonts.basketLabel;

@@ -16,7 +16,7 @@ export class ConnectionHandler {
     this.onClose = null;
     this.onError = null;
     this.onMessage = null;
-    this.onStale = null; // NEW: Callback for when connection is detected as stale
+    this.onStale = null;
     // Heartbeat/timeout mechanism to detect stale connections
     this.lastMessageTime = null;
     this.heartbeatCheckInterval = null;
@@ -44,31 +44,47 @@ export class ConnectionHandler {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
-      console.log('[DEBUGGER:ConnectionHandler:onopen:45] WebSocket connected, readyState=' + this.ws.readyState);
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] WebSocket connected, readyState=' + this.ws.readyState);
+      }
       this.connecting = false;
       this.status = 'connected';
-      this.lastMessageTime = Date.now(); // Initialize lastMessageTime on open
-      console.log('[DEBUGGER:ConnectionHandler:onopen:49] lastMessageTime initialized to ' + this.lastMessageTime);
-      console.log('[DEBUGGER:ConnectionHandler:onopen:50] About to call startHeartbeatCheck()');
-      this.startHeartbeatCheck(); // Start heartbeat monitoring
-      console.log('[DEBUGGER:ConnectionHandler:onopen:52] startHeartbeatCheck() completed, calling onOpen callback');
+      this.lastMessageTime = Date.now();
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] lastMessageTime initialized to ' + this.lastMessageTime);
+        console.log('[ConnectionHandler] About to call startHeartbeatCheck()');
+      }
+      this.startHeartbeatCheck();
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] startHeartbeatCheck() completed, calling onOpen callback');
+      }
       if (this.onOpen) this.onOpen();
     };
 
     this.ws.onclose = () => {
-      console.log('[DEBUGGER:ConnectionHandler:onclose:54] WebSocket disconnected, readyState=' + this.ws.readyState);
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] WebSocket disconnected, readyState=' + this.ws.readyState);
+      }
       this.connecting = false;
       this.status = 'disconnected';
       this.ws = null; // Clean up reference to allow reconnection
-      console.log('[DEBUGGER:ConnectionHandler:onclose:58] ws set to null, calling stopHeartbeatCheck');
-      this.stopHeartbeatCheck(); // Stop heartbeat monitoring
-      console.log('[DEBUGGER:ConnectionHandler:onclose:60] About to call onClose callback');
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] ws set to null, calling stopHeartbeatCheck');
+      }
+      this.stopHeartbeatCheck();
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] About to call onClose callback');
+      }
       if (this.onClose) this.onClose();
-      console.log('[DEBUGGER:ConnectionHandler:onclose:62] onClose callback completed');
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] onClose callback completed');
+      }
     };
 
     this.ws.onerror = (error) => {
       console.error('WebSocket error:', error);
+      this.stopHeartbeatCheck();
+      this.ws = null;
       this.connecting = false; // Reset connecting flag on error to allow reconnection
       this.status = 'error';
       if (this.onError) this.onError(error);
@@ -76,32 +92,38 @@ export class ConnectionHandler {
 
     this.ws.onmessage = (event) => {
       const previousTime = this.lastMessageTime;
-      this.lastMessageTime = Date.now(); // Update last message time on any message
+      this.lastMessageTime = Date.now();
       try {
         const data = JSON.parse(event.data);
-        console.log('[DEBUGGER:ConnectionHandler:onmessage:70] Received message type=' + data.type + ', previousTime=' + previousTime + ', newTime=' + this.lastMessageTime + ', gap=' + (previousTime ? (this.lastMessageTime - previousTime) + 'ms' : 'first message'));
+        if (import.meta.env.DEV) {
+          console.log('[ConnectionHandler] Received message type=' + data.type + ', previousTime=' + previousTime + ', newTime=' + this.lastMessageTime + ', gap=' + (previousTime ? (this.lastMessageTime - previousTime) + 'ms' : 'first message'));
+        }
         if (this.onMessage) this.onMessage(data);
       } catch (error) {
-        console.error('[DEBUGGER:ConnectionHandler:onmessage:75] Message parse error:', error);
+        console.error('[ConnectionHandler] Message parse error:', error);
       }
     };
   }
 
   disconnect() {
-    this.stopHeartbeatCheck(); // Stop heartbeat monitoring
+    this.stopHeartbeatCheck();
     if (this.ws) {
       this.ws.close();
     }
   }
 
   startHeartbeatCheck() {
-    console.log('[DEBUGGER:ConnectionHandler:startHeartbeatCheck:88] Starting heartbeat check, status=' + this.status + ', ws.readyState=' + (this.ws?.readyState));
+    if (import.meta.env.DEV) {
+      console.log('[ConnectionHandler] Starting heartbeat check, status=' + this.status + ', ws.readyState=' + (this.ws?.readyState));
+    }
     this.stopHeartbeatCheck(); // Clear any existing interval
     this.heartbeatCheckInterval = setInterval(() => {
       const now = Date.now();
       const timeSinceLastMessage = this.lastMessageTime ? now - this.lastMessageTime : Infinity;
 
-      console.log('[DEBUGGER:ConnectionHandler:heartbeatCheck:92] status=' + this.status + ', timeSinceLastMessage=' + Math.round(timeSinceLastMessage / 1000) + 's, threshold=' + (this.heartbeatTimeoutMs / 1000) + 's, ws.readyState=' + (this.ws?.readyState));
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] status=' + this.status + ', timeSinceLastMessage=' + Math.round(timeSinceLastMessage / 1000) + 's, threshold=' + (this.heartbeatTimeoutMs / 1000) + 's, ws.readyState=' + (this.ws?.readyState));
+      }
 
       // If we haven't received a message in heartbeatTimeoutMs, trigger reconnection
       if (this.status === 'connected' && timeSinceLastMessage > this.heartbeatTimeoutMs) {
@@ -114,7 +136,9 @@ export class ConnectionHandler {
   }
 
   handleStaleConnection() {
-    console.log('[ConnectionHandler] handleStaleConnection() - Cleaning up and triggering reconnection');
+    if (import.meta.env.DEV) {
+      console.log('[ConnectionHandler] handleStaleConnection() - Cleaning up and triggering reconnection');
+    }
     this.stopHeartbeatCheck();
     this.connecting = false;
     this.status = 'disconnected';
@@ -128,28 +152,38 @@ export class ConnectionHandler {
       try {
         this.ws.close();
       } catch (e) {
-        console.log('[ConnectionHandler] ws.close() error (expected):', e.message);
+        if (import.meta.env.DEV) {
+          console.log('[ConnectionHandler] ws.close() error (expected):', e.message);
+        }
       }
       this.ws = null;
     }
 
     // Directly trigger the stale callback (which will schedule reconnect)
     if (this.onStale) {
-      console.log('[ConnectionHandler] Calling onStale callback');
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] Calling onStale callback');
+      }
       this.onStale();
     } else if (this.onClose) {
       // Fallback to onClose if onStale not set
-      console.log('[ConnectionHandler] Calling onClose callback (fallback)');
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] Calling onClose callback (fallback)');
+      }
       this.onClose();
     }
   }
 
   stopHeartbeatCheck() {
-    console.log('[DEBUGGER:ConnectionHandler:stopHeartbeatCheck:105] Stopping heartbeat check');
+    if (import.meta.env.DEV) {
+      console.log('[ConnectionHandler] Stopping heartbeat check');
+    }
     if (this.heartbeatCheckInterval) {
       clearInterval(this.heartbeatCheckInterval);
       this.heartbeatCheckInterval = null;
-      console.log('[DEBUGGER:ConnectionHandler:stopHeartbeatCheck:108] Heartbeat check cleared');
+      if (import.meta.env.DEV) {
+        console.log('[ConnectionHandler] Heartbeat check cleared');
+      }
     }
   }
 

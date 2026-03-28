@@ -4,7 +4,7 @@
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
-| `visualizers.js` | Visualizer registry and initialization | Registering new visualization types |
+| `visualizers.js` | Day range and combined visualization renderers | Registering new visualization types |
 | `connectionManager.js` | WebSocket connection lifecycle management | Debugging connection issues, implementing reconnection |
 | `symbolData.js` | Symbol data cache and management | Working with symbol-specific data |
 | `dataContracts.js` | WebSocket message type definitions and runtime validation | Understanding data shapes, adding new message types, debugging contract violations |
@@ -13,7 +13,6 @@
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
-| `dayRange.js` | Day Range visualization orchestrator | Implementing Day Range features |
 | `dayRangeElements.js` | Canvas element creation and management | Extending day range visual elements |
 | `dayRangeRenderingUtils.js` | Rendering utility functions | Adding rendering helpers |
 | `dayRangeOrchestrator.js` | Day Range update coordination | Understanding render cycle |
@@ -65,8 +64,6 @@
 | ---- | ---- | ------------ |
 | `colors.js` | Color constants and utilities | Changing color schemes |
 | `keyboardHandler.js` | Keyboard event handling | Adding keyboard shortcuts |
-| `interactionSetup.js` | interact.js configuration | Debugging drag/resize behavior |
 | `interactSetup.js` | interact.js configuration factory for FloatingDisplay | Customizing drag/resize/snap behavior |
-| `visualizationRegistry.js` | Visualization type registration | Adding new visualization types |
 | `adrBoundaryRenderer.js` | ADR boundary line rendering | Customizing ADR display |
 | `adrBoundaryCalculations.js` | ADR value calculation logic | Fixing ADR formulas |

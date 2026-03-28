@@ -1,21 +1,17 @@
-import { writable, derived, get } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import { ConnectionManager } from '../lib/connectionManager.js';
 import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
 import { validateWebSocketMessage, logValidationResult } from '../lib/dataContracts.js';
-import { calculateBasketValue, normalizeToBaseline, validateCalculationResult, BASKET_DEFINITIONS, getPairPrice } from '../lib/fxBasket/fxBasketCalculations.js';
-import { computePOC, calculateValueArea, calculateMaxTpo } from '../lib/marketProfile/calculations.js';
-
-const SCHEMA_VERSION = '1.0.0';
+import { calculateBasketValue, normalizeToBaseline, validateCalculationResult } from '../lib/fxBasket/fxBasketCalculations.js';
 
 const marketDataStores = new Map();
 const activeSubscriptions = new Map();
-const latencySamples = new Map();
 
-// FX Basket state management
 const basketStateMachines = new Map();
 const basketStores = new Map();
 
 const BasketState = {
+  IDLE: 'idle',
   FAILED: 'failed',
   WAITING: 'waiting',
   READY: 'ready',
@@ -26,7 +22,7 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'CHF', 'JPY', 'NZD'];
 
 function createBasketStateMachine(expectedPairs, timeoutMs = 60000) {
   return {
-    state: BasketState.FAILED,
+    state: BasketState.IDLE,
     expectedPairs,
     receivedPairs: new Set(),
     failedPairs: new Set(),
@@ -48,7 +44,7 @@ function createBasketStateMachine(expectedPairs, timeoutMs = 60000) {
 function trackPair(sm, pair, dailyOpen, currentPrice) {
   if (!dailyOpen || !currentPrice) return false;
 
-  if (sm.state === BasketState.FAILED) {
+  if (sm.state === BasketState.IDLE || sm.state === BasketState.FAILED) {
     sm.state = BasketState.WAITING;
     sm.startTime = Date.now();
     sm.timeoutId = setTimeout(() => finalizeBasketState(sm), sm.timeoutMs);
@@ -67,7 +63,7 @@ function trackPair(sm, pair, dailyOpen, currentPrice) {
 }
 
 function trackFailedPair(sm, pair, reason) {
-  if (sm.state === BasketState.FAILED) {
+  if (sm.state === BasketState.IDLE || sm.state === BasketState.FAILED) {
     sm.state = BasketState.WAITING;
     sm.startTime = Date.now();
     sm.timeoutId = setTimeout(() => finalizeBasketState(sm), sm.timeoutMs);
@@ -100,7 +96,7 @@ function finalizeBasketState(sm) {
   }
 }
 
-function updateBasketsLocal(store, stateMachine) {
+function updateBasketsLocal(store, stateMachine, affectedCurrency) {
   if (stateMachine.state !== BasketState.READY) {
     return null;
   }
@@ -109,7 +105,9 @@ function updateBasketsLocal(store, stateMachine) {
   const currentMap = store.current;
   const baskets = {};
 
-  for (const currency of CURRENCIES) {
+  const currencies = Array.isArray(affectedCurrency) ? affectedCurrency : affectedCurrency ? [affectedCurrency] : CURRENCIES;
+
+  for (const currency of currencies) {
     const baselineResult = calculateBasketValue(currency, baselineMap);
     const currentResult = calculateBasketValue(currency, currentMap);
 
@@ -159,7 +157,6 @@ function createInitialData(symbol) {
     error: null,
     status: 'pending',
     lastUpdate: null,
-    schemaVersion: SCHEMA_VERSION
   };
 }
 
@@ -173,6 +170,22 @@ function calculateLatency(data, clientReceivedAt) {
 
 function normalizeData(data, currentState) {
   if (data.type === 'symbolDataPackage') {
+    if (!data.high && data.todaysHigh) {
+      if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "todaysHigh" used — backend should send "high"');
+    }
+    if (!data.low && data.todaysLow) {
+      if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "todaysLow" used — backend should send "low"');
+    }
+    if (!data.open && data.todaysOpen) {
+      if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "todaysOpen" used — backend should send "open"');
+    }
+    if (!data.adrHigh && data.projectedAdrHigh) {
+      if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "projectedAdrHigh" used — backend should send "adrHigh"');
+    }
+    if (!data.adrLow && data.projectedAdrLow) {
+      if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "projectedAdrLow" used — backend should send "adrLow"');
+    }
+
     return {
       current: data.current ?? data.price ?? data.bid ?? data.ask ?? null,
       high: data.high ?? data.todaysHigh ?? null,
@@ -184,7 +197,6 @@ function normalizeData(data, currentState) {
       pipSize: data.pipSize ?? currentState.pipSize,
       pipetteSize: data.pipetteSize ?? currentState.pipetteSize,
       source: data.source ?? currentState.source,
-      // profileUpdate messages update marketProfile separately; do not overwrite with symbolDataPackage data
       marketProfile: currentState.marketProfile,
       previousPrice: data.current ?? data.price ?? data.bid ?? data.ask ?? currentState.current ?? null,
       direction: 'neutral',
@@ -229,11 +241,6 @@ function handleStoreUpdate(symbol, data) {
 
   const latency = calculateLatency(data, clientReceivedAt);
 
-  // Record latency sample for statistics
-  if (latency.e2e !== null) {
-    recordLatency(symbol, latency.e2e);
-  }
-
   store.update(current => {
     const normalized = normalizeData(data, current);
     return {
@@ -251,67 +258,9 @@ function handleStoreUpdate(symbol, data) {
 export function getMarketDataStore(symbol) {
   if (!marketDataStores.has(symbol)) {
     const store = writable(createInitialData(symbol));
-    store.getState = () => {
-      let value;
-      store.subscribe(v => value = v)();
-      return value;
-    };
     marketDataStores.set(symbol, store);
   }
   return marketDataStores.get(symbol);
-}
-
-export function createCurrentPriceStore(symbol) {
-  const parent = getMarketDataStore(symbol);
-  return derived(parent, $data => $data.current);
-}
-
-export function createRangePercentStore(symbol) {
-  const parent = getMarketDataStore(symbol);
-  return derived(parent, $data => {
-    if ($data.current === null || $data.high === null || $data.low === null) {
-      return null;
-    }
-    const range = $data.high - $data.low;
-    if (range === 0) return 0;
-    return (($data.current - $data.low) / range) * 100;
-  });
-}
-
-export function createDailyChangeStore(symbol) {
-  const parent = getMarketDataStore(symbol);
-  return derived(parent, $data => {
-    if ($data.current === null || $data.open === null) {
-      return null;
-    }
-    if ($data.open === 0) return 0;
-    return (($data.current - $data.open) / $data.open) * 100;
-  });
-}
-
-export function createLatencyStore(symbol) {
-  const parent = getMarketDataStore(symbol);
-  return derived(parent, $data => $data.latency);
-}
-
-export function createProfileMetricsStore(symbol) {
-  const parent = getMarketDataStore(symbol);
-  return derived(parent, $data => {
-    if (!$data.marketProfile || $data.marketProfile.length === 0) return null;
-    const profile = $data.marketProfile;
-    const prices = profile.map(l => l.price);
-    const maxTpo = calculateMaxTpo(profile);
-    const poc = computePOC(profile);
-    const valueArea = calculateValueArea(profile);
-    return {
-      minPrice: Math.min(...prices),
-      maxPrice: Math.max(...prices),
-      maxTpo,
-      poc,
-      valueArea,
-      levelCount: profile.length
-    };
-  });
 }
 
 export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
@@ -397,7 +346,6 @@ export function unsubscribeFromSymbol(symbol, source = 'ctrader') {
   }
 }
 
-// Connection status as a reactive writable store
 let _connectionStatusStore = null;
 
 export function getConnectionStatus() {
@@ -408,7 +356,6 @@ export function getConnectionStatus() {
       displayStatus: connectionManager.displayStatus
     });
 
-    // Subscribe to status callbacks so the store updates reactively
     connectionManager.addStatusCallback(() => {
       if (_connectionStatusStore) {
         _connectionStatusStore.set({
@@ -419,41 +366,6 @@ export function getConnectionStatus() {
     });
   }
   return _connectionStatusStore;
-}
-
-export function recordLatency(symbol, latencyMs) {
-  if (!latencySamples.has(symbol)) {
-    latencySamples.set(symbol, []);
-  }
-  const samples = latencySamples.get(symbol);
-  samples.push(latencyMs);
-
-  if (samples.length > 100) {
-    samples.shift();
-  }
-}
-
-export function getLatencyStats(symbol) {
-  const samples = latencySamples.get(symbol);
-  if (!samples || samples.length === 0) {
-    return { p50: null, p95: null, p99: null, avg: null };
-  }
-
-  const sorted = [...samples].sort((a, b) => a - b);
-  const len = sorted.length;
-
-  const p50Index = Math.floor(len * 0.5);
-  const p95Index = Math.floor(len * 0.95);
-  const p99Index = Math.floor(len * 0.99);
-
-  const avg = sorted.reduce((sum, v) => sum + v, 0) / len;
-
-  return {
-    p50: sorted[p50Index],
-    p95: sorted[p95Index],
-    p99: sorted[p99Index],
-    avg
-  };
 }
 
 export function clearStore(symbol) {
@@ -467,9 +379,6 @@ export function clearStore(symbol) {
   if (marketDataStores.has(symbol)) {
     marketDataStores.delete(symbol);
   }
-  if (latencySamples.has(symbol)) {
-    latencySamples.delete(symbol);
-  }
 }
 
 export function clearAllStores() {
@@ -479,13 +388,18 @@ export function clearAllStores() {
   }
   activeSubscriptions.clear();
   marketDataStores.clear();
-  latencySamples.clear();
 }
 
 export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
-  const key = 'fx-basket-main';
+  const key = 'fx-basket-' + pairs.sort().join('-');
   console.log(`[FX BASKET] Starting subscription to ${pairs.length} FX pairs...`);
   const connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
+
+  // Clean up existing state machine if present
+  const existingSm = basketStateMachines.get(key);
+  if (existingSm && existingSm.timeoutId) {
+    clearTimeout(existingSm.timeoutId);
+  }
 
   const store = { baseline: new Map(), current: new Map(), pairs: new Set() };
   const stateMachine = createBasketStateMachine(pairs, timeoutMs);
@@ -506,14 +420,18 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
       return;
     }
 
-    if (data.type === 'symbolDataPackage' && data.todaysOpen) {
-      store.baseline.set(pair, data.todaysOpen);
+    if (data.type === 'symbolDataPackage' && (data.open || data.todaysOpen)) {
+      if (!data.open && data.todaysOpen) {
+        if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "todaysOpen" used — backend should send "open"');
+      }
+      const dailyOpen = data.open || data.todaysOpen;
+      store.baseline.set(pair, dailyOpen);
       store.pairs.add(pair);
 
-      const currentPrice = data.current || data.bid || data.ask || data.todaysOpen;
+      const currentPrice = data.current || data.bid || data.ask || dailyOpen;
       store.current.set(pair, currentPrice);
 
-      const wasReady = trackPair(stateMachine, pair, data.todaysOpen, currentPrice);
+      const wasReady = trackPair(stateMachine, pair, dailyOpen, currentPrice);
 
       if (stateMachine.state === BasketState.WAITING) {
         onUpdate({ _state: BasketState.WAITING, _progress: stateMachine.getProgress() });
@@ -527,7 +445,8 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
 
       const dailyOpen = store.baseline.get(pair);
       if (dailyOpen && stateMachine.state === BasketState.READY) {
-        const baskets = updateBasketsLocal(store, stateMachine);
+        const currencies = pair.length >= 6 ? [pair.slice(0, 3), pair.slice(3, 6)] : [];
+        const baskets = updateBasketsLocal(store, stateMachine, currencies.length > 0 ? currencies : undefined);
         if (baskets) onUpdate({ ...baskets, _state: BasketState.READY });
       }
     }
@@ -543,38 +462,35 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
 
   return () => {
     subscriptions.forEach(unsub => unsub());
+    const sm = basketStateMachines.get(key);
+    if (sm && sm.timeoutId) {
+      clearTimeout(sm.timeoutId);
+    }
     basketStores.delete(key);
     basketStateMachines.delete(key);
   };
 }
 
 export function getBasketState() {
-  const key = 'fx-basket-main';
-  const sm = basketStateMachines.get(key);
-  if (!sm) return null;
-  return {
-    state: sm.state,
-    progress: sm.getProgress(),
-    missingPairs: sm.missingPairs,
-    failedPairs: Array.from(sm.failedPairs)
-  };
+  for (const [key, sm] of basketStateMachines) {
+    return {
+      state: sm.state,
+      progress: sm.getProgress(),
+      missingPairs: sm.missingPairs,
+      failedPairs: Array.from(sm.failedPairs)
+    };
+  }
+  return null;
 }
 
 export { BasketState };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
   window.marketDataStore = {
     getMarketDataStore,
-    createCurrentPriceStore,
-    createRangePercentStore,
-    createDailyChangeStore,
-    createLatencyStore,
-    createProfileMetricsStore,
     subscribeToSymbol,
     unsubscribeFromSymbol,
     getConnectionStatus,
-    recordLatency,
-    getLatencyStats,
     clearStore,
     clearAllStores,
     subscribeBasket,
@@ -583,7 +499,6 @@ if (typeof window !== 'undefined') {
     _internal: {
       marketDataStores,
       activeSubscriptions,
-      latencySamples,
       basketStateMachines,
       basketStores
     }

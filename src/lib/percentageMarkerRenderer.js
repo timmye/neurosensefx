@@ -3,6 +3,7 @@
 
 import { setupTextRendering, renderPixelPerfectLine } from './dayRangeCore.js';
 import { calculateMaxAdrPercentage, calculateDayRangePercentage, getYCoordinate } from './dayRangeCalculations.js';
+import { resolveAxisX } from './displayCanvasRenderer.js';
 
 // Main percentage markers orchestrator
 export function renderPercentageMarkers(ctx, config, d, adaptiveScale, height, padding, width) {
@@ -41,12 +42,7 @@ function renderDynamicMarkers(ctx, config, d, adaptiveScale, height, padding, wi
 // Render single static percentage marker
 function renderStaticMarker(ctx, level, config, d, adaptiveScale, height, padding, width) {
   const { positioning, colors } = config;
-  let axisX = positioning.adrAxisX;
-
-  // Handle percentage (0-1) as fraction of width
-  if (typeof axisX === 'number' && axisX > 0 && axisX <= 1 && width) {
-    axisX = width * axisX;
-  }
+  const axisX = resolveAxisX(positioning.adrAxisX, width);
 
   const midPrice = d.open || d.current;
   const adrValue = d.adrHigh - d.adrLow;
@@ -72,12 +68,7 @@ function renderStaticMarker(ctx, level, config, d, adaptiveScale, height, paddin
 // Render dynamic day range percentage centered on 0 line
 function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height, padding, width) {
   const { positioning, colors } = config;
-  let axisX = positioning.adrAxisX;
-
-  // Handle percentage (0-1) as fraction of width
-  if (typeof axisX === 'number' && axisX > 0 && axisX <= 1 && width) {
-    axisX = width * axisX;
-  }
+  const axisX = resolveAxisX(positioning.adrAxisX, width);
 
   const midPrice = d.open || d.current;
   const label = `DR ${dayRangePct}%`;

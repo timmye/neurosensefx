@@ -13,6 +13,7 @@ export class ReconnectionHandler {
   constructor() {
     this.attempts = 0;
     this.maxAttempts = this.getMaxAttemptsFromEnv();
+    this.originalMaxAttempts = this.maxAttempts;
     this.baseDelay = 500; // Fast initial reconnect
     this.maxDelayMs = 10000; // Cap at 10s for trading
     this.lastFailureTime = null;
@@ -56,6 +57,12 @@ export class ReconnectionHandler {
 
   permanentDisconnect() {
     this.maxAttempts = 0;
+  }
+
+  resetMaxAttempts() {
+    this.maxAttempts = this.originalMaxAttempts;
+    this.attempts = 0;
+    this.lastFailureTime = null;
   }
 
   getAttempts() {

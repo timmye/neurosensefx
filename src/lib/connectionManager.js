@@ -4,8 +4,6 @@ let sharedInstance = null;
 import { ConnectionHandler } from './connection/connectionHandler.js';
 import { SubscriptionManager } from './connection/subscriptionManager.js';
 import { ReconnectionHandler } from './connection/reconnectionHandler.js';
-import { createMessageCoordinator } from './websocket/messageCoordinator.js';
-
 export class ConnectionManager {
   constructor(url) {
     this.url = url;
@@ -14,6 +12,7 @@ export class ConnectionManager {
     this.reconnectionHandler = new ReconnectionHandler();
     this.statusCallbacks = new Set();
     this.reconnectTimeout = null;
+    this.reconnectScheduled = false;
     if (typeof document !== 'undefined') {
         this.isTabVisible = !document.hidden;
         document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
@@ -34,6 +33,7 @@ export class ConnectionManager {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
+    this.reconnectScheduled = false;
     const h = this.connectionHandler;
     h.onOpen = () => {
       this.reconnectionHandler.resetAttempts();
@@ -42,31 +42,16 @@ export class ConnectionManager {
       this.notifyStatusChange();
     };
     h.onClose = () => {
-      const shouldReconnect = this.reconnectionHandler.shouldReconnect();
-      if (shouldReconnect) {
-        const attempts = this.reconnectionHandler.incrementAttempts();
-        const delay = this.reconnectionHandler.getDelay(attempts);
-        this.scheduleReconnect(delay);
-      }
+      this.tryScheduleReconnect();
       this.notifyStatusChange();
     };
     h.onError = (e) => {
       console.error('[ConnectionManager] WebSocket error:', e);
-      // Trigger reconnection on error - errors often precede disconnect
-      if (this.reconnectionHandler.shouldReconnect()) {
-        const attempts = this.reconnectionHandler.incrementAttempts();
-        const delay = this.reconnectionHandler.getDelay(attempts);
-        this.scheduleReconnect(delay);
-      }
+      this.tryScheduleReconnect();
       this.notifyStatusChange();
     };
     h.onStale = () => {
-      // Trigger reconnection when heartbeat detects stale connection
-      if (this.reconnectionHandler.shouldReconnect()) {
-        const attempts = this.reconnectionHandler.incrementAttempts();
-        const delay = this.reconnectionHandler.getDelay(attempts);
-        this.scheduleReconnect(delay);
-      }
+      this.tryScheduleReconnect();
       this.notifyStatusChange();
     };
     h.onMessage = (d) => {
@@ -83,16 +68,28 @@ export class ConnectionManager {
     h.connect();
   }
 
+  tryScheduleReconnect() {
+    if (this.reconnectionHandler.shouldReconnect() && !this.reconnectScheduled) {
+      this.reconnectScheduled = true;
+      const attempts = this.reconnectionHandler.incrementAttempts();
+      const delay = this.reconnectionHandler.getDelay(attempts);
+      this.scheduleReconnect(delay);
+    }
+  }
+
   scheduleReconnect(delay) {
+    this.reconnectScheduled = true;
     if (!this.isTabVisible) {
         // Use longer delay when tab is hidden instead of pausing completely
         const hiddenDelay = Math.min(delay * 3, 60000); // Cap at 60s
         this.reconnectTimeout = setTimeout(() => {
+          this.reconnectScheduled = false;
           this.connect(true);
         }, hiddenDelay);
         return;
     }
     this.reconnectTimeout = setTimeout(() => {
+      this.reconnectScheduled = false;
       this.connect(true);
     }, delay);
   }
@@ -123,26 +120,6 @@ export class ConnectionManager {
     return unsubscribe;
   }
 
-  subscribeCoordinated(symbol, onAllReceived, onTimeout, adr = 14, source = 'ctrader', timeoutMs = 5000) {
-    const coordinator = createMessageCoordinator({
-      requiredTypes: ['symbolDataPackage', 'tick'], timeoutMs,
-      onAllReceived: (sym, data) => onAllReceived(data.symbolDataPackage, data.tick),
-      onTimeout: (sym, partial, received) => onTimeout(partial, received)
-    });
-    const key = this.subscriptionManager.makeKey(symbol, source);
-    const callback = (msg) => {
-      if (msg.type === 'symbolDataPackage' || msg.type === 'tick') coordinator.onMessage(symbol, msg.type, msg);
-    };
-    this.subscriptionManager.subscribe(key, callback, adr);
-    this.subscriptionManager.sendSubscription(this.connectionHandler.getWebSocket(), { symbol, adr, source });
-    return () => { this.subscriptionManager.unsubscribe(key, callback); coordinator.cleanup(symbol); };
-  }
-
-  resubscribeSymbol(symbol, source) {
-    const ws = this.connectionHandler.getWebSocket();
-    this.subscriptionManager.resubscribeSymbol(ws, symbol, source);
-  }
-
   disconnect() {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -150,6 +127,29 @@ export class ConnectionManager {
     }
     this.reconnectionHandler.permanentDisconnect();
     this.connectionHandler.disconnect();
+  }
+
+  sendRaw(message) {
+    const ws = this.connectionHandler.getWebSocket();
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      if (import.meta.env.DEV) {
+        console.warn('[ConnectionManager] sendRaw() called with non-OPEN WebSocket');
+      }
+      return false;
+    }
+    ws.send(JSON.stringify(message));
+    return true;
+  }
+
+  addSystemSubscription(callback) {
+    const key = '__SYSTEM__';
+    if (!this.subscriptionManager.subscriptions.has(key)) {
+      this.subscriptionManager.subscriptions.set(key, new Set());
+    }
+    this.subscriptionManager.subscriptions.get(key).add(callback);
+    return () => {
+      this.subscriptionManager.subscriptions.get(key)?.delete(callback);
+    };
   }
 
   addStatusCallback(callback) {

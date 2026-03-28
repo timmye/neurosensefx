@@ -153,7 +153,7 @@
  * @property {'up'|'down'|'neutral'} direction - Price movement direction
  * @property {Array|null} marketProfile - Market profile data
  * @property {number|null} receivedAt - Backend receive timestamp
- * @property {number|null} sentAt - WebSocket send timestamp
+ * @property {number|null} sentAt] - WebSocket send timestamp
  * @property {number|null} clientReceivedAt - Frontend receive timestamp
  * @property {LatencyMetrics} latency - Latency metrics
  * @property {string|null} error - Error message if failed
@@ -228,148 +228,6 @@ export function validateWebSocketMessage(data, context = 'unknown') {
 }
 
 /**
- * Validate SymbolDataPackage fields
- * @param {unknown} data - Data to validate
- * @returns {{valid: boolean, errors: string[], warnings: string[]}}
- */
-export function validateSymbolDataPackage(data) {
-  const errors = [];
-  const warnings = [];
-
-  if (!data || typeof data !== 'object') {
-    errors.push('Expected object, got ' + typeof data);
-    return { valid: false, errors, warnings };
-  }
-
-  const pkg = /** @type {Record<string, unknown>} */ (data);
-
-  // Required fields
-  if (pkg.type !== 'symbolDataPackage') {
-    errors.push(`Expected type 'symbolDataPackage', got '${pkg.type}'`);
-  }
-
-  // Price field presence check (at least one should exist)
-  const priceFields = ['current', 'price', 'bid', 'ask', 'initialPrice', 'todaysOpen'];
-  const hasPriceField = priceFields.some(f => typeof pkg[f] === 'number');
-  if (!hasPriceField) {
-    warnings.push('No price field found (current, price, bid, ask, initialPrice, todaysOpen)');
-  }
-
-  // Range field presence check
-  const hasHigh = typeof pkg.high === 'number' || typeof pkg.todaysHigh === 'number';
-  const hasLow = typeof pkg.low === 'number' || typeof pkg.todaysLow === 'number';
-  if (!hasHigh) {
-    warnings.push('No high price field found (high, todaysHigh)');
-  }
-  if (!hasLow) {
-    warnings.push('No low price field found (low, todaysLow)');
-  }
-
-  // ADR field presence check
-  const hasAdrHigh = typeof pkg.adrHigh === 'number' || typeof pkg.projectedAdrHigh === 'number';
-  const hasAdrLow = typeof pkg.adrLow === 'number' || typeof pkg.projectedAdrLow === 'number';
-  if (!hasAdrHigh || !hasAdrLow) {
-    warnings.push('Missing ADR fields - will use fallback calculation');
-  }
-
-  // Numeric validation for present fields
-  const numericFields = ['current', 'price', 'bid', 'ask', 'high', 'low', 'open', 'adrHigh', 'adrLow', 'pipPosition', 'pipSize'];
-  for (const field of numericFields) {
-    if (pkg[field] !== undefined && typeof pkg[field] !== 'number') {
-      errors.push(`Field '${field}' should be number, got ${typeof pkg[field]}`);
-    }
-    if (typeof pkg[field] === 'number' && !Number.isFinite(pkg[field])) {
-      errors.push(`Field '${field}' is not finite: ${pkg[field]}`);
-    }
-  }
-
-  return { valid: errors.length === 0, errors, warnings };
-}
-
-/**
- * Validate TickData fields
- * @param {unknown} data - Data to validate
- * @returns {{valid: boolean, errors: string[], warnings: string[]}}
- */
-export function validateTickData(data) {
-  const errors = [];
-  const warnings = [];
-
-  if (!data || typeof data !== 'object') {
-    errors.push('Expected object, got ' + typeof data);
-    return { valid: false, errors, warnings };
-  }
-
-  const tick = /** @type {Record<string, unknown>} */ (data);
-
-  if (tick.type !== 'tick') {
-    errors.push(`Expected type 'tick', got '${tick.type}'`);
-  }
-
-  // Symbol is required for tick matching
-  if (!tick.symbol || typeof tick.symbol !== 'string') {
-    errors.push('Missing required field: symbol (string)');
-  }
-
-  // At least one price field
-  const priceFields = ['price', 'bid', 'ask'];
-  const hasPrice = priceFields.some(f => typeof tick[f] === 'number');
-  if (!hasPrice) {
-    warnings.push('No price field found (price, bid, ask)');
-  }
-
-  return { valid: errors.length === 0, errors, warnings };
-}
-
-/**
- * Validate DisplayData output
- * @param {unknown} data - Data to validate
- * @returns {{valid: boolean, errors: string[], warnings: string[]}}
- */
-export function validateDisplayData(data) {
-  const errors = [];
-  const warnings = [];
-
-  if (!data || typeof data !== 'object') {
-    errors.push('Expected object, got ' + typeof data);
-    return { valid: false, errors, warnings };
-  }
-
-  const display = /** @type {Record<string, unknown>} */ (data);
-
-  // Required numeric fields
-  const requiredFields = ['high', 'low', 'current', 'open', 'adrHigh', 'adrLow', 'pipPosition', 'pipSize', 'previousPrice'];
-  for (const field of requiredFields) {
-    if (typeof display[field] !== 'number') {
-      errors.push(`Missing or invalid required field: ${field} (number)`);
-    } else if (!Number.isFinite(display[field])) {
-      errors.push(`Field '${field}' is not finite: ${display[field]}`);
-    }
-  }
-
-  // Direction validation
-  const validDirections = ['up', 'down', 'neutral'];
-  if (!validDirections.includes(String(display.direction))) {
-    errors.push(`Invalid direction: ${display.direction}`);
-  }
-
-  // Sanity checks
-  if (typeof display.high === 'number' && typeof display.low === 'number' && display.high < display.low) {
-    warnings.push(`high (${display.high}) < low (${display.low}) - inverted range`);
-  }
-
-  if (typeof display.current === 'number' && typeof display.high === 'number' && display.current > display.high) {
-    warnings.push(`current (${display.current}) > high (${display.high})`);
-  }
-
-  if (typeof display.current === 'number' && typeof display.low === 'number' && display.current < display.low) {
-    warnings.push(`current (${display.current}) < low (${display.low})`);
-  }
-
-  return { valid: errors.length === 0, errors, warnings };
-}
-
-/**
  * Log validation result in dev mode
  * @param {string} context - Context identifier
  * @param {{valid: boolean, errors?: string[], warnings?: string[]}} result - Validation result
@@ -383,39 +241,4 @@ export function logValidationResult(context, result, data) {
   } else if (result.warnings && result.warnings.length > 0) {
     console.log(`[${context}] Validation warnings:`, result.warnings);
   }
-}
-
-/**
- * Create a validated wrapper for processSymbolData
- * @param {Function} processor - Original processSymbolData function
- * @returns {Function} Wrapped function with validation
- */
-export function withValidation(processor) {
-  return function validatedProcessSymbolData(data, formattedSymbol, lastData) {
-    if (import.meta.env.DEV) {
-      // Validate input
-      const inputValidation = validateWebSocketMessage(data, 'processSymbolData');
-      logValidationResult('processSymbolData:input', inputValidation, data);
-
-      // Type-specific validation
-      if (data?.type === 'symbolDataPackage') {
-        const pkgValidation = validateSymbolDataPackage(data);
-        logValidationResult('processSymbolData:symbolDataPackage', pkgValidation);
-      } else if (data?.type === 'tick') {
-        const tickValidation = validateTickData(data);
-        logValidationResult('processSymbolData:tick', tickValidation);
-      }
-    }
-
-    // Call original processor
-    const result = processor(data, formattedSymbol, lastData);
-
-    if (import.meta.env.DEV && result?.type === 'data') {
-      // Validate output
-      const outputValidation = validateDisplayData(result.data);
-      logValidationResult('processSymbolData:output', outputValidation, result.data);
-    }
-
-    return result;
-  };
 }
