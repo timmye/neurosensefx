@@ -40,10 +40,6 @@ renderMarketProfile mixes data validation, scaling calculations, POC/value area 
 - Consistent Y-coordinates across visualizations
 - Guaranteed parity between overlays
 
-### Why Separate POC/Value Area Files?
-
-`pointOfControl.js` and `valueArea.js` are legacy duplicates maintained for backward compatibility during migration. Use `calculations.js` for new code.
-
 ### Canvas Rendering Strategy
 
 Market Profile renders on hot path, so:

@@ -18,9 +18,3 @@ Development and deployment utility scripts.
 | `update-dependencies.sh` | Dependency update automation | Updating project dependencies |
 | `wsl2-memory-dev.sh` | WSL2 memory configuration | Tuning WSL2 performance |
 | `wsl2-npm-install.sh` | WSL2 npm installation | Setting up npm in WSL2 |
-
-## Subdirectories
-
-| Directory | What | When to read |
-| --------- | ---- | ------------ |
-| `test/` | Test utility scripts | Working with test infrastructure |

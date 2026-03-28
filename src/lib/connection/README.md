@@ -28,7 +28,7 @@ Callback invoked with error handling
 ### Why Split ConnectionManager?
 
 Connection management splits three concerns: WebSocket lifecycle, subscription management, and reconnection logic. The split creates focused modules for each responsibility:
-- `connectionManager.js` (~80 lines): Singleton facade, public API
+- `connectionManager.js` (~80 lines): Singleton facade, public API (located in parent `src/lib/`)
 - `connectionHandler.js` (~60 lines): WebSocket connect/disconnect
 - `subscriptionManager.js` (~100 lines): Subscribe/unsubscribe, dispatch
 - `reconnectionHandler.js` (~60 lines): Exponential backoff, retry logic

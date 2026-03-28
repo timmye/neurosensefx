@@ -77,11 +77,9 @@ dailyBars.slice(-lookback-1, -1)  // Exclude current session (index -1)
 ```
 Backend: M1 bars → initialMarketProfile array
   ↓
-marketProfileProcessor: Bucket aggregation (bucketSize from backend)
+marketProfile/orchestrator.js → calculations.js (POC, value area, intensity)
   ↓
-marketProfileRenderer: TPO letters, POC, value area
-  ↓
-Canvas 2D: Horizontal histogram
+marketProfile/rendering.js → Canvas 2D bars, value area, POC
 ```
 
 **Bucket alignment:** Uses `pipPosition` from symbol data to ensure price levels align with instrument's pip structure (critical for FX pairs where pips != price points).
@@ -135,13 +133,14 @@ Canvas 2D: Horizontal histogram
 **By functionality:**
 
 - `dayRange*.js`: Day Range visualization system
-- `marketProfile*.js`: Market Profile calculation and rendering
+- `marketProfile/`: Market Profile module (orchestrator, scaling, rendering, calculations)
+- `fxBasket/`: FX Basket module (calculations, state machine, rendering, subscriptions)
+- `connection/`: WebSocket connection management (handler, subscription, reconnection)
+- `websocket/`: WebSocket utilities (message coordinator)
 - `priceMarker*.js`: Price marker state, rendering, interaction
 - `display*.js`: WebSocket data processing and Canvas rendering
 - `canvas*.js`: Canvas 2D utilities and status display
 - `colors.js`, `keyboardHandler.js`: Shared utilities
-
-**No subdirectories:** All files in `src/lib/` for fast imports and simple navigation. Crystal Clarity: flat structure preferred over deep nesting.
 
 ## Performance Characteristics
 

@@ -10,8 +10,6 @@ Market Profile visualization with orchestrator pattern.
 | `scaling.js`         | Price-to-Y coordinate mapping, dimensions  | Fixing alignment issues with Day Range Meter      |
 | `rendering.js`       | Canvas drawing (bars, value area, POC)     | Customizing Market Profile appearance              |
 | `calculations.js`    | POC, value area, intensity computations    | Adding calculation types, tuning algorithms        |
-| `pointOfControl.js`  | Legacy POC function (deprecated)           | Migration reference only                           |
-| `valueArea.js`       | Legacy value area function (deprecated)    | Migration reference only                           |
 
 ## README.md
 

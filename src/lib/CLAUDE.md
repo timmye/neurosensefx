@@ -6,9 +6,8 @@
 | ---- | ---- | ------------ |
 | `visualizers.js` | Visualizer registry and initialization | Registering new visualization types |
 | `connectionManager.js` | WebSocket connection lifecycle management | Debugging connection issues, implementing reconnection |
-| `websocket.js` | WebSocket client implementation | Debugging data streaming, implementing WebSocket features |
 | `symbolData.js` | Symbol data cache and management | Working with symbol-specific data |
-| `connectionSetup.js` | Connection initialization logic | Setting up new connections |
+| `dataContracts.js` | WebSocket message type definitions and runtime validation | Understanding data shapes, adding new message types, debugging contract violations |
 
 ## Day Range Rendering
 
@@ -32,9 +31,10 @@
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
-| `marketProfileProcessor.js` | Market Profile data processing | Implementing Market Profile calculations |
-| `marketProfileRenderer.js` | Market Profile visualization rendering | Debugging Market Profile display |
-| `marketProfileConfig.js` | Market Profile configuration constants | Modifying Market Profile parameters |
+| `marketProfile/` | Market Profile module (orchestrator, scaling, rendering, calculations) | See `marketProfile/CLAUDE.md` |
+| `fxBasket/` | FX Basket module (calculations, state machine, rendering, subscriptions) | See `fxBasket/CLAUDE.md` |
+| `connection/` | WebSocket connection management (handler, subscription, reconnection) | See `connection/CLAUDE.md` |
+| `websocket/` | WebSocket utilities (message coordinator) | Coordinating multi-message dependencies |
 
 ## Price Markers
 
@@ -66,6 +66,7 @@
 | `colors.js` | Color constants and utilities | Changing color schemes |
 | `keyboardHandler.js` | Keyboard event handling | Adding keyboard shortcuts |
 | `interactionSetup.js` | interact.js configuration | Debugging drag/resize behavior |
+| `interactSetup.js` | interact.js configuration factory for FloatingDisplay | Customizing drag/resize/snap behavior |
 | `visualizationRegistry.js` | Visualization type registration | Adding new visualization types |
 | `adrBoundaryRenderer.js` | ADR boundary line rendering | Customizing ADR display |
 | `adrBoundaryCalculations.js` | ADR value calculation logic | Fixing ADR formulas |

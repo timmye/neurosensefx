@@ -41,6 +41,7 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `.env.example` | Environment variable template | Setting up development environment |
 | `run.sh` | Service management script (start, stop, dev, status, logs, snapshots) | Managing services, starting dev/prod environments |
 | `playwright.config.cjs` | Playwright E2E test configuration | Setting up E2E tests, debugging test runner |
+| `vite.config.js` | Vite build configuration with Svelte plugin | Modifying build settings, adding Vite plugins |
 
 ## Subdirectories
 
@@ -53,6 +54,8 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `scripts/` | Utility and setup scripts | Setting up development environment |
 | `docs/` | Architecture and design documentation | Understanding system design decisions |
 | `skills/` | Solatis claude-config skills for structured LLM workflows | Using development skills |
+| `plans/` | Implementation plans for features and refactors | Executing planned work, reviewing feature scope |
+| `tests/` | Additional E2E test suites (Market Profile) | Running Market Profile E2E tests |
 
 ## Development
 
