@@ -96,16 +96,6 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
   ctx.restore();
 }
 
-// Get symbol data with defaults for missing properties
-// Note: This function should not be used - pass pipPosition directly to formatPrice()
-export function getSymbolDataWithDefaults(symbolData) {
-  return {
-    pipPosition: symbolData?.pipPosition || 4, // TODO: Remove this fallback - pass pipPosition directly
-    pipSize: symbolData?.pipSize || 0.0001
-    // pipetteSize removed - pip-based buckets are more efficient
-  };
-}
-
 // Format price for display with proper pip handling
 // Supports both market data and symbol data structures for flexibility
 export function formatPriceForDisplay(price, dataOrSymbolData) {
@@ -113,13 +103,6 @@ export function formatPriceForDisplay(price, dataOrSymbolData) {
   // Use ?? instead of || because pipPosition=0 is valid for crypto
   const pipPosition = dataOrSymbolData?.pipPosition ?? dataOrSymbolData?.marketData?.pipPosition;
   return formatPriceWithPipPosition(price, pipPosition);
-}
-
-// Scale for device pixel ratio
-// Note: Context is already scaled by ctx.scale(dpr, dpr) in setupCanvas()
-// So font sizes should use logical pixels directly
-function scaleForDPR(value) {
-  return value;
 }
 
 // Render price with emphasis
@@ -144,7 +127,7 @@ export function renderMultiSizePrice(ctx, x, y, text, emphasisStart, emphasisEnd
   parts.forEach(part => {
     if (!part.text) return;
     const fontSize = part.emphasized ? baseFontSize * defaultConfig.emphasis.ratio : baseFontSize;
-    ctx.font = `${scaleForDPR(fontSize)}px ${SYSTEM_FONT_FAMILY}`;
+    ctx.font = `${fontSize}px ${SYSTEM_FONT_FAMILY}`;
     totalWidth += ctx.measureText(part.text).width;
   });
 
@@ -155,7 +138,7 @@ export function renderMultiSizePrice(ctx, x, y, text, emphasisStart, emphasisEnd
     if (!part.text) return;
 
     const fontSize = part.emphasized ? baseFontSize * defaultConfig.emphasis.ratio : baseFontSize;
-    ctx.font = `${scaleForDPR(fontSize)}px ${SYSTEM_FONT_FAMILY}`;
+    ctx.font = `${fontSize}px ${SYSTEM_FONT_FAMILY}`;
     ctx.fillStyle = color;
 
     ctx.fillText(part.text, currentX, y);

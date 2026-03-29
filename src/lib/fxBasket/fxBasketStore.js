@@ -4,14 +4,6 @@
  * All functions <15 lines (Crystal Clarity)
  */
 
-export function createStore() {
-  return {
-    baseline: new Map(),
-    current: new Map(),
-    pairs: new Set()
-  };
-}
-
 export function setDailyOpen(store, pair, price) {
   store.baseline.set(pair, price);
   store.pairs.add(pair);
@@ -30,8 +22,4 @@ export function getPriceMap(store, type) {
     return store.current;
   }
   throw new Error(`Invalid price map type: ${type}`);
-}
-
-export function hasPairData(store, pair) {
-  return store.baseline.has(pair) && store.current.has(pair);
 }

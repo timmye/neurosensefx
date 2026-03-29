@@ -91,8 +91,3 @@ export function setupTextRendering(ctx, font, baseline = 'middle', align = 'cent
 
 // Centralized price formatting - uses priceFormat.js utility
 export { formatPrice } from './priceFormat.js';
-
-// Enhanced percentage formatting with sign
-export function formatPercentage(pct) {
-  return `${pct > 0 ? '+' : ''}${pct}%`;
-}

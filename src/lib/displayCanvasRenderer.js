@@ -9,7 +9,7 @@ import { renderUserPriceMarkers, renderHoverPreview } from './priceMarkerRendere
 import { createPriceScale } from './dayRangeRenderingUtils.js';
 import { calculateAdaptiveScale } from './dayRangeCalculations.js';
 import { getConfig } from './dayRangeConfig.js';
-import { formatPriceToPipLevel, formatPipMovement, formatPriceWithPipPosition } from './priceFormat.js';
+import { formatPipMovement, formatPriceWithPipPosition } from './priceFormat.js';
 import { drawPriceMarker } from './dayRangeElements.js';
 
 const DELTA_MARKER_COLOR = '#FFD700';

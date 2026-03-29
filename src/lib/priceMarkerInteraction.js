@@ -6,9 +6,8 @@ import { createMarker, getMarkerAtPosition } from './priceMarkers.js';
 import { toPrice } from './priceMarkerCoordinates.js';
 import { createPriceScale } from './dayRangeRenderingUtils.js';
 import { showDropdown } from './priceMarkerDropdown.js';
-import { formatPriceToPipLevel, formatPipMovement, formatPriceWithPipPosition } from './priceFormat.js';
-import { getYCoordinate, calculateAdaptiveScale } from './dayRangeCalculations.js';
-import { drawPriceMarker } from './dayRangeElements.js';
+import { formatPriceToPipLevel } from './priceFormat.js';
+import { calculateAdaptiveScale } from './dayRangeCalculations.js';
 
 export class PriceMarkerInteraction {
   constructor(canvas, displayId, data, scale) {
