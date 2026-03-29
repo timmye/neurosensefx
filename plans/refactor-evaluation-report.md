@@ -1,6 +1,6 @@
 # NeuroSense FX — Refactoring Evaluation Report
 
-**Date:** 2026-03-29
+**Date:** 2026-03-29 (updated post-execution)
 **Scope:** Full codebase (frontend `src/` + backend `services/`)
 **Method:** 25 parallel code quality agents across 38 categories (16 successful, 9 rate-limited)
 **Total Findings:** 80+ across 25 code quality dimensions
@@ -11,7 +11,7 @@
 
 The codebase is in **reasonable shape** following the recent housekeeping (530 files removed) and frontend debt remediation (57 findings). The analysis found **no architectural emergencies**, but identified **7 distinct issue clusters** ranging from a real memory leak bug to pervasive naming inconsistencies. The FX basket module is the most concentrated source of technical debt.
 
-**Overall Code Health Rating: B-**
+**Overall Code Health Rating: B- → B** (upgraded after Work 0 + Work 1)
 
 | Area | Rating | Key Issue |
 |------|--------|-----------|
@@ -20,96 +20,60 @@ The codebase is in **reasonable shape** following the recent housekeeping (530 f
 | Backend Services | B- | Error handling gaps, inconsistent error properties |
 | Data Pipeline | A- | Recent updates show clean structure |
 | Test Coverage | C | Singleton/DI issues block isolated unit testing |
+| Zombie/Dead Code | A | Cleaned — 7 files + 14 exports removed |
 
-**Verdict: Refactoring IS worth the effort, but should be targeted.** The FX basket module consolidation and the 2 real bugs are high-ROI. The string-as-type and DI refactors are valuable but can be deferred.
-
----
-
-## Work Item 0: Delete Dead Files
-**Complexity:** trivial | **Priority:** CRITICAL | **Addresses:** 6 dead modules, ~400 lines
-
-The Zombie Code agent found **6 entire files that are never imported anywhere**:
-
-| File | Lines | What |
-|------|-------|------|
-| `src/lib/percentageMarkers.js` | 53 | Superseded by `percentageMarkerRenderer.js` |
-| `src/lib/priceScale.js` | 20 | Duplicate of `dayRangeRenderingUtils.js` version |
-| `src/lib/fxBasket/basketAdrCalculations.js` | 187 | Entire unused ADR calculation module |
-| `src/lib/fxBasket/fxBasketValidation.js` | 48 | Dead validation layer (validation is NOT running!) |
-| `src/lib/fxBasket/fxBasketSubscription.js` | 27 | Batch subscribe never wired up |
-| `src/lib/websocket/messageCoordinator.js` | 52 | Referenced in a comment but never used |
-| `src/lib/dayRangeMarkers.js` | 19 | Dead re-export barrel file |
-
-Additional dead exports found:
-- 3 of 4 functions in `fxBasketManager.js` are unused (`initializeBaskets`, `getBasketData`, `getAllBaskets`)
-- 2 dead exports in `fxBasketStore.js` (`hasPairData`, `createStore`)
-- 56 lines of commented-out `calculateAdaptiveScaleAsymmetric` in `dayRangeCalculations.js`
-- 5 unused imports in `priceMarkerInteraction.js` and `displayCanvasRenderer.js`
-- `getSymbolDataWithDefaults` in `priceMarkerBase.js` — self-deprecated, 0 call sites
-- `updateMaxPercentage` in `dayRangeCalculations.js` — defined but never called
-- `formatPercentage` in `dayRangeCore.js` — exported, never imported
-- `scaleForDPR` in `priceMarkerBase.js` — identity function (no-op)
-
-**Critical note:** `fxBasketValidation.js` being dead means **basket data validation is NOT running** — the file exists but no code imports it.
-
-**Also found:** `formatPriceWithPipPosition` is marked DEPRECATED in comments but has 9 call sites and is the primary function in use.
-
-**Approach:**
-1. Delete the 7 dead files
-2. Remove dead exports from `fxBasketManager.js` (3 functions), `fxBasketStore.js` (2 functions), `dayRangeCore.js` (1 function)
-3. Remove the 56-line commented-out `calculateAdaptiveScaleAsymmetric` block
-4. Clean up 5 unused imports in `priceMarkerInteraction.js` and `displayCanvasRenderer.js`
-5. Fix the DEPRECATED comment on `formatPriceWithPipPosition` since it's the primary API
-
-**Verification:**
-```bash
-for f in src/lib/percentageMarkers.js src/lib/priceScale.js src/lib/fxBasket/basketAdrCalculations.js src/lib/fxBasket/fxBasketValidation.js src/lib/fxBasket/fxBasketSubscription.js src/lib/websocket/messageCoordinator.js src/lib/dayRangeMarkers.js; do test -f "$f" && echo "EXISTS: $f"; done
-npm test
-```
+**Verdict: Refactoring IS worth the effort, but should be targeted.** Work 0 and Work 1 are complete. The FX basket consolidation (Work 2) is the highest-ROI remaining item.
 
 ---
 
-## Work Item 1: Fix Real Bugs
-**Complexity:** low | **Priority:** CRITICAL | **Addresses:** 2 bugs
+## Progress Tracker
 
-### Bug A: `removeEventListener` Memory Leak
-**File:** `src/lib/priceMarkerInteraction.js:35,174`
-
-```js
-// Line 35 — anonymous arrow registered
-document.addEventListener('keydown', e => e.key === 'Escape' && this.hideDropdown());
-// Line 174 — DIFFERENT anonymous arrow, removeEventListener fails
-document.removeEventListener('keydown', e => e.key === 'Escape' && this.hideDropdown());
-```
-
-**Impact:** The keydown listener is never removed — every time the component mounts/unmounts, another listener accumulates.
-
-Verify: `grep -n "e.key === 'Escape'" src/lib/priceMarkerInteraction.js`
-
-### Bug B: `formatPriceWithPipPosition` Silently Discards Argument
-**File:** `src/lib/displayCanvasRenderer.js:160-161`
-
-```js
-// priceFormat.js:14 — defined with 2 params
-export function formatPriceWithPipPosition(price, pipPosition) {
-// displayCanvasRenderer.js:160 — called with 3, pipSize silently ignored
-const formattedStartPrice = formatPriceWithPipPosition(deltaInfo.startPrice, pipPosition, pipSize);
-```
-
-**Impact:** `pipSize` is discarded — likely a copy-paste from `formatPriceToPipLevel` which does accept it.
-
-Verify: `grep -rn 'formatPriceWithPipPosition(' src/ --include='*.js'`
-
-**Approach:**
-1. Store the keydown handler as `this._escapeHandler` in `priceMarkerInteraction.js`
-2. Use the same reference for both `addEventListener` and `removeEventListener`
-3. Fix `displayCanvasRenderer.js:160-161` to call `formatPriceToPipLevel` if pipSize is needed, or remove the 3rd arg
-
-**Verification:** `npm test`
+| Work | Title | Status | Commit |
+|------|-------|--------|--------|
+| 0 | Delete Dead Files | **DONE** | `afe6715` |
+| 1 | Fix Real Bugs | **DONE** | `e08c894`, `5fc1dd9` |
+| 2 | Consolidate FX Basket | **NEXT** | — |
+| 3 | String-as-Type Enums | Pending | — |
+| 4 | Unify Error Handling | Pending | — |
+| 5 | Normalize symbol/pair Naming | Pending | — |
+| 6 | Surface-Level Cleanups | **Partial** | `afe6715` removed `scaleForDPR`, `getSymbolDataWithDefaults` |
+| 7 | Fix Stale Documentation | Pending | — |
 
 ---
 
-## Work Item 2: Consolidate FX Basket Duplication
+## Work Item 0: Delete Dead Files — DONE
+**Complexity:** trivial | **Status:** COMPLETE | **Commit:** `afe6715`
+
+Deleted 7 files (~406 lines), removed 14 dead exports, cleaned 5 unused imports, removed 56-line commented-out code block. Also removed `scaleForDPR` no-op function and `getSymbolDataWithDefaults` self-deprecated function (partially covers Work 6).
+
+**Key discovery:** `fxBasketValidation.js` was completely dead — basket data validation was NOT running despite the file existing. This gap is now visible and will be addressed in Work 2.
+
+**Quality verified:** `vite build` passes, zero broken imports, zero dangling references.
+
+---
+
+## Work Item 1: Fix Real Bugs — DONE
+**Complexity:** low | **Status:** COMPLETE | **Commit:** `e08c894`, cleanup `5fc1dd9`
+
+### Bug A: Event Listener Memory Leaks — FIXED
+
+All 5 `addEventListener`/`removeEventListener` pairs in `PriceMarkerInteraction` were broken:
+- 4 canvas listeners registered anonymous wrappers (`e => this.handleMouseDown(e)`) but tried to remove with direct method references
+- 1 document listener registered an anonymous arrow but tried to remove with a different anonymous arrow
+
+**Fix:** Stored all 5 handler references as instance properties (`this._handleMouseDown`, etc.) in `init()`, referenced the same properties in `destroy()`.
+
+### Bug B: `formatPriceWithPipPosition` Silent Arg Discard — FIXED
+
+Two calls in `displayCanvasRenderer.js` passed 3 args to a 2-param function, silently discarding `pipSize`.
+
+**Fix:** Chained `formatPriceToPipLevel(price, pipPosition, pipSize)` → `formatPriceWithPipPosition(roundedPrice, pipPosition)` to round to pip level then format.
+
+**Quality verified:** All 5 listener pairs symmetric, zero 3-arg calls to `formatPriceWithPipPosition`, `vite build` passes.
+
+---
+
+## Work Item 2: Consolidate FX Basket Duplication — NEXT UP
 **Complexity:** high | **Priority:** HIGH | **Addresses:** 6 issues, ~130 occurrences
 
 The FX basket module has the densest technical debt. The state machine, constants, validation, and calculation pipelines are all duplicated between `marketDataStore.js` and the `fxBasket*` modules.
@@ -328,20 +292,20 @@ Verify:
 ---
 
 ## Work Item 6: Surface-Level Cleanups (Batch)
-**Complexity:** low | **Priority:** LOW | **Addresses:** 10 surface issues
+**Complexity:** low | **Priority:** LOW | **Addresses:** 10 surface issues (2 already done)
 
-| Issue | File | Fix |
-|-------|------|-----|
-| Boolean trap `connect(true/false)` | `connectionManager.js:87,93,104` | Use `connect({fromReconnect: true})` |
-| Magic number `14` (ADR lookback) | 7 locations | Extract `ADR_LOOKBACK_DAYS = 14` |
-| Magic value `60000` (reconnect cap) | 4 locations | Extract `MAX_RECONNECT_DELAY_MS = 60000` |
-| `scaleForDPR` is identity function | `priceMarkerBase.js:121` | Remove or rename to `logicalPixels()` |
-| `getConnectionStatus` has side effects | `marketDataStore.js:349` | Rename to `getOrCreateConnectionStatusStore` |
-| Single-letter params `ctx, d, s` | `visualizers.js:6,10` | Use `ctx, marketData, config` |
-| Redundant `=== null \|\| === undefined` | `priceFormat.js:7,37,48` | Use `== null` |
-| Dead `typeof import.meta.env` guard | `reconnectionHandler.js:24` | Remove the typeof check |
-| `getSymbolDataWithDefaults` self-deprecated | `priceMarkerBase.js:101` | Remove (0 external call sites) |
-| Dense formula `Math.ceil((x+0.15)*4)/4` | `dayRangeCalculations.js:41,95,143,154` | Extract `roundToNearestQuarter()` |
+| Issue | File | Fix | Status |
+|-------|------|-----|--------|
+| Boolean trap `connect(true/false)` | `connectionManager.js:87,93,104` | Use `connect({fromReconnect: true})` | Pending |
+| Magic number `14` (ADR lookback) | 7 locations | Extract `ADR_LOOKBACK_DAYS = 14` | Pending |
+| Magic value `60000` (reconnect cap) | 4 locations | Extract `MAX_RECONNECT_DELAY_MS = 60000` | Pending |
+| `scaleForDPR` identity function | `priceMarkerBase.js` | Remove or rename | **Done** (afe6715) |
+| `getConnectionStatus` has side effects | `marketDataStore.js:349` | Rename to `getOrCreateConnectionStatusStore` | Pending |
+| Single-letter params `ctx, d, s` | `visualizers.js:6,10` | Use `ctx, marketData, config` | Pending |
+| Redundant `=== null \|\| === undefined` | `priceFormat.js:7,37,48` | Use `== null` | Pending |
+| Dead `typeof import.meta.env` guard | `reconnectionHandler.js:24` | Remove the typeof check | Pending |
+| `getSymbolDataWithDefaults` self-deprecated | `priceMarkerBase.js` | Remove (0 call sites) | **Done** (afe6715) |
+| Dense formula `Math.ceil((x+0.15)*4)/4` | `dayRangeCalculations.js` | Extract `roundToNearestQuarter()` | Pending |
 
 ---
 
@@ -507,18 +471,18 @@ localStorage.setItem('workspace-state', JSON.stringify(data));
 
 ## Execution Notes
 
-**Suggested order:** Work 0 → Work 1 → Work 2 → Work 4 → Work 3 → Work 7 → Work 5 → Work 6
+**Completed:** Work 0 (dead files) + Work 1 (bug fixes) + partial Work 6
 
-**Reasoning:**
-- **Work 0** (dead files) is zero-risk, immediate cleanup — removes confusion
-- **Work 1** (bugs) is zero-risk, immediate value — fixes real issues
-- **Work 2** (FX basket) has the highest structural impact and eliminates the most duplication
-- **Work 4** (error handling) prevents future debugging pain
-- **Work 3** (string enums) is prerequisite-clean but broad — can be done incrementally
-- **Work 7** (docs) is low-risk comment updates
-- **Work 5-6** are low-priority polish
+**Suggested next steps:**
 
-**Estimated total effort:** ~3-4 focused sessions for Work 0-4, remainder as time permits.
+| Order | Work | Why | Effort |
+|-------|------|-----|--------|
+| 1 | **Work 2** (FX basket) | Highest structural impact — eliminates ~130 duplications, fixes BasketState divergence, wires up validation | High (1-2 sessions) |
+| 2 | **Work 4** (error handling) | Prevents future debugging pain — 14 silent catches, inconsistent patterns | Medium (1 session) |
+| 3 | **Work 3** (string enums) | Broad but can be done file-by-file — ~58 bare string comparisons | Medium (1 session) |
+| 4 | **Work 7** (stale docs) | Low-risk comment updates — 8 incorrect claims | Low (30 min) |
+| 5 | **Work 5** (naming) | Symbol/pair convention — ~110 occurrences | Low (30 min) |
+| 6 | **Work 6** (remaining surface) | 8 remaining items from the batch | Low (30 min) |
 
 **External repos** (ctrader layer, tradingview-ws) have their own error handling and API inconsistencies — those should be addressed in their respective repos, not here.
 
