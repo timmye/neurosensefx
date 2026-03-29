@@ -27,11 +27,18 @@ export class PriceMarkerInteraction {
   }
 
   init() {
-    this.canvas.addEventListener('mousedown', e => this.handleMouseDown(e));
-    this.canvas.addEventListener('mousemove', e => this.handleMouseMove(e));
-    this.canvas.addEventListener('mouseup', e => this.handleMouseUp(e));
-    this.canvas.addEventListener('contextmenu', e => this.handleContextMenu(e));
-    document.addEventListener('keydown', e => e.key === 'Escape' && this.hideDropdown());
+    // Store handler references so removeEventListener can remove the exact same functions
+    this._handleMouseDown = e => this.handleMouseDown(e);
+    this._handleMouseMove = e => this.handleMouseMove(e);
+    this._handleMouseUp = e => this.handleMouseUp(e);
+    this._handleContextMenu = e => this.handleContextMenu(e);
+    this._escapeHandler = e => e.key === 'Escape' && this.hideDropdown();
+
+    this.canvas.addEventListener('mousedown', this._handleMouseDown);
+    this.canvas.addEventListener('mousemove', this._handleMouseMove);
+    this.canvas.addEventListener('mouseup', this._handleMouseUp);
+    this.canvas.addEventListener('contextmenu', this._handleContextMenu);
+    document.addEventListener('keydown', this._escapeHandler);
   }
 
   handleMouseDown(e) {
@@ -166,11 +173,11 @@ export class PriceMarkerInteraction {
   destroy() {
     this.hideDropdown();
     this.endDeltaMode(); // Clean up any active delta mode
-    this.canvas.removeEventListener('mousedown', this.handleMouseDown);
-    this.canvas.removeEventListener('mousemove', this.handleMouseMove);
-    this.canvas.removeEventListener('mouseup', this.handleMouseUp);
-    this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
-    document.removeEventListener('keydown', e => e.key === 'Escape' && this.hideDropdown());
+    this.canvas.removeEventListener('mousedown', this._handleMouseDown);
+    this.canvas.removeEventListener('mousemove', this._handleMouseMove);
+    this.canvas.removeEventListener('mouseup', this._handleMouseUp);
+    this.canvas.removeEventListener('contextmenu', this._handleContextMenu);
+    document.removeEventListener('keydown', this._escapeHandler);
 
     // Clear memory references
     this.deltaMode = null;

@@ -9,7 +9,7 @@ import { renderUserPriceMarkers, renderHoverPreview } from './priceMarkerRendere
 import { createPriceScale } from './dayRangeRenderingUtils.js';
 import { calculateAdaptiveScale } from './dayRangeCalculations.js';
 import { getConfig } from './dayRangeConfig.js';
-import { formatPipMovement, formatPriceWithPipPosition } from './priceFormat.js';
+import { formatPipMovement, formatPriceWithPipPosition, formatPriceToPipLevel } from './priceFormat.js';
 import { drawPriceMarker } from './dayRangeElements.js';
 
 const DELTA_MARKER_COLOR = '#FFD700';
@@ -156,9 +156,9 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
     const pipSize = data?.pipSize || 0.0001;
     const deltaPips = formatPipMovement(delta, pipPosition);
 
-    // Use proper FX formatting for prices
-    const formattedStartPrice = formatPriceWithPipPosition(deltaInfo.startPrice, pipPosition, pipSize);
-    const formattedCurrentPrice = formatPriceWithPipPosition(deltaInfo.currentPrice, pipPosition, pipSize);
+    // Round to pip level then format for display
+    const formattedStartPrice = formatPriceWithPipPosition(formatPriceToPipLevel(deltaInfo.startPrice, pipPosition, pipSize), pipPosition);
+    const formattedCurrentPrice = formatPriceWithPipPosition(formatPriceToPipLevel(deltaInfo.currentPrice, pipPosition, pipSize), pipPosition);
 
     const startY = priceScale(deltaInfo.startPrice);
     const currentY = priceScale(deltaInfo.currentPrice);
