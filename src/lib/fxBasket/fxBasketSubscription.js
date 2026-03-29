@@ -1,5 +1,5 @@
 // FX Basket Subscription
-// Extracted from marketDataStore.js — manages basket WebSocket subscriptions
+// Manages basket WebSocket subscriptions and state machine lifecycle
 
 import { ConnectionManager } from '../connectionManager.js';
 import { getWebSocketUrl } from '../displayDataProcessor.js';

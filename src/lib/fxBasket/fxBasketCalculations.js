@@ -2,6 +2,7 @@
 // Ln-weighted currency basket calculations with baseline normalization
 
 import { CURRENCIES } from './fxBasketConfig.js';
+import { canCalculate } from './fxBasketStateMachine.js';
 
 export const BASKET_DEFINITIONS = {
   'USD': { pairs: ['EURUSD', 'USDJPY', 'GBPUSD', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'], weights: [20, 15, 13, 10, 30, 7, 5] },
@@ -109,7 +110,7 @@ export function validateCalculationResult(result) {
  * Returns { USD: { currency, baselineLog, currentLog, normalized, changePercent, initialized }, ... } | null
  */
 export function updateBaskets(store, stateMachine, affectedCurrency) {
-  if (stateMachine.state !== 'ready') {
+  if (!canCalculate(stateMachine)) {
     return null;
   }
 
