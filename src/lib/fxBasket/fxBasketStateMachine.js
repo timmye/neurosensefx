@@ -5,6 +5,7 @@
  */
 
 export const BasketState = {
+  IDLE: 'idle',
   FAILED: 'failed',
   WAITING: 'waiting',
   READY: 'ready',
@@ -13,7 +14,7 @@ export const BasketState = {
 
 export function createStateMachine(expectedPairs, timeoutMs = 10000) {
   return {
-    state: BasketState.FAILED,
+    state: BasketState.IDLE,
     expectedPairs,
     receivedPairs: new Set(),
     failedPairs: new Set(),
@@ -29,7 +30,7 @@ export function createStateMachine(expectedPairs, timeoutMs = 10000) {
 export function trackPair(sm, pair, dailyOpen, currentPrice) {
   if (!dailyOpen || !currentPrice) return false;
 
-  if (sm.state === BasketState.FAILED) {
+  if (sm.state === BasketState.IDLE || sm.state === BasketState.FAILED) {
     sm.state = BasketState.WAITING;
     sm.startTime = Date.now();
     sm.timeoutId = setTimeout(() => finalizeState(sm), sm.timeoutMs);
@@ -52,7 +53,7 @@ export function trackPair(sm, pair, dailyOpen, currentPrice) {
  * Returns true if all pairs have been accounted for (received or failed)
  */
 export function trackFailedPair(sm, pair, reason) {
-  if (sm.state === BasketState.FAILED) {
+  if (sm.state === BasketState.IDLE || sm.state === BasketState.FAILED) {
     sm.state = BasketState.WAITING;
     sm.startTime = Date.now();
     sm.timeoutId = setTimeout(() => finalizeState(sm), sm.timeoutMs);
@@ -112,7 +113,7 @@ export function getFailedPairs(sm) {
 
 export function reset(sm) {
   if (sm.timeoutId) clearTimeout(sm.timeoutId);
-  sm.state = BasketState.FAILED;
+  sm.state = BasketState.IDLE;
   sm.receivedPairs.clear();
   sm.failedPairs.clear();
   sm.startTime = null;

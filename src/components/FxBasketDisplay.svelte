@@ -7,7 +7,7 @@
   import { getAllPairs } from '../lib/fxBasket/fxBasketCalculations.js';
   import { checkDataFreshness, refreshConnection } from '../lib/fxBasket/fxBasketConnection.js';
   import { createDebugAPI, exposeDebugAPI } from '../lib/fxBasket/fxBasketDebug.js';
-  import { subscribeBasket, getBasketState, BasketState } from '../stores/marketDataStore.js';
+  import { subscribeBasket, getBasketState, BasketState } from '../lib/fxBasket/fxBasketSubscription.js';
   import { renderFxBasket } from '../lib/fxBasket/fxBasketOrchestrator.js';
   import DisplayHeader from './displays/DisplayHeader.svelte';
 

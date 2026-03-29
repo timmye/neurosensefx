@@ -1,6 +1,8 @@
 // FX Basket Debug API - Crystal Clarity Compliant (<50 lines)
 // Exposes internal state for testing and debugging
 
+import { CURRENCIES } from './fxBasketConfig.js';
+
 /**
  * Create debug API object with getters for state access
  * @param {Function} getState - Function returning current state object
@@ -70,7 +72,6 @@ export function createDebugAPI(getState) {
         // If no baskets found, return empty placeholder structure
         // (Tests will verify initialized state separately)
         if (Object.keys(baskets).length === 0) {
-          const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'CHF', 'JPY', 'NZD'];
           for (const currency of CURRENCIES) {
             baskets[currency] = {
               currency,

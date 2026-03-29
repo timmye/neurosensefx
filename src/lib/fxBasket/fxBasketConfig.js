@@ -68,6 +68,8 @@ export const ZONE_COLORS = {
 
 // Zone thresholds per basket (from 65-day empirical analysis)
 // Thresholds are absolute daily ranges: |close - open|
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'CHF', 'JPY', 'NZD'];
+
 export const BASKET_ZONES = {
   'USD': { quiet: 0.07, normal: 0.25, active: 0.40 },
   'EUR': { quiet: 0.05, normal: 0.18, active: 0.22 },

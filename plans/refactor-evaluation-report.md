@@ -16,7 +16,7 @@ The codebase is in **reasonable shape** following the recent housekeeping (530 f
 | Area | Rating | Key Issue |
 |------|--------|-----------|
 | Frontend Core (rendering, connection) | B | String-as-type patterns, renderer interface inconsistencies |
-| FX Basket Module | C+ | Heavy duplication (state machine, constants, validation) |
+| FX Basket Module | A- | Clean module ownership, no duplication (Work 2 complete) |
 | Backend Services | B- | Error handling gaps, inconsistent error properties |
 | Data Pipeline | A- | Recent updates show clean structure |
 | Test Coverage | C | Singleton/DI issues block isolated unit testing |
@@ -32,7 +32,7 @@ The codebase is in **reasonable shape** following the recent housekeeping (530 f
 |------|-------|--------|--------|
 | 0 | Delete Dead Files | **DONE** | `afe6715` |
 | 1 | Fix Real Bugs | **DONE** | `e08c894`, `5fc1dd9` |
-| 2 | Consolidate FX Basket | **NEXT** | — |
+| 2 | Consolidate FX Basket | **DONE** | revised approach — extract to fxBasket/ |
 | 3 | String-as-Type Enums | Pending | — |
 | 4 | Unify Error Handling | Pending | — |
 | 5 | Normalize symbol/pair Naming | Pending | — |
@@ -73,10 +73,22 @@ Two calls in `displayCanvasRenderer.js` passed 3 args to a 2-param function, sil
 
 ---
 
-## Work Item 2: Consolidate FX Basket Duplication — NEXT UP
-**Complexity:** high | **Priority:** HIGH | **Addresses:** 6 issues, ~130 occurrences
+## Work Item 2: Consolidate FX Basket Duplication — DONE
+**Complexity:** high | **Priority:** HIGH | **Status:** COMPLETE (revised approach)
 
-The FX basket module has the densest technical debt. The state machine, constants, validation, and calculation pipelines are all duplicated between `marketDataStore.js` and the `fxBasket*` modules.
+**Revised approach:** Instead of consolidating imports while leaving basket ownership in the god store, basket code was extracted out to `src/lib/fxBasket/` where it belongs, then dead Path B files were deleted.
+
+**Changes:**
+1. Deleted 3 dead Path B files: `fxBasketProcessor.js`, `fxBasketStore.js`, `fxBasketManager.js` (173 lines)
+2. Added `IDLE` state to canonical `fxBasketStateMachine.js` BasketState enum
+3. Centralized `CURRENCIES` in `fxBasketConfig.js` (was triplicated)
+4. Added `updateBaskets` pipeline to `fxBasketCalculations.js`
+5. Created `fxBasketSubscription.js` — extracted from `marketDataStore.js`
+6. Updated `fxBasketDebug.js` to import `CURRENCIES` from config
+7. Updated `FxBasketDisplay.svelte` import path
+8. Updated CLAUDE.md docs to reflect new structure
+
+**Result:** `marketDataStore.js` dropped from 507 to ~330 lines. All basket logic lives in `src/lib/fxBasket/`. Zero dead Path B code remains.
 
 ### BasketState Enum Divergence
 
@@ -319,7 +331,6 @@ Verify:
 | `reconnectionHandler.js:1-11` | "1000ms * 2^attempt, max 10, cap 30s" | Actual: baseDelay=500, maxAttempts=Infinity, maxDelay=10000 |
 | `connectionHandler.js:1-4` | "<60 lines" | 201 lines |
 | `fxBasketDebug.js:1` | "<50 lines" | 147 lines |
-| `fxBasketManager.js:1-5` | "All functions <15 lines" | 3 functions are 28-39 lines |
 | `dayRangeElements.js:2` | "<15 lines each" | drawPriceMarker is 59 lines |
 | `priceFormat.js:13` | "DEPRECATED" | Primary function with 9 call sites |
 | `marketProfile/orchestrator.js:57` | JSDoc missing `openPrice` param | Required field omitted |
@@ -409,13 +420,11 @@ static getInstance(url) {
 
 ### Module-Level Mutable Maps as Global State
 ```js
-// marketDataStore.js:7-11
+// marketDataStore.js:7-8 (basket Maps extracted to fxBasketSubscription.js)
 const marketDataStores = new Map();
 const activeSubscriptions = new Map();
-const basketStateMachines = new Map();
-const basketStores = new Map();
 let _connectionStatusStore = null;
-// 5 mutable globals — no injection, no reset between tests
+// 3 mutable globals — no injection, no reset between tests
 ```
 
 ### WebSocket URL Hard-Coded
@@ -471,18 +480,17 @@ localStorage.setItem('workspace-state', JSON.stringify(data));
 
 ## Execution Notes
 
-**Completed:** Work 0 (dead files) + Work 1 (bug fixes) + partial Work 6
+**Completed:** Work 0 (dead files) + Work 1 (bug fixes) + Work 2 (FX basket extraction) + partial Work 6
 
 **Suggested next steps:**
 
 | Order | Work | Why | Effort |
 |-------|------|-----|--------|
-| 1 | **Work 2** (FX basket) | Highest structural impact — eliminates ~130 duplications, fixes BasketState divergence, wires up validation | High (1-2 sessions) |
-| 2 | **Work 4** (error handling) | Prevents future debugging pain — 14 silent catches, inconsistent patterns | Medium (1 session) |
-| 3 | **Work 3** (string enums) | Broad but can be done file-by-file — ~58 bare string comparisons | Medium (1 session) |
-| 4 | **Work 7** (stale docs) | Low-risk comment updates — 8 incorrect claims | Low (30 min) |
-| 5 | **Work 5** (naming) | Symbol/pair convention — ~110 occurrences | Low (30 min) |
-| 6 | **Work 6** (remaining surface) | 8 remaining items from the batch | Low (30 min) |
+| 1 | **Work 4** (error handling) | Prevents future debugging pain — 14 silent catches, inconsistent patterns | Medium (1 session) |
+| 2 | **Work 3** (string enums) | Broad but can be done file-by-file — ~58 bare string comparisons | Medium (1 session) |
+| 3 | **Work 7** (stale docs) | Low-risk comment updates — 8 incorrect claims | Low (30 min) |
+| 4 | **Work 5** (naming) | Symbol/pair convention — ~110 occurrences | Low (30 min) |
+| 5 | **Work 6** (remaining surface) | 8 remaining items from the batch | Low (30 min) |
 
 **External repos** (ctrader layer, tradingview-ws) have their own error handling and API inconsistencies — those should be addressed in their respective repos, not here.
 

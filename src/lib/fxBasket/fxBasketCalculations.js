@@ -1,6 +1,8 @@
 // FX Basket Calculations - Crystal Clarity Compliant
 // Ln-weighted currency basket calculations with baseline normalization
 
+import { CURRENCIES } from './fxBasketConfig.js';
+
 export const BASKET_DEFINITIONS = {
   'USD': { pairs: ['EURUSD', 'USDJPY', 'GBPUSD', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'], weights: [20, 15, 13, 10, 30, 7, 5] },
   'EUR': { pairs: ['EURUSD', 'EURJPY', 'EURGBP', 'EURAUD', 'EURCHF', 'EURCAD', 'EURNZD'], weights: [25, 15, 20, 10, 15, 10, 5] },
@@ -100,4 +102,46 @@ export function validateCalculationResult(result) {
     return { valid: false, reason: 'Coverage cannot exceed 1' };
   }
   return { valid: true, reason: null };
+}
+
+/**
+ * Recalculate basket values for affected currencies.
+ * Returns { USD: { currency, baselineLog, currentLog, normalized, changePercent, initialized }, ... } | null
+ */
+export function updateBaskets(store, stateMachine, affectedCurrency) {
+  if (stateMachine.state !== 'ready') {
+    return null;
+  }
+
+  const baselineMap = store.baseline;
+  const currentMap = store.current;
+  const baskets = {};
+
+  const currencies = Array.isArray(affectedCurrency) ? affectedCurrency : affectedCurrency ? [affectedCurrency] : CURRENCIES;
+
+  for (const currency of currencies) {
+    const baselineResult = calculateBasketValue(currency, baselineMap);
+    const currentResult = calculateBasketValue(currency, currentMap);
+
+    const baselineValidation = validateCalculationResult(baselineResult);
+    const currentValidation = validateCalculationResult(currentResult);
+
+    if (!baselineValidation.valid || !currentValidation.valid) {
+      baskets[currency] = null;
+      continue;
+    }
+
+    const normalized = normalizeToBaseline(currentResult.value, baselineResult.value);
+
+    baskets[currency] = {
+      currency,
+      baselineLog: baselineResult.value,
+      currentLog: currentResult.value,
+      normalized: normalized ?? 100,
+      changePercent: (normalized ?? 100) - 100,
+      initialized: true
+    };
+  }
+
+  return baskets;
 }
