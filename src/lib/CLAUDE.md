@@ -16,7 +16,6 @@
 | `dayRangeElements.js` | Canvas element creation and management | Extending day range visual elements |
 | `dayRangeRenderingUtils.js` | Rendering utility functions | Adding rendering helpers |
 | `dayRangeOrchestrator.js` | Day Range update coordination | Understanding render cycle |
-| `dayRangeMarkers.js` | Price marker rendering for day range | Debugging marker display |
 
 ## Day Range Calculations
 
@@ -33,7 +32,6 @@
 | `marketProfile/` | Market Profile module (orchestrator, scaling, rendering, calculations) | See `marketProfile/CLAUDE.md` |
 | `fxBasket/` | FX Basket module (calculations, state machine, rendering, subscriptions) | See `fxBasket/CLAUDE.md` |
 | `connection/` | WebSocket connection management (handler, subscription, reconnection) | See `connection/CLAUDE.md` |
-| `websocket/` | WebSocket utilities (message coordinator) | Coordinating multi-message dependencies |
 
 ## Price Markers
 
@@ -44,10 +42,8 @@
 | `priceMarkerRenderer.js` | Price marker drawing logic | Customizing marker appearance, adding historical price markers |
 | `priceMarkerInteraction.js` | Marker drag, drop, click handlers | Implementing marker interactions |
 | `priceMarkerDropdown.js` | Marker configuration UI | Adding marker options |
-| `priceScale.js` | Price axis scaling calculations | Fixing scale issues |
 | `priceFormat.js` | Price formatting utilities | Formatting display values |
 | `priceMarkers.js` | Price marker collection management | Working with multiple markers |
-| `percentageMarkers.js` | Percentage-based marker utilities | Implementing percentage markers |
 | `percentageMarkerRenderer.js` | Percentage marker drawing | Customizing percentage display |
 
 ## Display & Rendering

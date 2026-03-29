@@ -66,22 +66,6 @@ export function normalizeToBaseline(currentLog, baselineLog) {
   return (Math.exp(currentLog) / Math.exp(baselineLog)) * 100;
 }
 
-// Initialize all baskets with baseline log values
-export function initializeBaskets(priceMap) {
-  const baskets = {};
-  for (const currency of Object.keys(BASKET_DEFINITIONS)) {
-    const baselineLog = calculateBasketValue(currency, priceMap);
-    baskets[currency] = {
-      currency,
-      baselineLog,
-      currentLog: baselineLog,
-      normalized: 100,
-      changePercent: 0
-    };
-  }
-  return baskets;
-}
-
 // Get all unique pairs from all basket definitions
 export function getAllPairs() {
   const pairSet = new Set();
