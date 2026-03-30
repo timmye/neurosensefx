@@ -14,9 +14,53 @@ All parameters hardcoded to user's original aesthetic values.
 <script>
   import * as THREE from 'three';
   import { onMount } from 'svelte';
+  import { volatilityStore } from '../stores/volatilityStore.js';
 
   let container;
   let renderer, material, animationId;
+
+  let volatility = { smoothedSigma: 0, smoothedMaxZone: 0, smoothedVelocity: 0, smoothedRange: 0, ready: false };
+
+  // Set to false to disable volatility-driven background effects
+  let volatilityEffectsEnabled = false;
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  const ZONE_COLORS = [
+    [0x57/255, 0x8f/255, 0xff/255],
+    [0x00/255, 0xd4/255, 0xaa/255],
+    [0xe0/255, 0x40/255, 0xfb/255],
+    [0xff/255, 0x6b/255, 0x35/255],
+    [0xef/255, 0x44/255, 0x44/255],
+  ];
+
+  const ACCENT_COLORS = [
+    [0x00/255, 0x42/255, 0x80/255],
+    [0x6b/255, 0x21/255, 0xa8/255],
+    [0xff/255, 0x6b/255, 0x35/255],
+  ];
+
+  function colorForZone(score) {
+    const colors = ZONE_COLORS;
+    const t = Math.min(Math.max(score, 0), 100) / 25;
+    const i = Math.min(Math.floor(t), 3);
+    const f = t - i;
+    const c1 = colors[i];
+    const c2 = colors[i + 1];
+    return { r: lerp(c1[0], c2[0], f), g: lerp(c1[1], c2[1], f), b: lerp(c1[2], c2[2], f) };
+  }
+
+  function accentForZone(score) {
+    const colors = ACCENT_COLORS;
+    const t = Math.min(Math.max(score, 0), 100) / 50;
+    const i = Math.min(Math.floor(t), 1);
+    const f = t - i;
+    const c1 = colors[i];
+    const c2 = colors[i + 1];
+    return { r: lerp(c1[0], c2[0], f), g: lerp(c1[1], c2[1], f), b: lerp(c1[2], c2[2], f) };
+  }
 
   const vertexShader = `
     varying vec2 vUv;
@@ -48,6 +92,7 @@ All parameters hardcoded to user's original aesthetic values.
     uniform vec3 uColor2;
     uniform vec3 uAccent;
     uniform vec3 uBgColor;
+    uniform float uOpacity;
     varying vec2 vUv;
 
     vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -163,7 +208,7 @@ All parameters hardcoded to user's original aesthetic values.
       float dither = (random(uv + t) - 0.5) * uDitherStrength;
       color += dither;
 
-      gl_FragColor = vec4(color, 1.0);
+      gl_FragColor = vec4(color, uOpacity);
     }
   `;
 
@@ -171,10 +216,12 @@ All parameters hardcoded to user's original aesthetic values.
     // Skip entire WebGL setup in headless/test environments
     if (navigator.webdriver) return;
 
+    const unsubVolatility = volatilityStore.subscribe(v => { volatility = v; });
+
     try {
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-      renderer = new THREE.WebGLRenderer({ antialias: false });
+      renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       container.appendChild(renderer.domElement);
 
@@ -200,7 +247,8 @@ All parameters hardcoded to user's original aesthetic values.
           uColor1: { value: new THREE.Color('#020712') },
           uColor2: { value: new THREE.Color('#578fff') },
           uAccent: { value: new THREE.Color('#004280') },
-          uBgColor: { value: new THREE.Color('#1b1d50') }
+          uBgColor: { value: new THREE.Color('#1b1d50') },
+          uOpacity: { value: 0.1 }
         },
         vertexShader,
         fragmentShader
@@ -216,6 +264,51 @@ All parameters hardcoded to user's original aesthetic values.
       function animate() {
         animationId = requestAnimationFrame(animate);
         material.uniforms.uTime.value = clock.getElapsedTime();
+
+        // ── Volatility-driven uniform adjustments ──
+        // Each metric drives its own shader uniform independently (no averaging).
+        // Adjust the lerp() second arg (max value) to control intensity.
+        //
+        // uSpeed:     How fast the background pattern moves.
+        //             Driven by EWMA velocity (rate of price change).
+        //             Range: 0.02 (calm) → 0.06 (extreme).
+        //             Higher max = faster, more distracting movement.
+        //
+        // uTurbulence: How chaotic/fragmented the noise pattern becomes.
+        //              Driven by dispersion sigma (cross-currency divergence).
+        //              Range: 0.8 (calm) → 3.5 (extreme).
+        //              Higher max = more visual chaos when currencies diverge.
+        //
+        // uPulse:     Amplitude of the pulsing/breathing effect.
+        //             Driven by range (spread between strongest & weakest currency).
+        //             Range: 0.0 (calm) → 0.4 (extreme).
+        //             Higher max = more visible pulsing.
+        //
+        // uColor2:    Primary pattern color.
+        //             Driven by max zone score (single-currency extreme).
+        //             Gradient: blue → teal → magenta → orange → red.
+        //             Adjust ZONE_COLORS array to change the color stops.
+        //
+        // uAccent:    Accent/highlight color.
+        //             Also driven by max zone score.
+        //             Gradient: dark blue → purple → orange.
+        //             Adjust ACCENT_COLORS array to change the color stops.
+        //
+        // uOpacity:   Overall transparency of the entire background effect.
+        //             Range: 0.0 (invisible) → 1.0 (full opaque).
+        //             Set below 1.0 to let the CSS gradient behind show through.
+        //             Useful to dial down the effect without changing individual params.
+        if (volatility.ready && volatilityEffectsEnabled) {
+          const v = volatility;
+          material.uniforms.uSpeed.value = lerp(0.02, 0.06, v.smoothedVelocity / 100);
+          material.uniforms.uTurbulence.value = lerp(0.8, 3.5, v.smoothedSigma / 100);
+          material.uniforms.uPulse.value = lerp(0.0, 0.4, v.smoothedRange / 100);
+          const c2 = colorForZone(v.smoothedMaxZone);
+          material.uniforms.uColor2.value.setRGB(c2.r, c2.g, c2.b);
+          const ac = accentForZone(v.smoothedMaxZone);
+          material.uniforms.uAccent.value.setRGB(ac.r, ac.g, ac.b);
+        }
+
         renderer.render(scene, camera);
       }
       animate();
@@ -229,12 +322,14 @@ All parameters hardcoded to user's original aesthetic values.
       return () => {
         window.removeEventListener('resize', handleResize);
         cancelAnimationFrame(animationId);
+        unsubVolatility();
         geometry.dispose();
         material.dispose();
         renderer.dispose();
         renderer.domElement.remove();
       };
     } catch (e) {
+      unsubVolatility();
       console.warn('WebGL not supported:', e);
     }
   });

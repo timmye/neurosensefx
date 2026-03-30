@@ -5,6 +5,8 @@ import { ConnectionManager } from '../connectionManager.js';
 import { getWebSocketUrl } from '../displayDataProcessor.js';
 import { BasketState, createStateMachine, trackPair, trackFailedPair } from './fxBasketStateMachine.js';
 import { updateBaskets } from './fxBasketCalculations.js';
+import { initVolatility, computeVolatility, resetVolatility } from './fxBasketVolatility.js';
+import { volatilityStore } from '../../stores/volatilityStore.js';
 
 const basketStateMachines = new Map();
 const basketStores = new Map();
@@ -23,6 +25,7 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
   const store = { baseline: new Map(), current: new Map(), pairs: new Set() };
   const stateMachine = createStateMachine(pairs, timeoutMs);
   let lastBaskets = null;
+  let volInitialized = false;
 
   basketStores.set(key, store);
   basketStateMachines.set(key, stateMachine);
@@ -61,6 +64,11 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
         if (baskets) {
           lastBaskets = { ...baskets };
           onUpdate({ ...lastBaskets, _state: BasketState.READY });
+          if (!volInitialized) {
+            initVolatility(baskets);
+            volInitialized = true;
+          }
+          volatilityStore.set(computeVolatility(baskets));
         }
       } else if (stateMachine.state === BasketState.READY && lastBaskets) {
         // Reconnect: baseline updated, recalculate all baskets
@@ -68,6 +76,7 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
         if (baskets) {
           lastBaskets = { ...baskets };
           onUpdate({ ...lastBaskets, _state: BasketState.READY });
+          volatilityStore.set(computeVolatility(baskets));
         }
       }
     } else if (data.type === 'tick' && (data.bid || data.ask)) {
@@ -81,6 +90,7 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
         if (partial) {
           lastBaskets = { ...lastBaskets, ...partial };
           onUpdate({ ...lastBaskets, _state: BasketState.READY });
+          volatilityStore.set(computeVolatility(lastBaskets));
         }
       }
     }
@@ -95,6 +105,9 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
   console.log(`[FX BASKET] All ${pairs.length} subscriptions complete`);
 
   return () => {
+    resetVolatility();
+    volInitialized = false;
+    volatilityStore.set({ sigma: 0, maxZone: 0, ewmaVelocity: 0, range: 0, smoothedSigma: 0, smoothedMaxZone: 0, smoothedVelocity: 0, smoothedRange: 0, perBasket: {}, ready: false });
     subscriptions.forEach(unsub => unsub());
     const sm = basketStateMachines.get(key);
     if (sm && sm.timeoutId) {
