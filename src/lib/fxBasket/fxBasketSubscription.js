@@ -22,6 +22,7 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
 
   const store = { baseline: new Map(), current: new Map(), pairs: new Set() };
   const stateMachine = createStateMachine(pairs, timeoutMs);
+  let lastBaskets = null;
 
   basketStores.set(key, store);
   basketStateMachines.set(key, stateMachine);
@@ -55,8 +56,19 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
       if (stateMachine.state === BasketState.WAITING) {
         onUpdate({ _state: BasketState.WAITING, _progress: stateMachine.getProgress() });
       } else if (wasReady && stateMachine.state === BasketState.READY) {
+        // Initial READY transition - calculate all baskets
         const baskets = updateBaskets(store, stateMachine);
-        if (baskets) onUpdate({ ...baskets, _state: BasketState.READY });
+        if (baskets) {
+          lastBaskets = { ...baskets };
+          onUpdate({ ...lastBaskets, _state: BasketState.READY });
+        }
+      } else if (stateMachine.state === BasketState.READY && lastBaskets) {
+        // Reconnect: baseline updated, recalculate all baskets
+        const baskets = updateBaskets(store, stateMachine);
+        if (baskets) {
+          lastBaskets = { ...baskets };
+          onUpdate({ ...lastBaskets, _state: BasketState.READY });
+        }
       }
     } else if (data.type === 'tick' && (data.bid || data.ask)) {
       const currentPrice = data.bid || data.ask;
@@ -65,8 +77,11 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
       const dailyOpen = store.baseline.get(pair);
       if (dailyOpen && stateMachine.state === BasketState.READY) {
         const currencies = pair.length >= 6 ? [pair.slice(0, 3), pair.slice(3, 6)] : [];
-        const baskets = updateBaskets(store, stateMachine, currencies.length > 0 ? currencies : undefined);
-        if (baskets) onUpdate({ ...baskets, _state: BasketState.READY });
+        const partial = updateBaskets(store, stateMachine, currencies.length > 0 ? currencies : undefined);
+        if (partial) {
+          lastBaskets = { ...lastBaskets, ...partial };
+          onUpdate({ ...lastBaskets, _state: BasketState.READY });
+        }
       }
     }
   };

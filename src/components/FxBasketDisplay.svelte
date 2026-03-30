@@ -23,6 +23,7 @@
   let freshnessCheckInterval;
   let resizeObserver;
   let ctx, canvas;
+  let renderPending = false;
 
   $: currentDisplay = $workspaceStore.displays.get(display.id);
 
@@ -111,10 +112,15 @@
 
   function renderCanvas() {
     if (!ctx || !canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const dimensions = { width: rect.width, height: rect.height };
-    const currentData = basketData || { _state: BasketState.FAILED, _progress: { received: 0, total: 30 } };
-    renderFxBasket(ctx, currentData, {}, dimensions);
+    if (renderPending) return;
+    renderPending = true;
+    requestAnimationFrame(() => {
+      renderPending = false;
+      const rect = canvas.getBoundingClientRect();
+      const dimensions = { width: rect.width, height: rect.height };
+      const currentData = basketData || { _state: BasketState.FAILED, _progress: { received: 0, total: 30 } };
+      renderFxBasket(ctx, currentData, {}, dimensions);
+    });
   }
 
   function setupConnectionMonitoring() {
