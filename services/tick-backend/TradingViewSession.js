@@ -24,8 +24,10 @@ class TradingViewSession extends EventEmitter {
         this.subscriptions = new Map();
         this.unsubscribe = null;
 
-        // 6s staleness threshold to avoid false positives during normal market low-activity periods
-        this.healthMonitor = new HealthMonitor('tradingview', 6000, 1000);
+        // 5min staleness threshold - TradingView has no heartbeat mechanism,
+        // only actual candle data resets the timer. Quiet periods between
+        // subscriptions or during low-activity can be very long.
+        this.healthMonitor = new HealthMonitor('tradingview', 300000, 30000);
         this.reconnection = new ReconnectionManager(15000, 500, Number(process.env.MAX_RECONNECT_ATTEMPTS) || 20);
 
         // Track current M1 bars being built from tick data
@@ -63,10 +65,11 @@ class TradingViewSession extends EventEmitter {
                 this.handleEvent(event);
             });
 
-            // Initialize health monitor and start tracking
+            // Initialize health monitor - start first (resets lastTick),
+            // then record tick immediately to prevent immediate staleness
             this.connectedAt = Date.now();
-            this.healthMonitor.recordTick(); // Prevent immediate staleness on connect
             this.healthMonitor.start();
+            this.healthMonitor.recordTick();
             this.reconnection.reset();
 
             console.log('[TradingView] Connected');

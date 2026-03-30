@@ -81,7 +81,7 @@ function finalizeState(sm) {
   if (sm.state === BasketState.READY) return;
 
   const coverage = sm.receivedPairs.size / sm.expectedPairs.length;
-  sm.missingPairs = sm.expectedPairs.filter(p => !sm.receivedPairs.has(p) && !sm.failedPairs.has(p));
+  sm.missingPairs = sm.expectedPairs.filter(p => !sm.receivedPairs.has(p));
 
   // Require 100% coverage to align with fxBasketCalculations.js requirement
   if (coverage >= 1.0) {

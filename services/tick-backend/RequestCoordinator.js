@@ -12,6 +12,9 @@ class RequestCoordinator {
         this.pendingTradingViewRequests = new Map(); // "symbol" -> Set<clients>
         this.MAX_RETRIES = 3;
         this.INITIAL_RETRY_DELAY_MS = 500;
+        this._queue = [];
+        this._processing = false;
+        this._MIN_REQUEST_INTERVAL_MS = 300;
     }
 
     /**
@@ -27,7 +30,7 @@ class RequestCoordinator {
             return this.handleTradingViewRequest(symbol, adrLookbackDays, client, onComplete);
         }
 
-        return this.handleCTraderRequest(symbol, adrLookbackDays, client, onComplete);
+        return this.handleCTraderRequest(symbol, adrLookbackDays, client, source, onComplete);
     }
 
     /**
@@ -37,16 +40,54 @@ class RequestCoordinator {
      * @param {WebSocket} client - Client making the request
      * @param {Function} onComplete - Optional callback called after data is sent to clients
      */
-    async handleCTraderRequest(symbol, adrLookbackDays, client, onComplete = null) {
+    async handleCTraderRequest(symbol, adrLookbackDays, client, source = 'ctrader', onComplete = null) {
         const requestKey = `${symbol}:${adrLookbackDays}`;
 
         const existingRequest = this.checkCoalescing(requestKey, client);
         if (existingRequest) return existingRequest;
 
         const clients = [client];
-        const fetchPromise = this.fetchWithRetry(symbol, adrLookbackDays, requestKey, clients, onComplete);
+        const fetchPromise = this._enqueue(() =>
+            this.fetchWithRetry(symbol, adrLookbackDays, requestKey, clients, source, onComplete)
+        );
         this.pendingRequests.set(requestKey, { promise: fetchPromise, clients });
         return fetchPromise;
+    }
+
+    /**
+     * Queue a request for rate-limited execution
+     * Ensures minimum interval between cTrader API calls
+     */
+    _enqueue(fn) {
+        return new Promise((resolve, reject) => {
+            this._queue.push({ fn, resolve, reject });
+            this._processQueue();
+        });
+    }
+
+    /**
+     * Process queued requests with minimum interval between starts.
+     * Each request has a per-request timeout to prevent hung API calls from stalling the queue.
+     */
+    async _processQueue() {
+        if (this._processing) return;
+        this._processing = true;
+        while (this._queue.length > 0) {
+            const { fn, resolve, reject } = this._queue.shift();
+            try {
+                const result = await Promise.race([
+                    fn(),
+                    new Promise((_, rj) => setTimeout(() => rj(new Error('Request timed out')), this.fetchTimeout))
+                ]);
+                resolve(result);
+            } catch (error) {
+                reject(error);
+            }
+            if (this._queue.length > 0) {
+                await new Promise(r => setTimeout(r, this._MIN_REQUEST_INTERVAL_MS));
+            }
+        }
+        this._processing = false;
     }
 
     /**
@@ -74,7 +115,7 @@ class RequestCoordinator {
      * @param {Function} onComplete - Optional callback called after data is sent to clients
      * @returns {Promise<Object>} Symbol data package
      */
-    async fetchWithRetry(symbol, adrLookbackDays, requestKey, clients, onComplete = null) {
+    async fetchWithRetry(symbol, adrLookbackDays, requestKey, clients, source = 'ctrader', onComplete = null) {
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
         const attemptFetch = async (retries = 0) => {
@@ -97,7 +138,7 @@ class RequestCoordinator {
 
                 return data;
             } catch (error) {
-                return this.handleFetchError(error, symbol, requestKey, clients, retries, sleep, attemptFetch);
+                return this.handleFetchError(error, symbol, requestKey, clients, source, retries, sleep, attemptFetch);
             }
         };
 
@@ -180,7 +221,7 @@ class RequestCoordinator {
      * @param {Function} sleep - Sleep utility
      * @param {Function} attemptFetch - Retry function
      */
-    async handleFetchError(error, symbol, requestKey, clients, retries, sleep, attemptFetch) {
+    async handleFetchError(error, symbol, requestKey, clients, source, retries, sleep, attemptFetch) {
         const isRateLimit = error.errorCode === 'REQUEST_FREQUENCY_EXCEEDED';
         const isBlocked = error.errorCode === 'BLOCKED_PAYLOAD_TYPE';
 
@@ -196,7 +237,7 @@ class RequestCoordinator {
         this.pendingRequests.delete(requestKey);
 
         // Notify clients of all errors (not just rate limits) so frontend can track failed pairs
-        this.notifyClientsError(clients, symbol, error);
+        this.notifyClientsError(clients, symbol, error, source);
 
         throw error;
     }
@@ -207,12 +248,13 @@ class RequestCoordinator {
      * @param {string} symbol - Symbol that failed
      * @param {Error} error - Error details
      */
-    notifyClientsError(clients, symbol, error) {
+    notifyClientsError(clients, symbol, error, source = 'ctrader') {
         clients.forEach(client => {
             this.wsServer.sendToClient(client, {
                 type: 'error',
                 message: `Failed to get data for ${symbol}: ${error.message || error.description}`,
-                symbol: symbol
+                symbol: symbol,
+                source: source
             });
         });
     }
@@ -267,7 +309,8 @@ class RequestCoordinator {
             this.wsServer.sendToClient(client, {
                 type: 'error',
                 message: `Failed to get TradingView data for ${symbol}: ${error.message}`,
-                symbol: symbol
+                symbol: symbol,
+                source: 'tradingview'
             });
             throw error;
         }

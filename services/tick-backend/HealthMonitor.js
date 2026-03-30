@@ -47,6 +47,7 @@ class HealthMonitor extends EventEmitter {
             this.interval = null;
         }
         this.isStale = false;
+        this.lastTick = null;
     }
 
     checkStaleness() {

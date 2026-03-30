@@ -89,9 +89,10 @@ class MarketProfileService extends EventEmitter {
       return 0;
     }
 
-    // Check if profile is in "initializing" state (exists but has 0 levels)
-    // If so, buffer the bar instead of processing it
-    if (profile.levels.size === 0) {
+    // Check if profile is actively being initialized (initializeFromHistory running)
+    // Only buffer during active initialization; after init completes with 0 levels,
+    // fall through to process the bar directly so the profile can build incrementally
+    if (profile.levels.size === 0 && this.isInitializing.get(symbol)) {
       const pending = this.pendingBars.get(symbol);
       if (pending) {
         // Enforce maximum pending bars limit to prevent unbounded memory growth
@@ -347,6 +348,7 @@ class MarketProfileService extends EventEmitter {
         const fullProfile = this.getFullProfile(symbol);
         if (DEBUG) console.log(`[MarketProfileService] EMITTING initial empty profile for ${symbol} (${source}), levels=${fullProfile.levels.length}, seq=${seq}`);
         this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
+        this.pendingBars.delete(symbol);
         return;
       }
 

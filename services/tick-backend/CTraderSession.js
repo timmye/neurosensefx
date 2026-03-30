@@ -26,8 +26,9 @@ class CTraderSession extends EventEmitter {
         this.dataProcessor = null;
         this.eventHandler = null;
 
-        // 6s staleness threshold to avoid false positives during normal FX low-activity periods
-        this.healthMonitor = new HealthMonitor('ctrader', 6000, 1000);
+        // 60s staleness threshold - FX pairs can go tens of seconds without ticks
+        // during low-activity periods; only ticks reset the timer, so this must be generous
+        this.healthMonitor = new HealthMonitor('ctrader', 60000, 10000);
         this.reconnection = new ReconnectionManager(15000, 500, Number(process.env.MAX_RECONNECT_ATTEMPTS) || 20);
 
         // Store listener references to prevent duplicates
@@ -94,10 +95,11 @@ class CTraderSession extends EventEmitter {
 
         this.startHeartbeat();
 
-        // Initialize health monitor with grace period - record tick immediately to prevent immediate staleness
+        // Initialize health monitor with grace period - start first (resets lastTick),
+        // then record tick immediately to prevent immediate staleness
         this.connectedAt = Date.now();
-        this.healthMonitor.recordTick();
         this.healthMonitor.start();
+        this.healthMonitor.recordTick();
 
         this.reconnection.reset();
         this.emit('connected', this.symbolLoader.getAllSymbolNames());
@@ -174,7 +176,8 @@ class CTraderSession extends EventEmitter {
         if (!this.connection) return;
 
         if (this.spotEventHandler) {
-            this.connection.removeListener('PROTO_OA_SPOT_EVENT', this.spotEventHandler);
+            // Must use numeric payload type '2131' because removeListener is not overridden
+            this.connection.removeAllListeners('2131');
             this.spotEventHandler = null;
         }
 
@@ -243,13 +246,30 @@ class CTraderSession extends EventEmitter {
 
     startHeartbeat() {
         this.stopHeartbeat();
+
+        // The server echoes ProtoHeartbeatEvent back as a push event (payloadType 51),
+        // NOT as a command response with clientMsgId. sendCommand().then() never fires.
+        // CTraderConnection.on() normalizes 'ProtoHeartbeatEvent' to numeric '51',
+        // but removeListener is NOT overridden - so we must use '51' for cleanup.
+        this.heartbeatEventHandler = () => {
+            this.healthMonitor.recordTick();
+        };
+        this.connection.on('ProtoHeartbeatEvent', this.heartbeatEventHandler);
+
         this.heartbeatInterval = setInterval(() => {
-            if (this.connection) this.connection.sendCommand('ProtoHeartbeatEvent', {});
+            try {
+                if (this.connection) this.connection.sendHeartbeat();
+            } catch (e) { /* connection closing */ }
         }, 10000);
     }
 
     stopHeartbeat() {
         if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+        if (this.connection && this.heartbeatEventHandler) {
+            // Must use numeric payload type '51' because removeListener is not overridden
+            this.connection.removeAllListeners('51');
+            this.heartbeatEventHandler = null;
+        }
     }
 
     /**

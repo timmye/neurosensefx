@@ -162,6 +162,7 @@ class WebSocketServer {
                 type: 'error',
                 message: processingError.message || 'Processing failed',
                 symbol: data.symbol || 'system',
+                source: data.source,
                 originalType: data.type
             });
         }
@@ -171,7 +172,7 @@ class WebSocketServer {
         console.log(`[DEBUGGER:WebSocketServer:handleSubscribe:117] Called with symbol=${symbolName}, adrLookbackDays=${adrLookbackDays}, source=${source}`);
         if (!symbolName || typeof symbolName !== 'string' || symbolName.trim().length === 0) {
             console.log(`[DEBUGGER:WebSocketServer:handleSubscribe:119] Invalid symbol name: ${symbolName}`);
-            return this.sendToClient(ws, { type: 'error', message: `Invalid symbol name: ${symbolName}`, symbol: symbolName });
+            return this.sendToClient(ws, { type: 'error', message: `Invalid symbol name: ${symbolName}`, symbol: symbolName, source: source });
         }
 
         // Add client subscription first
@@ -188,7 +189,8 @@ class WebSocketServer {
                     type: 'error',
                     code: err.code || 'SUBSCRIPTION_FAILED',
                     message: `Failed to subscribe to ticks for ${symbolName}: ${err.message}`,
-                    symbol: symbolName
+                    symbol: symbolName,
+                    source: source
                 });
             });
         }
@@ -204,7 +206,8 @@ class WebSocketServer {
                         type: 'error',
                         code: err.code || 'SUBSCRIPTION_FAILED',
                         message: `Failed to subscribe to M1 bars for ${symbolName}: ${err.message}`,
-                        symbol: symbolName
+                        symbol: symbolName,
+                        source: source
                     });
                 });
             }

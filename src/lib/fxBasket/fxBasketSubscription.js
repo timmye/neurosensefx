@@ -34,7 +34,7 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
     if (data.type === 'error') {
       trackFailedPair(stateMachine, pair, data.message);
       if (stateMachine.state === BasketState.ERROR) {
-        onUpdate({ _state: BasketState.ERROR, _missingPairs: stateMachine.missingPairs });
+        onUpdate({ _state: BasketState.ERROR, _missingPairs: stateMachine.missingPairs, _failedPairs: Array.from(stateMachine.failedPairs), _totalPairs: stateMachine.expectedPairs.length });
       }
       return;
     }

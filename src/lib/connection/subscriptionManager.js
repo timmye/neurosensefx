@@ -47,15 +47,21 @@ export class SubscriptionManager {
     }
   }
 
-  flushPending(ws) {
+  async flushPending(ws) {
     if (this.pendingSubscriptions.length === 0) return;
     const pending = this.pendingSubscriptions;
     this.pendingSubscriptions = [];
     if (import.meta.env.DEV) {
       console.log(`[SubscriptionManager] Sending ${pending.length} pending`);
     }
-    for (const sub of pending) {
-      this.sendSubscription(ws, sub);
+    for (let i = 0; i < pending.length; i++) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        // Re-queue remaining subscriptions
+        this.pendingSubscriptions.unshift(...pending.slice(i));
+        break;
+      }
+      this.sendSubscription(ws, pending[i]);
+      if (i < pending.length - 1) await new Promise(r => setTimeout(r, 400));
     }
   }
 
@@ -115,5 +121,9 @@ export class SubscriptionManager {
 
   getSubscriptionCount() {
     return this.subscriptions.size;
+  }
+
+  hasPending() {
+    return this.pendingSubscriptions.length > 0;
   }
 }

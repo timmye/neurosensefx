@@ -101,15 +101,23 @@ export function renderWaitingState(ctx, progress, config, dimensions) {
   ctx.fillText(`Initializing... (${received}/${total} pairs)`, width / 2, height / 2 - 30);
 }
 
-export function renderErrorState(ctx, missingPairs, config, dimensions) {
+export function renderErrorState(ctx, missingPairs, failedPairs, totalPairs, config, dimensions) {
   const { width, height } = dimensions;
   const centerX = width / 2;
   const centerY = height / 2 - 40;
-  const size = 30;
+  failedPairs = failedPairs || [];
+  totalPairs = totalPairs || missingPairs.length;
 
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, width, height);
+  renderErrorIcon(ctx, centerX, centerY);
+  renderErrorHeader(ctx, centerX, centerY, missingPairs.length, totalPairs);
+  renderPairList(ctx, centerX, centerY + 75, missingPairs, failedPairs);
+  renderRetryButton(ctx, centerX, centerY + 120);
+}
 
+function renderErrorIcon(ctx, centerX, centerY) {
+  const size = 30;
   ctx.strokeStyle = '#EF4444';
   ctx.lineWidth = 4;
   ctx.beginPath();
@@ -118,26 +126,55 @@ export function renderErrorState(ctx, missingPairs, config, dimensions) {
   ctx.moveTo(centerX + size, centerY - size);
   ctx.lineTo(centerX - size, centerY + size);
   ctx.stroke();
+}
 
+function renderErrorHeader(ctx, centerX, centerY, missingCount, totalPairs) {
   ctx.fillStyle = '#EF4444';
   ctx.font = `600 14px ${SYSTEM_FONT_FAMILY}`;
   ctx.textAlign = 'center';
-  ctx.fillText(`Unable to initialize - missing ${missingPairs.length} pairs`, centerX, centerY + 50);
+  ctx.fillText(`Unable to initialize - ${missingCount} of ${totalPairs} pairs missing`, centerX, centerY + 50);
+}
 
-  ctx.fillStyle = '#9CA3AF';
+function renderPairList(ctx, centerX, startY, missingPairs, failedPairs) {
   ctx.font = `400 12px ${SYSTEM_FONT_FAMILY}`;
-  const pairsText = missingPairs.slice(0, 8).join(', ');
-  ctx.fillText(pairsText, centerX, centerY + 75);
-
-  if (missingPairs.length > 8) {
-    ctx.fillText(`...and ${missingPairs.length - 8} more`, centerX, centerY + 95);
+  ctx.textAlign = 'center';
+  let y = startY;
+  if (failedPairs.length > 0) {
+    y = renderFailedLines(ctx, centerX, y, missingPairs, failedPairs);
+  } else {
+    y = renderMissingLines(ctx, centerX, y, missingPairs);
   }
+}
 
+function renderFailedLines(ctx, centerX, y, missingPairs, failedPairs) {
+  ctx.fillStyle = '#F59E0B';
+  ctx.fillText(`Failed: ${failedPairs.slice(0, 6).join(', ')}${failedPairs.length > 6 ? ` +${failedPairs.length - 6} more` : ''}`, centerX, y);
+  y += 20;
+  const unreceived = missingPairs.filter(p => !failedPairs.includes(p));
+  if (unreceived.length > 0) {
+    ctx.fillStyle = '#9CA3AF';
+    ctx.fillText(`No response: ${unreceived.slice(0, 4).join(', ')}${unreceived.length > 4 ? ` +${unreceived.length - 4} more` : ''}`, centerX, y);
+  }
+  return y;
+}
+
+function renderMissingLines(ctx, centerX, y, missingPairs) {
+  ctx.fillStyle = '#9CA3AF';
+  ctx.fillText(missingPairs.slice(0, 8).join(', '), centerX, y);
+  if (missingPairs.length > 8) {
+    y += 20;
+    ctx.fillText(`...and ${missingPairs.length - 8} more`, centerX, y);
+  }
+  return y;
+}
+
+function renderRetryButton(ctx, centerX, centerY) {
   ctx.fillStyle = '#3B82F6';
-  ctx.fillRect(centerX - 50, centerY + 120, 100, 30);
+  ctx.fillRect(centerX - 50, centerY, 100, 30);
   ctx.fillStyle = '#FFFFFF';
   ctx.font = `600 14px ${SYSTEM_FONT_FAMILY}`;
-  ctx.fillText('Retry', centerX, centerY + 135);
+  ctx.textAlign = 'center';
+  ctx.fillText('Retry', centerX, centerY + 15);
 }
 
 export function detectClusters(basketPositions, textHeight) {

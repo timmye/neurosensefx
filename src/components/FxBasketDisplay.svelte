@@ -41,7 +41,7 @@
     unsubscribe = subscribeBasket(fxPairs, (data) => {
       basketData = data;
       renderCanvas();
-    }, 60000);
+    }, 30000);
 
     connectionManager.connect();
   });
@@ -146,7 +146,7 @@
       unsubscribe = subscribeBasket(fxPairs, (data) => {
         basketData = data;
         renderCanvas();
-      }, 60000);
+      }, 30000);
     }
     renderCanvas();
   }

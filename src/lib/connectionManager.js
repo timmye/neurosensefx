@@ -37,8 +37,9 @@ export class ConnectionManager {
     const h = this.connectionHandler;
     h.onOpen = () => {
       this.reconnectionHandler.resetAttempts();
+      // Track if flushPending will handle initial subscriptions
+      this._skipResubscribe = this.subscriptionManager.hasPending();
       this.subscriptionManager.flushPending(h.getWebSocket());
-      // Don't resubscribe here - wait for 'ready' message from backend
       this.notifyStatusChange();
     };
     h.onClose = () => {
@@ -59,9 +60,15 @@ export class ConnectionManager {
         this.notifyStatusChange();
       }
       // Resubscribe when backend is ready (after cTrader/TradingView reconnection)
+      // Skip if flushPending already sent subscriptions on this connection
       if (d.type === 'ready') {
-        console.log('[ConnectionManager] Backend ready, resubscribing to all symbols');
-        this.resubscribeAll();
+        if (this._skipResubscribe) {
+          this._skipResubscribe = false;
+          console.log('[ConnectionManager] Skipping resubscribeAll - flushPending already sent subscriptions');
+        } else {
+          console.log('[ConnectionManager] Backend ready, resubscribing to all symbols');
+          this.resubscribeAll();
+        }
       }
       this.subscriptionManager.dispatch(d);
     };

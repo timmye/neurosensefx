@@ -25,7 +25,7 @@ function renderByState(ctx, state, baskets, config, dimensions) {
       renderReadyState(ctx, baskets, config, dimensions);
       break;
     case BasketState.ERROR:
-      renderErrorState(ctx, baskets._missingPairs, config, dimensions);
+      renderErrorState(ctx, baskets._missingPairs, baskets._failedPairs, baskets._totalPairs, config, dimensions);
       break;
     default:
       renderStatusMessage(ctx, 'Waiting for FX data...', dimensions);
