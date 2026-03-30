@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, tick } from 'svelte';
   export let show = false;
   const dispatch = createEventDispatcher();
 
@@ -9,27 +9,58 @@
   const handleOverlayClick = () => dispatch('cancel');
   const handleModalClick = (e) => e.stopPropagation();
 
-  function handleKeydown(e) {
-    if (e.key === 'Escape') handleCancel();
+  function getFocusableElements() {
+    const modal = document.querySelector('.workspace-modal');
+    if (!modal) return [];
+    return Array.from(modal.querySelectorAll('button:not([disabled])'));
   }
 
-  onMount(() => {
-    if (show) {
-      const btn = document.querySelector('.workspace-modal button');
-      btn?.focus();
+  function focusElement(index) {
+    const buttons = getFocusableElements();
+    if (buttons[index]) buttons[index].focus();
+  }
+
+  function handleKeydown(e) {
+    if (e.key === 'Escape') {
+      handleCancel();
+      return;
     }
-  });
+
+    const buttons = getFocusableElements();
+    if (buttons.length === 0) return;
+    const currentIndex = buttons.indexOf(document.activeElement);
+
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      focusElement((currentIndex + 1) % buttons.length);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      focusElement((currentIndex - 1 + buttons.length) % buttons.length);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        focusElement((currentIndex - 1 + buttons.length) % buttons.length);
+      } else {
+        focusElement((currentIndex + 1) % buttons.length);
+      }
+    }
+  }
+
+  // Reactive: focus first button whenever modal opens
+  $: if (show) {
+    tick().then(() => focusElement(0));
+  }
 </script>
 
 {#if show}
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" on:click={handleOverlayClick} on:keydown={handleKeydown}>
   <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <div class="workspace-modal" role="document" on:click={handleModalClick} on:keydown={(e) => e.stopPropagation()}>
+  <div class="workspace-modal" role="document" on:click={handleModalClick}>
     <h2 id="modal-title">Workspace Controls</h2>
     <div class="modal-buttons">
-      <button class="export-btn" on:click={handleExport}>📤 Export</button>
-      <button class="import-btn" on:click={handleImport}>📥 Import</button>
+      <button class="export-btn" on:click={handleExport}>Export</button>
+      <button class="import-btn" on:click={handleImport}>Import</button>
     </div>
     <button class="cancel-btn" on:click={handleCancel}>Cancel</button>
   </div>
@@ -91,8 +122,11 @@
     color: white;
   }
 
-  .export-btn:hover {
+  .export-btn:hover,
+  .export-btn:focus-visible {
     background: rgb(67, 56, 202);
+    outline: 2px solid rgb(129, 140, 248);
+    outline-offset: 2px;
   }
 
   .import-btn {
@@ -100,8 +134,11 @@
     color: white;
   }
 
-  .import-btn:hover {
+  .import-btn:hover,
+  .import-btn:focus-visible {
     background: rgb(37, 99, 235);
+    outline: 2px solid rgb(96, 165, 250);
+    outline-offset: 2px;
   }
 
   .cancel-btn {
@@ -116,8 +153,11 @@
     transition: all 0.2s ease;
   }
 
-  .cancel-btn:hover {
+  .cancel-btn:hover,
+  .cancel-btn:focus-visible {
     background: rgba(107, 114, 128, 0.1);
     color: white;
+    outline: 2px solid rgb(107, 114, 128);
+    outline-offset: 2px;
   }
 </style>

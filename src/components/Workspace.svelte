@@ -33,6 +33,9 @@
       await workspaceActions.importWorkspace(file);
       event.target.value = '';
     }
+    // Re-focus workspace after file dialog closes so keyboard shortcuts work
+    const workspaceEl = document.querySelector('.workspace');
+    if (workspaceEl) workspaceEl.focus();
   }
 
   let showWorkspaceModal = false;
@@ -45,6 +48,7 @@
   function handleExportClick() {
     showWorkspaceModal = false;
     exportWorkspace();
+    restoreWorkspaceFocus();
   }
 
   function handleImportClick() {
@@ -54,6 +58,15 @@
 
   function handleModalCancel() {
     showWorkspaceModal = false;
+    restoreWorkspaceFocus();
+  }
+
+  function restoreWorkspaceFocus() {
+    // Defer to let modal overlay unmount first
+    setTimeout(() => {
+      const workspaceEl = document.querySelector('.workspace');
+      if (workspaceEl) workspaceEl.focus();
+    }, 0);
   }
 
   function reinitAll() {

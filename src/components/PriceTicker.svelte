@@ -287,7 +287,7 @@
     width: 37.5px;
     flex-shrink: 0;
     position: relative;
-    background: #111111; /* Chart BG from spec */
+    background: #141414; /* Card BG - match other columns */
     border-right: 1px solid #333;
     display: flex;
     align-items: center;
