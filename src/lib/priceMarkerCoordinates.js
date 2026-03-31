@@ -34,9 +34,10 @@ export function toPrice(canvas, scale, data, y) {
   }
 
   // Last resort: Create a wide range that allows ANY price placement
-  const defaultMin = 0.50000;
-  const defaultMax = 1.50000;
+  const defaultRange = data?.pipSize ? data.pipSize * 10000 : 1.0;
+  const fallbackLow = (data?.current ?? 0) - defaultRange / 2;
+  const fallbackHigh = (data?.current ?? 0) + defaultRange / 2;
   const normalized = (h - padding - y) / (h - 2 * padding);
-  return defaultMin + normalized * (defaultMax - defaultMin);
+  return fallbackLow + normalized * (fallbackHigh - fallbackLow);
 }
 

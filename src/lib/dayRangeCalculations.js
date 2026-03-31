@@ -56,6 +56,12 @@ function shouldCalculateMaxPercentage(state, adrValue) {
 // Create adaptive scale using SYMMETRIC ADR disclosure
 export function calculateAdaptiveScale(d, config) {
   const { scaling } = config;
+
+  if (!d.adrHigh || !d.adrLow) {
+    const defaultRange = d.pipSize ? d.pipSize * 10000 : 0.01;
+    const center = d.current ?? d.open ?? 0;
+    return { min: center - defaultRange / 2, max: center + defaultRange / 2, range: defaultRange };
+  }
   const adrValue = d.adrHigh - d.adrLow;
   const state = createScaleState(d);
   const midPrice = state.midPrice;

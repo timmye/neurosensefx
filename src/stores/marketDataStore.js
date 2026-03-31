@@ -16,6 +16,7 @@ function createInitialData(symbol) {
     open: null,
     adrHigh: null,
     adrLow: null,
+    prevDayOHLC: null,
     pipPosition: 4,
     pipSize: 0.0001,
     pipetteSize: 0.00001,
@@ -42,6 +43,8 @@ function calculateLatency(data, clientReceivedAt) {
 
 function normalizeData(data, currentState) {
   if (data.type === 'symbolDataPackage') {
+    // Backend field name fallback chain is the data contract.
+    // projectedAdrHigh/projectedAdrLow and todaysHigh/todaysLow are the expected field names from both pipelines.
     if (!data.high && data.todaysHigh) {
       if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "todaysHigh" used — backend should send "high"');
     }
@@ -51,20 +54,18 @@ function normalizeData(data, currentState) {
     if (!data.open && data.todaysOpen) {
       if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "todaysOpen" used — backend should send "open"');
     }
-    if (!data.adrHigh && data.projectedAdrHigh) {
-      if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "projectedAdrHigh" used — backend should send "adrHigh"');
-    }
-    if (!data.adrLow && data.projectedAdrLow) {
-      if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "projectedAdrLow" used — backend should send "adrLow"');
-    }
 
     return {
-      current: data.current ?? data.price ?? data.bid ?? data.ask ?? null,
+      current: data.current ?? data.price ?? data.initialPrice ?? data.bid ?? data.ask ?? null,
       high: data.high ?? data.todaysHigh ?? null,
       low: data.low ?? data.todaysLow ?? null,
       open: data.open ?? data.todaysOpen ?? null,
       adrHigh: data.adrHigh ?? data.projectedAdrHigh ?? null,
       adrLow: data.adrLow ?? data.projectedAdrLow ?? null,
+      prevDayOHLC: (data.prevDayOpen != null && data.prevDayHigh != null &&
+                    data.prevDayLow != null && data.prevDayClose != null)
+        ? { open: data.prevDayOpen, high: data.prevDayHigh, low: data.prevDayLow, close: data.prevDayClose }
+        : null,
       pipPosition: data.pipPosition ?? currentState.pipPosition,
       pipSize: data.pipSize ?? currentState.pipSize,
       pipetteSize: data.pipetteSize ?? currentState.pipetteSize,

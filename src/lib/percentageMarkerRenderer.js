@@ -45,14 +45,15 @@ function renderStaticMarker(ctx, level, config, d, adaptiveScale, height, paddin
   const axisX = resolveAxisX(positioning.adrAxisX, width);
 
   const midPrice = d.open || d.current;
-  const adrValue = d.adrHigh - d.adrLow;
+  const adrValue = d.adrHigh && d.adrLow ? d.adrHigh - d.adrLow : 0;
 
   // Create price scale using same parameters as main visualization
   const { min, max } = adaptiveScale;
+  const range = Math.max(max - min, 1e-10);
   const labelPadding = 5;
 
   const priceScale = (price) => {
-    const normalized = (max - price) / (max - min);
+    const normalized = (max - price) / range;
     return labelPadding + (normalized * (height - 2 * labelPadding));
   };
 
@@ -75,10 +76,11 @@ function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height,
 
   // Create price scale using same parameters as main visualization
   const { min, max } = adaptiveScale;
+  const range = Math.max(max - min, 1e-10);
   const labelPadding = 5;
 
   const priceScale = (price) => {
-    const normalized = (max - price) / (max - min);
+    const normalized = (max - price) / range;
     return labelPadding + (normalized * (height - 2 * labelPadding));
   };
 

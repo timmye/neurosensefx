@@ -28,7 +28,8 @@ export function createDayRangeConfig(s, width, height, getConfig) {
 export function createPriceScale(config, adaptiveScale, height) {
   return (price) => {
     const { min, max } = adaptiveScale;
-    const normalized = (max - price) / (max - min);
+    const range = Math.max(max - min, 1e-10);
+    const normalized = (max - price) / range;
     // Use full height - only minimal padding for labels (5px)
     const labelPadding = 5;
     return labelPadding + (normalized * (height - 2 * labelPadding));

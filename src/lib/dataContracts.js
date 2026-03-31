@@ -224,7 +224,18 @@ export function validateWebSocketMessage(data, context = 'unknown') {
     errors.push(`Unknown message type: ${msg.type}`);
   }
 
-  return { valid: errors.length === 0, errors };
+  const warnings = [];
+
+  if (msg.type === 'symbolDataPackage') {
+    if (msg.high == null && msg.todaysHigh == null) warnings.push('symbolDataPackage missing high/todaysHigh');
+    if (msg.low == null && msg.todaysLow == null) warnings.push('symbolDataPackage missing low/todaysLow');
+    if (msg.open == null && msg.todaysOpen == null) warnings.push('symbolDataPackage missing open/todaysOpen');
+    if (msg.adrHigh == null && msg.projectedAdrHigh == null) warnings.push('symbolDataPackage missing adrHigh/projectedAdrHigh');
+    if (msg.adrLow == null && msg.projectedAdrLow == null) warnings.push('symbolDataPackage missing adrLow/projectedAdrLow');
+    if (msg.current == null && msg.price == null && msg.bid == null && msg.ask == null && msg.initialPrice == null) warnings.push('symbolDataPackage missing price fields');
+  }
+
+  return { valid: errors.length === 0, errors, warnings };
 }
 
 /**
