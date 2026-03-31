@@ -83,6 +83,19 @@ class MarketProfileService extends EventEmitter {
       }
     }
 
+    // Day-boundary safety net: if bar is from a new UTC day, reset profile
+    // This handles the case where the daily scheduler hasn't fired yet or a bar arrives before cleanup
+    if (profile.lastUpdate) {
+      const profileDay = this._getUtcDayStart(profile.lastUpdate);
+      const barDay = this._getUtcDayStart(bar.timestamp);
+      if (profileDay !== barDay) {
+        console.log(`[MarketProfileService] ${symbol} day boundary in onM1Bar: ${profileDay} → ${barDay}, resetting`);
+        this.cleanupSymbol(symbol);
+        this.subscribeToSymbol(symbol, source || this.symbolSources.get(symbol) || 'tradingview');
+        profile = this.profiles.get(symbol);
+      }
+    }
+
     // Guard: Skip if already processing pending bars for this symbol
     if (this.isProcessingPending.get(symbol)) {
       if (DEBUG) console.log(`[MarketProfileService] Skipping bar for ${symbol} - currently processing pending bars`);

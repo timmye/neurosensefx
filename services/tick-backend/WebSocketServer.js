@@ -71,6 +71,10 @@ class WebSocketServer {
             console.log('[WebSocketServer] Heartbeat interval triggered');
             this.sendHeartbeat();
         }, 5000);
+
+        // Schedule daily reset at 0000hrs UTC
+        console.log('[WebSocketServer] Scheduling daily reset at 0000hrs UTC');
+        this.scheduleDailyReset();
     }
 
     sendHeartbeat() {
@@ -95,11 +99,105 @@ class WebSocketServer {
         console.log('[DEBUGGER:WebSocketServer:sendHeartbeat:67] Heartbeat sent: ' + sentCount + '/' + openClients + ' clients, timestamp=' + heartbeatMessage.timestamp);
     }
 
+    scheduleDailyReset() {
+        const now = new Date();
+        const midnight = new Date(now);
+        midnight.setUTCHours(24, 0, 0, 0);
+        const msUntilMidnight = midnight - now;
+
+        console.log(`[WebSocketServer] Daily reset scheduled in ${Math.round(msUntilMidnight / 60000)} minutes`);
+        this._dailyResetTimeout = setTimeout(() => {
+            this.performDailyReset();
+            this.scheduleDailyReset(); // Re-schedule for next day
+        }, msUntilMidnight);
+    }
+
+    async performDailyReset() {
+        const activeSymbols = this.subscriptionManager.getActiveSymbols();
+        if (activeSymbols.length === 0) {
+            console.log('[WebSocketServer] No active symbols, skipping daily reset');
+            return;
+        }
+
+        console.log(`[WebSocketServer] Performing daily reset for ${activeSymbols.length} symbols: ${activeSymbols.join(', ')}`);
+
+        // Step 1: Reset backend state for each symbol
+        // Skip symbols with in-flight initialization to avoid race with initializeFromHistory
+        for (const symbol of activeSymbols) {
+            if (this.marketProfileService.isInitializing.get(symbol)) {
+                console.warn(`[WebSocketServer] Skipping daily reset for ${symbol} — initialization in progress`);
+                continue;
+            }
+            this.twapService.resetDaily(symbol);
+            this.marketProfileService.cleanupSymbol(symbol);
+        }
+
+        // Step 2: Broadcast dailyReset to all connected clients
+        const dailyResetMsg = {
+            type: 'dailyReset',
+            symbols: activeSymbols,
+            timestamp: Date.now(),
+            symbol: 'system'
+        };
+        let clientCount = 0;
+        this.wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                try {
+                    client.send(JSON.stringify(dailyResetMsg));
+                    clientCount++;
+                } catch (error) {
+                    console.error('[WebSocketServer] Failed to send dailyReset to client:', error.message);
+                }
+            }
+        });
+        console.log(`[WebSocketServer] dailyReset sent to ${clientCount} clients`);
+
+        // Step 3: Re-fetch fresh data for each symbol and re-send to subscribed clients
+        // This triggers initializeFromHistory which rebuilds profiles from new day's M1 bars
+        for (const symbol of activeSymbols) {
+            try {
+                const clients = new Set();
+                for (const source of ['ctrader', 'tradingview']) {
+                    const sourceClients = this.subscriptionManager.getSubscribedClients(symbol, source);
+                    if (sourceClients) {
+                        for (const c of sourceClients) {
+                            clients.add(c);
+                        }
+                    }
+                }
+                if (clients.size === 0) continue;
+
+                // Determine which source to use for the data fetch
+                const hasCtrader = this.subscriptionManager.getSubscribedClients(symbol, 'ctrader')?.size > 0;
+                const source = hasCtrader ? 'ctrader' : 'tradingview';
+                const clientArray = Array.from(clients);
+
+                if (hasCtrader && this.cTraderSession.getSymbolDataPackage) {
+                    const data = await this.cTraderSession.getSymbolDataPackage(symbol, 14);
+                    if (data) {
+                        // Re-subscribe to symbol so profile Map exists for initializeFromHistory
+                        this.marketProfileService.subscribeToSymbol(symbol, source);
+                        this.requestCoordinator.sendDataToClients(data, clientArray);
+                        console.log(`[WebSocketServer] Re-sent data package for ${symbol} to ${clientArray.length} clients`);
+                    }
+                } else {
+                    console.log(`[WebSocketServer] Skipping re-fetch for ${symbol} (${source}) — will auto-recover via M1 bar day-boundary guard`);
+                }
+            } catch (error) {
+                console.error(`[WebSocketServer] Failed to re-fetch data for ${symbol} during daily reset:`, error.message);
+            }
+        }
+    }
+
     // Cleanup method to stop heartbeat when server is shut down
     close() {
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
+        }
+        if (this._dailyResetTimeout) {
+            clearTimeout(this._dailyResetTimeout);
+            this._dailyResetTimeout = null;
         }
     }
 

@@ -132,6 +132,19 @@ class SubscriptionManager {
     getClientSubscriptions(client) {
         return this.clientSubscriptions.get(client) || new Set();
     }
+
+    /**
+     * Get all unique symbols with active backend subscriptions
+     * @returns {Array} Array of unique symbol strings
+     */
+    getActiveSymbols() {
+        const symbols = new Set();
+        for (const key of this.backendSubscriptions.keys()) {
+            const symbol = key.split(':')[0];
+            symbols.add(symbol);
+        }
+        return Array.from(symbols);
+    }
 }
 
 module.exports = { SubscriptionManager };

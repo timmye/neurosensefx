@@ -20,6 +20,7 @@
   let fxPairs = [];
   let unsubscribe = null;
   let unsubscribeStatus = null;
+  let unsubscribeDailyReset = null;
   let freshnessCheckInterval;
   let resizeObserver;
   let ctx, canvas;
@@ -45,6 +46,14 @@
     }, 30000);
 
     connectionManager.connect();
+
+    // Auto-refresh basket on daily reset from backend
+    unsubscribeDailyReset = connectionManager.addSystemSubscription((msg) => {
+      if (msg.type === 'dailyReset') {
+        console.log('[FxBasketDisplay] Daily reset received, refreshing basket');
+        handleRefresh();
+      }
+    });
   });
 
   onDestroy(() => {
@@ -53,6 +62,7 @@
     if (unsubscribe) unsubscribe();
     if (resizeObserver) resizeObserver.disconnect();
     if (unsubscribeStatus) unsubscribeStatus();
+    if (unsubscribeDailyReset) { unsubscribeDailyReset(); unsubscribeDailyReset = null; }
   });
 
   function setupInteract() {
