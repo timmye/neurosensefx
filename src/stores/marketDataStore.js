@@ -85,10 +85,12 @@ function normalizeData(data, currentState) {
     }
     return {
       current: newPrice,
-      high: Math.max(currentState.high ?? 0, data.high ?? 0),
-      low: currentState.low !== null
-        ? Math.min(currentState.low, data.low ?? Infinity)
-        : (data.low ?? null),
+      high: newPrice !== null
+        ? Math.max(currentState.high ?? newPrice, newPrice)
+        : currentState.high,
+      low: newPrice !== null
+        ? Math.min(currentState.low ?? newPrice, newPrice)
+        : currentState.low,
       previousPrice: prevPrice,
       direction,
       source: data.source ?? currentState.source,
@@ -154,10 +156,10 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
     if (data.type === 'profileUpdate') {
       const store = getMarketDataStore(symbol);
       store.update(current => {
+        let levels;
         if (data.profile?.levels) {
-          return { ...current, marketProfile: data.profile.levels, lastUpdate: Date.now() };
-        }
-        if (data.delta) {
+          levels = data.profile.levels;
+        } else if (data.delta) {
           const profile = current.marketProfile ? [...current.marketProfile] : [];
           const levelMap = new Map(profile.map(l => [l.price, l]));
 
@@ -168,10 +170,25 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
             levelMap.set(level.price, level);
           }
 
-          const merged = Array.from(levelMap.values()).sort((a, b) => a.price - b.price);
-          return { ...current, marketProfile: merged, lastUpdate: Date.now() };
+          levels = Array.from(levelMap.values()).sort((a, b) => a.price - b.price);
+        } else {
+          return current;
         }
-        return current;
+
+        const profileHigh = levels[levels.length - 1]?.price ?? null;
+        const profileLow = levels[0]?.price ?? null;
+
+        return {
+          ...current,
+          marketProfile: levels,
+          high: profileHigh !== null
+            ? Math.max(current.high ?? profileHigh, profileHigh)
+            : current.high,
+          low: profileLow !== null
+            ? Math.min(current.low ?? profileLow, profileLow)
+            : current.low,
+          lastUpdate: Date.now()
+        };
       });
     }
     if (data.type === 'error') {
