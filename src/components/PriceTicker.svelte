@@ -14,6 +14,8 @@
   // Flash configuration props
   export let flashBorderEnabled = true;
   export let flashDuration = 500; // ms
+  export let rapidFlashEnabled = false;
+  export let flashGapDuration = 60; // ms
 
   let element;
   let interactable;
@@ -27,8 +29,10 @@
   let previousSymbol = null;
 
   // Flash state
-  let priceFlashClass = '';
   let borderFlashClass = '';
+  let currentFlashDirection = null; // 'up' | 'down' | null
+  let isFlashing = false;
+  let gapTimeout = null;
 
   // Reactive display values (auto-update when lastData changes)
   // Reactive store subscription - store reference changes when symbol changes
@@ -57,28 +61,80 @@
     lastMarketProfileData = lastData.marketProfile;
   }
 
+  function clearAllFlashTimers() {
+    if (flashTimeout) { clearTimeout(flashTimeout); flashTimeout = null; }
+    if (gapTimeout) { clearTimeout(gapTimeout); gapTimeout = null; }
+    element.style.removeProperty('border-color');
+  }
+
+  function handleSimpleFlash(direction) {
+    clearAllFlashTimers();
+    borderFlashClass = `flash-${direction}`;
+    tick().then(() => {
+      flashTimeout = setTimeout(() => {
+        borderFlashClass = '';
+      }, flashDuration);
+    });
+  }
+
+  function handleRapidFlash(direction) {
+    clearAllFlashTimers();
+
+    if (isFlashing && currentFlashDirection === direction) {
+      // Same direction while flashing — force neutral gap then re-flash
+      element.style.borderColor = '#333';
+      borderFlashClass = '';
+      isFlashing = false;
+      currentFlashDirection = null;
+      void element.offsetHeight; // force reflow — border snaps to #333 instantly
+      element.style.removeProperty('border-color');
+      gapTimeout = setTimeout(() => {
+        gapTimeout = null;
+        borderFlashClass = `flash-${direction}`;
+        currentFlashDirection = direction;
+        isFlashing = true;
+        flashTimeout = setTimeout(() => {
+          borderFlashClass = '';
+          currentFlashDirection = null;
+          isFlashing = false;
+        }, flashDuration);
+      }, flashGapDuration);
+    } else {
+      // Direction change or not flashing — instant override with state tracking
+      if (isFlashing) {
+        element.style.borderColor = '#333';
+        borderFlashClass = '';
+        void element.offsetHeight;
+        element.style.removeProperty('border-color');
+      }
+      borderFlashClass = `flash-${direction}`;
+      currentFlashDirection = direction;
+      isFlashing = true;
+      flashTimeout = setTimeout(() => {
+        borderFlashClass = '';
+        currentFlashDirection = null;
+        isFlashing = false;
+      }, flashDuration);
+    }
+  }
+
   // Flash on price change
   $: if (currentPrice !== null && currentPrice !== lastTrackedPrice) {
     if (lastTrackedPrice !== null && flashBorderEnabled) {
       const isUp = currentPrice > lastTrackedPrice;
       const direction = isUp ? 'up' : 'down';
-
-      // Clear any existing timeout
-      if (flashTimeout) clearTimeout(flashTimeout);
-
-      if (flashBorderEnabled) {
-        borderFlashClass = `flash-${direction}`;
+      if (rapidFlashEnabled) {
+        handleRapidFlash(direction);
+      } else {
+        handleSimpleFlash(direction);
       }
-
-      // Wait for DOM update, then schedule removal
-      tick().then(() => {
-        flashTimeout = setTimeout(() => {
-          priceFlashClass = '';
-          borderFlashClass = '';
-        }, flashDuration);
-      });
     }
     lastTrackedPrice = currentPrice;
+  }
+
+  // Guard: cancel gap timer when rapidFlashEnabled toggled off
+  $: if (!rapidFlashEnabled && gapTimeout) {
+    clearAllFlashTimers();
   }
 
   // Reactive: formattedSymbol must update when ticker.symbol changes
@@ -149,7 +205,7 @@
   });
 
   onDestroy(() => {
-    if (flashTimeout) clearTimeout(flashTimeout);
+    clearAllFlashTimers();
     if (resizeObserver) resizeObserver.disconnect();
     interactable?.unset();
   });
@@ -165,6 +221,9 @@
     // Clear stale data
     lastMarketProfileData = null;
     lastTrackedPrice = null;
+    clearAllFlashTimers();
+    currentFlashDirection = null;
+    isFlashing = false;
 
     previousSymbol = formattedSymbol;
   }
@@ -181,9 +240,10 @@
     // Clear local state
     lastMarketProfileData = null;
     lastTrackedPrice = null;
-    priceFlashClass = '';
     borderFlashClass = '';
-    if (flashTimeout) clearTimeout(flashTimeout);
+    clearAllFlashTimers();
+    currentFlashDirection = null;
+    isFlashing = false;
 
     // Resubscribe via store
     if (unsubscribeSymbol) {
@@ -222,17 +282,24 @@
     box-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
   }
 
-  /* Border flash - only when not focused to avoid overriding focus outline */
+  /* Border flash transitions.
+     Base state (no flash class): transition controls fade-OUT — this is the
+       after-change style when the flash class is removed, so its transition applies.
+     Flash-active state: no transition = instant snap-IN — this is the
+       after-change style when the flash class is added.
+     Rapid mode gaps: JS forces neutral via inline style + reflow (bypasses CSS). */
   .ticker-container:not(:focus) {
     transition: border-color var(--flash-duration) ease-out;
   }
 
   .ticker-container:not(:focus).flash-up {
     border-color: var(--flash-color-up);
+    transition: none;
   }
 
   .ticker-container:not(:focus).flash-down {
     border-color: var(--flash-color-down);
+    transition: none;
   }
 
   /* Column 1: Identity (135px) */
@@ -416,8 +483,7 @@
   /* Respect user's motion preferences */
   @media (prefers-reduced-motion: reduce) {
     .price-value,
-    .ticker-container:not(:focus).flash-up,
-    .ticker-container:not(:focus).flash-down {
+    .ticker-container:not(:focus) {
       transition: none;
     }
   }
@@ -435,7 +501,7 @@
   <!-- Column 1: Identity -->
   <div class="identity-column">
     <div class="symbol-label">{ticker.symbol}</div>
-    <div class="price-value" class:flash-up={priceFlashClass === 'flash-up'} class:flash-down={priceFlashClass === 'flash-down'}>
+    <div class="price-value">
       {#if currentPrice}
         <span class="price-larger-digits">{priceParts.largerDigits}</span><span class="price-pip-digits">{priceParts.pipDigits}</span><span class="pipette">{getPipetteDigit(currentPrice, pipPosition)}</span>
       {:else}

@@ -156,7 +156,7 @@
   <div class="workspace" role="region" tabindex="0" aria-label="Workspace" on:keydown={handleKeydown} on:keyup={handleKeyup}>
     {#each Array.from($workspaceStore.displays.values()) as display (display.id)}
       {#if display.type === 'priceTicker'}
-        <PriceTicker ticker={display} />
+        <PriceTicker ticker={display} rapidFlashEnabled={true} />
       {:else if display.symbol === 'FX_BASKET'}
         <FxBasketDisplay {display} />
       {:else}
