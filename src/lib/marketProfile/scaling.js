@@ -11,17 +11,7 @@ export function calculateAdaptiveScale(profile, marketData, width, height) {
   const profileMinPrice = profilePrices.reduce((min, p) => p < min ? p : min, Infinity);
   const profileMaxPrice = profilePrices.reduce((max, p) => p > max ? p : max, -Infinity);
 
-  // Merge ADR range with actual Market Profile price range
-  const mergedMarketData = {
-    ...marketData,
-    high: Math.max(marketData.high || -Infinity, profileMaxPrice),
-    low: Math.min(marketData.low || Infinity, profileMinPrice),
-    adrHigh: marketData.adrHigh,
-    adrLow: marketData.adrLow,
-    current: marketData.current
-  };
-
-  if (mergedMarketData.adrHigh && mergedMarketData.adrLow && mergedMarketData.current) {
+  if (marketData.adrHigh && marketData.adrLow && marketData.current) {
     const adaptiveScaleConfig = {
       scaling: {
         maxAdrPercentage: 0.5, // ADR occupies at most 50% of scale range
@@ -29,7 +19,7 @@ export function calculateAdaptiveScale(profile, marketData, width, height) {
       }
     };
 
-    return calculateDayRangeScale(mergedMarketData, adaptiveScaleConfig);
+    return calculateDayRangeScale(marketData, adaptiveScaleConfig);
   }
 
   // Fallback: create synthetic adaptive scale from profile data only

@@ -92,7 +92,9 @@
         height: 80,
         pipPosition: pipPosition,
         currentPrice,
-        openPrice
+        openPrice,
+        highPrice,
+        lowPrice
       });
     }
   }
@@ -106,7 +108,9 @@
         height: 80,
         pipPosition: pipPosition,
         currentPrice,
-        openPrice
+        openPrice,
+        highPrice,
+        lowPrice
       });
     } catch (e) {
       console.error('[PriceTicker] Market profile render error:', e);

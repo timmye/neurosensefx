@@ -54,7 +54,7 @@ export function renderMarketProfile(ctx, data, config) {
  *
  * @param {HTMLCanvasElement} canvas - Canvas element to render on
  * @param {Array} profile - Market profile data [{price, tpo}, ...]
- * @param {Object} size - {width, height, pipPosition, currentPrice}
+ * @param {Object} size - {width, height, pipPosition, currentPrice, openPrice, highPrice, lowPrice}
  */
 export function renderMiniMarketProfile(canvas, profile, size) {
   if (!canvas) {
@@ -70,16 +70,18 @@ export function renderMiniMarketProfile(canvas, profile, size) {
     return;
   }
 
-  const { width, height, pipPosition = 4, currentPrice, openPrice } = size;
+  const { width, height, pipPosition = 4, currentPrice, openPrice, highPrice, lowPrice } = size;
 
   // DPR-aware canvas setup
   const ctx = setupCanvas(canvas, width, height);
   const dpr = window.devicePixelRatio || 1;
 
-  // Calculate price range and create proper price scale
+  // Calculate price range using tick data as source of truth, profile as fallback
   const prices = profile.map(l => l.price);
-  const minPrice = prices.reduce((min, p) => p < min ? p : min, Infinity);
-  const maxPrice = prices.reduce((max, p) => p > max ? p : max, -Infinity);
+  const profileMin = prices.reduce((min, p) => p < min ? p : min, Infinity);
+  const profileMax = prices.reduce((max, p) => p > max ? p : max, -Infinity);
+  const minPrice = lowPrice != null ? lowPrice : profileMin;
+  const maxPrice = highPrice != null ? highPrice : profileMax;
   const priceRange = maxPrice - minPrice || 1;
 
   // Create adaptive scale for proper price-to-Y mapping
