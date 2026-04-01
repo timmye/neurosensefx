@@ -3,6 +3,7 @@
   import FloatingDisplay from './FloatingDisplay.svelte';
   import FxBasketDisplay from './FxBasketDisplay.svelte';
   import PriceTicker from './PriceTicker.svelte';
+  import ChartDisplay from './ChartDisplay.svelte';
   import BackgroundShader from './BackgroundShader.svelte';
   import WorkspaceModal from './WorkspaceModal.svelte';
   import KeyboardShortcutsHelp from './KeyboardShortcutsHelp.svelte';
@@ -17,6 +18,7 @@
   let connectionManager;
   let systemUnsub;
   let unsubscribePersistence;
+  let selectedTicker = null;
 
   function exportWorkspace() {
     workspaceActions.exportWorkspace();
@@ -95,7 +97,97 @@
       reinitAll();
       return;
     }
+
+    // 'c' key to toggle chart for selected symbol
+    if (event.key === 'c' && !event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      toggleChart();
+      return;
+    }
+
+    // Chart-specific shortcuts when chart is focused
+    if (event.ctrlKey && event.key.toLowerCase() === 'z') {
+      // Chart undo - could be implemented later
+      return;
+    }
+    if (event.ctrlKey && (event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z'))) {
+      // Chart redo - could be implemented later
+      return;
+    }
+
     keyboardHandler?.handleKeydown(event);
+  }
+
+  function handleKeyup(event) {
+    // Release ? to hide keyboard shortcuts
+    if (event.key === '?' || event.key === '/') {
+      showKeyboardHelp = false;
+    }
+  }
+
+  function toggleChart() {
+    // Find chart display (should be single instance)
+    const chartDisplay = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
+
+    if (chartDisplay) {
+      // Chart exists - toggle minimize
+      const isCurrentlyMinimized = chartDisplay.isMinimized !== false;
+      workspaceActions.updateDisplay(chartDisplay.id, { isMinimized: !isCurrentlyMinimized });
+    } else if (selectedTicker) {
+      // No chart - create new one for selected ticker
+      createChartDisplay(selectedTicker);
+    }
+  }
+
+  function createChartDisplay(symbol) {
+    // Default position and size for chart
+    const defaultPosition = { x: 100, y: 100 };
+    const defaultSize = { width: 800, height: 500 };
+
+    // Check if there's already a chart display
+    const existingChart = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
+    if (existingChart) {
+      // Update existing chart with new symbol
+      workspaceActions.updateDisplay(existingChart.id, { symbol });
+      selectedTicker = symbol;
+      return;
+    }
+
+    // Create new chart display
+    const chartDisplay = {
+      id: `chart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'chart',
+      symbol,
+      source: 'ctrader',
+      created: Date.now(),
+      position: defaultPosition,
+      size: defaultSize,
+      zIndex: workspaceStore.getState().nextZIndex,
+      resolution: '4h',
+      window: '3M',
+      isMinimized: false,
+      showHeader: true
+    };
+
+    // Add to workspace
+    workspaceStore.update(state => ({
+      ...state,
+      displays: new Map(state.displays).set(chartDisplay.id, chartDisplay),
+      nextZIndex: state.nextZIndex + 1
+    }));
+
+    selectedTicker = symbol;
+  }
+
+  function updateSelectedTicker(symbol) {
+    selectedTicker = symbol;
+
+    // If chart is open, update its symbol
+    const chartDisplay = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
+    if (chartDisplay) {
+      workspaceActions.updateDisplay(chartDisplay.id, { symbol });
+      selectedTicker = symbol;
+    }
   }
 
   function handleKeyup(event) {
@@ -113,9 +205,22 @@
     window.workspaceActions = workspaceActions;
     window.workspaceStore = workspaceStore;
 
-    // Persistence must load before connection: WebSocket messages would overwrite restored state with empty workspace
+    // Load workspace persistence first
     workspacePersistence.loadFromStorage();
     unsubscribePersistence = workspacePersistence.initPersistence();
+
+    // Initialize keyboard handler
+    keyboardHandler = createKeyboardHandler({
+      ...workspaceActions,
+      toggleChart,
+      createChartDisplay: createChartDisplay // Pass chart creation function
+    });
+
+    // Set keyboard handler symbol tracking
+    keyboardHandler.setSelectedSymbol = (symbol) => {
+      selectedTicker = symbol;
+      keyboardHandler.setSelectedSymbol(symbol);
+    };
 
     // Then setup keyboard and connection
     keyboardHandler = createKeyboardHandler(workspaceActions);
@@ -159,6 +264,8 @@
         <PriceTicker ticker={display} rapidFlashEnabled={true} />
       {:else if display.symbol === 'FX_BASKET'}
         <FxBasketDisplay {display} />
+      {:else if display.type === 'chart'}
+        <ChartDisplay {display} />
       {:else}
         <FloatingDisplay {display} />
       {/if}

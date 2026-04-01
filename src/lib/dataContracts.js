@@ -13,7 +13,7 @@
 // ============================================================================
 
 /**
- * @typedef {'symbolDataPackage'|'tick'|'profileUpdate'|'twapUpdate'|'error'|'profileError'|'status'|'ready'} MessageType
+ * @typedef {'symbolDataPackage'|'tick'|'profileUpdate'|'twapUpdate'|'error'|'profileError'|'status'|'ready'|'candleUpdate'|'candleHistory'} MessageType
  */
 
 /**
@@ -133,6 +133,43 @@
  * @property {number|null} [backend] - Backend processing time (ms): sentAt - receivedAt
  * @property {number|null} [network] - Network transit time (ms): clientReceivedAt - sentAt
  * @property {number|null} [e2e] - End-to-end latency (ms): clientReceivedAt - receivedAt
+ */
+
+/**
+ * Candle update message
+ * @typedef {Object} CandleUpdateMessage
+ * @property {string} [v] - Schema version
+ * @property {'candleUpdate'} type
+ * @property {string} symbol - Symbol identifier
+ * @property {string} source - Data source
+ * @property {string} timeframe - Timeframe/resolution (e.g., '4h', '1d')
+ * @property {Bar} bar - OHLC bar data
+ * @property {boolean} isBarClose - True if bar period completed
+ * @property {number} [receivedAt] - Backend receive timestamp
+ * @property {number} [sentAt] - WebSocket send timestamp
+ */
+
+/**
+ * Candle history response
+ * @typedef {Object} CandleHistoryMessage
+ * @property {string} [v] - Schema version
+ * @property {'candleHistory'} type
+ * @property {string} symbol - Symbol identifier
+ * @property {string} resolution - Timeframe/resolution
+ * @property {Array<Bar>} bars - Array of OHLC bars
+ * @property {number} [receivedAt] - Backend receive timestamp
+ * @property {number} [sentAt] - WebSocket send timestamp
+ */
+
+/**
+ * OHLC bar data
+ * @typedef {Object} Bar
+ * @property {number} open - Opening price
+ * @property {number} high - High price
+ * @property {number} low - Low price
+ * @property {number} close - Closing price
+ * @property {number} [volume] - Volume (if available)
+ * @property {number} timestamp - Unix timestamp (ms)
  */
 
 /**

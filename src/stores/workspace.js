@@ -319,6 +319,81 @@ const persistence = {
   }
 };
 
+// Chart-specific actions
+  addChartDisplay: (symbol, position = null, source = 'ctrader') => {
+    workspaceStore.update(state => {
+      const id = `chart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const chart = {
+        id,
+        type: 'chart',
+        symbol,
+        source,
+        created: Date.now(),
+        position: position || { x: 100, y: 100 },
+        size: { width: 800, height: 500 },
+        zIndex: state.nextZIndex,
+        resolution: '4h',
+        window: '3M',
+        isMinimized: false,
+        showHeader: true
+      };
+
+      return {
+        ...state,
+        displays: new Map(state.displays).set(id, chart),
+        nextZIndex: state.nextZIndex + 1
+      };
+    });
+  },
+
+  updateChartDisplay: (id, updates) => updateDisplay(id, updates),
+
+  getChartDisplay: () => {
+    const state = workspaceStore.getState();
+    for (const display of state.displays.values()) {
+      if (display.type === 'chart') {
+        return display;
+      }
+    }
+    return null;
+  },
+
+  saveChartDrawings: (symbol, resolution, drawings) => {
+    try {
+      const key = `chart-drawings-${symbol}-${resolution}`;
+      localStorage.setItem(key, JSON.stringify(drawings || []));
+    } catch (error) {
+      console.warn('Failed to save chart drawings:', error);
+    }
+  },
+
+  loadChartDrawings: (symbol, resolution) => {
+    try {
+      const key = `chart-drawings-${symbol}-${resolution}`;
+      const stored = localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.warn('Failed to load chart drawings:', error);
+      return null;
+    }
+  },
+
+  getChartState: () => {
+    const state = workspaceStore.getState();
+    const chart = Array.from(state.displays.values()).find(d => d.type === 'chart');
+    return chart || null;
+  },
+
+  setChartState: (chartState) => {
+    workspaceStore.update(state => {
+      const newDisplays = new Map(state.displays);
+      if (chartState) {
+        newDisplays.set(chartState.id, chartState);
+      }
+      return { ...state, displays: newDisplays };
+    });
+  };
+
 export const workspaceActions = actions;
 export const workspacePersistence = persistence;
 

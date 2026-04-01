@@ -103,7 +103,7 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   const maxTpo = profile.reduce((max, l) => l.tpo > max ? l.tpo : max, 0);
 
   // Background (Chart BG)
-  ctx.fillStyle = '#1a1a1a';
+  ctx.fillStyle = '#111111'; //1a1a1a
   ctx.fillRect(0, 0, width, height);
 
   // Top and bottom border lines (match ticker border style)
