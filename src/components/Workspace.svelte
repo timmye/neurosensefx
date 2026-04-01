@@ -132,50 +132,32 @@
     if (chartDisplay) {
       // Chart exists - toggle minimize
       const isCurrentlyMinimized = chartDisplay.isMinimized !== false;
-      workspaceActions.updateDisplay(chartDisplay.id, { isMinimized: !isCurrentlyMinimized });
-    } else if (selectedTicker) {
+      workspaceActions.updateChartDisplay(chartDisplay.id, { isMinimized: !isCurrentlyMinimized });
+    } else {
       // No chart - create new one for selected ticker
-      createChartDisplay(selectedTicker);
+      // Fallback: if no ticker selected, use first priceTicker symbol
+      const symbol = selectedTicker || (() => {
+        const ticker = Array.from($workspaceStore.displays.values()).find(d => d.type === 'priceTicker');
+        return ticker?.symbol || null;
+      })();
+      if (symbol) {
+        createChartDisplay(symbol);
+      }
     }
   }
 
   function createChartDisplay(symbol) {
-    // Default position and size for chart
-    const defaultPosition = { x: 100, y: 100 };
-    const defaultSize = { width: 800, height: 500 };
-
     // Check if there's already a chart display
     const existingChart = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
     if (existingChart) {
       // Update existing chart with new symbol
-      workspaceActions.updateDisplay(existingChart.id, { symbol });
+      workspaceActions.updateChartDisplay(existingChart.id, { symbol });
       selectedTicker = symbol;
       return;
     }
 
-    // Create new chart display
-    const chartDisplay = {
-      id: `chart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: 'chart',
-      symbol,
-      source: 'ctrader',
-      created: Date.now(),
-      position: defaultPosition,
-      size: defaultSize,
-      zIndex: workspaceStore.getState().nextZIndex,
-      resolution: '4h',
-      window: '3M',
-      isMinimized: false,
-      showHeader: true
-    };
-
-    // Add to workspace
-    workspaceStore.update(state => ({
-      ...state,
-      displays: new Map(state.displays).set(chartDisplay.id, chartDisplay),
-      nextZIndex: state.nextZIndex + 1
-    }));
-
+    // Delegate to workspace action
+    workspaceActions.addChartDisplay(symbol);
     selectedTicker = symbol;
   }
 
@@ -185,15 +167,7 @@
     // If chart is open, update its symbol
     const chartDisplay = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
     if (chartDisplay) {
-      workspaceActions.updateDisplay(chartDisplay.id, { symbol });
-      selectedTicker = symbol;
-    }
-  }
-
-  function handleKeyup(event) {
-    // Release ? to hide keyboard shortcuts
-    if (event.key === '?' || event.key === '/') {
-      showKeyboardHelp = false;
+      workspaceActions.updateChartDisplay(chartDisplay.id, { symbol });
     }
   }
 
@@ -213,17 +187,16 @@
     keyboardHandler = createKeyboardHandler({
       ...workspaceActions,
       toggleChart,
-      createChartDisplay: createChartDisplay // Pass chart creation function
+      createChartDisplay
     });
 
-    // Set keyboard handler symbol tracking
+    // Wire symbol selection between keyboard handler and workspace
+    const originalSetSelectedSymbol = keyboardHandler.setSelectedSymbol;
     keyboardHandler.setSelectedSymbol = (symbol) => {
       selectedTicker = symbol;
-      keyboardHandler.setSelectedSymbol(symbol);
     };
 
-    // Then setup keyboard and connection
-    keyboardHandler = createKeyboardHandler(workspaceActions);
+    // Setup connection
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
     connectionManager.connect();
 
