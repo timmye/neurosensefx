@@ -89,9 +89,14 @@ class CTraderDataProcessor {
         const symbolInfo = await this.symbolLoader.getFullSymbolInfo(symbolId);
         const digits = symbolInfo.digits;
 
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
         // Collect all chunks
         const allBars = [];
         let currentFrom = fromTimestamp;
+        let firstChunkFailed = false;
+        let retries = 0;
+        const MAX_RETRIES = 3;
 
         while (currentFrom < toTimestamp) {
             // Determine the end of this chunk, respecting the range limit
@@ -114,7 +119,7 @@ class CTraderDataProcessor {
                             high: this.calculatePrice(low + Number(bar.deltaHigh), digits),
                             low: this.calculatePrice(low, digits),
                             close: this.calculatePrice(low + Number(bar.deltaClose), digits),
-                            volume: bar.volume || 0,
+                            volume: typeof bar.volume === 'object' ? (bar.volume.tick || bar.volume.real || 0) : (bar.volume || 0),
                             timestamp: bar.utcTimestampInMinutes ? Number(bar.utcTimestampInMinutes) * 60 * 1000 : null
                         };
                     }).filter(bar => bar.timestamp !== null);
@@ -131,7 +136,43 @@ class CTraderDataProcessor {
                 const lastBarTimestamp = allBars[allBars.length - 1].timestamp;
                 currentFrom = lastBarTimestamp + 1;
             } catch (error) {
-                console.error(`[CTraderDataProcessor] Failed to fetch ${period} bars for ${symbolName} [${currentFrom} - ${chunkEnd}]:`, error.message);
+                const errMsg = error.errorCode ?? error.message ?? error;
+                const isRateLimit = errMsg === 'REQUEST_FREQUENCY_EXCEEDED';
+
+                // Retry with backoff on rate limit errors
+                if (isRateLimit && retries < MAX_RETRIES) {
+                    retries++;
+                    const delay = 2000 * retries;
+                    console.warn(`[CTraderDataProcessor] Rate limited on ${period} bars for ${symbolName}, retry ${retries}/${MAX_RETRIES} in ${delay}ms`);
+                    await sleep(delay);
+
+                    // If first chunk failed and we haven't tried fallback range yet
+                    if (allBars.length === 0 && !firstChunkFailed) {
+                        firstChunkFailed = true;
+                        const fallbackFrom = toTimestamp - rangeLimit;
+                        if (fallbackFrom > currentFrom) {
+                            console.log(`[CTraderDataProcessor] Retrying from fallback range [${fallbackFrom} - ${toTimestamp}]`);
+                            currentFrom = fallbackFrom;
+                            continue;
+                        }
+                    }
+                    // Retry same chunk
+                    continue;
+                }
+
+                console.error(`[CTraderDataProcessor] Failed to fetch ${period} bars for ${symbolName} [${currentFrom} - ${chunkEnd}]:`, errMsg);
+
+                // If the very first chunk failed (non-rate-limit), retry from within the range limit
+                if (allBars.length === 0 && !firstChunkFailed && !isRateLimit) {
+                    firstChunkFailed = true;
+                    const fallbackFrom = toTimestamp - rangeLimit;
+                    if (fallbackFrom > currentFrom) {
+                        console.log(`[CTraderDataProcessor] Retrying from fallback range [${fallbackFrom} - ${toTimestamp}]`);
+                        currentFrom = fallbackFrom;
+                        continue;
+                    }
+                }
+
                 // Continue to next chunk rather than failing the entire request
                 currentFrom = chunkEnd + 1;
             }

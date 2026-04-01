@@ -68,6 +68,7 @@ export class SubscriptionManager {
   dispatch(message) {
     const isSystem = message.type === 'status' || message.type === 'ready' ||
       message.type === 'reinit_started' || message.type === 'dailyReset' ||
+      message.type === 'candleHistory' || message.type === 'candleUpdate' ||
       (message.type === 'error' && message.symbol === 'system');
 
     // Log profileUpdate messages for E2E test verification

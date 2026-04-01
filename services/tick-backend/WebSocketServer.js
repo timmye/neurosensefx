@@ -431,10 +431,12 @@ class WebSocketServer {
         } catch (error) {
             console.error(`[WebSocketServer] Failed to fetch historical candles for ${symbol} ${resolution}:`, error.message);
             this.sendToClient(ws, {
-                type: 'error',
-                message: `Failed to fetch historical candles: ${error.message}`,
+                type: 'candleHistory',
                 symbol,
-                resolution
+                resolution,
+                period,
+                bars: [],
+                error: error.message
             });
         }
     }

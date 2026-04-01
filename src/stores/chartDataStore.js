@@ -382,6 +382,9 @@ export async function handleCandleHistory(message) {
   } else {
     // Initial load
     store.set({ bars, state: STATE.READY, error: null });
+
+    // Subscribe to real-time candle updates after initial load
+    subscribeToCandles(symbol, resolution);
   }
 }
 

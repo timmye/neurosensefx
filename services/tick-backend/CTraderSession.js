@@ -48,6 +48,9 @@ class CTraderSession extends EventEmitter {
 
         // Track active bar subscriptions (multi-timeframe): 'symbolName:period' -> true
         this.activeBarSubscriptions = new Map();
+
+        // Track last bar timestamp per symbol:period for bar-close detection
+        this.lastBarTimestamps = new Map();
     }
 
     async connect() {
@@ -152,6 +155,10 @@ class CTraderSession extends EventEmitter {
                             if (period === 'M1') continue;
                             const barData = this.eventHandler.processMultiTimeframeTrendbarEvent(event, symbolName, symbolInfo, period);
                             if (barData) {
+                                const tsKey = `${symbolName}:${period}`;
+                                const prevTimestamp = this.lastBarTimestamps.get(tsKey);
+                                barData.isBarClose = prevTimestamp !== undefined && prevTimestamp !== barData.bar.timestamp;
+                                this.lastBarTimestamps.set(tsKey, barData.bar.timestamp);
                                 this.emit('barUpdate', barData);
                             }
                             break; // Only one non-M1 period per symbol

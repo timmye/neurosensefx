@@ -18,7 +18,12 @@
   let connectionManager;
   let systemUnsub;
   let unsubscribePersistence;
-  let selectedTicker = null;
+
+  $: selectedTicker = (() => {
+    if (!$workspaceStore.selectedDisplayId) return null;
+    const display = $workspaceStore.displays.get($workspaceStore.selectedDisplayId);
+    return display?.symbol || null;
+  })();
 
   function exportWorkspace() {
     workspaceActions.exportWorkspace();
@@ -152,23 +157,11 @@
     if (existingChart) {
       // Update existing chart with new symbol
       workspaceActions.updateChartDisplay(existingChart.id, { symbol });
-      selectedTicker = symbol;
       return;
     }
 
     // Delegate to workspace action
     workspaceActions.addChartDisplay(symbol);
-    selectedTicker = symbol;
-  }
-
-  function updateSelectedTicker(symbol) {
-    selectedTicker = symbol;
-
-    // If chart is open, update its symbol
-    const chartDisplay = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
-    if (chartDisplay) {
-      workspaceActions.updateChartDisplay(chartDisplay.id, { symbol });
-    }
   }
 
   onMount(() => {
@@ -193,7 +186,10 @@
     // Wire symbol selection between keyboard handler and workspace
     const originalSetSelectedSymbol = keyboardHandler.setSelectedSymbol;
     keyboardHandler.setSelectedSymbol = (symbol) => {
-      selectedTicker = symbol;
+      const display = Array.from(workspaceStore.getState().displays.values()).find(d => d.symbol === symbol);
+      if (display) {
+        workspaceActions.setSelectedDisplay(display.id);
+      }
     };
 
     // Setup connection

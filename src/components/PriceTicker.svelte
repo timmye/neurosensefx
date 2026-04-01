@@ -28,6 +28,8 @@
   let unsubscribeSymbol;
   let previousSymbol = null;
 
+  $: isSelected = $workspaceStore.selectedDisplayId === ticker.id;
+
   // Flash state
   let borderFlashClass = '';
   let currentFlashDirection = null; // 'up' | 'down' | null
@@ -236,6 +238,11 @@
     workspaceActions.bringToFront(ticker.id);
   }
 
+  function handleTickerClick(e) {
+    if (e.target.closest('button')) return;
+    workspaceActions.setSelectedDisplay(ticker.id);
+  }
+
   function handleRefresh() {
     // Clear local state
     lastMarketProfileData = null;
@@ -280,6 +287,11 @@
     outline: 2px solid #00ff00;
     outline-offset: -2px;
     box-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
+  }
+
+  .ticker-container.selected {
+    border-color: #00d4ff;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
   }
 
   /* Border flash transitions.
@@ -493,8 +505,10 @@
      style="left: {ticker.position?.x || 100}px; top: {ticker.position?.y || 100}px; z-index: {ticker.zIndex || 1}; --flash-duration: {flashDuration}ms;"
      class:flash-up={borderFlashClass === 'flash-up'}
      class:flash-down={borderFlashClass === 'flash-down'}
+     class:selected={isSelected}
      tabindex="0" role="region" aria-label="{ticker.symbol} ticker"
-     on:focus={handleFocus}>
+     on:focus={handleFocus}
+     on:click={handleTickerClick}>
   <button class="refresh-button" on:click={handleRefresh} aria-label="Refresh ticker">↻</button>
   <button class="close-button" on:click={handleClose} aria-label="Close ticker">×</button>
 

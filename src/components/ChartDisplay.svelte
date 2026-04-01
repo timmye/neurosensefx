@@ -28,6 +28,8 @@
   let commandStack = new DrawingCommandStack();
   let activeDrawingTool = null;
   let magnetMode = false;
+  let resizeObserver = null;
+  let pendingDataApply = null;
 
   const handlers = {
     close: () => workspaceActions.removeDisplay(display.id),
@@ -68,9 +70,12 @@
     handleSymbolChange(display.symbol);
   }
 
-  // Watch for minimize state changes
+  // Watch for minimize state changes - resize chart after restore
   $: if (currentDisplay.isMinimized !== undefined && currentDisplay.isMinimized !== isMinimized) {
     isMinimized = currentDisplay.isMinimized;
+    if (!isMinimized && chart) {
+      tick().then(() => chart.resize());
+    }
   }
 
   async function restoreDrawings(symbol, resolution) {
@@ -160,6 +165,22 @@
     workspaceActions.updateDisplay(display.id, { window: newWindow });
   }
 
+  function applyDataToChart(klineData) {
+    if (!chart) return;
+    chart.applyNewData(klineData);
+    requestAnimationFrame(() => {
+      if (chart) chart.resize();
+    });
+  }
+
+  function tryApplyData(klineData) {
+    if (chartContainer.clientWidth > 0 && chartContainer.clientHeight > 0) {
+      applyDataToChart(klineData);
+    } else {
+      pendingDataApply = klineData;
+    }
+  }
+
   function loadChartData(symbol, resolution, window) {
     const store = getChartBarStore(symbol, resolution);
 
@@ -175,9 +196,7 @@
           volume: bar.volume || 0
         }));
 
-        if (chart) {
-          chart.applyNewData(klineData);
-        }
+        tryApplyData(klineData);
       }
     });
 
@@ -195,6 +214,26 @@
 
     // Initialize KLineChart
     chart = init(chartContainer);
+
+    // Ensure the browser has completed layout before KLineChart reads dimensions
+    requestAnimationFrame(() => {
+      if (chart) chart.resize();
+    });
+
+    // Observe container resizes: initial layout, parent changes, interact.js resize
+    if (chartContainer) {
+      resizeObserver = new ResizeObserver(() => {
+        if (chart) {
+          chart.resize();
+          if (pendingDataApply) {
+            const data = pendingDataApply;
+            pendingDataApply = null;
+            applyDataToChart(data);
+          }
+        }
+      });
+      resizeObserver.observe(chartContainer);
+    }
 
     if (chart) {
       // Lock zoom - fixed resolution
@@ -219,7 +258,10 @@
     // Set up interact.js for drag/resize
     interactable = createInteractConfig(element, {
       onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
-      onResizeMove: (event) => workspaceActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height }),
+      onResizeMove: (event) => {
+        workspaceActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height });
+        if (chart) chart.resize();
+      },
       onTap: () => workspaceActions.bringToFront(display.id)
     });
   });
@@ -227,6 +269,12 @@
   onDestroy(() => {
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
+
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+      resizeObserver = null;
+    }
+    pendingDataApply = null;
 
     if (chart) {
       disposeChart(chartContainer);
@@ -298,6 +346,8 @@
     flex: 1;
     width: 100%;
     background: #0d0d1a;
+    position: relative;
+    overflow: hidden;
   }
 
   .resize-handle {

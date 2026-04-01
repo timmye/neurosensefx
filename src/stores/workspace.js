@@ -3,6 +3,7 @@ import { writable } from 'svelte/store';
 const initialState = {
   displays: new Map(),
   nextZIndex: 1,
+  selectedDisplayId: null,
   config: {
     defaultSize: { width: 160, height: 240 },
     defaultPosition: { x: 100, y: 100 }
@@ -35,6 +36,14 @@ const updateDisplay = (id, updates, extra = {}) => {
 };
 
 const actions = {
+  setSelectedDisplay: (id) => {
+    workspaceStore.update(state => ({ ...state, selectedDisplayId: id }));
+  },
+
+  clearSelectedDisplay: () => {
+    workspaceStore.update(state => ({ ...state, selectedDisplayId: null }));
+  },
+
   addDisplay: (symbol, position = null, source = 'ctrader') => {
     workspaceStore.update(state => {
       const id = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

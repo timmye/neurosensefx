@@ -79,11 +79,32 @@ class DataRouter {
 
     /**
      * Route candle update data from multi-timeframe subscriptions.
+     * Broadcasts to clients tracked in candleSubscriptions (not tick subscribers).
      * @param {Object} candleData - Candle data with symbol, timeframe, bar, isBarClose
      */
     routeCandleUpdate(candleData) {
         const message = buildCandleUpdateMessage(candleData);
-        this.broadcastToClients(message, candleData.symbol, 'ctrader');
+        const key = `${candleData.symbol}:${candleData.timeframe}`;
+        const clients = this.wsServer.candleSubscriptions.get(key);
+        if (!clients || clients.size === 0) return;
+
+        let jsonMessage;
+        try {
+            jsonMessage = JSON.stringify(message);
+        } catch (error) {
+            console.error('[DataRouter] Failed to stringify candle update:', error);
+            return;
+        }
+
+        clients.forEach(client => {
+            try {
+                if (client.readyState === 1) {
+                    client.send(jsonMessage);
+                }
+            } catch (error) {
+                console.error('[DataRouter] Failed to send candle update to client:', error.message);
+            }
+        });
     }
 
     /**
