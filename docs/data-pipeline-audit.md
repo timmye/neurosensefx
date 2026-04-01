@@ -153,11 +153,21 @@ TwapService.onM1Bar() → DataRouter.routeTwapUpdate() → broadcastToClients()
 
 ### 5. `dailyReset` — Day boundary reset
 
-Broadcast at UTC midnight. Triggers store cleanup on frontend.
+Broadcast at UTC midnight. Frontend clears session-bound store state (marketProfile, high/low, open, ADR), then backend re-sends fresh `symbolDataPackage` for each subscribed symbol.
 
 ```
-WebSocketServer.performDailyReset() → broadcastToClients({ type: 'dailyReset' })
+WebSocketServer.performDailyReset()
+  → Step 1: cleanupSymbol() + resetDaily() per symbol
+  → Step 2: broadcast { type: 'dailyReset', symbols: [...] }
+  → Step 3: re-fetch & send symbolDataPackage per symbol
 ```
+
+**Frontend handling** (added in daily reset fix):
+1. `marketDataStore.js` system subscription receives `dailyReset`
+2. For each affected symbol: clears `marketProfile`, `high`, `low`, `open`, `adrHigh`, `adrLow`, `prevDayOHLC`
+3. Preserves: `current` (last known price), `pipPosition`, `pipSize`, `source`, `status`
+4. Backend's re-sent `symbolDataPackage` arrives next (ordered WebSocket), populates fresh day values
+5. Subsequent `profileUpdate` deltas build cleanly from null profile (no cross-day contamination)
 
 ---
 
@@ -270,7 +280,23 @@ The store logs a DEV warning when legacy names are used (`marketDataStore.js:46,
 
 **Fix**: Documented fallback chain as intentional design with block comment at top of `normalizeData()`. Removed DEV warnings for `projectedAdrHigh`/`projectedAdrLow` (these are expected field names, not legacy deviations). See `marketDataStore.js`.
 
-**H2: Daily reset skips TradingView data re-fetch** ~~KNOWN BEHAVIOR — ACCEPTED~~
+**H2: Frontend market data store ignores `dailyReset` — stale data persists across day boundary** ~~RESOLVED~~
+
+`marketDataStore.js` had no handler for `dailyReset` messages. Three compounding bugs caused stale data to survive the midnight reset:
+
+1. **No `dailyReset` handler**: The store callback (lines 153-204) handled `symbolDataPackage`, `tick`, `profileUpdate`, and `error` but not `dailyReset`. The message arrived via system subscription but never reached the per-symbol store.
+
+2. **`symbolDataPackage` preserves old profile** (`normalizeData()` line 73): `marketProfile: currentState.marketProfile` explicitly kept yesterday's profile when the re-sent data package arrived after reset.
+
+3. **`profileUpdate` delta merge accumulates cross-day levels** (lines 163-174): Delta updates started from `current.marketProfile` as base, only adding/updating entries — yesterday's price levels were never removed.
+
+4. **`high`/`low` bounds never shrink** (lines 185-190): `Math.max`/`Math.min` with current values meant yesterday's wider range persisted indefinitely.
+
+**Symptoms**: Market profile showed yesterday's TPO levels mixed with today's. High/low price bounds reflected yesterday's range. Manual page refresh was required to see clean data.
+
+**Fix**: Added `setupDailyResetHandler()` in `marketDataStore.js` — a one-time system subscription that clears session-bound state (`marketProfile`, `high`, `low`, `open`, `adrHigh`, `adrLow`, `prevDayOHLC`) for each affected symbol on `dailyReset`. The backend's re-sent `symbolDataPackage` arrives next (WebSocket ordering) and populates fresh values. Subsequent `profileUpdate` deltas build from a null profile, preventing cross-day contamination.
+
+**H3: Daily reset skips TradingView data re-fetch** ~~KNOWN BEHAVIOR — ACCEPTED~~
 
 `WebSocketServer.js:183-184` logs "skipping re-fetch" for TradingView subscriptions. After a daily reset:
 - `high`/`low` self-correct via frontend running high/low from ticks
@@ -280,7 +306,7 @@ The store logs a DEV warning when legacy names are used (`marketDataStore.js:46,
 
 **Resolution**: Accepted as known behavior. Frontend running high/low from ticks self-corrects. ADR is a daily projection (not recalculated intraday). Fresh values arrive on resubscription.
 
-**H3: `calculateAdaptiveScale()` has no internal null guard on `adrHigh`/`adrLow`** ~~RESOLVED~~
+**H4: `calculateAdaptiveScale()` has no internal null guard on `adrHigh`/`adrLow`** ~~RESOLVED~~
 
 `dayRangeCalculations.js:59`: `d.adrHigh - d.adrLow` produces NaN if either is null, corrupting the entire scale (min, max, range all NaN). The main render pipeline is protected by `validateMarketData()`, but two interaction handlers bypass it (see unprotected call sites above).
 

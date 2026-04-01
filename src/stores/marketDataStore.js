@@ -5,6 +5,43 @@ import { validateWebSocketMessage, logValidationResult } from '../lib/dataContra
 
 const marketDataStores = new Map();
 const activeSubscriptions = new Map();
+// Guard lives on ConnectionManager (not activeSubscriptions), so clearAllStores() must not reset this.
+let _dailyResetSetup = false;
+
+function resetSymbolForNewDay(symbol) {
+  if (!marketDataStores.has(symbol)) return;
+  const store = marketDataStores.get(symbol);
+  store.update(current => ({
+    ...current,
+    marketProfile: null,
+    high: null,
+    low: null,
+    open: null,
+    adrHigh: null,
+    adrLow: null,
+    prevDayOHLC: null,
+    previousPrice: current.current,
+    direction: 'neutral',
+    receivedAt: null,
+    sentAt: null,
+    clientReceivedAt: null,
+    latency: { backend: null, network: null, e2e: null },
+    lastUpdate: Date.now()
+  }));
+}
+
+function setupDailyResetHandler(connectionManager) {
+  if (_dailyResetSetup) return;
+  _dailyResetSetup = true;
+  connectionManager.addSystemSubscription((msg) => {
+    if (msg.type === 'dailyReset' && msg.symbols) {
+      console.log('[marketDataStore] Daily reset — clearing session data for:', msg.symbols);
+      for (const symbol of msg.symbols) {
+        resetSymbolForNewDay(symbol);
+      }
+    }
+  });
+}
 
 function createInitialData(symbol) {
   return {
@@ -149,6 +186,7 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
   }
 
   const connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
+  setupDailyResetHandler(connectionManager);
 
   const callback = (data) => {
     if (data.type === 'symbolDataPackage' || data.type === 'tick') {
