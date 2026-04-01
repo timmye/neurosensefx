@@ -256,7 +256,7 @@ export function validateWebSocketMessage(data, context = 'unknown') {
   }
 
   // Type-specific validation
-  const validTypes = ['symbolDataPackage', 'tick', 'profileUpdate', 'twapUpdate', 'error', 'profileError', 'status', 'ready'];
+  const validTypes = ['symbolDataPackage', 'tick', 'profileUpdate', 'twapUpdate', 'error', 'profileError', 'status', 'ready', 'candleUpdate', 'candleHistory'];
   if (!validTypes.includes(msg.type)) {
     errors.push(`Unknown message type: ${msg.type}`);
   }

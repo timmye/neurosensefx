@@ -1,224 +1,213 @@
 <script>
+  import { createEventDispatcher } from 'svelte';
+  import { RESOLUTION_GROUPS, TIME_WINDOW_GROUPS, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
+
   export let currentResolution = '4h';
   export let currentWindow = '3M';
-  export onResolutionChange;
-  export onWindowChange;
+  export let chart = null;
+  export let commandStack = null;
+  export let activeDrawingTool = null;
+  export let magnetMode = false;
 
-  // Resolution groups
-  const minuteResolutions = ['1m', '5m', '10m', '15m', '30m'];
-  const hourResolutions = ['1h', '2h', '3h', '4h', '6h', '8h', '12h'];
-  const dayResolutions = ['D', 'W', 'M', 'Q'];
+  const dispatch = createEventDispatcher();
 
-  // Window groups
-  const dayWindows = ['1d', '2d'];
-  const weekWindows = ['1W', '2W'];
-  const monthWindows = ['1M', '3M', '6M'];
-  const yearWindows = ['1Y', '2Y', '5Y', '10Y'];
+  const resolutionGroups = RESOLUTION_GROUPS;
+  const windowGroups = TIME_WINDOW_GROUPS;
 
-  let showDrawingTools = false;
+  const DRAWING_TOOLS = [
+    { id: 'segment', label: '/', title: 'Trendline' },
+    { id: 'horizontalStraightLine', label: '\u2500', title: 'Horizontal Line' },
+    { id: 'verticalStraightLine', label: '|', title: 'Vertical Line' },
+    { id: 'rayLine', label: '\u2571', title: 'Ray Line' },
+    { id: 'parallelStraightLine', label: '\u25B1', title: 'Parallel Channel' },
+    { id: 'rect', label: '\u25AD', title: 'Rectangle' },
+    { id: 'circle', label: '\u25CB', title: 'Circle' },
+    { id: 'triangle', label: '\u25B3', title: 'Triangle' },
+    { id: 'arc', label: '\u23DB', title: 'Arc' },
+    { id: 'fibonacciLine', label: 'Fib', title: 'Fibonacci' },
+  ];
 
   function handleResolutionClick(resolution) {
-    currentResolution = resolution;
-    onResolutionChange?.(resolution);
+    dispatch('resolution', resolution);
   }
 
   function handleWindowClick(window) {
-    currentWindow = window;
-    onWindowChange?.(window);
+    dispatch('window', window);
   }
 
   function handleDrawingToolClick(tool) {
-    console.log('[ChartToolbar] Drawing tool clicked:', tool);
-    // Implementation will be added when KLineChart is integrated
+    if (!chart) return;
+    if (activeDrawingTool === tool.id) {
+      activeDrawingTool = null;
+      return;
+    }
+    activeDrawingTool = tool.id;
+    const overlayCreate = {
+      name: tool.id,
+      mode: magnetMode ? 'weak_magnet' : 'normal',
+      onDrawEnd: (event) => {
+        if (event.overlay) {
+          dispatch('drawingCreated', {
+            overlayId: event.overlay.id,
+            overlayType: event.overlay.name,
+            points: event.overlay.points,
+            styles: event.overlay.styles,
+          });
+        }
+        activeDrawingTool = null;
+      },
+    };
+    chart.createOverlay(overlayCreate);
+  }
+
+  function toggleMagnet() {
+    if (!chart) return;
+    magnetMode = !magnetMode;
   }
 
   function handleUndo() {
-    console.log('[ChartToolbar] Undo clicked');
-    // Implementation will be added when KLineChart is integrated
-  }
-
-  function handleRedo() {
-    console.log('[ChartToolbar] Redo clicked');
-    // Implementation will be added when KLineChart is integrated
-  }
-
-  function handleClear() {
-    if (confirm('Clear all drawings? This action cannot be undone.')) {
-      console.log('[ChartToolbar] Clear drawings');
-      // Implementation will be added when KLineChart is integrated
+    if (commandStack) {
+      commandStack.undo();
     }
   }
 
-  function toggleMagnetMode() {
-    console.log('[ChartToolbar] Magnet mode toggled');
-    // Implementation will be added when KLineChart is integrated
+  function handleRedo() {
+    if (commandStack) {
+      commandStack.redo();
+    }
+  }
+
+  function handleClearDrawings() {
+    if (!chart) return;
+    chart.removeOverlay();
+    if (commandStack) {
+      commandStack.clear();
+    }
+    dispatch('clearDrawings', {});
   }
 </script>
 
-<div class="chart-toolbar">
-  <!-- Resolution buttons -->
-  <div class="toolbar-section">
-    <span class="section-label">Time:</span>
-    {#each minuteResolutions as resolution}
-      <button
-        class="resolution-btn"
-        class:active={currentResolution === resolution}
-        on:click={() => handleResolutionClick(resolution)}
-      >
-        {resolution}
-      </button>
-    {/each}
-    <span class="separator"></span>
-    {#each hourResolutions as resolution}
-      <button
-        class="resolution-btn"
-        class:active={currentResolution === resolution}
-        on:click={() => handleResolutionClick(resolution)}
-      >
-        {resolution}
-      </button>
-    {/each}
-    <span class="separator"></span>
-    {#each dayResolutions as resolution}
-      <button
-        class="resolution-btn"
-        class:active={currentResolution === resolution}
-        on:click={() => handleResolutionClick(resolution)}
-      >
-        {resolution}
-      </button>
+<div class="chart-toolbar" style="position: relative; z-index: 15;">
+  <div class="toolbar-row">
+    {#each resolutionGroups as group, gi}
+      {#if gi > 0}<span class="separator">|</span>{/if}
+      {#each group as res}
+        <button
+          class="resolution-btn"
+          class:active={res === currentResolution}
+          on:click={() => handleResolutionClick(res)}
+        >
+          {RESOLUTION_LABELS[res] || res}
+        </button>
+      {/each}
     {/each}
   </div>
-
-  <!-- Window buttons -->
-  <div class="toolbar-section">
-    <span class="section-label">Range:</span>
-    {#each dayWindows as window}
-      <button
-        class="window-btn"
-        class:active={currentWindow === window}
-        on:click={() => handleWindowClick(window)}
-      >
-        {window}
-      </button>
-    {/each}
-    <span class="separator"></span>
-    {#each weekWindows as window}
-      <button
-        class="window-btn"
-        class:active={currentWindow === window}
-        on:click={() => handleWindowClick(window)}
-      >
-        {window}
-      </button>
-    {/each}
-    <span class="separator"></span>
-    {#each monthWindows as window}
-      <button
-        class="window-btn"
-        class:active={currentWindow === window}
-        on:click={() => handleWindowClick(window)}
-      >
-        {window}
-      </button>
-    {/each}
-    <span class="separator"></span>
-    {#each yearWindows as window}
-      <button
-        class="window-btn"
-        class:active={currentWindow === window}
-        on:click={() => handleWindowClick(window)}
-      >
-        {window}
-      </button>
+  <div class="toolbar-row">
+    {#each windowGroups as group, gi}
+      {#if gi > 0}<span class="separator">|</span>{/if}
+      {#each group as win}
+        <button
+          class="window-btn"
+          class:active={win === currentWindow}
+          on:click={() => handleWindowClick(win)}
+        >
+          {win}
+        </button>
+      {/each}
     {/each}
   </div>
-
-  <!-- Drawing tools -->
-  <div class="toolbar-section">
+  <div class="toolbar-row drawing-row">
+    {#each DRAWING_TOOLS as tool}
+      <button
+        class="drawing-btn"
+        class:active={activeDrawingTool === tool.id}
+        title={tool.title}
+        on:click={() => handleDrawingToolClick(tool)}
+      >
+        {tool.label}
+      </button>
+    {/each}
+    <span class="separator"></span>
     <button
-      class="tool-btn"
-      on:click={() => showDrawingTools = !showDrawingTools}
-      title="Drawing tools"
+      class="action-btn"
+      class:active={magnetMode}
+      title="Magnet Mode"
+      on:click={toggleMagnet}
     >
-      ⚡
+      Mag
     </button>
-
-    {#if showDrawingTools}
-      <div class="drawing-tools">
-        <div class="drawing-tool-row">
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('line')} title="Trendline">/</button>
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('horizontal')} title="Horizontal line">─</button>
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('vertical')} title="Vertical line">│</button>
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('ray')} title="Ray line">⎯</button>
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('channel')} title="Parallel channel">∥</button>
-        </div>
-        <div class="drawing-tool-row">
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('fibonacci')} title="Fibonacci">Fib</button>
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('rectangle')} title="Rectangle">▭</button>
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('circle')} title="Circle">○</button>
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('triangle')} title="Triangle">△</button>
-          <button class="drawing-btn" on:click={() => handleDrawingToolClick('arc')} title="Arc">⌒</button>
-        </div>
-        <div class="drawing-tool-row">
-          <button class="drawing-btn" on:click={toggleMagnetMode} class:magnet={/* magnet mode state */} title="Magnet mode">
-            {Magnet mode active ? '🧲' : '🧲'}
-          </button>
-          <button class="drawing-btn" on:click={handleUndo} title="Undo">↶</button>
-          <button class="drawing-btn" on:click={handleRedo} title="Redo">↷</button>
-          <button class="drawing-btn clear" on:click={handleClear} title="Clear all">✕</button>
-        </div>
-      </div>
-    {/if}
+    <button
+      class="action-btn"
+      title="Undo (Ctrl+Z)"
+      disabled={!commandStack?.canUndo}
+      on:click={handleUndo}
+    >
+      Undo
+    </button>
+    <button
+      class="action-btn"
+      title="Redo (Ctrl+Y)"
+      disabled={!commandStack?.canRedo}
+      on:click={handleRedo}
+    >
+      Redo
+    </button>
+    <button
+      class="action-btn clear-btn"
+      title="Clear All Drawings"
+      on:click={handleClearDrawings}
+    >
+      Clear
+    </button>
   </div>
 </div>
 
 <style>
   .chart-toolbar {
-    height: 60px;
-    background: rgba(30, 30, 30, 0.95);
-    border-bottom: 1px solid #333;
+    background: rgba(26, 26, 46, 0.95);
+    border-bottom: 1px solid #2a2a4a;
     display: flex;
     flex-direction: column;
-    padding: 4px 0;
+    padding: 3px 8px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 15;
   }
 
-  .toolbar-section {
+  .toolbar-row {
     display: flex;
     align-items: center;
-    padding: 0 8px;
-    margin-bottom: 2px;
+    padding: 2px 0;
   }
 
-  .section-label {
-    color: #888;
-    font-size: 11px;
-    font-weight: 600;
-    margin-right: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  .separator {
+    width: 1px;
+    height: 16px;
+    background: #3a3a5a;
+    margin: 0 6px;
   }
 
   .resolution-btn,
   .window-btn {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    color: #ccc;
-    padding: 4px 8px;
-    margin: 0 2px;
+    background: #1e1e38;
+    border: 1px solid #3a3a5a;
+    color: #999;
+    padding: 2px 7px;
+    margin: 0 1px;
     border-radius: 3px;
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     font-family: inherit;
+    line-height: 1.4;
   }
 
   .resolution-btn:hover,
   .window-btn:hover {
-    background: #3a3a3a;
-    border-color: #555;
-    color: #fff;
+    background: #2a2a4a;
+    border-color: #4a4a6a;
+    color: #ddd;
   }
 
   .resolution-btn.active,
@@ -229,84 +218,74 @@
     font-weight: 600;
   }
 
-  .separator {
-    width: 1px;
-    height: 16px;
-    background: #444;
-    margin: 0 8px;
-  }
-
-  .tool-btn {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    color: #ccc;
-    padding: 6px 8px;
-    margin-left: auto;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s ease;
-  }
-
-  .tool-btn:hover {
-    background: #3a3a3a;
-    border-color: #555;
-    color: #fff;
-  }
-
-  .drawing-tools {
-    position: absolute;
-    bottom: 60px;
-    right: 8px;
-    background: rgba(30, 30, 30, 0.98);
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    z-index: 100;
-  }
-
-  .drawing-tool-row {
-    display: flex;
-    margin-bottom: 6px;
-  }
-
-  .drawing-tool-row:last-child {
-    margin-bottom: 0;
+  .drawing-row {
+    gap: 1px;
   }
 
   .drawing-btn {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    color: #ccc;
-    padding: 6px 8px;
-    margin: 0 2px;
+    background: #1e1e38;
+    border: 1px solid #3a3a5a;
+    color: #999;
+    padding: 2px 6px;
+    margin: 0;
     border-radius: 3px;
-    cursor: pointer;
     font-size: 12px;
-    transition: all 0.2s ease;
-    min-width: 32px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    line-height: 1.4;
+    min-width: 24px;
     text-align: center;
   }
 
   .drawing-btn:hover {
-    background: #3a3a3a;
-    border-color: #555;
-    color: #fff;
+    background: #2a2a4a;
+    border-color: #4a4a6a;
+    color: #ddd;
   }
 
-  .drawing-btn.clear {
-    color: #f44336;
-  }
-
-  .drawing-btn.clear:hover {
-    color: #ff6b6b;
-    border-color: #f44336;
-  }
-
-  .drawing-btn.magnet {
+  .drawing-btn.active {
     background: #4a9eff;
     border-color: #4a9eff;
     color: #000;
+    font-weight: 600;
+  }
+
+  .action-btn {
+    background: #1e1e38;
+    border: 1px solid #3a3a5a;
+    color: #999;
+    padding: 2px 7px;
+    margin: 0 1px;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    line-height: 1.4;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    background: #2a2a4a;
+    border-color: #4a4a6a;
+    color: #ddd;
+  }
+
+  .action-btn.active {
+    background: #e8a020;
+    border-color: #e8a020;
+    color: #000;
+    font-weight: 600;
+  }
+
+  .action-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .clear-btn:hover:not(:disabled) {
+    background: #5a2020;
+    border-color: #8a3030;
+    color: #ff6666;
   }
 </style>

@@ -272,54 +272,12 @@ const actions = {
       a.click();
       URL.revokeObjectURL(url);
 
-      console.log('✅ Workspace exported successfully');
+      console.log('Workspace exported successfully');
     } catch (error) {
-      console.error('❌ Failed to export workspace:', error);
-    }
-  }
-};
-
-const persistence = {
-  loadFromStorage: () => {
-    try {
-      if (typeof localStorage === 'undefined') {
-        return;
-      }
-      const stored = localStorage.getItem('workspace-state');
-      if (!stored) {
-        return;
-      }
-
-      const data = JSON.parse(stored);
-      workspaceStore.update(state => ({
-        ...state,
-        displays: new Map(data.displays || []),
-        nextZIndex: data.nextZIndex || 1
-      }));
-    } catch (error) {
-      console.warn('Failed to load workspace from storage:', error);
+      console.error('Failed to export workspace:', error);
     }
   },
 
-  initPersistence: () => {
-    if (typeof localStorage === 'undefined') {
-      return () => {};
-    }
-    return workspaceStore.subscribe(state => {
-      const data = {
-        displays: Array.from(state.displays.entries()),
-        nextZIndex: state.nextZIndex
-      };
-      try {
-        localStorage.setItem('workspace-state', JSON.stringify(data));
-      } catch (error) {
-        console.warn('Failed to save workspace to storage:', error);
-      }
-    });
-  }
-};
-
-// Chart-specific actions
   addChartDisplay: (symbol, position = null, source = 'ctrader') => {
     workspaceStore.update(state => {
       const id = `chart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -392,7 +350,48 @@ const persistence = {
       }
       return { ...state, displays: newDisplays };
     });
-  };
+  }
+};
+
+const persistence = {
+  loadFromStorage: () => {
+    try {
+      if (typeof localStorage === 'undefined') {
+        return;
+      }
+      const stored = localStorage.getItem('workspace-state');
+      if (!stored) {
+        return;
+      }
+
+      const data = JSON.parse(stored);
+      workspaceStore.update(state => ({
+        ...state,
+        displays: new Map(data.displays || []),
+        nextZIndex: data.nextZIndex || 1
+      }));
+    } catch (error) {
+      console.warn('Failed to load workspace from storage:', error);
+    }
+  },
+
+  initPersistence: () => {
+    if (typeof localStorage === 'undefined') {
+      return () => {};
+    }
+    return workspaceStore.subscribe(state => {
+      const data = {
+        displays: Array.from(state.displays.entries()),
+        nextZIndex: state.nextZIndex
+      };
+      try {
+        localStorage.setItem('workspace-state', JSON.stringify(data));
+      } catch (error) {
+        console.warn('Failed to save workspace to storage:', error);
+      }
+    });
+  }
+};
 
 export const workspaceActions = actions;
 export const workspacePersistence = persistence;

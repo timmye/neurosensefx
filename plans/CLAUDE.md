@@ -16,4 +16,4 @@ Implementation plans for features, refactors, and operational tasks.
 | `housekeeping-cleanup.md` | Repo housekeeping cleanup plan | Reviewing repo cleanup scope, tracking file removals |
 | `repo-cleanup.md` | Repo cleanup plan | Understanding repo cleanup plan |
 | `repo-cleanup-plan.json` | Machine-readable repo cleanup plan | Tracking repo cleanup progress programmatically |
-| `charting-system.md` | KLineChart + OANDA API charting integration proposal | Planning candlestick charting with drawing tools and persistence |
+| `charting-system.md` | KLineChart + cTrader API charting system plan (library selection, data pipeline, drawing tools) | Planning candlestick charting with drawing tools and persistence |

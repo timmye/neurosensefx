@@ -31,6 +31,7 @@ End-to-end and unit tests for the frontend application.
 | `batched-import-rate-limit.spec.js` | Batched import with rate limiting | Testing workspace import under load |
 | `previous-day-ohlc.spec.js` | Previous day OHLC data validation | Testing OHLC data accuracy |
 | `prevDay-ohlc-simple.spec.js` | Simplified previous day OHLC tests | Quick OHLC verification |
+| `chart-display.spec.js` | Chart display "c" key workflow (10 tests) | Testing chart creation, toolbar, resolution switching |
 
 ## Test
 

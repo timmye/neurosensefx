@@ -8,6 +8,13 @@ const { StatusBroadcaster } = require('./StatusBroadcaster');
 
 console.log('[WebSocketServer] FILE LOADED - Modular architecture with sub-managers');
 
+// Resolution string (used by frontend) to cTrader period string mapping
+const RESOLUTION_TO_PERIOD = {
+    '1m': 'M1', '5m': 'M5', '10m': 'M10', '15m': 'M15', '30m': 'M30',
+    '1h': 'H1', '4h': 'H4', '12h': 'H12',
+    'D': 'D1', 'W': 'W1', 'M': 'MN1'
+};
+
 class WebSocketServer {
     constructor(port, cTraderSession, tradingViewSession, twapService = null, marketProfileService = null) {
         this.wss = new WebSocket.Server({ port });
@@ -38,6 +45,7 @@ class WebSocketServer {
         this.cTraderSession.on('error', (error) => this.statusBroadcaster.broadcastStatus('error', error.message));
         this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar, 'ctrader'));
         this.cTraderSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'ctrader'));
+        this.cTraderSession.on('barUpdate', (bar) => this.dataRouter.routeCandleUpdate(bar));
         this.marketProfileService.on('profileUpdate', (data) => {
             const isDelta = !!data.delta;
             const payload = data.delta || data.profile;
@@ -45,6 +53,9 @@ class WebSocketServer {
         });
         this.marketProfileService.on('profileError', (data) => this.dataRouter.routeProfileError(data.symbol, data.error, data.message));
         this.twapService.on('twapUpdate', (data) => this.dataRouter.routeTwapUpdate(data.symbol, data, data.source || 'ctrader'));
+
+        // Per-client candle subscription tracking: 'symbol:period' -> Set<ws>
+        this.candleSubscriptions = new Map();
 
         // TradingView event handlers
         this.tradingViewSession.on('m1Bar', (bar) => {
@@ -251,6 +262,15 @@ class WebSocketServer {
                 case 'refresh_profile':
                     this.handleRefreshProfile(ws, data);
                     break;
+                case 'getHistoricalCandles':
+                    await this.handleGetHistoricalCandles(ws, data);
+                    break;
+                case 'subscribeCandles':
+                    await this.handleSubscribeCandles(ws, data);
+                    break;
+                case 'unsubscribeCandles':
+                    this.handleUnsubscribeCandles(ws, data);
+                    break;
                 default:
                     console.warn(`Unknown message type: ${data.type}`);
             }
@@ -376,6 +396,149 @@ class WebSocketServer {
         this.marketProfileService.reemitProfile(symbol);
     }
 
+    async handleGetHistoricalCandles(ws, data) {
+        const { symbol, resolution, from, to } = data;
+
+        if (!symbol || !resolution || from == null || to == null) {
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: 'Missing required fields: symbol, resolution, from, to',
+                symbol: symbol || 'system'
+            });
+        }
+
+        const period = RESOLUTION_TO_PERIOD[resolution];
+        if (!period) {
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: `Unsupported resolution: ${resolution}. Supported: ${Object.keys(RESOLUTION_TO_PERIOD).join(', ')}`,
+                symbol
+            });
+        }
+
+        console.log(`[WebSocketServer] getHistoricalCandles: ${symbol} ${resolution}(${period}) from=${from} to=${to}`);
+
+        try {
+            const bars = await this.cTraderSession.fetchHistoricalCandles(symbol, period, from, to);
+            this.sendToClient(ws, {
+                type: 'candleHistory',
+                symbol,
+                resolution,
+                period,
+                bars
+            });
+            console.log(`[WebSocketServer] Sent ${bars.length} ${resolution} bars for ${symbol}`);
+        } catch (error) {
+            console.error(`[WebSocketServer] Failed to fetch historical candles for ${symbol} ${resolution}:`, error.message);
+            this.sendToClient(ws, {
+                type: 'error',
+                message: `Failed to fetch historical candles: ${error.message}`,
+                symbol,
+                resolution
+            });
+        }
+    }
+
+    async handleSubscribeCandles(ws, data) {
+        const { symbol, resolution } = data;
+
+        if (!symbol || !resolution) {
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: 'Missing required fields: symbol, resolution',
+                symbol: symbol || 'system'
+            });
+        }
+
+        const period = RESOLUTION_TO_PERIOD[resolution];
+        if (!period) {
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: `Unsupported resolution: ${resolution}`,
+                symbol
+            });
+        }
+
+        const key = `${symbol}:${period}`;
+
+        // Track this client's candle subscription
+        if (!this.candleSubscriptions.has(key)) {
+            this.candleSubscriptions.set(key, new Set());
+        }
+        this.candleSubscriptions.get(key).add(ws);
+
+        // Only subscribe to backend if this is the first client for this key
+        const isFirstClient = this.candleSubscriptions.get(key).size === 1;
+
+        if (isFirstClient) {
+            // cTrader requires tick subscription before bar subscription
+            try {
+                await this.cTraderSession.subscribeToTicks(symbol);
+                await this.cTraderSession.subscribeToBars(symbol, period);
+                this.sendToClient(ws, {
+                    type: 'candleSubscription',
+                    symbol,
+                    resolution,
+                    period,
+                    status: 'subscribed'
+                });
+                console.log(`[WebSocketServer] Candle subscription active: ${symbol} ${resolution}(${period})`);
+            } catch (error) {
+                // Clean up client tracking on failure
+                const clients = this.candleSubscriptions.get(key);
+                if (clients) {
+                    clients.delete(ws);
+                    if (clients.size === 0) this.candleSubscriptions.delete(key);
+                }
+                console.error(`[WebSocketServer] Failed to subscribe to candles for ${symbol} ${resolution}:`, error.message);
+                this.sendToClient(ws, {
+                    type: 'error',
+                    message: `Failed to subscribe to candles: ${error.message}`,
+                    symbol,
+                    resolution
+                });
+            }
+        } else {
+            this.sendToClient(ws, {
+                type: 'candleSubscription',
+                symbol,
+                resolution,
+                period,
+                status: 'subscribed'
+            });
+            console.log(`[WebSocketServer] Candle subscription: ${symbol} ${resolution}(${period}) (already active, ${this.candleSubscriptions.get(key).size} clients)`);
+        }
+    }
+
+    handleUnsubscribeCandles(ws, data) {
+        const { symbol, resolution } = data;
+
+        if (!symbol || !resolution) return;
+
+        const period = RESOLUTION_TO_PERIOD[resolution];
+        if (!period) return;
+
+        const key = `${symbol}:${period}`;
+        const clients = this.candleSubscriptions.get(key);
+
+        if (!clients || !clients.has(ws)) {
+            console.log(`[WebSocketServer] Candle unsubscribe: ${symbol} ${resolution}(${period}) - client not subscribed`);
+            return;
+        }
+
+        clients.delete(ws);
+
+        if (clients.size === 0) {
+            this.candleSubscriptions.delete(key);
+            // Only unsubscribe from backend when last client leaves
+            this.cTraderSession.unsubscribeFromBars(symbol, period).catch(err => {
+                console.error(`[WebSocketServer] Failed to unsubscribe from candles for ${symbol} ${resolution}:`, err.message);
+            });
+        }
+
+        console.log(`[WebSocketServer] Candle unsubscription: ${symbol} ${resolution}(${period}) (${clients.size} remaining clients)`);
+    }
+
     sendToClient(ws, data) {
         this.statusBroadcaster.sendToClient(ws, data);
     }
@@ -401,6 +564,20 @@ class WebSocketServer {
                     if (source === 'ctrader') {
                         this.cTraderSession.unsubscribeFromTicks(symbol);
                     }
+                }
+            }
+        }
+
+        // Clean up candle subscriptions for this client
+        for (const [key, clients] of this.candleSubscriptions) {
+            if (clients.has(ws)) {
+                clients.delete(ws);
+                if (clients.size === 0) {
+                    this.candleSubscriptions.delete(key);
+                    const [symbol, period] = key.split(':');
+                    this.cTraderSession.unsubscribeFromBars(symbol, period).catch(err => {
+                        console.error(`[WebSocketServer] Failed to unsubscribe from candles on client disconnect for ${key}:`, err.message);
+                    });
                 }
             }
         }

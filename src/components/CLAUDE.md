@@ -13,6 +13,8 @@ Svelte UI components for the workspace and visualization displays.
 | `PriceMarkerManager.svelte` | Price marker UI management | Adding marker features |
 | `KeyboardShortcutsHelp.svelte` | Keyboard shortcuts overlay dialog | Adding or modifying keyboard shortcuts |
 | `WorkspaceModal.svelte` | Workspace configuration dialog | Modifying workspace settings UI |
+| `ChartDisplay.svelte` | KLineChart candlestick display bound to selected ticker, drawing tools, interact.js drag/resize | Adding chart features, debugging chart rendering, drawing persistence |
+| `ChartToolbar.svelte` | Resolution, window, and drawing tool selectors for chart | Adding chart controls, modifying toolbar layout |
 | `BackgroundShader.svelte` | WebGL procedural background with simplex noise patterns | Modifying background visuals, debugging Three.js shader |
 | `Workspace.css` | Workspace component styles | Styling workspace components |
 | `README.md` | Component architecture overview | Understanding component architecture, display system design |

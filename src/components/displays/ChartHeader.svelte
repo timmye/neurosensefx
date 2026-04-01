@@ -38,6 +38,7 @@
 {#if showHeader || isMinimized}
   <div
     class="header"
+    style="pointer-events: none"
     role="button"
     tabindex="0"
     on:click={onFocus}
@@ -94,6 +95,7 @@
     z-index: 10;
     transition: opacity 0.2s ease, transform 0.2s ease;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    pointer-events: none;
   }
 
   .header > * {

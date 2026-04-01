@@ -3,6 +3,24 @@
  * Extracted from CTraderSession for single responsibility.
  */
 
+// Per-request range limits for cTrader trendbar requests (in milliseconds)
+const PERIOD_RANGE_LIMITS = {
+    M1:  302400000,      // 5 weeks
+    M2:  302400000,
+    M3:  302400000,
+    M4:  302400000,
+    M5:  302400000,
+    M10: 21168000000,     // 35 weeks
+    M15: 21168000000,
+    M30: 21168000000,
+    H1:  21168000000,
+    H4:  31622400000,     // 1 year
+    H12: 31622400000,
+    D1:  31622400000,
+    W1:  158112000000,    // 5 years
+    MN1: 158112000000,
+};
+
 class CTraderDataProcessor {
     constructor(connection, ctidTraderAccountId, symbolLoader) {
         this.connection = connection;
@@ -41,6 +59,95 @@ class CTraderDataProcessor {
             })
         ]);
         return { dailyBars: dailyBarsData.trendbar, intradayBars: intradayBarsData.trendbar };
+    }
+
+    /**
+     * Fetch historical candles for any cTrader-supported period.
+     * Automatically chains multiple requests if the requested range exceeds the per-period limit.
+     * @param {string} symbolName - Symbol name (e.g., 'EURUSD')
+     * @param {string} period - cTrader period string (M1, M5, M10, M15, M30, H1, H4, H12, D1, W1, MN1)
+     * @param {number} fromTimestamp - Start timestamp in ms
+     * @param {number} toTimestamp - End timestamp in ms
+     * @returns {Array} Array of OHLC bar objects sorted by timestamp
+     */
+    async fetchHistoricalCandles(symbolName, period, fromTimestamp, toTimestamp) {
+        const VALID_PERIODS = ['M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'H12', 'D1', 'W1', 'MN1'];
+        if (!VALID_PERIODS.includes(period)) {
+            throw new Error(`Invalid period: ${period}. Must be one of: ${VALID_PERIODS.join(', ')}`);
+        }
+
+        const symbolId = this.symbolLoader.getSymbolId(symbolName);
+        if (!symbolId) {
+            throw new Error(`Symbol not found: ${symbolName}`);
+        }
+
+        const rangeLimit = PERIOD_RANGE_LIMITS[period];
+        if (!rangeLimit) {
+            throw new Error(`No range limit defined for period: ${period}`);
+        }
+
+        const symbolInfo = await this.symbolLoader.getFullSymbolInfo(symbolId);
+        const digits = symbolInfo.digits;
+
+        // Collect all chunks
+        const allBars = [];
+        let currentFrom = fromTimestamp;
+
+        while (currentFrom < toTimestamp) {
+            // Determine the end of this chunk, respecting the range limit
+            const chunkEnd = Math.min(currentFrom + rangeLimit, toTimestamp);
+
+            try {
+                const response = await this.connection.sendCommand('ProtoOAGetTrendbarsReq', {
+                    ctidTraderAccountId: this.ctidTraderAccountId,
+                    symbolId,
+                    period,
+                    fromTimestamp: currentFrom,
+                    toTimestamp: chunkEnd
+                });
+
+                if (response && response.trendbar && response.trendbar.length > 0) {
+                    const processedBars = response.trendbar.map(bar => {
+                        const low = Number(bar.low);
+                        return {
+                            open: this.calculatePrice(low + Number(bar.deltaOpen), digits),
+                            high: this.calculatePrice(low + Number(bar.deltaHigh), digits),
+                            low: this.calculatePrice(low, digits),
+                            close: this.calculatePrice(low + Number(bar.deltaClose), digits),
+                            volume: bar.volume || 0,
+                            timestamp: bar.utcTimestampInMinutes ? Number(bar.utcTimestampInMinutes) * 60 * 1000 : null
+                        };
+                    }).filter(bar => bar.timestamp !== null);
+
+                    allBars.push(...processedBars);
+                }
+
+                // If cTrader returned 0 bars for this chunk, we've reached the available history
+                if (!response || !response.trendbar || response.trendbar.length === 0) {
+                    break;
+                }
+
+                // Move to next chunk: start from the last bar's timestamp + 1ms to avoid overlap
+                const lastBarTimestamp = allBars[allBars.length - 1].timestamp;
+                currentFrom = lastBarTimestamp + 1;
+            } catch (error) {
+                console.error(`[CTraderDataProcessor] Failed to fetch ${period} bars for ${symbolName} [${currentFrom} - ${chunkEnd}]:`, error.message);
+                // Continue to next chunk rather than failing the entire request
+                currentFrom = chunkEnd + 1;
+            }
+        }
+
+        // Sort by timestamp and deduplicate (in case of any overlap)
+        allBars.sort((a, b) => a.timestamp - b.timestamp);
+        const dedupedBars = [];
+        for (let i = 0; i < allBars.length; i++) {
+            if (i === 0 || allBars[i].timestamp !== allBars[i - 1].timestamp) {
+                dedupedBars.push(allBars[i]);
+            }
+        }
+
+        console.log(`[CTraderDataProcessor] Fetched ${dedupedBars.length} ${period} bars for ${symbolName}`);
+        return dedupedBars;
     }
 
     /**

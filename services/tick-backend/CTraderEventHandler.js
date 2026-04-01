@@ -48,6 +48,39 @@ class CTraderEventHandler {
     }
 
     /**
+     * Process trendbar event for multi-timeframe subscriptions.
+     * Returns bar data including period/timeframe information.
+     * @param {Object} event - cTrader spot event with trendbar data
+     * @param {string} symbolName - Symbol name
+     * @param {Object} symbolInfo - Symbol info with digits, pip info
+     * @param {string} period - The subscribed cTrader period (e.g., 'H4', 'D1')
+     * @returns {Object|null} Bar data with symbol, period, OHLC, timestamp, or null
+     */
+    processMultiTimeframeTrendbarEvent(event, symbolName, symbolInfo, period) {
+        if (!event.trendbar || event.trendbar.length === 0) return null;
+
+        const latestBar = event.trendbar[event.trendbar.length - 1];
+        const low = Number(latestBar.low);
+        const deltaOpen = Number(latestBar.deltaOpen);
+        const deltaHigh = Number(latestBar.deltaHigh);
+        const deltaClose = Number(latestBar.deltaClose);
+        const timestamp = latestBar.utcTimestampInMinutes ? Number(latestBar.utcTimestampInMinutes) * 60 * 1000 : Date.now();
+
+        return {
+            symbol: symbolName,
+            timeframe: period,
+            bar: {
+                open: this.dataProcessor.calculatePrice(low + deltaOpen, symbolInfo.digits),
+                high: this.dataProcessor.calculatePrice(low + deltaHigh, symbolInfo.digits),
+                low: this.dataProcessor.calculatePrice(low, symbolInfo.digits),
+                close: this.dataProcessor.calculatePrice(low + deltaClose, symbolInfo.digits),
+                volume: latestBar.volume || 0,
+                timestamp: timestamp
+            }
+        };
+    }
+
+    /**
      * Process spot (bid/ask) event.
      */
     processSpotEvent(event, symbolName, symbolInfo) {

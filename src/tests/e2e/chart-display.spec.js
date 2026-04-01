@@ -130,7 +130,7 @@ test.describe('Chart Display - "c" Key Workflow', () => {
 
     // Verify expected resolution labels
     const expectedResolutions = ['1M', '5M', '10M', '15M', '30M', '1H', '4H', '12H', 'Daily', 'Weekly', 'Monthly', 'Quarterly'];
-    const actualLabels = await resolutionBtns.allTextContents();
+    const actualLabels = (await resolutionBtns.allTextContents()).map(l => l.trim());
     for (const expected of expectedResolutions) {
       expect(actualLabels).toContain(expected);
     }
@@ -232,9 +232,8 @@ test.describe('Chart Display - "c" Key Workflow', () => {
 
     // Verify chart display exists in workspace store
     const chartInStore = await page.evaluate(() => {
-      const state = window.workspaceStore;
-      const current = typeof state === 'function' ? state() : state;
-      const displays = current?.displays;
+      const state = window.workspaceStore.getState();
+      const displays = state?.displays;
       if (!displays) return null;
       for (const [, d] of displays) {
         if (d.type === 'chart') return d;

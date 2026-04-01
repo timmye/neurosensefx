@@ -79,8 +79,25 @@ function buildTradingViewMessage(candle) {
     return message;
 }
 
+/**
+ * Build candle update message for multi-timeframe chart
+ * @param {Object} data - Candle data from CTraderEventHandler
+ * @returns {Object} Formatted candleUpdate message for clients
+ */
+function buildCandleUpdateMessage(data) {
+    return {
+        type: 'candleUpdate',
+        source: 'ctrader',
+        symbol: data.symbol,
+        timeframe: data.timeframe,
+        bar: data.bar,
+        isBarClose: data.isBarClose || false
+    };
+}
+
 module.exports = {
     buildCTraderMessage,
     buildTradingViewMessage,
+    buildCandleUpdateMessage,
     includeField
 };

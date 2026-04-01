@@ -2,7 +2,7 @@
  * DataRouter - Routes data from cTrader and TradingView to clients
  * Parallel feeds, no aggregation - just simple routing
  */
-const { buildCTraderMessage, buildTradingViewMessage } = require('./utils/MessageBuilder');
+const { buildCTraderMessage, buildTradingViewMessage, buildCandleUpdateMessage } = require('./utils/MessageBuilder');
 
 const DEBUG = process.env.DEBUG_PROFILE === '1';
 
@@ -75,6 +75,15 @@ class DataRouter {
         } catch (error) {
             console.error(`[DataRouter] Error in routeTwapUpdate for ${symbol}:${source}:`, error);
         }
+    }
+
+    /**
+     * Route candle update data from multi-timeframe subscriptions.
+     * @param {Object} candleData - Candle data with symbol, timeframe, bar, isBarClose
+     */
+    routeCandleUpdate(candleData) {
+        const message = buildCandleUpdateMessage(candleData);
+        this.broadcastToClients(message, candleData.symbol, 'ctrader');
     }
 
     /**

@@ -136,6 +136,7 @@ marketProfile/rendering.js → Canvas 2D bars, value area, POC
 - `marketProfile/`: Market Profile module (orchestrator, scaling, rendering, calculations)
 - `fxBasket/`: FX Basket module (calculations, state machine, rendering, subscriptions)
 - `connection/`: WebSocket connection management (handler, subscription, reconnection)
+- `chart/`: KLineChart configuration, drawing persistence, undo/redo commands
 - `websocket/`: WebSocket utilities (message coordinator)
 - `priceMarker*.js`: Price marker state, rendering, interaction
 - `display*.js`: WebSocket data processing and Canvas rendering
@@ -160,3 +161,23 @@ marketProfile/rendering.js → Canvas 2D bars, value area, POC
 - WebSocket API (built-in)
 
 **No lodash, no d3, no chart libraries.** All rendering is custom Canvas 2D code for maximum control and minimal bundle size.
+
+## Chart System
+
+**KLineChart selected over TradingView/uPlot/ECharts** because it is the only free (Apache 2.0) open-source library with a full interactive drawing toolkit built for financial charts. Canvas-based rendering handles real-time updates without layout thrashing. ~40KB gzipped, zero dependencies.
+
+**Data flow:**
+```
+cTrader API (trendbar subscription) → CTraderSession → DataRouter → WebSocket
+  → chartDataStore (IndexedDB cache, progressive loading) → ChartDisplay (KLineChart)
+```
+
+**Q (quarterly) resolution**: cTrader has no quarterly period. Frontend aggregates MN1 bars into quarterly candles using UTC month boundaries (Mar, Jun, Sep, Dec).
+
+**Resolution locking**: `setZoomEnabled(false)` + per-resolution `barSpace` prevents zoom. `subscribeAction('onZoom')` re-locks barSpace if anything attempts to change it.
+
+**cTrader per-request range limits** govern chunk sizes: M1-M5 (5 weeks), M10-H1 (35 weeks), H4-D1 (1 year), W1-MN1 (5 years). Backend chains requests for ranges exceeding limits.
+
+**Drawing persistence**: Dexie.js (IndexedDB wrapper) stores overlays scoped by `symbol+resolution`. Command pattern (DrawingCommandStack) provides undo/redo for create/delete operations.
+
+**Chart is single-instance**: One chart window per workspace, bound to the currently selected ticker. Symbol changes save current drawings and restore any existing drawings for the new symbol.

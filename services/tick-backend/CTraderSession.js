@@ -45,6 +45,9 @@ class CTraderSession extends EventEmitter {
 
         // Track active subscriptions for restoration after reconnection
         this.activeSubscriptions = new Set();
+
+        // Track active bar subscriptions (multi-timeframe): 'symbolName:period' -> true
+        this.activeBarSubscriptions = new Map();
     }
 
     async connect() {
@@ -126,9 +129,34 @@ class CTraderSession extends EventEmitter {
                 let m1Bar = null;
 
                 if (event.trendbar && event.trendbar.length > 0) {
-                    const result = this.eventHandler.processTrendbarEvent(event, symbolName, symbolInfo);
-                    m1Bar = result.m1Bar;
-                    tickData = result.tick;
+                    // Determine subscribed periods for this symbol to route correctly
+                    const subscribedPeriods = this.getSubscribedBarPeriods(symbolName);
+                    const hasM1 = subscribedPeriods.has('M1');
+                    const hasOther = subscribedPeriods.size > 0 && !hasM1 || subscribedPeriods.size > 1;
+
+                    // Always process as M1 bar for existing market profile flow
+                    if (hasM1 || subscribedPeriods.size === 0) {
+                        const result = this.eventHandler.processTrendbarEvent(event, symbolName, symbolInfo);
+                        m1Bar = result.m1Bar;
+                        tickData = result.tick;
+                    }
+
+                    // Emit barUpdate for non-M1 bar subscriptions.
+                    // At most ONE non-M1 period is active per symbol (enforced by
+                    // subscribeToBars), so we can safely emit for the first non-M1
+                    // period found. The cTrader event doesn't carry a period field,
+                    // but the single-subscription constraint means the trendbar data
+                    // unambiguously belongs to that one period.
+                    if (hasOther) {
+                        for (const period of subscribedPeriods) {
+                            if (period === 'M1') continue;
+                            const barData = this.eventHandler.processMultiTimeframeTrendbarEvent(event, symbolName, symbolInfo, period);
+                            if (barData) {
+                                this.emit('barUpdate', barData);
+                            }
+                            break; // Only one non-M1 period per symbol
+                        }
+                    }
                 } else if (event.bid != null && event.ask != null) {
                     tickData = this.eventHandler.processSpotEvent(event, symbolName, symbolInfo);
                 }
@@ -283,7 +311,7 @@ class CTraderSession extends EventEmitter {
 
         console.log(`[CTraderSession] Restoring ${this.activeSubscriptions.size} subscriptions`);
 
-        // Restore subscriptions in order: ticks first, then M1 bars
+        // Restore subscriptions in order: ticks first, then M1 bars, then other bar subscriptions
         for (const symbolName of this.activeSubscriptions) {
             try {
                 // cTrader requires tick subscription before M1 bars
@@ -300,6 +328,20 @@ class CTraderSession extends EventEmitter {
                 await new Promise(resolve => setTimeout(resolve, 50)); // Small delay to avoid overwhelming API
             } catch (error) {
                 console.error(`[CTraderSession] Failed to restore M1 bar subscription for ${symbolName}:`, error.message);
+            }
+        }
+
+        // Restore non-M1 bar subscriptions
+        if (this.activeBarSubscriptions.size > 0) {
+            console.log(`[CTraderSession] Restoring ${this.activeBarSubscriptions.size} bar subscriptions`);
+            for (const [key] of this.activeBarSubscriptions) {
+                const [symbolName, period] = key.split(':');
+                try {
+                    await this.subscribeToBars(symbolName, period);
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                } catch (error) {
+                    console.error(`[CTraderSession] Failed to restore bar subscription for ${key}:`, error.message);
+                }
             }
         }
 
@@ -351,6 +393,119 @@ class CTraderSession extends EventEmitter {
         }
     }
 
+    /**
+     * Subscribe to live trendbars for any cTrader-supported period.
+     * Only ONE non-M1 bar subscription per symbol is supported at a time.
+     * When subscribing to a new period for the same symbol, the previous
+     * non-M1 subscription is automatically unsubscribed first.
+     *
+     * Rationale: cTrader sends separate spot events per period subscription,
+     * but the event does not carry a period field to identify which period
+     * the trendbar data belongs to. Supporting only one non-M1 period per
+     * symbol avoids ambiguous routing in the spot event handler.
+     *
+     * @param {string} symbolName - Symbol name (e.g., 'EURUSD')
+     * @param {string} period - cTrader period string (M1, M5, M10, M15, M30, H1, H4, H12, D1, W1, MN1)
+     */
+    async subscribeToBars(symbolName, period) {
+        const VALID_PERIODS = ['M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'H12', 'D1', 'W1', 'MN1'];
+        if (!VALID_PERIODS.includes(period)) {
+            throw new Error(`Invalid period: ${period}. Must be one of: ${VALID_PERIODS.join(', ')}`);
+        }
+
+        const symbolId = this.symbolLoader.getSymbolId(symbolName);
+        if (!symbolId) {
+            const error = new Error(`Symbol ID not found for ${symbolName}`);
+            error.code = 'SYMBOL_NOT_FOUND';
+            error.symbol = symbolName;
+            throw error;
+        }
+
+        const key = `${symbolName}:${period}`;
+        if (this.activeBarSubscriptions.has(key)) {
+            console.log(`[CTraderSession] Already subscribed to ${key}, skipping`);
+            return;
+        }
+
+        // Enforce single non-M1 bar subscription per symbol.
+        // cTrader spot events don't carry a period field, so multiple non-M1
+        // subscriptions for the same symbol would make it impossible to route
+        // trendbar data to the correct period.
+        if (period !== 'M1') {
+            for (const [existingKey] of this.activeBarSubscriptions) {
+                const [existingSymbol, existingPeriod] = existingKey.split(':');
+                if (existingSymbol === symbolName && existingPeriod !== 'M1') {
+                    console.log(`[CTraderSession] Replacing ${existingKey} with ${key} (single non-M1 per symbol)`);
+                    await this.unsubscribeFromBars(symbolName, existingPeriod);
+                    break;
+                }
+            }
+        }
+
+        await this.connection.sendCommand('ProtoOASubscribeLiveTrendbarReq', {
+            ctidTraderAccountId: this.ctidTraderAccountId,
+            symbolId: symbolId,
+            period: period
+        });
+
+        this.activeBarSubscriptions.set(key, true);
+        console.log(`[CTraderSession] Subscribed to ${key}`);
+    }
+
+    /**
+     * Unsubscribe from live trendbars for a specific period.
+     * @param {string} symbolName - Symbol name
+     * @param {string} period - cTrader period string
+     */
+    async unsubscribeFromBars(symbolName, period) {
+        const symbolId = this.symbolLoader.getSymbolId(symbolName);
+        if (!symbolId) return;
+
+        const key = `${symbolName}:${period}`;
+        if (!this.activeBarSubscriptions.has(key)) {
+            console.log(`[CTraderSession] Not subscribed to ${key}, skipping unsubscribe`);
+            return;
+        }
+
+        await this.connection.sendCommand('ProtoOAUnsubscribeLiveTrendbarReq', {
+            ctidTraderAccountId: this.ctidTraderAccountId,
+            symbolId: symbolId,
+            period: period
+        });
+
+        this.activeBarSubscriptions.delete(key);
+        console.log(`[CTraderSession] Unsubscribed from ${key}`);
+    }
+
+    /**
+     * Get set of subscribed bar periods for a symbol.
+     * @param {string} symbolName
+     * @returns {Set<string>} Set of period strings
+     */
+    getSubscribedBarPeriods(symbolName) {
+        const periods = new Set();
+        for (const [key] of this.activeBarSubscriptions) {
+            const [symbol, period] = key.split(':');
+            if (symbol === symbolName) {
+                periods.add(period);
+            }
+        }
+        return periods;
+    }
+
+    /**
+     * Fetch historical candles for any period with automatic request chaining.
+     * Delegates to CTraderDataProcessor.
+     * @param {string} symbolName - Symbol name
+     * @param {string} period - cTrader period string
+     * @param {number} fromTimestamp - Start timestamp in ms
+     * @param {number} toTimestamp - End timestamp in ms
+     * @returns {Array} Array of OHLC bar objects sorted by timestamp
+     */
+    async fetchHistoricalCandles(symbolName, period, fromTimestamp, toTimestamp) {
+        return this.dataProcessor.fetchHistoricalCandles(symbolName, period, fromTimestamp, toTimestamp);
+    }
+
     async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
         return this.dataProcessor.getSymbolDataPackage(symbolName, adrLookbackDays);
     }
@@ -358,6 +513,7 @@ class CTraderSession extends EventEmitter {
     disconnect() {
         // Clear subscription tracking on explicit disconnect
         this.activeSubscriptions.clear();
+        this.activeBarSubscriptions.clear();
         // Use handleDisconnect with shouldScheduleReconnect=false to prevent auto-reconnect
         this.handleDisconnect(null, false);
     }
