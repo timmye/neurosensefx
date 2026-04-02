@@ -1,12 +1,12 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
   import { init, dispose as disposeChart } from 'klinecharts';
-  import { getChartBarStore, loadHistoricalBars, unsubscribeFromCandles } from '../stores/chartDataStore.js';
+  import { getChartBarStore, loadHistoricalBars, loadMoreHistory, unsubscribeFromCandles } from '../stores/chartDataStore.js';
   import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
   import ChartHeader from './displays/ChartHeader.svelte';
   import ChartToolbar from './ChartToolbar.svelte';
-  import { TIMEFRAME_BAR_SPACE, windowToMs } from '../lib/chart/chartConfig.js';
+  import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs } from '../lib/chart/chartConfig.js';
   import { drawingStore } from '../lib/chart/drawingStore.js';
   import {
     DrawingCommandStack,
@@ -21,7 +21,7 @@
   let chart = null;
   let currentSymbol = display.symbol;
   let currentResolution = display.resolution || '4h';
-  let currentWindow = display.window || '3M';
+  let currentWindow = display.window || DEFAULT_RESOLUTION_WINDOW[currentResolution] || '3M';
   let barStoreUnsubscribe = null;
   let isMinimized = display.isMinimized ?? false;
 
@@ -30,6 +30,15 @@
   let magnetMode = false;
   let resizeObserver = null;
   let pendingDataApply = null;
+  let wheelHandler = null;
+  let lastBarCount = 0;
+
+  function getBarSpace() {
+    const width = chartContainer?.clientWidth || 0;
+    return width > 0
+      ? calcBarSpace(currentResolution, currentWindow, width)
+      : (TIMEFRAME_BAR_SPACE[currentResolution] || 10);
+  }
 
   const handlers = {
     close: () => workspaceActions.removeDisplay(display.id),
@@ -136,15 +145,17 @@
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution);
+    lastBarCount = 0;
 
     currentResolution = newResolution;
+    currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
 
     if (chart) {
-      chart.setBarSpace(TIMEFRAME_BAR_SPACE[currentResolution] || 20);
+      chart.setBarSpace(getBarSpace());
     }
 
     loadChartData(currentSymbol, currentResolution, currentWindow);
-    workspaceActions.updateDisplay(display.id, { resolution: newResolution });
+    workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
 
     // Clear overlays and restore for new resolution
     if (chart) {
@@ -159,8 +170,14 @@
 
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
+    lastBarCount = 0;
 
     currentWindow = newWindow;
+
+    if (chart) {
+      chart.setBarSpace(getBarSpace());
+    }
+
     loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { window: newWindow });
   }
@@ -185,6 +202,7 @@
     const store = getChartBarStore(symbol, resolution);
 
     barStoreUnsubscribe?.();
+    lastBarCount = 0;
     barStoreUnsubscribe = store.subscribe(data => {
       if (data.state === 'ready' && data.bars.length > 0) {
         const klineData = data.bars.map(bar => ({
@@ -196,7 +214,17 @@
           volume: bar.volume || 0
         }));
 
-        tryApplyData(klineData);
+        if (lastBarCount === 0 || Math.abs(data.bars.length - lastBarCount) > 1) {
+          // Initial load or bulk change — full replace
+          tryApplyData(klineData);
+        } else {
+          // Incremental update (live candle) — update single bar
+          if (chart) {
+            const lastBar = klineData[klineData.length - 1];
+            chart.updateData(lastBar);
+          }
+        }
+        lastBarCount = data.bars.length;
       }
     });
 
@@ -225,6 +253,7 @@
       resizeObserver = new ResizeObserver(() => {
         if (chart) {
           chart.resize();
+          chart.setBarSpace(getBarSpace());
           if (pendingDataApply) {
             const data = pendingDataApply;
             pendingDataApply = null;
@@ -236,16 +265,15 @@
     }
 
     if (chart) {
-      // Lock zoom - fixed resolution
+      // Lock zoom - barSpace derived from resolution + window
       chart.setZoomEnabled(false);
       chart.setScrollEnabled(true);
 
-      // Set barSpace for resolution
-      chart.setBarSpace(TIMEFRAME_BAR_SPACE[currentResolution] || 20);
+      chart.setBarSpace(getBarSpace());
 
       // Re-lock on zoom attempt
       chart.subscribeAction('onZoom', () => {
-        chart.setBarSpace(TIMEFRAME_BAR_SPACE[currentResolution] || 20);
+        chart.setBarSpace(getBarSpace());
       });
 
       // Load data
@@ -257,6 +285,7 @@
 
     // Set up interact.js for drag/resize
     interactable = createInteractConfig(element, {
+      ignoreFrom: '.chart-canvas-container, .chart-toolbar',
       onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
       onResizeMove: (event) => {
         workspaceActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height });
@@ -264,15 +293,32 @@
       },
       onTap: () => workspaceActions.bringToFront(display.id)
     });
+
+    // Vertical wheel → horizontal time scroll (KLineChart maps deltaY to zoom, which is locked)
+    wheelHandler = (e) => {
+      if (!chart) return;
+      e.preventDefault();
+      const distance = e.deltaX || e.deltaY;
+      if (distance !== 0) {
+        chart.scrollByDistance(distance);
+      }
+    };
+    chartContainer?.addEventListener('wheel', wheelHandler, { passive: false });
   });
 
   onDestroy(() => {
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
 
+    unsubscribeFromCandles(currentSymbol, currentResolution);
+
     if (resizeObserver) {
       resizeObserver.disconnect();
       resizeObserver = null;
+    }
+    if (wheelHandler && chartContainer) {
+      chartContainer.removeEventListener('wheel', wheelHandler);
+      wheelHandler = null;
     }
     pendingDataApply = null;
 

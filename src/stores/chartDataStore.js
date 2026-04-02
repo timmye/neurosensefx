@@ -48,6 +48,10 @@ const STATE = {
   FETCHING_MORE: 'fetching_more'
 };
 
+// Loading timeout — reset to READY with error after 30s
+const LOADING_TIMEOUT_MS = 30_000;
+const loadingTimers = new Map();
+
 // ============================================================================
 // Store Key Helper
 // ============================================================================
@@ -186,6 +190,28 @@ function setupCandleMessageHandler() {
       handleCandleHistory(data);
     }
   });
+
+  // Resend candle subscriptions and reload history on reconnect
+  connectionManager.addSystemSubscription((data) => {
+    if (data.type === 'ready') {
+      for (const [key] of candleSubscriptions) {
+        const [symbol, resolution] = key.split(':');
+        connectionManager.sendRaw({ type: 'subscribeCandles', symbol, resolution });
+
+        // Reload history to fill any gap from disconnection
+        const barStore = getChartBarStore(symbol, resolution);
+        barStore.update(current => {
+          if (current.bars.length > 0) {
+            barStore.set({ ...current, state: STATE.LOADING });
+            const to = Date.now();
+            const from = current.bars[current.bars.length - 1].timestamp;
+            sendGetHistoricalCandles(symbol, resolution, from, to);
+          }
+          return current;
+        });
+      }
+    }
+  });
 }
 
 // ============================================================================
@@ -212,16 +238,34 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
 
   store.set({ bars: [], state: STATE.LOADING, error: null });
 
+  // Start loading timeout
+  const key = storeKey(symbol, fetchResolution);
+  clearTimeout(loadingTimers.get(key));
+  loadingTimers.set(key, setTimeout(() => {
+    store.update(current => {
+      if (current.state === STATE.LOADING) {
+        return { ...current, state: STATE.READY, error: 'Loading timed out' };
+      }
+      return current;
+    });
+    loadingTimers.delete(key);
+  }, LOADING_TIMEOUT_MS));
+
   // Check IndexedDB cache first
   try {
     const cachedBars = await getCachedBars(symbol, fetchResolution, fromTimestamp, toTimestamp);
 
     if (cachedBars.length > 0) {
       const bars = isQuarterly ? aggregateMN1toQuarterly(cachedBars) : cachedBars;
+
+      // Clear loading timeout on cache hit
+      clearTimeout(loadingTimers.get(storeKey(symbol, fetchResolution)));
+      loadingTimers.delete(storeKey(symbol, fetchResolution));
+
       store.set({ bars, state: STATE.READY, error: null });
 
-      // Send subscription for real-time updates
-      sendSubscribeCandles(symbol, fetchResolution);
+      // Track subscription and send for real-time updates
+      subscribeToCandles(symbol, fetchResolution);
       return;
     }
   } catch (err) {
@@ -236,16 +280,8 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
     return;
   }
 
-  const rangeLimit = PERIOD_RANGE_LIMITS[fetchPeriod];
-  const totalRange = toTimestamp - fromTimestamp;
-  let effectiveFrom = fromTimestamp;
-
-  // If request range exceeds per-request limit, start from what we can get
-  if (totalRange > rangeLimit) {
-    effectiveFrom = toTimestamp - rangeLimit;
-  }
-
-  const sent = sendGetHistoricalCandles(symbol, fetchResolution, effectiveFrom, toTimestamp);
+  // Send full range to backend — it chains requests internally per period limits
+  const sent = sendGetHistoricalCandles(symbol, fetchResolution, fromTimestamp, toTimestamp);
   if (!sent) {
     store.set({ bars: [], state: STATE.READY, error: 'WebSocket not connected' });
   }
@@ -335,7 +371,8 @@ export function handleCandleUpdate(message) {
   // Update the store for this resolution
   const store = getChartBarStore(symbol, resolution);
   store.update(current => {
-    if (current.state === STATE.IDLE) return current;
+    // Ignore updates while history is loading — avoid partial state
+    if (current.state === STATE.IDLE || current.state === STATE.LOADING) return current;
 
     const bars = [...current.bars];
     const existingIndex = bars.findIndex(b => b.timestamp === bar.timestamp);
@@ -350,42 +387,49 @@ export function handleCandleUpdate(message) {
     return { ...current, bars, state: STATE.READY, error: null };
   });
 
+  // Persist live bar to IndexedDB
+  putCachedBars(symbol, resolution, [bar]).catch(() => {});
+
   // If this is an MN1 bar, also update the Q (quarterly) store
   if (timeframe === 'MN1') {
     updateQuarterlyStore(symbol, resolution, bar);
   }
 }
 
-export async function handleCandleHistory(message) {
+export function handleCandleHistory(message) {
   if (!message.bars || !message.symbol || !message.resolution) return;
 
   const { symbol, resolution, bars } = message;
   const store = getChartBarStore(symbol, resolution);
-  const current = await new Promise(resolve => store.subscribe(resolve)());
 
-  // Cache bars in IndexedDB
-  try {
-    await putCachedBars(symbol, resolution, bars);
-    await evictStaleCache(resolution);
-  } catch (err) {
-    if (import.meta.env.DEV) {
-      console.warn('[chartDataStore] Cache write failed:', err);
+  // Clear loading timeout
+  const timerKey = storeKey(symbol, resolution);
+  clearTimeout(loadingTimers.get(timerKey));
+  loadingTimers.delete(timerKey);
+
+  // Use synchronous store.update to avoid race conditions
+  store.update(current => {
+    let mergedBars;
+
+    if (current.state === STATE.FETCHING_MORE) {
+      // Prepend older bars for progressive loading
+      mergedBars = [...bars, ...current.bars];
+      mergedBars.sort((a, b) => a.timestamp - b.timestamp);
+    } else {
+      // Initial load (LOADING or any other state)
+      mergedBars = bars;
     }
-  }
 
-  if (current.state === STATE.FETCHING_MORE) {
-    // Prepend older bars for progressive loading
-    const mergedBars = [...bars, ...current.bars];
-    mergedBars.sort((a, b) => a.timestamp - b.timestamp);
+    return { bars: mergedBars, state: STATE.READY, error: null };
+  });
 
-    store.set({ bars: mergedBars, state: STATE.READY, error: null });
-  } else {
-    // Initial load
-    store.set({ bars, state: STATE.READY, error: null });
+  // Subscribe to real-time candle updates after initial load
+  subscribeToCandles(symbol, resolution);
 
-    // Subscribe to real-time candle updates after initial load
-    subscribeToCandles(symbol, resolution);
-  }
+  // Cache bars in IndexedDB (fire-and-forget)
+  putCachedBars(symbol, resolution, bars)
+    .then(() => evictStaleCache(resolution))
+    .catch(() => {});
 }
 
 // ============================================================================
@@ -462,6 +506,17 @@ async function updateQuarterlyStore(symbol, _resolution, newBar) {
         close: newBar.close,
         volume: (existing.volume || 0) + (newBar.volume || 0)
       };
+    } else {
+      // New quarter — append bar
+      bars.push({
+        open: newBar.open,
+        high: newBar.high,
+        low: newBar.low,
+        close: newBar.close,
+        volume: newBar.volume || 0,
+        timestamp: newBar.timestamp
+      });
+      bars.sort((a, b) => a.timestamp - b.timestamp);
     }
 
     return { ...current, bars };

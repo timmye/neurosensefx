@@ -68,7 +68,7 @@ Integrate KLineChart as the charting library using the existing cTrader data pip
 
 ### 2.3 Time Windows
 
-10 total: 1d, 2d, 1W, 2W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y
+11 total: 1d, 2d, 1W, 2W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y
 
 ### 2.4 Default Window per Resolution
 
@@ -89,9 +89,9 @@ Each resolution has a default window (storable). Approximate visible candles at 
 | M | 5Y | ~60 |
 | Q | 10Y | ~40 |
 
-Note: ~500 visible candles at 2px barSpace is the practical max for readability. Higher resolutions show fewer candles with larger barSpace.
+Note: Visible candles depend on barSpace, which is now derived dynamically from the window and resolution (see Section 2.5b).
 
-### 2.5 KLineChart BarSpace (Resolution Lock)
+### 2.5a KLineChart BarSpace — Fallback Constants
 
 ```javascript
 const TIMEFRAME_BAR_SPACE = {
@@ -99,22 +99,43 @@ const TIMEFRAME_BAR_SPACE = {
   '1h': 12, '4h': 20, '12h': 32,
   'D': 40, 'W': 48, 'M': 50, 'Q': 50,
 };
-
-// Fixed time resolution — no zoom allowed
-chart.setZoomEnabled(false);
-chart.setScrollEnabled(true);
-chart.setBarSpace(TIMEFRAME_BAR_SPACE[resolution]);
-
-// Re-lock if anything tries to change it
-chart.subscribeAction('onZoom', () => {
-  chart.setBarSpace(TIMEFRAME_BAR_SPACE[resolution]);
-});
 ```
 
-- `setZoomEnabled(false)` — lock resolution
-- `setScrollEnabled(true)` — allow scrolling through history
-- `setBarSpace(n)` per resolution
-- `subscribeAction('onZoom')` to re-lock
+These values are used as a fallback when the container dimensions are not yet available (e.g., before the chart canvas is measured).
+
+### 2.5b Dynamic BarSpace Calculation
+
+BarSpace is derived from the time window and resolution so that the selected window's candles fit the chart width. When the user changes the window, candles resize accordingly. Zoom is still locked — the user cannot manually change candle width.
+
+```javascript
+// chartConfig.js
+const RESOLUTION_MS = {
+  '1m': 60000, '5m': 300000, '10m': 600000, '15m': 900000, '30m': 1800000,
+  '1h': 3600000, '4h': 14400000, '12h': 43200000,
+  'D': 86400000, 'W': 604800000, 'M': 2592000000, 'Q': 7776000000
+};
+
+export function calcBarSpace(resolution, window, containerWidth) {
+  const numCandles = windowToMs(window) / RESOLUTION_MS[resolution];
+  if (!numCandles || !containerWidth || containerWidth <= 0) {
+    return TIMEFRAME_BAR_SPACE[resolution] || 10;  // fallback
+  }
+  return Math.max(1, Math.min(50, Math.floor(containerWidth / numCandles)));
+}
+```
+
+**Recalculation triggers:**
+- Chart init
+- Resolution change (with new default window applied)
+- Window change
+- Container resize (via `ResizeObserver` on interact.js drag)
+- Zoom re-lock (`onZoom` subscription)
+
+**Clamping**: BarSpace is clamped to KLineChart's [1, 50] range. For large windows at small resolutions, the result may be 1px (many thin candles). For small windows at large resolutions, it may hit 50px (few wide candles).
+
+- `setZoomEnabled(false)` — lock resolution (no manual zoom)
+- `setScrollEnabled(true)` — allow mouse-wheel scrolling through history
+- `subscribeAction('onZoom')` to re-lock with dynamic barSpace
 
 ### 2.6 UI: Resolution & Window Selectors
 
@@ -184,11 +205,11 @@ This is the KEY change. The data fetching strategy works as follows:
 | D-W-M | 10,000 | 27+ years | ~1 MB |
 | Q (aggregated) | 4,000 | ~1,000 years | ~0.4 MB |
 
-**No eviction during session**: Cache is replaced on next load if stale. Background cleanup on app start deletes bars older than cap.
+**Count-based eviction**: Cache evicts oldest bars when count exceeds `CACHE_MAX_BARS` per resolution group. Eviction runs on every `candleHistory` write. This differs from the original spec (time-based eviction) but is simpler to implement and sufficient for controlling IndexedDB size.
 
-**Scroll edge behavior**: Show "Loading..." indicator when fetching more data. Show "No more data" when cTrader returns 0 bars.
+**Scroll edge behavior**: Progressive loading triggers when user scrolls near the left data edge. Show "Loading..." indicator when fetching more data. Show "No more data" when cTrader returns 0 bars.
 
-**barSpace does NOT determine data fetch**: barSpace controls visible candles. We cache far more candles than visible and let KLineChart manage the viewport. Fetch logic uses time duration (window * 2, then chunks), not pixel counts.
+**barSpace is derived from window + resolution**: `calcBarSpace(resolution, window, containerWidth)` computes candle width so the window's candles fit the chart. BarSpace is recalculated on window change, resolution change, and container resize.
 
 ### 3.3 Data Flow
 
@@ -208,13 +229,10 @@ DataRouter.js (new: routeCandleUpdate → broadcast to clients)
 WebSocket
     │
     ▼
-Frontend marketDataStore.js (handle 'candleUpdate' message)
+Frontend chartDataStore.js (handle 'candleUpdate'/'candleHistory' via system subscription)
     │
     ▼
-chartDataStore.js (manage bar arrays, subscribe API)
-    │
-    ▼
-ChartDisplay.svelte (push to KLineChart)
+ChartDisplay.svelte (push to KLineChart via updateData or applyNewData)
 ```
 
 **Historical data flow (initial load):**
@@ -264,9 +282,9 @@ Prepend to IndexedDB cache → prepend to chartDataStore → ChartDisplay.applyM
 
 ### 3.5 Frontend Changes
 
-1. **New `chartDataStore.js`** — manages bar arrays, IndexedDB caching, progressive loading, real-time subscriptions
-2. **Extend `marketDataStore.js`** — handle `candleUpdate`/`candleHistory` messages
-3. **State machine**: IDLE → LOADING → READY → FETCHING_MORE (only one outstanding fetch at a time)
+1. **New `chartDataStore.js`** — manages bar arrays, IndexedDB caching, progressive loading, real-time subscriptions. Receives `candleUpdate`/`candleHistory` messages directly via system subscription on `ConnectionManager` (not routed through `marketDataStore.js`).
+2. **State machine**: IDLE → LOADING → READY → FETCHING_MORE (only one outstanding fetch at a time)
+3. **Subscription lifecycle**: `candleSubscriptions` Map tracks active subscriptions. On WebSocket `ready` event (reconnect), all tracked subscriptions are re-sent.
 
 ### 3.6 Timeframe Mapping: KLineChart → cTrader API
 
@@ -309,22 +327,22 @@ The chart is a **single-instance** workspace display — there's one chart windo
 ```
 1. User clicks a ticker (or it's already highlighted/selected)
 2. User presses "c"
-   → Chart window opens/expands at its remembered position and size
+   → Chart window opens at its remembered position and size (from chartGhost)
    → Chart loads the selected symbol with the user's default resolution + window
    → Chart restores any saved drawings for that symbol + resolution
 3. User interacts with chart:
-   → Changes time resolution → chart reloads at new candle period
-   → Changes time window → chart loads more/fewer candles
+   → Changes time resolution → chart reloads at new candle period (default window applied)
+   → Changes time window → chart loads more/fewer candles, candle width adjusts
    → Draws trendlines, fibonacci, etc.
    → Undo/redo drawing operations
 4. User selects a different ticker
-   → Chart symbol changes to the new ticker's symbol
+   → Chart symbol changes to the new ticker's symbol (reactive)
    → Drawings for previous symbol are saved
    → Drawings for new symbol are restored (if any)
    → Resolution + window stay the same
 5. User presses "c" again
-   → Chart window minimizes/closes
-   → Position and size are saved for next open
+   → Chart window is removed (position/size/resolution/window saved to chartGhost)
+   → Backend candle subscription is cleaned up
 ```
 
 ### 4.2 Symbol Binding
@@ -342,39 +360,53 @@ If no ticker is selected, the chart shows the last-used symbol or remains on its
 | Behavior | Detail |
 |----------|--------|
 | **Resizable** | Drag edges/corners with interact.js (same as FloatingDisplay) |
-| **Draggable** | Drag title bar to reposition (same as FloatingDisplay) |
-| **Minimizable** | "c" key toggles between expanded and minimized. Minimized = collapsed to a small bar or fully hidden. |
-| **Position memory** | Workspace persists chart position (`x`, `y`) and size (`width`, `height`). Restored on next "c" open. |
+| **Draggable** | Drag title bar to reposition (same as FloatingDisplay). Canvas area excluded from drag via `ignoreFrom`. |
+| **Close** | "c" key removes the chart display entirely. Position/size/resolution/window saved to `chartGhost` for restore on next open. Close button always visible in top-right corner of header. |
+| **Minimize** | Available via minimize button in chart header (not "c" key). |
+| **Position memory** | On close, chart state saved to `chartGhost` in workspace store. On next "c" open, `chartGhost` values are used to restore position, size, resolution, and window. `chartGhost` is persisted in localStorage. |
 | **Default position** | First open places chart at a sensible default (e.g., right side of workspace, filling available space). |
+| **Symbol reactivity** | Selecting a different ticker while chart is open automatically updates the chart symbol (reactive statement in Workspace.svelte). |
 
 ### 4.4 Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
-| `c` | Toggle chart open/close for selected symbol |
-| `Escape` | Close chart (same as "c") |
+| `c` | Open chart for selected symbol (create) / Close chart (remove) |
+| `Escape` | Close chart |
 | `Ctrl+Z` | Undo drawing action |
 | `Ctrl+Shift+Z` / `Ctrl+Y` | Redo drawing action |
 
 ### 4.5 Chart Window Workspace State
 
-Stored in workspace config alongside existing display positions:
+The chart display is a normal workspace display when open. On close, its state is preserved via a separate `chartGhost` field in the workspace store (not inside the display object itself, since the display is deleted).
 
+**chartGhost** — saved on close, consumed on next open:
 ```json
 {
-  "chart": {
-    "symbol": "EURUSD",
-    "resolution": "4h",
-    "window": "3M",
-    "position": { "x": 260, "y": 10 },
-    "size": { "width": 800, "height": 500 },
-    "isMinimized": false,
-    "defaultResolutionWindow": {
-      "1m": "1d", "5m": "2d", "4h": "3M", "D": "6M"
-    }
-  }
+  "position": { "x": 260, "y": 10 },
+  "size": { "width": 800, "height": 500 },
+  "resolution": "4h",
+  "window": "3M"
 }
 ```
+
+**Active chart display** — exists only while chart is open:
+```json
+{
+  "id": "chart-1234-abc",
+  "type": "chart",
+  "symbol": "EURUSD",
+  "resolution": "4h",
+  "window": "3M",
+  "position": { "x": 260, "y": 10 },
+  "size": { "width": 800, "height": 500 },
+  "zIndex": 5,
+  "isMinimized": false,
+  "showHeader": true
+}
+```
+
+Both `chartGhost` and the displays Map are persisted to localStorage. `chartGhost` is cleared after being consumed by `addChartDisplay`.
 
 ### 4.6 Interaction with Existing Displays
 
@@ -598,13 +630,17 @@ src/
   components/
     ChartDisplay.svelte       // KLineChart display — single instance, bound to selected ticker
     ChartToolbar.svelte       // Resolution, window, drawing tools toolbar
+    displays/
+      ChartHeader.svelte     // Chart window header with auto-hide, always-visible close button
   lib/
     chart/
-      chartConfig.js          // KLineChart config, resolution-barSpace mappings, resolution/window constants
+      chartConfig.js          // KLineChart config, resolution/window constants, dynamic calcBarSpace
       drawingStore.js         // Drawing persistence via IndexedDB (Dexie.js)
       drawingCommands.js      // Undo/redo command pattern
   stores/
-    chartDataStore.js         // OHLC bar arrays per symbol:resolution, subscribes to backend
+    chartDataStore.js         // OHLC bar arrays per symbol:resolution, IndexedDB caching, progressive loading
+  lib/
+    interactSetup.js          // Added ignoreFrom option for chart canvas exclusion from drag
 ```
 
 ### 7.2 Modified Files
@@ -625,12 +661,15 @@ KLineChart is imperative Canvas. Integration strategy:
 
 | Lifecycle | Action |
 |-----------|--------|
-| `onMount` (chart opens via "c") | `init(container)`, lock zoom, load data, restore drawings |
+| `onMount` (chart opens via "c") | `init(container)`, lock zoom, set dynamic barSpace, load data, restore drawings |
 | Symbol change | Save current drawings, clear chart, load new symbol data + drawings |
-| Resolution change | `setBarSpace()`, fetch bars for new resolution, `applyNewData()` |
-| Window change | Fetch bars for new range, `applyNewData()` |
-| Real-time update | `chart.updateData(bar)` — push each bar update |
-| `onDestroy` / "c" close | Persist drawings, save window position/size, `chart.dispose()` |
+| Resolution change | `setBarSpace(calcBarSpace())`, apply default window, fetch bars, `applyNewData()` |
+| Window change | `setBarSpace(calcBarSpace())`, fetch bars for new range, `applyNewData()` |
+| Real-time update | `chart.updateData(bar)` — push single bar (incremental) |
+| Container resize | `ResizeObserver` recalculates `calcBarSpace()` and calls `chart.resize()` |
+| `onDestroy` / "c" close | Persist drawings, save state to chartGhost, unsubscribe candles, `chart.dispose()` |
+
+**Rendering mode**: Store subscription in ChartDisplay uses a `lastBarCount` heuristic to choose between `chart.applyNewData(fullArray)` (initial load, bulk change) and `chart.updateData(lastBar)` (live candle tick). The store does not currently flag which type of update occurred.
 
 **Do NOT** use Svelte reactive bindings for KLineChart. Imperative Canvas updates via store subscriptions.
 
@@ -639,6 +678,8 @@ KLineChart is imperative Canvas. Integration strategy:
 ## Part 8: Implementation Milestones
 
 ### M-001: Backend Candle Data Extension
+
+**Status: IMPLEMENTED**
 
 **Dependencies:** None
 
@@ -658,25 +699,28 @@ KLineChart is imperative Canvas. Integration strategy:
 
 ### M-002: Frontend Chart Store
 
+**Status: IMPLEMENTED** (with deviations noted below)
+
 **Dependencies:** M-001
 
 | File | Change |
 |------|--------|
-| `src/stores/chartDataStore.js` | New: OHLC bar management, subscription, resolution switching, IndexedDB caching |
-| `src/stores/marketDataStore.js` | Handle `candleUpdate` and `candleHistory` messages |
+| `src/stores/chartDataStore.js` | New: OHLC bar management, subscription, resolution switching, IndexedDB caching, quarterly aggregation |
+| `src/stores/marketDataStore.js` | NOT modified — candle messages handled directly by chartDataStore via system subscription |
 | `src/lib/dataContracts.js` | Add new message types |
-| `src/lib/chart/chartConfig.js` | Resolution/window constants, barSpace mappings |
+| `src/lib/chart/chartConfig.js` | Resolution/window constants, barSpace mappings, dynamic calcBarSpace |
 
 **Acceptance criteria:**
-- chartDataStore loads historical candles from backend
-- Real-time candle updates pushed to subscribers
-- Resolution change fetches new data
-- Symbol change triggers data reload
-- Bars cached in IndexedDB
+- chartDataStore loads historical candles from backend (backend chains requests per-period limits)
+- Real-time candle updates pushed to subscribers (via system subscription, not through marketDataStore)
+- Resolution change fetches new data and applies default window
+- Symbol change triggers data reload (reactive binding in Workspace.svelte)
+- Bars cached in IndexedDB; live updates also persisted to cache
+- Quarterly resolution (Q) aggregated from MN1 on frontend
 
 ### M-003: Chart Display Component
 
-**Dependencies:** M-002
+**Status: IMPLEMENTED**
 
 | File | Change |
 |------|--------|
@@ -685,16 +729,20 @@ KLineChart is imperative Canvas. Integration strategy:
 | `src/components/Workspace.svelte` | Register chart display, "c" shortcut, symbol binding, position/size persistence |
 
 **Acceptance criteria:**
-- "c" opens chart for selected ticker's symbol
+- "c" opens chart for selected ticker's symbol (creates display)
 - Chart renders candlestick data from chartDataStore
-- Time resolution locked (no zoom)
+- BarSpace is dynamically derived from resolution + window + container width
 - Resolution and window buttons change data
-- "c" minimizes/closes chart
-- Chart position and size persist in workspace config
-- Symbol changes when different ticker selected
+- "c" closes chart (removes display, saves state to chartGhost)
+- Close button always visible in top-right corner of header
+- Chart position and size persist in chartGhost (restored on next open)
+- Symbol changes reactively when different ticker selected
 - Chart disposes cleanly (no memory leaks)
+- Mouse wheel scrolls chart horizontally (interact.js ignores canvas for drag)
 
 ### M-004: Drawing Tools & Persistence
+
+**Status: PARTIALLY IMPLEMENTED**
 
 **Dependencies:** M-003
 
@@ -707,7 +755,7 @@ KLineChart is imperative Canvas. Integration strategy:
 **Acceptance criteria:**
 - All drawing tools render on chart (trendline, fibonacci, rectangle, etc.)
 - Drawings persist to IndexedDB and restore on chart mount
-- Undo/redo works for create, move, delete operations
+- Undo/redo works for create and delete operations (MoveDrawingCommand, StyleChangeCommand not yet implemented)
 - Magnet mode snaps to candle OHLC
 - Drawings scoped per symbol:resolution
 - Ctrl+Z / Ctrl+Shift+Z keyboard shortcuts work
