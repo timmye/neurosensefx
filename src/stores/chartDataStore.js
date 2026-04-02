@@ -19,7 +19,8 @@ import {
   windowToMs,
   PERIOD_RANGE_LIMITS,
   DEFAULT_RESOLUTION_WINDOW,
-  CACHE_MAX_BARS
+  CACHE_MAX_BARS,
+  RESOLUTION_MS
 } from '../lib/chart/chartConfig.js';
 
 // ============================================================================
@@ -37,6 +38,7 @@ db.version(1).stores({
 
 const chartBarStores = new Map();
 const candleSubscriptions = new Map();
+const quarterlyPendingStores = new Map(); // 'symbol:M' -> 'Q' store reference
 let connectionManager = null;
 let _candleHandlerSetup = false;
 
@@ -194,9 +196,16 @@ function setupCandleMessageHandler() {
   // Resend candle subscriptions and reload history on reconnect
   connectionManager.addSystemSubscription((data) => {
     if (data.type === 'ready') {
-      for (const [key] of candleSubscriptions) {
+      // Clear stale subscriptions so poisoned keys don't block re-subscription
+      const previousSubs = new Map(candleSubscriptions);
+      candleSubscriptions.clear();
+
+      for (const [key] of previousSubs) {
         const [symbol, resolution] = key.split(':');
-        connectionManager.sendRaw({ type: 'subscribeCandles', symbol, resolution });
+        const sent = sendSubscribeCandles(symbol, resolution);
+        if (sent) {
+          candleSubscriptions.set(key, true);
+        }
 
         // Reload history to fill any gap from disconnection
         // FETCHING_MORE allows live candle updates to continue during gap-fill
@@ -240,6 +249,11 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
 
   store.set({ bars: [], state: STATE.LOADING, error: null });
 
+  // Track quarterly store so handleCandleHistory can route 'M' bars to it
+  if (isQuarterly) {
+    quarterlyPendingStores.set(storeKey(symbol, fetchResolution), resolution);
+  }
+
   // Start loading timeout
   const key = storeKey(symbol, fetchResolution);
   clearTimeout(loadingTimers.get(key));
@@ -258,17 +272,27 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
     const cachedBars = await getCachedBars(symbol, fetchResolution, fromTimestamp, toTimestamp);
 
     if (cachedBars.length > 0) {
-      const bars = isQuarterly ? aggregateMN1toQuarterly(cachedBars) : cachedBars;
+      // Reject stale cache: if the newest bar was updated more than 2 bar-periods ago,
+      // the data is likely from a previous session — fetch fresh from backend
+      const barPeriodMs = RESOLUTION_MS[fetchResolution];
+      const maxAgeMs = barPeriodMs ? barPeriodMs * 2 : 3600_000;
+      const newestBar = cachedBars[cachedBars.length - 1];
+      const isStale = newestBar.updatedAt && (Date.now() - newestBar.updatedAt) > maxAgeMs;
 
-      // Clear loading timeout on cache hit
-      clearTimeout(loadingTimers.get(storeKey(symbol, fetchResolution)));
-      loadingTimers.delete(storeKey(symbol, fetchResolution));
+      if (!isStale) {
+        const bars = isQuarterly ? aggregateMN1toQuarterly(cachedBars) : cachedBars;
 
-      store.set({ bars, state: STATE.READY, error: null });
+        // Clear loading timeout on cache hit
+        clearTimeout(loadingTimers.get(storeKey(symbol, fetchResolution)));
+        loadingTimers.delete(storeKey(symbol, fetchResolution));
 
-      // Track subscription and send for real-time updates
-      subscribeToCandles(symbol, fetchResolution);
-      return;
+        store.set({ bars, state: STATE.READY, error: null });
+
+        // Track subscription and send for real-time updates
+        subscribeToCandles(symbol, fetchResolution);
+        return;
+      }
+      // Stale cache — fall through to backend fetch below
     }
   } catch (err) {
     if (import.meta.env.DEV) {
@@ -295,8 +319,10 @@ export function subscribeToCandles(symbol, resolution) {
 
   if (candleSubscriptions.has(key)) return;
 
-  candleSubscriptions.set(key, true);
-  sendSubscribeCandles(symbol, fetchResolution);
+  const sent = sendSubscribeCandles(symbol, fetchResolution);
+  if (sent) {
+    candleSubscriptions.set(key, true);
+  }
 }
 
 export function unsubscribeFromCandles(symbol, resolution) {
@@ -421,7 +447,18 @@ export function handleCandleHistory(message) {
   if (!message.bars || !message.symbol || !message.resolution) return;
 
   const { symbol, resolution, bars } = message;
-  const store = getChartBarStore(symbol, resolution);
+
+  // Detect quarterly redirect: when Q store requested M data from backend,
+  // route the response to the Q store with aggregation
+  const pendingQ = quarterlyPendingStores.get(storeKey(symbol, resolution));
+  const targetResolution = pendingQ || resolution;
+  const store = getChartBarStore(symbol, targetResolution);
+  const mergedBars = pendingQ ? aggregateMN1toQuarterly(bars) : bars;
+
+  // Clear quarterly tracking once consumed
+  if (pendingQ) {
+    quarterlyPendingStores.delete(storeKey(symbol, resolution));
+  }
 
   // Clear loading timeout
   const timerKey = storeKey(symbol, resolution);
@@ -430,28 +467,28 @@ export function handleCandleHistory(message) {
 
   // Use synchronous store.update to avoid race conditions
   store.update(current => {
-    let mergedBars;
+    let resultBars;
 
     if (current.state === STATE.FETCHING_MORE) {
       // Prepend older bars for progressive loading
-      mergedBars = [...bars, ...current.bars];
-      mergedBars.sort((a, b) => a.timestamp - b.timestamp);
+      resultBars = [...mergedBars, ...current.bars];
+      resultBars.sort((a, b) => a.timestamp - b.timestamp);
       // Deduplicate overlapping bars by timestamp, keeping the fresher version
-      mergedBars = mergedBars.filter((bar, i) =>
-        i === 0 || bar.timestamp !== mergedBars[i - 1].timestamp
+      resultBars = resultBars.filter((bar, i) =>
+        i === 0 || bar.timestamp !== resultBars[i - 1].timestamp
       );
     } else {
       // Initial load (LOADING or any other state)
-      mergedBars = bars;
+      resultBars = mergedBars;
     }
 
-    return { bars: mergedBars, state: STATE.READY, error: null };
+    return { bars: resultBars, state: STATE.READY, error: null };
   });
 
   // Subscribe to real-time candle updates after initial load
-  subscribeToCandles(symbol, resolution);
+  subscribeToCandles(symbol, targetResolution);
 
-  // Cache bars in IndexedDB (fire-and-forget)
+  // Cache bars in IndexedDB (fire-and-forget) — use original resolution for cache key
   putCachedBars(symbol, resolution, bars)
     .then(() => evictStaleCache(resolution))
     .catch(() => {});
@@ -481,7 +518,7 @@ function sendGetHistoricalCandles(symbol, resolution, from, to) {
 
 function sendSubscribeCandles(symbol, resolution) {
   ensureConnectionManager();
-  connectionManager.sendRaw({
+  return connectionManager.sendRaw({
     type: 'subscribeCandles',
     symbol,
     resolution

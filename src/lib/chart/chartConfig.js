@@ -95,3 +95,19 @@ export function windowToMs(windowStr) {
 export function resolutionToPeriod(resolution) {
   return RESOLUTION_TO_PERIOD[resolution] ?? null;
 }
+
+export const RESOLUTION_MS = {
+  '1m': 60000, '5m': 300000, '10m': 600000, '15m': 900000, '30m': 1800000,
+  '1h': 3600000, '4h': 14400000, '12h': 43200000,
+  'D': 86400000, 'W': 604800000, 'M': 2592000000, 'Q': 7776000000
+};
+
+/**
+ * Calculate barSpace so the window's candles fit the container width.
+ * Clamped to KLineChart limits (1–50). Returns fallback if container too small.
+ */
+export function calcBarSpace(resolution, window, containerWidth) {
+  const numCandles = windowToMs(window) / RESOLUTION_MS[resolution];
+  if (!numCandles || !containerWidth || containerWidth <= 0) return TIMEFRAME_BAR_SPACE[resolution] || 10;
+  return Math.max(1, Math.min(50, Math.floor(containerWidth / numCandles)));
+}

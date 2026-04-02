@@ -45,6 +45,7 @@ class WebSocketServer {
         this.cTraderSession.on('error', (error) => this.statusBroadcaster.broadcastStatus('error', error.message));
         this.cTraderSession.on('m1Bar', (bar) => this.marketProfileService.onM1Bar(bar.symbol, bar, 'ctrader'));
         this.cTraderSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'ctrader'));
+        this.cTraderSession.on('m1Bar', (bar) => this.dataRouter.routeM1CandleUpdate(bar));
         this.cTraderSession.on('barUpdate', (bar) => this.dataRouter.routeCandleUpdate(bar));
         this.marketProfileService.on('profileUpdate', (data) => {
             const isDelta = !!data.delta;

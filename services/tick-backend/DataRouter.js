@@ -108,6 +108,49 @@ class DataRouter {
     }
 
     /**
+     * Route M1 bar data to chart subscribers.
+     * Adapts m1Bar format {symbol, open, high, low, close, timestamp} to candleUpdate format.
+     * @param {Object} m1Bar - M1 bar data from CTraderEventHandler.processTrendbarEvent
+     */
+    routeM1CandleUpdate(m1Bar) {
+        const key = `${m1Bar.symbol}:M1`;
+        const clients = this.wsServer.candleSubscriptions.get(key);
+        if (!clients || clients.size === 0) return;
+
+        const message = buildCandleUpdateMessage({
+            symbol: m1Bar.symbol,
+            timeframe: 'M1',
+            bar: {
+                open: m1Bar.open,
+                high: m1Bar.high,
+                low: m1Bar.low,
+                close: m1Bar.close,
+                volume: 0,
+                timestamp: m1Bar.timestamp
+            },
+            isBarClose: false
+        });
+
+        let jsonMessage;
+        try {
+            jsonMessage = JSON.stringify(message);
+        } catch (error) {
+            console.error('[DataRouter] Failed to stringify M1 candle update:', error);
+            return;
+        }
+
+        clients.forEach(client => {
+            try {
+                if (client.readyState === 1) {
+                    client.send(jsonMessage);
+                }
+            } catch (error) {
+                console.error('[DataRouter] Failed to send M1 candle update to client:', error.message);
+            }
+        });
+    }
+
+    /**
      * Broadcast message to clients subscribed to a symbol from a specific source
      * @param {Object} message - Message to broadcast
      * @param {string} symbol - Symbol identifier
