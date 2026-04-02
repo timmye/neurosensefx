@@ -10,28 +10,23 @@ class CTraderEventHandler {
     }
 
     /**
-     * Process trendbar (M1 bar) event.
+     * Process a single trendbar (M1 bar) entry directly.
+     * @param {Object} tb - Single trendbar entry
+     * @param {string} symbolName - Symbol name
+     * @param {Object} symbolInfo - Symbol info with digits, pip info
+     * @returns {Object} Object with m1Bar and tick data
      */
-    processTrendbarEvent(event, symbolName, symbolInfo) {
-        const latestBar = event.trendbar[event.trendbar.length - 1];
-        const closePriceRaw = Number(latestBar.low) + Number(latestBar.deltaClose);
+    processTrendbarEntry(tb, symbolName, symbolInfo) {
+        const closePriceRaw = Number(tb.low) + Number(tb.deltaClose);
         const price = this.dataProcessor.calculatePrice(closePriceRaw, symbolInfo.digits);
-        const timestamp = latestBar.utcTimestampInMinutes ? Number(latestBar.utcTimestampInMinutes) * 60 * 1000 : Date.now();
-
-        console.log(`[CTraderSession] M1 bar received for ${symbolName}:`, {
-            open: this.dataProcessor.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaOpen), symbolInfo.digits),
-            high: this.dataProcessor.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaHigh), symbolInfo.digits),
-            low: this.dataProcessor.calculatePrice(Number(latestBar.low), symbolInfo.digits),
-            close: price,
-            timestamp: timestamp
-        });
+        const timestamp = tb.utcTimestampInMinutes ? Number(tb.utcTimestampInMinutes) * 60 * 1000 : Date.now();
 
         return {
             m1Bar: {
                 symbol: symbolName,
-                open: this.dataProcessor.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaOpen), symbolInfo.digits),
-                high: this.dataProcessor.calculatePrice(Number(latestBar.low) + Number(latestBar.deltaHigh), symbolInfo.digits),
-                low: this.dataProcessor.calculatePrice(Number(latestBar.low), symbolInfo.digits),
+                open: this.dataProcessor.calculatePrice(Number(tb.low) + Number(tb.deltaOpen), symbolInfo.digits),
+                high: this.dataProcessor.calculatePrice(Number(tb.low) + Number(tb.deltaHigh), symbolInfo.digits),
+                low: this.dataProcessor.calculatePrice(Number(tb.low), symbolInfo.digits),
                 close: price,
                 timestamp: timestamp
             },
@@ -48,23 +43,20 @@ class CTraderEventHandler {
     }
 
     /**
-     * Process trendbar event for multi-timeframe subscriptions.
-     * Returns bar data including period/timeframe information.
-     * @param {Object} event - cTrader spot event with trendbar data
+     * Process a single trendbar entry for multi-timeframe subscriptions.
+     * @param {Object} tb - Single trendbar entry
      * @param {string} symbolName - Symbol name
      * @param {Object} symbolInfo - Symbol info with digits, pip info
      * @param {string} period - The subscribed cTrader period (e.g., 'H4', 'D1')
      * @returns {Object|null} Bar data with symbol, period, OHLC, timestamp, or null
      */
-    processMultiTimeframeTrendbarEvent(event, symbolName, symbolInfo, period) {
-        if (!event.trendbar || event.trendbar.length === 0) return null;
-
-        const latestBar = event.trendbar[event.trendbar.length - 1];
-        const low = Number(latestBar.low);
-        const deltaOpen = Number(latestBar.deltaOpen);
-        const deltaHigh = Number(latestBar.deltaHigh);
-        const deltaClose = Number(latestBar.deltaClose);
-        const timestamp = latestBar.utcTimestampInMinutes ? Number(latestBar.utcTimestampInMinutes) * 60 * 1000 : Date.now();
+    processMultiTimeframeTrendbarEntry(tb, symbolName, symbolInfo, period) {
+        if (!tb) return null;
+        const low = Number(tb.low);
+        const deltaOpen = Number(tb.deltaOpen);
+        const deltaHigh = Number(tb.deltaHigh);
+        const deltaClose = Number(tb.deltaClose);
+        const timestamp = tb.utcTimestampInMinutes ? Number(tb.utcTimestampInMinutes) * 60 * 1000 : Date.now();
 
         return {
             symbol: symbolName,
@@ -74,7 +66,7 @@ class CTraderEventHandler {
                 high: this.dataProcessor.calculatePrice(low + deltaHigh, symbolInfo.digits),
                 low: this.dataProcessor.calculatePrice(low, symbolInfo.digits),
                 close: this.dataProcessor.calculatePrice(low + deltaClose, symbolInfo.digits),
-                volume: latestBar.volume || 0,
+                volume: tb.volume || 0,
                 timestamp: timestamp
             }
         };

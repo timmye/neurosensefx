@@ -132,37 +132,61 @@ class CTraderSession extends EventEmitter {
                 let m1Bar = null;
 
                 if (event.trendbar && event.trendbar.length > 0) {
-                    // Determine subscribed periods for this symbol to route correctly
                     const subscribedPeriods = this.getSubscribedBarPeriods(symbolName);
                     const hasM1 = subscribedPeriods.has('M1');
-                    const hasOther = subscribedPeriods.size > 0 && !hasM1 || subscribedPeriods.size > 1;
+                    const hasNonM1 = [...subscribedPeriods].some(p => p !== 'M1');
+                    let nonM1Routed = false;
 
-                    // Always process as M1 bar for existing market profile flow
-                    if (hasM1 || subscribedPeriods.size === 0) {
-                        const result = this.eventHandler.processTrendbarEvent(event, symbolName, symbolInfo);
-                        m1Bar = result.m1Bar;
-                        tickData = result.tick;
-                    }
+                    // Try period-field routing first.
+                    // Each trendbar entry MAY carry a period field (ProtoOATrendbarPeriod numeric enum).
+                    // When populated, we can route each entry to the correct handler.
+                    for (const tb of event.trendbar) {
+                        const periodStr = tb.period != null ? (PERIOD_ENUM_TO_STRING[tb.period] || null) : null;
 
-                    // Emit barUpdate for non-M1 bar subscriptions.
-                    // At most ONE non-M1 period is active per symbol (enforced by
-                    // subscribeToBars), so we can safely emit for the first non-M1
-                    // period found. The cTrader event doesn't carry a period field,
-                    // but the single-subscription constraint means the trendbar data
-                    // unambiguously belongs to that one period.
-                    if (hasOther) {
-                        for (const period of subscribedPeriods) {
-                            if (period === 'M1') continue;
-                            const barData = this.eventHandler.processMultiTimeframeTrendbarEvent(event, symbolName, symbolInfo, period);
+                        if (periodStr === 'M1') {
+                            if (hasM1 || subscribedPeriods.size === 0) {
+                                const result = this.eventHandler.processTrendbarEntry(tb, symbolName, symbolInfo);
+                                m1Bar = result.m1Bar;
+                                tickData = result.tick;
+                            }
+                        } else if (periodStr && periodStr !== 'M1' && subscribedPeriods.has(periodStr)) {
+                            const barData = this.eventHandler.processMultiTimeframeTrendbarEntry(tb, symbolName, symbolInfo, periodStr);
                             if (barData) {
-                                const tsKey = `${symbolName}:${period}`;
+                                const tsKey = `${symbolName}:${periodStr}`;
                                 const prevTimestamp = this.lastBarTimestamps.get(tsKey);
                                 barData.isBarClose = prevTimestamp !== undefined && prevTimestamp !== barData.bar.timestamp;
                                 this.lastBarTimestamps.set(tsKey, barData.bar.timestamp);
                                 this.emit('barUpdate', barData);
                             }
-                            break; // Only one non-M1 period per symbol
+                            nonM1Routed = true;
                         }
+                        // periodStr === null → period field absent, skip here; fallback below
+                    }
+
+                    // Fallback: when the period field is not populated in trendbar entries
+                    // (protobufjs decode() omits absent optional fields), use subscription-based
+                    // routing on the last entry — matches the pre-period-routing behavior.
+                    if (!nonM1Routed && hasNonM1) {
+                        const lastTb = event.trendbar[event.trendbar.length - 1];
+                        const nonM1Period = [...subscribedPeriods].find(p => p !== 'M1');
+                        if (nonM1Period) {
+                            const barData = this.eventHandler.processMultiTimeframeTrendbarEntry(lastTb, symbolName, symbolInfo, nonM1Period);
+                            if (barData) {
+                                const tsKey = `${symbolName}:${nonM1Period}`;
+                                const prevTimestamp = this.lastBarTimestamps.get(tsKey);
+                                barData.isBarClose = prevTimestamp !== undefined && prevTimestamp !== barData.bar.timestamp;
+                                this.lastBarTimestamps.set(tsKey, barData.bar.timestamp);
+                                this.emit('barUpdate', barData);
+                            }
+                        }
+                    }
+
+                    // Ensure M1 processing happened even if period field was absent
+                    if (!m1Bar && !tickData && (hasM1 || subscribedPeriods.size === 0)) {
+                        const lastTb = event.trendbar[event.trendbar.length - 1];
+                        const result = this.eventHandler.processTrendbarEntry(lastTb, symbolName, symbolInfo);
+                        m1Bar = result.m1Bar;
+                        tickData = result.tick;
                     }
                 } else if (event.bid != null && event.ask != null) {
                     tickData = this.eventHandler.processSpotEvent(event, symbolName, symbolInfo);
@@ -356,6 +380,10 @@ class CTraderSession extends EventEmitter {
     }
 
     async subscribeToTicks(symbolName) {
+        if (this.activeSubscriptions.has(symbolName)) {
+            return;
+        }
+
         const symbolId = this.symbolLoader.getSymbolId(symbolName);
         if (symbolId) {
             await this.connection.sendCommand('ProtoOASubscribeSpotsReq', {
@@ -385,6 +413,11 @@ class CTraderSession extends EventEmitter {
     }
 
     async subscribeToM1Bars(symbolName) {
+        const key = `${symbolName}:M1`;
+        if (this.activeBarSubscriptions.has(key)) {
+            return;
+        }
+
         const symbolId = this.symbolLoader.getSymbolId(symbolName);
         if (symbolId) {
             await this.connection.sendCommand('ProtoOASubscribeLiveTrendbarReq', {
@@ -392,6 +425,7 @@ class CTraderSession extends EventEmitter {
                 symbolId: symbolId,
                 period: 'M1'
             });
+            this.activeBarSubscriptions.set(key, true);
         } else {
             const error = new Error(`Symbol ID not found for ${symbolName}`);
             error.code = 'SYMBOL_NOT_FOUND';
@@ -402,14 +436,12 @@ class CTraderSession extends EventEmitter {
 
     /**
      * Subscribe to live trendbars for any cTrader-supported period.
-     * Only ONE non-M1 bar subscription per symbol is supported at a time.
-     * When subscribing to a new period for the same symbol, the previous
-     * non-M1 subscription is automatically unsubscribed first.
+     * Up to 3 non-M1 bar subscriptions per symbol are supported.
+     * When the limit is reached, the oldest non-M1 subscription is evicted.
      *
-     * Rationale: cTrader sends separate spot events per period subscription,
-     * but the event does not carry a period field to identify which period
-     * the trendbar data belongs to. Supporting only one non-M1 period per
-     * symbol avoids ambiguous routing in the spot event handler.
+     * Each trendbar entry in the spot event carries a numeric period field
+     * (ProtoOATrendbarPeriod enum) that is mapped to the string identifier
+     * used internally, enabling unambiguous routing per entry.
      *
      * @param {string} symbolName - Symbol name (e.g., 'EURUSD')
      * @param {string} period - cTrader period string (M1, M5, M10, M15, M30, H1, H4, H12, D1, W1, MN1)
@@ -434,18 +466,22 @@ class CTraderSession extends EventEmitter {
             return;
         }
 
-        // Enforce single non-M1 bar subscription per symbol.
-        // cTrader spot events don't carry a period field, so multiple non-M1
-        // subscriptions for the same symbol would make it impossible to route
-        // trendbar data to the correct period.
         if (period !== 'M1') {
+            // Allow up to 3 non-M1 subscriptions per symbol.
+            // Evict the oldest if limit reached.
+            const MAX_NON_M1_PER_SYMBOL = 3;
+            const nonM1Keys = [];
             for (const [existingKey] of this.activeBarSubscriptions) {
                 const [existingSymbol, existingPeriod] = existingKey.split(':');
                 if (existingSymbol === symbolName && existingPeriod !== 'M1') {
-                    console.log(`[CTraderSession] Replacing ${existingKey} with ${key} (single non-M1 per symbol)`);
-                    await this.unsubscribeFromBars(symbolName, existingPeriod);
-                    break;
+                    nonM1Keys.push(existingKey);
                 }
+            }
+            if (nonM1Keys.length >= MAX_NON_M1_PER_SYMBOL) {
+                const evictKey = nonM1Keys[0];
+                const [, evictPeriod] = evictKey.split(':');
+                console.log(`[CTraderSession] Max non-M1 subscriptions for ${symbolName}, evicting ${evictKey}`);
+                await this.unsubscribeFromBars(symbolName, evictPeriod);
             }
         }
 
@@ -534,5 +570,13 @@ class CTraderSession extends EventEmitter {
         await this.connect();
     }
 }
+
+// ProtoOATrendbarPeriod numeric enum → string identifier
+// protobufjs deserializes the period field as a number, not a string
+const PERIOD_ENUM_TO_STRING = {
+    1: 'M1', 2: 'M2', 3: 'M3', 4: 'M4', 5: 'M5',
+    6: 'M10', 7: 'M15', 8: 'M30', 9: 'H1', 10: 'H4',
+    11: 'H12', 12: 'D1', 13: 'W1', 14: 'MN1'
+};
 
 module.exports = { CTraderSession };

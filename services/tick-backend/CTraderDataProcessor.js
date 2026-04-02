@@ -132,9 +132,14 @@ class CTraderDataProcessor {
                     break;
                 }
 
-                // Move to next chunk: start from the last bar's timestamp + 1ms to avoid overlap
-                const lastBarTimestamp = allBars[allBars.length - 1].timestamp;
-                currentFrom = lastBarTimestamp + 1;
+                // Move to next chunk: start from where data ended
+                const lastBarTs = allBars[allBars.length - 1].timestamp;
+                if (lastBarTs <= currentFrom) {
+                    // No progress — avoid infinite loop by advancing past chunkEnd
+                    currentFrom = chunkEnd;
+                } else {
+                    currentFrom = lastBarTs + 1;
+                }
             } catch (error) {
                 const errMsg = error.errorCode ?? error.message ?? error;
                 const isRateLimit = errMsg === 'REQUEST_FREQUENCY_EXCEEDED';
@@ -151,7 +156,6 @@ class CTraderDataProcessor {
                         firstChunkFailed = true;
                         const fallbackFrom = toTimestamp - rangeLimit;
                         if (fallbackFrom > currentFrom) {
-                            console.log(`[CTraderDataProcessor] Retrying from fallback range [${fallbackFrom} - ${toTimestamp}]`);
                             currentFrom = fallbackFrom;
                             continue;
                         }
@@ -167,7 +171,6 @@ class CTraderDataProcessor {
                     firstChunkFailed = true;
                     const fallbackFrom = toTimestamp - rangeLimit;
                     if (fallbackFrom > currentFrom) {
-                        console.log(`[CTraderDataProcessor] Retrying from fallback range [${fallbackFrom} - ${toTimestamp}]`);
                         currentFrom = fallbackFrom;
                         continue;
                     }
@@ -187,7 +190,6 @@ class CTraderDataProcessor {
             }
         }
 
-        console.log(`[CTraderDataProcessor] Fetched ${dedupedBars.length} ${period} bars for ${symbolName}`);
         return dedupedBars;
     }
 

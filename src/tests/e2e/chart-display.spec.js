@@ -126,10 +126,10 @@ test.describe('Chart Display - "c" Key Workflow', () => {
 
     // Count resolution buttons
     const resolutionBtns = page.locator(SELECTORS.resolutionBtn);
-    await expect(resolutionBtns).toHaveCount(12);
+    await expect(resolutionBtns).toHaveCount(11);
 
     // Verify expected resolution labels
-    const expectedResolutions = ['1M', '5M', '10M', '15M', '30M', '1H', '4H', '12H', 'Daily', 'Weekly', 'Monthly', 'Quarterly'];
+    const expectedResolutions = ['1M', '5M', '10M', '15M', '30M', '1H', '4H', '12H', 'Daily', 'Weekly', 'Monthly'];
     const actualLabels = (await resolutionBtns.allTextContents()).map(l => l.trim());
     for (const expected of expectedResolutions) {
       expect(actualLabels).toContain(expected);

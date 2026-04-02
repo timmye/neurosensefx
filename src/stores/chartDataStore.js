@@ -3,7 +3,7 @@
  *
  * Manages OHLC bar arrays per symbol:resolution. Handles historical candle
  * loading, real-time candle subscriptions, IndexedDB caching via Dexie.js,
- * progressive (scroll-driven) loading, and quarterly aggregation from MN1 bars.
+ * and progressive (scroll-driven) loading.
  *
  * State machine: IDLE -> LOADING -> READY -> FETCHING_MORE
  *
@@ -16,9 +16,7 @@ import { ConnectionManager } from '../lib/connectionManager.js';
 import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
 import {
   resolutionToPeriod,
-  windowToMs,
   PERIOD_RANGE_LIMITS,
-  DEFAULT_RESOLUTION_WINDOW,
   CACHE_MAX_BARS,
   RESOLUTION_MS
 } from '../lib/chart/chartConfig.js';
@@ -38,7 +36,7 @@ db.version(1).stores({
 
 const chartBarStores = new Map();
 const candleSubscriptions = new Map();
-const quarterlyPendingStores = new Map(); // 'symbol:M' -> 'Q' store reference
+const aggregationTargets = new Map(); // 'symbol:1m' -> Set<targetResolution>
 let connectionManager = null;
 let _candleHandlerSetup = false;
 
@@ -60,63 +58,6 @@ const loadingTimers = new Map();
 
 function storeKey(symbol, resolution) {
   return `${symbol}:${resolution}`;
-}
-
-// ============================================================================
-// Quarterly Aggregation
-// ============================================================================
-
-function aggregateMN1toQuarterly(bars) {
-  if (!bars || bars.length === 0) return [];
-
-  const quarters = [];
-  let current = null;
-
-  for (const bar of bars) {
-    const date = new Date(bar.timestamp);
-    const quarterMonth = Math.floor(date.getUTCMonth() / 3) * 3;
-    const quarterLabel = `${date.getUTCFullYear()}-Q${Math.floor(date.getUTCMonth() / 3) + 1}`;
-
-    if (!current || current._quarterLabel !== quarterLabel) {
-      if (current) {
-        quarters.push({
-          open: current.open,
-          high: current.high,
-          low: current.low,
-          close: current.close,
-          volume: current.volume,
-          timestamp: current.timestamp
-        });
-      }
-      current = {
-        _quarterLabel: quarterLabel,
-        open: bar.open,
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-        volume: bar.volume || 0,
-        timestamp: bar.timestamp
-      };
-    } else {
-      current.high = Math.max(current.high, bar.high);
-      current.low = Math.min(current.low, bar.low);
-      current.close = bar.close;
-      current.volume = (current.volume || 0) + (bar.volume || 0);
-    }
-  }
-
-  if (current) {
-    quarters.push({
-      open: current.open,
-      high: current.high,
-      low: current.low,
-      close: current.close,
-      volume: current.volume,
-      timestamp: current.timestamp
-    });
-  }
-
-  return quarters;
 }
 
 // ============================================================================
@@ -196,12 +137,13 @@ function setupCandleMessageHandler() {
   // Resend candle subscriptions and reload history on reconnect
   connectionManager.addSystemSubscription((data) => {
     if (data.type === 'ready') {
-      // Clear stale subscriptions so poisoned keys don't block re-subscription
+      // Clear subscriptions before re-subscribing to avoid duplicate keys
       const previousSubs = new Map(candleSubscriptions);
       candleSubscriptions.clear();
 
       for (const [key] of previousSubs) {
         const [symbol, resolution] = key.split(':');
+        // The subscription key is the backend resolution (e.g., '1m' for aggregated)
         const sent = sendSubscribeCandles(symbol, resolution);
         if (sent) {
           candleSubscriptions.set(key, true);
@@ -243,19 +185,12 @@ export function getChartBarStore(symbol, resolution) {
 
 export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTimestamp) {
   const store = getChartBarStore(symbol, resolution);
-  const isQuarterly = resolution === 'Q';
-  const fetchResolution = isQuarterly ? 'M' : resolution;
-  const fetchPeriod = resolutionToPeriod(fetchResolution);
+  const fetchPeriod = resolutionToPeriod(resolution);
 
   store.set({ bars: [], state: STATE.LOADING, error: null });
 
-  // Track quarterly store so handleCandleHistory can route 'M' bars to it
-  if (isQuarterly) {
-    quarterlyPendingStores.set(storeKey(symbol, fetchResolution), resolution);
-  }
-
   // Start loading timeout
-  const key = storeKey(symbol, fetchResolution);
+  const key = storeKey(symbol, resolution);
   clearTimeout(loadingTimers.get(key));
   loadingTimers.set(key, setTimeout(() => {
     store.update(current => {
@@ -269,27 +204,24 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
 
   // Check IndexedDB cache first
   try {
-    const cachedBars = await getCachedBars(symbol, fetchResolution, fromTimestamp, toTimestamp);
+    const cachedBars = await getCachedBars(symbol, resolution, fromTimestamp, toTimestamp);
 
     if (cachedBars.length > 0) {
-      // Reject stale cache: if the newest bar was updated more than 2 bar-periods ago,
-      // the data is likely from a previous session — fetch fresh from backend
-      const barPeriodMs = RESOLUTION_MS[fetchResolution];
-      const maxAgeMs = barPeriodMs ? barPeriodMs * 2 : 3600_000;
+      // Reject stale cache: bars last written more than 2 bar-periods ago are too old to trust
+      const barPeriodMs = RESOLUTION_MS[resolution];
+      const maxAgeMs = barPeriodMs ? Math.min(barPeriodMs * 2, 3_600_000) : 3_600_000;
       const newestBar = cachedBars[cachedBars.length - 1];
       const isStale = newestBar.updatedAt && (Date.now() - newestBar.updatedAt) > maxAgeMs;
 
       if (!isStale) {
-        const bars = isQuarterly ? aggregateMN1toQuarterly(cachedBars) : cachedBars;
-
         // Clear loading timeout on cache hit
-        clearTimeout(loadingTimers.get(storeKey(symbol, fetchResolution)));
-        loadingTimers.delete(storeKey(symbol, fetchResolution));
+        clearTimeout(loadingTimers.get(storeKey(symbol, resolution)));
+        loadingTimers.delete(storeKey(symbol, resolution));
 
-        store.set({ bars, state: STATE.READY, error: null });
+        store.set({ bars: cachedBars, state: STATE.READY, error: null, updateType: 'full' });
 
         // Track subscription and send for real-time updates
-        subscribeToCandles(symbol, fetchResolution);
+        subscribeToCandles(symbol, resolution);
         return;
       }
       // Stale cache — fall through to backend fetch below
@@ -300,6 +232,9 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
     }
   }
 
+  // Subscribe immediately for live updates — don't wait for history
+  subscribeToCandles(symbol, resolution);
+
   // Cache miss — fetch from backend
   if (!fetchPeriod) {
     store.set({ bars: [], state: STATE.READY, error: `Unknown resolution: ${resolution}` });
@@ -307,54 +242,77 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
   }
 
   // Send full range to backend — it chains requests internally per period limits
-  const sent = sendGetHistoricalCandles(symbol, fetchResolution, fromTimestamp, toTimestamp);
+  const sent = sendGetHistoricalCandles(symbol, resolution, fromTimestamp, toTimestamp);
   if (!sent) {
     store.set({ bars: [], state: STATE.READY, error: 'WebSocket not connected' });
   }
 }
 
-export function subscribeToCandles(symbol, resolution) {
-  const fetchResolution = resolution === 'Q' ? 'M' : resolution;
-  const key = storeKey(symbol, fetchResolution);
+function registerAggregationTarget(symbol, resolution, fetchResolution) {
+  const m1Key = storeKey(symbol, '1m');
+  if (!aggregationTargets.has(m1Key)) aggregationTargets.set(m1Key, new Set());
+  aggregationTargets.get(m1Key).add(resolution);
+  // Also subscribe to the actual target period for direct bar updates
+  const targetKey = storeKey(symbol, fetchResolution);
+  if (!candleSubscriptions.has(targetKey)) {
+    const targetSent = sendSubscribeCandles(symbol, fetchResolution);
+    if (targetSent) {
+      candleSubscriptions.set(targetKey, true);
+    }
+  }
+}
 
-  if (candleSubscriptions.has(key)) return;
+function subscribeToCandles(symbol, resolution) {
+  const needsAggregation = resolution !== '1m';
+  const key = storeKey(symbol, needsAggregation ? '1m' : resolution);
 
-  const sent = sendSubscribeCandles(symbol, fetchResolution);
+  if (candleSubscriptions.has(key)) {
+    // Already subscribed to the base period — just register aggregation target
+    if (needsAggregation) {
+      registerAggregationTarget(symbol, resolution, resolution);
+    }
+    return;
+  }
+
+  const sent = sendSubscribeCandles(symbol, needsAggregation ? '1m' : resolution);
   if (sent) {
     candleSubscriptions.set(key, true);
+    if (needsAggregation) {
+      registerAggregationTarget(symbol, resolution, resolution);
+    }
   }
 }
 
 export function unsubscribeFromCandles(symbol, resolution) {
-  const fetchResolution = resolution === 'Q' ? 'M' : resolution;
-  const key = storeKey(symbol, fetchResolution);
+  const needsAggregation = resolution !== '1m';
+  const m1Key = storeKey(symbol, '1m');
 
-  if (!candleSubscriptions.has(key)) return;
-
-  candleSubscriptions.delete(key);
-  sendUnsubscribeCandles(symbol, fetchResolution);
-}
-
-export async function changeResolution(oldResolution, newResolution, symbol) {
-  unsubscribeFromCandles(symbol, oldResolution);
-
-  const defaultWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || '3M';
-  const windowMs = windowToMs(defaultWindow);
-  const to = Date.now();
-  const from = to - windowMs * 2;
-
-  await loadHistoricalBars(symbol, newResolution, from, to);
-}
-
-export async function changeSymbol(oldSymbol, newSymbol, resolution) {
-  unsubscribeFromCandles(oldSymbol, resolution);
-
-  const defaultWindow = DEFAULT_RESOLUTION_WINDOW[resolution] || '3M';
-  const windowMs = windowToMs(defaultWindow);
-  const to = Date.now();
-  const from = to - windowMs * 2;
-
-  await loadHistoricalBars(newSymbol, resolution, from, to);
+  if (needsAggregation) {
+    const targets = aggregationTargets.get(m1Key);
+    if (targets) {
+      targets.delete(resolution);
+      if (targets.size === 0) {
+        aggregationTargets.delete(m1Key);
+        // No more aggregation targets — clean up M1 subscription too
+        const m1SubKey = storeKey(symbol, '1m');
+        if (candleSubscriptions.has(m1SubKey)) {
+          candleSubscriptions.delete(m1SubKey);
+          sendUnsubscribeCandles(symbol, '1m');
+        }
+      }
+    }
+    // Also unsubscribe from the target resolution
+    const targetKey = storeKey(symbol, resolution);
+    if (candleSubscriptions.has(targetKey)) {
+      candleSubscriptions.delete(targetKey);
+      sendUnsubscribeCandles(symbol, resolution);
+    }
+  } else {
+    const key = storeKey(symbol, resolution);
+    if (!candleSubscriptions.has(key)) return;
+    candleSubscriptions.delete(key);
+    sendUnsubscribeCandles(symbol, resolution);
+  }
 }
 
 export async function loadMoreHistory(symbol, resolution) {
@@ -365,14 +323,12 @@ export async function loadMoreHistory(symbol, resolution) {
 
   store.set({ ...current, state: STATE.FETCHING_MORE });
 
-  const isQuarterly = resolution === 'Q';
-  const fetchResolution = isQuarterly ? 'M' : resolution;
-  const fetchPeriod = resolutionToPeriod(fetchResolution);
+  const fetchPeriod = resolutionToPeriod(resolution);
 
   if (!fetchPeriod) return;
 
   // Timeout to prevent permanent stuck FETCHING_MORE state
-  const timerKey = storeKey(symbol, fetchResolution);
+  const timerKey = storeKey(symbol, resolution);
   clearTimeout(loadingTimers.get(timerKey));
   loadingTimers.set(timerKey, setTimeout(() => {
     store.update(c => {
@@ -389,7 +345,7 @@ export async function loadMoreHistory(symbol, resolution) {
   const chunkTo = oldestTimestamp;
   const chunkFrom = Math.max(oldestTimestamp - rangeLimit, 0);
 
-  const sent = sendGetHistoricalCandles(symbol, fetchResolution, chunkFrom, chunkTo);
+  const sent = sendGetHistoricalCandles(symbol, resolution, chunkFrom, chunkTo);
   if (!sent) {
     store.set({ ...current, state: STATE.READY });
     clearTimeout(loadingTimers.get(timerKey));
@@ -401,7 +357,7 @@ export async function loadMoreHistory(symbol, resolution) {
 // Message Handlers (called from system subscription)
 // ============================================================================
 
-export function handleCandleUpdate(message) {
+function handleCandleUpdate(message) {
   if (!message.bar || !message.symbol || !message.timeframe) return;
 
   const { symbol, timeframe, bar, isBarClose } = message;
@@ -414,8 +370,10 @@ export function handleCandleUpdate(message) {
   // Update the store for this resolution
   const store = getChartBarStore(symbol, resolution);
   store.update(current => {
-    // Ignore updates while history is loading — avoid partial state
-    if (current.state === STATE.IDLE || current.state === STATE.LOADING) return current;
+    // Allow live updates during LOADING — they modify existing bars or append new ones.
+    // The historical fetch does a full replace when it arrives, so live data won't conflict.
+    // IDLE means no load was ever requested — skip those.
+    if (current.state === STATE.IDLE) return current;
 
     const bars = [...current.bars];
     const existingIndex = bars.findIndex(b => b.timestamp === bar.timestamp);
@@ -427,7 +385,7 @@ export function handleCandleUpdate(message) {
       bars.sort((a, b) => a.timestamp - b.timestamp);
     }
 
-    return { ...current, bars, state: STATE.READY, error: null };
+    return { ...current, bars, state: current.state === STATE.FETCHING_MORE ? STATE.FETCHING_MORE : STATE.READY, error: null, updateType: 'incremental' };
   });
 
   // Persist live bar to IndexedDB
@@ -437,28 +395,35 @@ export function handleCandleUpdate(message) {
     }
   });
 
-  // If this is an MN1 bar, also update the Q (quarterly) store
-  if (timeframe === 'MN1') {
-    updateQuarterlyStore(symbol, resolution, bar);
+  if (timeframe === 'M1') {
+    const m1Key = storeKey(symbol, '1m');
+    const targets = aggregationTargets.get(m1Key);
+    if (targets && targets.size > 0) {
+      for (const targetResolution of targets) {
+        const targetStore = getChartBarStore(symbol, targetResolution);
+        targetStore.update(current => {
+          if (current.state === STATE.IDLE || !current.bars.length) return current;
+          const bars = [...current.bars];
+          const last = bars[bars.length - 1];
+          bars[bars.length - 1] = {
+            ...last,
+            close: bar.close,
+            high: Math.max(last.high, bar.high),
+            low: Math.min(last.low, bar.low),
+          };
+          return { ...current, bars, state: current.state === STATE.FETCHING_MORE ? STATE.FETCHING_MORE : STATE.READY, error: null, updateType: 'incremental' };
+        });
+      }
+    }
   }
 }
 
-export function handleCandleHistory(message) {
+function handleCandleHistory(message) {
   if (!message.bars || !message.symbol || !message.resolution) return;
 
   const { symbol, resolution, bars } = message;
 
-  // Detect quarterly redirect: when Q store requested M data from backend,
-  // route the response to the Q store with aggregation
-  const pendingQ = quarterlyPendingStores.get(storeKey(symbol, resolution));
-  const targetResolution = pendingQ || resolution;
-  const store = getChartBarStore(symbol, targetResolution);
-  const mergedBars = pendingQ ? aggregateMN1toQuarterly(bars) : bars;
-
-  // Clear quarterly tracking once consumed
-  if (pendingQ) {
-    quarterlyPendingStores.delete(storeKey(symbol, resolution));
-  }
+  const store = getChartBarStore(symbol, resolution);
 
   // Clear loading timeout
   const timerKey = storeKey(symbol, resolution);
@@ -469,24 +434,25 @@ export function handleCandleHistory(message) {
   store.update(current => {
     let resultBars;
 
-    if (current.state === STATE.FETCHING_MORE) {
-      // Prepend older bars for progressive loading
-      resultBars = [...mergedBars, ...current.bars];
+    if (current.bars.length > 0) {
+      // Merge incoming bars with existing bars (handles both progressive
+      // loading and the race where live updates arrived before history)
+      resultBars = [...bars, ...current.bars];
       resultBars.sort((a, b) => a.timestamp - b.timestamp);
-      // Deduplicate overlapping bars by timestamp, keeping the fresher version
+      // Deduplicate: keep LAST occurrence (live data is fresher than history)
       resultBars = resultBars.filter((bar, i) =>
-        i === 0 || bar.timestamp !== resultBars[i - 1].timestamp
+        i === resultBars.length - 1 || bar.timestamp !== resultBars[i + 1].timestamp
       );
     } else {
-      // Initial load (LOADING or any other state)
-      resultBars = mergedBars;
+      // Initial load with no existing bars
+      resultBars = bars;
     }
 
-    return { bars: resultBars, state: STATE.READY, error: null };
+    return { bars: resultBars, state: STATE.READY, error: null, updateType: 'full' };
   });
 
   // Subscribe to real-time candle updates after initial load
-  subscribeToCandles(symbol, targetResolution);
+  subscribeToCandles(symbol, resolution);
 
   // Cache bars in IndexedDB (fire-and-forget) — use original resolution for cache key
   putCachedBars(symbol, resolution, bars)
@@ -543,55 +509,3 @@ function periodToResolution(period) {
   return map[period] ?? null;
 }
 
-async function updateQuarterlyStore(symbol, _resolution, newBar) {
-  const store = getChartBarStore(symbol, 'Q');
-  store.update(current => {
-    if (current.state === STATE.IDLE) return current;
-
-    const date = new Date(newBar.timestamp);
-    const quarterMonth = Math.floor(date.getUTCMonth() / 3) * 3;
-    const quarterLabel = `${date.getUTCFullYear()}-Q${Math.floor(date.getUTCMonth() / 3) + 1}`;
-
-    const bars = [...current.bars];
-    const qIndex = bars.findIndex(b => {
-      const bd = new Date(b.timestamp);
-      const bQ = `${bd.getUTCFullYear()}-Q${Math.floor(bd.getUTCMonth() / 3) + 1}`;
-      return bQ === quarterLabel;
-    });
-
-    if (qIndex >= 0) {
-      const existing = bars[qIndex];
-      bars[qIndex] = {
-        ...existing,
-        high: Math.max(existing.high, newBar.high),
-        low: Math.min(existing.low, newBar.low),
-        close: newBar.close,
-        volume: (existing.volume || 0) + (newBar.volume || 0)
-      };
-    } else {
-      // New quarter — append bar
-      bars.push({
-        open: newBar.open,
-        high: newBar.high,
-        low: newBar.low,
-        close: newBar.close,
-        volume: newBar.volume || 0,
-        timestamp: newBar.timestamp
-      });
-      bars.sort((a, b) => a.timestamp - b.timestamp);
-    }
-
-    return { ...current, bars };
-  });
-}
-
-export function clearChartStore(symbol, resolution) {
-  const key = storeKey(symbol, resolution);
-  chartBarStores.delete(key);
-  candleSubscriptions.delete(key);
-}
-
-export function clearAllChartStores() {
-  chartBarStores.clear();
-  candleSubscriptions.clear();
-}

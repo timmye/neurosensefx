@@ -55,6 +55,32 @@ class RequestCoordinator {
     }
 
     /**
+     * Enqueue an arbitrary async function through the rate-limited queue.
+     * Uses the same _enqueue/_processQueue mechanism as handleCTraderRequest
+     * to ensure minimum interval between cTrader API calls.
+     * @param {Function} fn - Async function to execute
+     * @param {number} [timeout] - Optional custom timeout in ms (default: this.fetchTimeout)
+     * @returns {Promise} Result of fn()
+     */
+    async enqueueDirect(fn, timeout) {
+        if (timeout && timeout !== this.fetchTimeout) {
+            return new Promise((resolve, reject) => {
+                this._queue.push({
+                    fn: async () => Promise.race([
+                        fn(),
+                        new Promise((_, rj) => setTimeout(() => rj(new Error('Request timed out')), timeout))
+                    ]),
+                    resolve,
+                    reject,
+                    skipTimeout: true
+                });
+                this._processQueue();
+            });
+        }
+        return this._enqueue(fn);
+    }
+
+    /**
      * Queue a request for rate-limited execution
      * Ensures minimum interval between cTrader API calls
      */
@@ -73,12 +99,17 @@ class RequestCoordinator {
         if (this._processing) return;
         this._processing = true;
         while (this._queue.length > 0) {
-            const { fn, resolve, reject } = this._queue.shift();
+            const { fn, resolve, reject, skipTimeout } = this._queue.shift();
             try {
-                const result = await Promise.race([
-                    fn(),
-                    new Promise((_, rj) => setTimeout(() => rj(new Error('Request timed out')), this.fetchTimeout))
-                ]);
+                let result;
+                if (skipTimeout) {
+                    result = await fn();
+                } else {
+                    result = await Promise.race([
+                        fn(),
+                        new Promise((_, rj) => setTimeout(() => rj(new Error('Request timed out')), this.fetchTimeout))
+                    ]);
+                }
                 resolve(result);
             } catch (error) {
                 reject(error);

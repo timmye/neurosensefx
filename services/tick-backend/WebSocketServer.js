@@ -302,12 +302,12 @@ class WebSocketServer {
         // Subscribe to ticks first if first subscriber for cTrader
         if (isFirstSubscriber && source === 'ctrader') {
             this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
-                console.error(`Failed to subscribe to ticks for ${symbolName}:`, err);
+                console.error(`Failed to subscribe to ticks for ${symbolName}:`, err?.message || String(err));
                 // Notify client of subscription failure so frontend can track failed pairs
                 this.sendToClient(ws, {
                     type: 'error',
                     code: err.code || 'SUBSCRIPTION_FAILED',
-                    message: `Failed to subscribe to ticks for ${symbolName}: ${err.message}`,
+                    message: `Failed to subscribe to ticks for ${symbolName}: ${err?.message || String(err)}`,
                     symbol: symbolName,
                     source: source
                 });
@@ -319,12 +319,12 @@ class WebSocketServer {
             console.log(`[WebSocketServer] Profile initialization complete for ${symbolName}, now subscribing to M1 bars`);
             if (source === 'ctrader') {
                 this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
-                    console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err);
+                    console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err?.message || String(err));
                     // Notify client of subscription failure
                     this.sendToClient(ws, {
                         type: 'error',
                         code: err.code || 'SUBSCRIPTION_FAILED',
-                        message: `Failed to subscribe to M1 bars for ${symbolName}: ${err.message}`,
+                        message: `Failed to subscribe to M1 bars for ${symbolName}: ${err?.message || String(err)}`,
                         symbol: symbolName,
                         source: source
                     });
@@ -420,7 +420,10 @@ class WebSocketServer {
         console.log(`[WebSocketServer] getHistoricalCandles: ${symbol} ${resolution}(${period}) from=${from} to=${to}`);
 
         try {
-            const bars = await this.cTraderSession.fetchHistoricalCandles(symbol, period, from, to);
+            const bars = await this.requestCoordinator.enqueueDirect(
+                () => this.cTraderSession.fetchHistoricalCandles(symbol, period, from, to),
+                90_000  // 90s — fetchHistoricalCandles sends multiple chunks with retries internally
+            );
             this.sendToClient(ws, {
                 type: 'candleHistory',
                 symbol,
@@ -493,10 +496,10 @@ class WebSocketServer {
                     clients.delete(ws);
                     if (clients.size === 0) this.candleSubscriptions.delete(key);
                 }
-                console.error(`[WebSocketServer] Failed to subscribe to candles for ${symbol} ${resolution}:`, error.message);
+                console.error(`[WebSocketServer] Failed to subscribe to candles for ${symbol} ${resolution}:`, error.message || error);
                 this.sendToClient(ws, {
                     type: 'error',
-                    message: `Failed to subscribe to candles: ${error.message}`,
+                    message: `Failed to subscribe to candles: ${error.message || error}`,
                     symbol,
                     resolution
                 });

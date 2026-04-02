@@ -182,6 +182,7 @@
 
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
+    unsubscribeFromCandles(currentSymbol, currentResolution);
 
     currentWindow = newWindow;
 
@@ -215,26 +216,37 @@
   function loadChartData(symbol, resolution, window) {
     const store = getChartBarStore(symbol, resolution);
 
+    // Reset store BEFORE subscribing to prevent stale cached data from
+    // flashing on the chart when switching back to a previously-viewed symbol.
+    // Without this, the subscription fires immediately with old data.
+    store.set({ bars: [], state: 'loading', error: null });
+
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = store.subscribe(data => {
       if (data.state === 'ready' && data.bars.length > 0) {
-        const klineData = data.bars.map(bar => ({
-          timestamp: bar.timestamp,
-          open: bar.open,
-          high: bar.high,
-          low: bar.low,
-          close: bar.close,
-          volume: bar.volume || 0
-        }));
-
         if (data.updateType === 'full') {
-          // Full replace — initial load, resolution change, symbol change
+          // Full replace — map entire array
+          const klineData = data.bars.map(bar => ({
+            timestamp: bar.timestamp,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+            volume: bar.volume || 0
+          }));
           tryApplyData(klineData);
         } else {
-          // Incremental update — live candle tick
+          // Incremental — only the last bar, no array map
           if (chart) {
-            const lastBar = klineData[klineData.length - 1];
-            chart.updateData(lastBar);
+            const bar = data.bars[data.bars.length - 1];
+            chart.updateData({
+              timestamp: bar.timestamp,
+              open: bar.open,
+              high: bar.high,
+              low: bar.low,
+              close: bar.close,
+              volume: bar.volume || 0
+            });
           }
         }
       }
