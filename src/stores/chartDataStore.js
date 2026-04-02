@@ -199,16 +199,18 @@ function setupCandleMessageHandler() {
         connectionManager.sendRaw({ type: 'subscribeCandles', symbol, resolution });
 
         // Reload history to fill any gap from disconnection
+        // FETCHING_MORE allows live candle updates to continue during gap-fill
         const barStore = getChartBarStore(symbol, resolution);
-        barStore.update(current => {
-          if (current.bars.length > 0) {
-            barStore.set({ ...current, state: STATE.LOADING });
-            const to = Date.now();
-            const from = current.bars[current.bars.length - 1].timestamp;
-            sendGetHistoricalCandles(symbol, resolution, from, to);
-          }
-          return current;
-        });
+        let current;
+        const u = barStore.subscribe(v => { current = v; });
+        u();
+
+        if (current.bars.length > 0) {
+          barStore.set({ ...current, state: STATE.FETCHING_MORE });
+          const to = Date.now();
+          const from = current.bars[current.bars.length - 1].timestamp;
+          sendGetHistoricalCandles(symbol, resolution, from, to);
+        }
       }
     }
   });
@@ -343,6 +345,19 @@ export async function loadMoreHistory(symbol, resolution) {
 
   if (!fetchPeriod) return;
 
+  // Timeout to prevent permanent stuck FETCHING_MORE state
+  const timerKey = storeKey(symbol, fetchResolution);
+  clearTimeout(loadingTimers.get(timerKey));
+  loadingTimers.set(timerKey, setTimeout(() => {
+    store.update(c => {
+      if (c.state === STATE.FETCHING_MORE) {
+        return { ...c, state: STATE.READY };
+      }
+      return c;
+    });
+    loadingTimers.delete(timerKey);
+  }, LOADING_TIMEOUT_MS));
+
   const rangeLimit = PERIOD_RANGE_LIMITS[fetchPeriod];
   const oldestTimestamp = current.bars[0].timestamp;
   const chunkTo = oldestTimestamp;
@@ -351,6 +366,8 @@ export async function loadMoreHistory(symbol, resolution) {
   const sent = sendGetHistoricalCandles(symbol, fetchResolution, chunkFrom, chunkTo);
   if (!sent) {
     store.set({ ...current, state: STATE.READY });
+    clearTimeout(loadingTimers.get(timerKey));
+    loadingTimers.delete(timerKey);
   }
 }
 
@@ -388,7 +405,11 @@ export function handleCandleUpdate(message) {
   });
 
   // Persist live bar to IndexedDB
-  putCachedBars(symbol, resolution, [bar]).catch(() => {});
+  putCachedBars(symbol, resolution, [bar]).catch(err => {
+    if (import.meta.env.DEV) {
+      console.warn('[chartDataStore] Live bar cache write failed:', err);
+    }
+  });
 
   // If this is an MN1 bar, also update the Q (quarterly) store
   if (timeframe === 'MN1') {
@@ -415,6 +436,10 @@ export function handleCandleHistory(message) {
       // Prepend older bars for progressive loading
       mergedBars = [...bars, ...current.bars];
       mergedBars.sort((a, b) => a.timestamp - b.timestamp);
+      // Deduplicate overlapping bars by timestamp, keeping the fresher version
+      mergedBars = mergedBars.filter((bar, i) =>
+        i === 0 || bar.timestamp !== mergedBars[i - 1].timestamp
+      );
     } else {
       // Initial load (LOADING or any other state)
       mergedBars = bars;

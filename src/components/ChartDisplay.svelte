@@ -2,6 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { init, dispose as disposeChart } from 'klinecharts';
   import { getChartBarStore, loadHistoricalBars, loadMoreHistory, unsubscribeFromCandles } from '../stores/chartDataStore.js';
+  import { getMarketDataStore } from '../stores/marketDataStore.js';
   import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
   import ChartHeader from './displays/ChartHeader.svelte';
@@ -32,12 +33,24 @@
   let pendingDataApply = null;
   let wheelHandler = null;
   let lastBarCount = 0;
+  let isLoadingMore = false;
 
   function getBarSpace() {
     const width = chartContainer?.clientWidth || 0;
     return width > 0
       ? calcBarSpace(currentResolution, currentWindow, width)
       : (TIMEFRAME_BAR_SPACE[currentResolution] || 10);
+  }
+
+  function applyPricePrecision(symbol) {
+    if (!chart) return;
+    const store = getMarketDataStore(symbol);
+    let pricePrecision = 5; // default for FX
+    const unsub = store.subscribe(data => {
+      pricePrecision = (data.pipPosition ?? 4) + 1;
+    });
+    unsub();
+    chart.setPriceVolumePrecision(pricePrecision, 0);
   }
 
   const handlers = {
@@ -129,6 +142,7 @@
     if (chart) {
       chart.removeOverlay();
       chart.clearData();
+      applyPricePrecision(newSymbol);
     }
     commandStack.clear();
 
@@ -186,7 +200,10 @@
     if (!chart) return;
     chart.applyNewData(klineData);
     requestAnimationFrame(() => {
-      if (chart) chart.resize();
+      if (chart) {
+        chart.setBarSpace(getBarSpace());
+        chart.resize();
+      }
     });
   }
 
@@ -252,8 +269,8 @@
     if (chartContainer) {
       resizeObserver = new ResizeObserver(() => {
         if (chart) {
-          chart.resize();
           chart.setBarSpace(getBarSpace());
+          chart.resize();
           if (pendingDataApply) {
             const data = pendingDataApply;
             pendingDataApply = null;
@@ -270,10 +287,28 @@
       chart.setScrollEnabled(true);
 
       chart.setBarSpace(getBarSpace());
+      applyPricePrecision(currentSymbol);
 
       // Re-lock on zoom attempt
       chart.subscribeAction('onZoom', () => {
         chart.setBarSpace(getBarSpace());
+      });
+
+      // Progressive loading: fetch more history when scrolled near left edge
+      chart.subscribeAction('onVisibleRangeChange', () => {
+        if (isLoadingMore) return;
+        const dataList = chart.getDataList();
+        if (!dataList || dataList.length === 0) return;
+
+        const range = chart.getVisibleRange();
+        const edgeThreshold = Math.max(10, Math.floor(dataList.length * 0.15));
+
+        if (range.from <= edgeThreshold) {
+          isLoadingMore = true;
+          loadMoreHistory(currentSymbol, currentResolution).finally(() => {
+            isLoadingMore = false;
+          });
+        }
       });
 
       // Load data
@@ -289,7 +324,10 @@
       onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
       onResizeMove: (event) => {
         workspaceActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height });
-        if (chart) chart.resize();
+        if (chart) {
+          chart.setBarSpace(getBarSpace());
+          chart.resize();
+        }
       },
       onTap: () => workspaceActions.bringToFront(display.id)
     });
