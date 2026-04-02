@@ -24,6 +24,7 @@
   let currentResolution = display.resolution || '4h';
   let currentWindow = display.window || DEFAULT_RESOLUTION_WINDOW[currentResolution] || '3M';
   let barStoreUnsubscribe = null;
+  let tickUnsubscribe = null;
   let isMinimized = display.isMinimized ?? false;
 
   let commandStack = new DrawingCommandStack();
@@ -56,6 +57,8 @@
     close: () => workspaceActions.removeDisplay(display.id),
     focus: () => workspaceActions.bringToFront(display.id),
     refresh: () => {
+      tickUnsubscribe?.();
+      tickUnsubscribe = null;
       unsubscribeFromCandles(currentSymbol, currentResolution);
       if (chart) chart.clearData();
       loadChartData(currentSymbol, currentResolution, currentWindow);
@@ -133,6 +136,8 @@
     // Unsubscribe from old symbol's candles
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
+    tickUnsubscribe?.();
+    tickUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution);
 
     currentSymbol = newSymbol;
@@ -157,6 +162,8 @@
 
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
+    tickUnsubscribe?.();
+    tickUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution);
 
     currentResolution = newResolution;
@@ -182,6 +189,8 @@
 
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
+    tickUnsubscribe?.();
+    tickUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution);
 
     currentWindow = newWindow;
@@ -250,6 +259,26 @@
           }
         }
       }
+    });
+
+    // Subscribe to per-tick price updates for live last-bar close.
+    // M1 trendbar data only arrives when bars close (~every 60s).
+    // Using the current market price gives real-time close updates.
+    tickUnsubscribe?.();
+    const marketStore = getMarketDataStore(symbol);
+    tickUnsubscribe = marketStore.subscribe(mdata => {
+      if (!chart || mdata.current == null) return;
+      const dataList = chart.getDataList();
+      if (!dataList || dataList.length === 0) return;
+      const lastBar = dataList[dataList.length - 1];
+      chart.updateData({
+        timestamp: lastBar.timestamp,
+        open: lastBar.open,
+        high: Math.max(lastBar.high, mdata.current),
+        low: Math.min(lastBar.low, mdata.current),
+        close: mdata.current,
+        volume: lastBar.volume || 0
+      });
     });
 
     // Calculate time range: window * 2 for scroll buffer
@@ -354,6 +383,8 @@
   onDestroy(() => {
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
+    tickUnsubscribe?.();
+    tickUnsubscribe = null;
 
     unsubscribeFromCandles(currentSymbol, currentResolution);
 

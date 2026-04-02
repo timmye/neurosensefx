@@ -248,18 +248,15 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
   }
 }
 
-function registerAggregationTarget(symbol, resolution, fetchResolution) {
+function registerAggregationTarget(symbol, resolution) {
   const m1Key = storeKey(symbol, '1m');
   if (!aggregationTargets.has(m1Key)) aggregationTargets.set(m1Key, new Set());
   aggregationTargets.get(m1Key).add(resolution);
-  // Also subscribe to the actual target period for direct bar updates
-  const targetKey = storeKey(symbol, fetchResolution);
-  if (!candleSubscriptions.has(targetKey)) {
-    const targetSent = sendSubscribeCandles(symbol, fetchResolution);
-    if (targetSent) {
-      candleSubscriptions.set(targetKey, true);
-    }
-  }
+  // Do NOT subscribe to the target period directly. cTrader only sends M1
+  // trendbar data in spot events; the backend fallback path relabels that M1
+  // data as the target period, creating fake bars with M1 timestamps on H4/H1
+  // charts. M1 aggregation (in handleCandleUpdate) is the correct live-data
+  // path for non-M1 timeframes.
 }
 
 function subscribeToCandles(symbol, resolution) {
@@ -269,7 +266,7 @@ function subscribeToCandles(symbol, resolution) {
   if (candleSubscriptions.has(key)) {
     // Already subscribed to the base period — just register aggregation target
     if (needsAggregation) {
-      registerAggregationTarget(symbol, resolution, resolution);
+      registerAggregationTarget(symbol, resolution);
     }
     return;
   }
@@ -278,7 +275,7 @@ function subscribeToCandles(symbol, resolution) {
   if (sent) {
     candleSubscriptions.set(key, true);
     if (needsAggregation) {
-      registerAggregationTarget(symbol, resolution, resolution);
+      registerAggregationTarget(symbol, resolution);
     }
   }
 }
@@ -300,12 +297,6 @@ export function unsubscribeFromCandles(symbol, resolution) {
           sendUnsubscribeCandles(symbol, '1m');
         }
       }
-    }
-    // Also unsubscribe from the target resolution
-    const targetKey = storeKey(symbol, resolution);
-    if (candleSubscriptions.has(targetKey)) {
-      candleSubscriptions.delete(targetKey);
-      sendUnsubscribeCandles(symbol, resolution);
     }
   } else {
     const key = storeKey(symbol, resolution);
