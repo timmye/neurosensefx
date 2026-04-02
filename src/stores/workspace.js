@@ -4,6 +4,7 @@ const initialState = {
   displays: new Map(),
   nextZIndex: 1,
   selectedDisplayId: null,
+  chartGhost: null,
   config: {
     defaultSize: { width: 160, height: 240 },
     defaultPosition: { x: 100, y: 100 }
@@ -85,7 +86,24 @@ const actions = {
 
   removeDisplay: (id) => {
     workspaceStore.update(state => {
+      const display = state.displays.get(id);
       const newDisplays = new Map(state.displays);
+
+      // Save chart position/size/resolution/window for restore on reopen
+      if (display?.type === 'chart') {
+        newDisplays.delete(id);
+        return {
+          ...state,
+          displays: newDisplays,
+          chartGhost: {
+            position: display.position,
+            size: display.size,
+            resolution: display.resolution,
+            window: display.window
+          }
+        };
+      }
+
       newDisplays.delete(id);
       return { ...state, displays: newDisplays };
     });
@@ -290,17 +308,18 @@ const actions = {
   addChartDisplay: (symbol, position = null, source = 'ctrader') => {
     workspaceStore.update(state => {
       const id = `chart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const ghost = state.chartGhost;
       const chart = {
         id,
         type: 'chart',
         symbol,
         source,
         created: Date.now(),
-        position: position || { x: 100, y: 100 },
-        size: { width: 800, height: 500 },
+        position: position || ghost?.position || { x: 100, y: 100 },
+        size: ghost?.size || { width: 800, height: 500 },
         zIndex: state.nextZIndex,
-        resolution: '4h',
-        window: '3M',
+        resolution: ghost?.resolution || '4h',
+        window: ghost?.window || '3M',
         isMinimized: false,
         showHeader: true
       };
@@ -308,7 +327,8 @@ const actions = {
       return {
         ...state,
         displays: new Map(state.displays).set(id, chart),
-        nextZIndex: state.nextZIndex + 1
+        nextZIndex: state.nextZIndex + 1,
+        chartGhost: null
       };
     });
   },
@@ -345,21 +365,6 @@ const actions = {
     }
   },
 
-  getChartState: () => {
-    const state = workspaceStore.getState();
-    const chart = Array.from(state.displays.values()).find(d => d.type === 'chart');
-    return chart || null;
-  },
-
-  setChartState: (chartState) => {
-    workspaceStore.update(state => {
-      const newDisplays = new Map(state.displays);
-      if (chartState) {
-        newDisplays.set(chartState.id, chartState);
-      }
-      return { ...state, displays: newDisplays };
-    });
-  }
 };
 
 const persistence = {
@@ -377,7 +382,8 @@ const persistence = {
       workspaceStore.update(state => ({
         ...state,
         displays: new Map(data.displays || []),
-        nextZIndex: data.nextZIndex || 1
+        nextZIndex: data.nextZIndex || 1,
+        chartGhost: data.chartGhost || null
       }));
     } catch (error) {
       console.warn('Failed to load workspace from storage:', error);
@@ -391,7 +397,8 @@ const persistence = {
     return workspaceStore.subscribe(state => {
       const data = {
         displays: Array.from(state.displays.entries()),
-        nextZIndex: state.nextZIndex
+        nextZIndex: state.nextZIndex,
+        chartGhost: state.chartGhost || null
       };
       try {
         localStorage.setItem('workspace-state', JSON.stringify(data));

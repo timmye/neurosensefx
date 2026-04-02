@@ -3,18 +3,24 @@
 import interact from 'interactjs';
 
 export function createInteractConfig(element, callbacks) {
-  const { onDragMove, onResizeMove, onTap, resizable = true } = callbacks;
+  const { onDragMove, onResizeMove, onTap, resizable = true, ignoreFrom = null } = callbacks;
+
+  const draggableOpts = {
+    modifiers: [
+      interact.modifiers.snap({
+        targets: [interact.snappers.grid({ x: 10, y: 10, range: 15 })],
+        relativePoints: [{ x: 0, y: 0 }]
+      })
+    ],
+    onmove: onDragMove
+  };
+
+  if (ignoreFrom) {
+    draggableOpts.ignoreFrom = ignoreFrom;
+  }
 
   const interactable = interact(element)
-    .draggable({
-      modifiers: [
-        interact.modifiers.snap({
-          targets: [interact.snappers.grid({ x: 10, y: 10, range: 15 })],
-          relativePoints: [{ x: 0, y: 0 }]
-        })
-      ],
-      onmove: onDragMove
-    })
+    .draggable(draggableOpts)
     .on('tap', onTap);
 
   if (resizable && onResizeMove) {
