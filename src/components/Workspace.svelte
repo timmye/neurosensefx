@@ -25,6 +25,14 @@
     return display?.symbol || null;
   })();
 
+  // Update chart symbol when a different ticker is selected
+  $: if (selectedTicker) {
+    const chartDisplay = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
+    if (chartDisplay && chartDisplay.symbol !== selectedTicker) {
+      workspaceActions.updateChartDisplay(chartDisplay.id, { symbol: selectedTicker });
+    }
+  }
+
   function exportWorkspace() {
     workspaceActions.exportWorkspace();
     console.log('✅ Workspace export initiated');
@@ -135,9 +143,8 @@
     const chartDisplay = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
 
     if (chartDisplay) {
-      // Chart exists - toggle minimize
-      const isCurrentlyMinimized = chartDisplay.isMinimized !== false;
-      workspaceActions.updateChartDisplay(chartDisplay.id, { isMinimized: !isCurrentlyMinimized });
+      // Chart exists - close it
+      workspaceActions.removeDisplay(chartDisplay.id);
     } else {
       // No chart - create new one for selected ticker
       // Fallback: if no ticker selected, use first priceTicker symbol
@@ -182,15 +189,6 @@
       toggleChart,
       createChartDisplay
     });
-
-    // Wire symbol selection between keyboard handler and workspace
-    const originalSetSelectedSymbol = keyboardHandler.setSelectedSymbol;
-    keyboardHandler.setSelectedSymbol = (symbol) => {
-      const display = Array.from(workspaceStore.getState().displays.values()).find(d => d.symbol === symbol);
-      if (display) {
-        workspaceActions.setSelectedDisplay(display.id);
-      }
-    };
 
     // Setup connection
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());

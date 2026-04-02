@@ -34,6 +34,9 @@
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div class="trigger-zone" role="presentation" on:mouseenter={handleTriggerEnter} on:mouseleave={handleTriggerLeave}></div>
 
+<!-- Always-visible close button -->
+<button class="close-always-visible" on:click={onClose} aria-label="Close chart" title="Close chart">×</button>
+
 <!-- 40px visible header display -->
 {#if showHeader || isMinimized}
   <div
@@ -57,7 +60,6 @@
     <button class="minimize" on:click={onMinimize} aria-label="Minimize chart" title="Minimize chart">
       {isMinimized ? '⎯' : '⌄'}
     </button>
-    <button class="close" on:click={onClose} aria-label="Close chart">×</button>
   </div>
 {/if}
 
@@ -188,25 +190,29 @@
     outline: 1px solid #4a9eff;
   }
 
-  .close {
-    background: none;
+  .close-always-visible {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 15;
+    background: rgba(42, 42, 42, 0.7);
     border: none;
     color: #999;
-    font-size: 14px;
+    font-size: 16px;
     cursor: pointer;
-    padding: 2px 3px;
-    border-radius: 2px;
+    padding: 2px 6px;
+    border-radius: 3px;
     transition: background 0.2s ease, color 0.2s ease;
     line-height: 1;
   }
 
-  .close:hover,
-  .close:focus {
+  .close-always-visible:hover,
+  .close-always-visible:focus {
     background: #3a3a3a;
     color: #fff;
   }
 
-  .close:focus {
+  .close-always-visible:focus {
     outline: 1px solid #4a9eff;
   }
 </style>

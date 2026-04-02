@@ -4,7 +4,6 @@
 export function createKeyboardHandler(workspaceActions) {
   let escPressCount = 0;
   let escTimer = null;
-  let selectedSymbol = null;
 
   function handleCreateDisplay(source = 'ctrader') {
     const symbol = prompt('Enter symbol:');
@@ -47,40 +46,6 @@ export function createKeyboardHandler(workspaceActions) {
     }
   }
 
-  function toggleChart() {
-    // Find if chart already exists
-    const chartState = workspaceActions.getChartState();
-
-    if (chartState && !chartState.isMinimized) {
-      // Chart exists and is visible - minimize it
-      workspaceActions.updateChartDisplay(chartState.id, { isMinimized: true });
-    } else {
-      // Chart doesn't exist or is minimized - create or restore it
-      if (selectedSymbol) {
-        if (chartState) {
-          // Update existing chart with new symbol
-          workspaceActions.updateChartDisplay(chartState.id, {
-            symbol: selectedSymbol,
-            isMinimized: false
-          });
-        } else {
-          // Create new chart
-          workspaceActions.addChartDisplay(selectedSymbol);
-        }
-      } else {
-        // No symbol selected - try to get from active displays
-        const displays = Array.from(workspaceActions.getState().displays.values());
-        const firstPriceTicker = displays.find(d => d.type === 'priceTicker');
-        if (firstPriceTicker) {
-          selectedSymbol = firstPriceTicker.symbol;
-          workspaceActions.addChartDisplay(selectedSymbol);
-        } else {
-          alert('Please select a ticker first to create a chart');
-        }
-      }
-    }
-  }
-
   function handleKeydown(event) {
     // Alt+A: Create cTrader display
     if (event.altKey && event.key.toLowerCase() === 'a') {
@@ -107,13 +72,6 @@ export function createKeyboardHandler(workspaceActions) {
     if (event.altKey && event.key.toLowerCase() === 'i') {
       event.preventDefault();
       handleCreatePriceTicker();
-      return;
-    }
-
-    // 'c' key: Toggle chart window
-    if (event.key === 'c' && !event.ctrlKey && !event.altKey) {
-      event.preventDefault();
-      toggleChart();
       return;
     }
 
@@ -144,9 +102,6 @@ export function createKeyboardHandler(workspaceActions) {
 
   return {
     handleKeydown,
-    cleanup,
-    // Additional methods for external access
-    setSelectedSymbol: (symbol) => { selectedSymbol = symbol; },
-    getSelectedSymbol: () => selectedSymbol
+    cleanup
   };
 }
