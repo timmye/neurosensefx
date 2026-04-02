@@ -32,7 +32,6 @@
   let resizeObserver = null;
   let pendingDataApply = null;
   let wheelHandler = null;
-  let lastBarCount = 0;
   let isLoadingMore = false;
 
   function getBarSpace() {
@@ -159,7 +158,6 @@
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution);
-    lastBarCount = 0;
 
     currentResolution = newResolution;
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
@@ -184,7 +182,6 @@
 
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
-    lastBarCount = 0;
 
     currentWindow = newWindow;
 
@@ -219,7 +216,6 @@
     const store = getChartBarStore(symbol, resolution);
 
     barStoreUnsubscribe?.();
-    lastBarCount = 0;
     barStoreUnsubscribe = store.subscribe(data => {
       if (data.state === 'ready' && data.bars.length > 0) {
         const klineData = data.bars.map(bar => ({
@@ -231,17 +227,16 @@
           volume: bar.volume || 0
         }));
 
-        if (lastBarCount === 0 || Math.abs(data.bars.length - lastBarCount) > 1) {
-          // Initial load or bulk change — full replace
+        if (data.updateType === 'full') {
+          // Full replace — initial load, resolution change, symbol change
           tryApplyData(klineData);
         } else {
-          // Incremental update (live candle) — update single bar
+          // Incremental update — live candle tick
           if (chart) {
             const lastBar = klineData[klineData.length - 1];
             chart.updateData(lastBar);
           }
         }
-        lastBarCount = data.bars.length;
       }
     });
 
@@ -320,7 +315,7 @@
 
     // Set up interact.js for drag/resize
     interactable = createInteractConfig(element, {
-      ignoreFrom: '.chart-canvas-container, .chart-toolbar',
+      ignoreFrom: '.chart-canvas-container, .chart-toolbar button, .chart-toolbar span',
       onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
       onResizeMove: (event) => {
         workspaceActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height });
