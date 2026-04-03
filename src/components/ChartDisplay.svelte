@@ -42,23 +42,24 @@
   let currentRangeFrom = 0;       // calendar-aligned window start (for barSpace)
   let currentFetchFrom = 0;       // window start + buffer (for data fetch)
   let boundaryOverlayIds = [];    // calendar boundary vertical line overlay IDs
-  let pendingScrollIndex = -1;    // scroll position to restore after resize
 
-  // Month and weekday abbreviations for axis labels
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  /** ISO 8601 helper: zero-pad to 2 digits. */
+  function pad2(n) { return String(n).padStart(2, '0'); }
 
   /**
    * KLineChart formatDate override for smart time axis labels.
    *
-   * KLineChart's _optimalTickLabel calls this function with format strings
-   * 'YYYY', 'YYYY-MM', 'MM-DD' to detect calendar transitions between adjacent
-   * ticks. We return tier-appropriate strings for each level so that:
-   *   - Transitions are detected at the CORRECT granularity for the window tier
-   *   - The override label text matches our desired format (not KLineChart defaults)
-   *   - No stateful dedup is needed — _optimalTickLabel handles uniqueness
+   * KLineChart's _optimalTickLabel compares adjacent displayed ticks at three
+   * levels to detect transitions.  It calls formatDate with these format strings:
    *
-   * The primary call uses 'HH:mm' format and returns the within-period label.
+   *   'YYYY'    — year level.  If year differs between ticks, this value is shown.
+   *   'YYYY-MM' — month level.  If month differs (same year), this value is shown.
+   *               THIS is the month-start label.  No day===1 checks needed —
+   *               KLineChart detects month change regardless of weekend gaps.
+   *   'MM-DD'   — day level.  If only day differs (same year+month), this value is shown.
+   *
+   * The primary call uses 'HH:mm' format for within-period labels.
+   * All dates use ISO 8601 ordering.
    */
   function formatAxisLabel(dateTimeFormat, timestamp, format, type) {
     if (type !== 2) {
@@ -73,50 +74,53 @@
     const minute = date.getUTCMinutes();
     const tier = getWindowTier(currentWindow);
 
-    // KLineChart _optimalTickLabel format requests.
-    // Return tier-appropriate strings so:
-    //   1. Transitions are detected at the RIGHT granularity (year/month/day)
-    //   2. Override label text MATCHES the primary format (no visual change on no-op)
-    //   3. Levels below the tier's granularity return SAME string for same-period ticks,
-    //      preventing unwanted day-level overrides on monthly/yearly views
+    // --- Year-level transition label ---
     if (format === 'YYYY') {
       return String(year);
     }
+
+    // --- Month-level transition label ---
+    // Fires when month changes between adjacent ticks (= month boundary).
+    // KLineChart detects this correctly even when the 1st falls on a weekend
+    // and the first trading bar is day 2 or 3.
     if (format === 'YYYY-MM') {
-      if (tier === 'YEARLY') return String(year);                          // same for all months in year
-      if (tier === 'QUARTERLY') return `Q${Math.floor(month / 3) + 1} ${year}`; // same for same quarter
-      return MONTHS[month];                                                // "Mar" — same for same month
-    }
-    if (format === 'MM-DD') {
-      if (tier === 'YEARLY') return String(year);                          // same for all in year
-      if (tier === 'QUARTERLY') return `Q${Math.floor(month / 3) + 1}`;   // same for same quarter
-      if (tier === 'MONTHLY') return MONTHS[month];                        // same for same month
-      // INTRADAY/DAILY/WEEKLY: match primary format exactly so override is no-op
-      if (tier === 'WEEKLY') return `${day} ${MONTHS[month]}`;             // "30 Mar" — matches primary
-      return `${WEEKDAYS[date.getUTCDay()]} ${day}`;                       // "Mon 30" — matches primary
+      if (tier === 'YEARLY') return String(year);
+      if (tier === 'QUARTERLY') return `Q${Math.floor(month / 3) + 1} ${year}`;
+      return `${year}-${pad2(month + 1)}`;                               // "2026-04"
     }
 
-    // Primary axis label (format is 'HH:mm' or similar).
-    // Only used for non-transition ticks within the same period.
+    // --- Day-level transition label ---
+    // Only fires when year AND month are the same but day differs.
+    // This can NEVER be a month start — those are caught by YYYY-MM above.
+    if (format === 'MM-DD') {
+      if (tier === 'YEARLY') return String(year);
+      if (tier === 'QUARTERLY') return `Q${Math.floor(month / 3) + 1} ${year}`;
+      if (tier === 'MONTHLY') return `${year}-${pad2(month + 1)}`;
+      return `${pad2(month + 1)}-${pad2(day)}`;                          // "04-03"
+    }
+
+    // --- Primary axis label (format === 'HH:mm' or similar) ---
+    // Shown for non-transition ticks within the same period.
     switch (tier) {
       case 'INTRADAY':
-        if (hour === 0 && minute === 0) return WEEKDAYS[date.getUTCDay()];
-        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        return `${pad2(hour)}:${pad2(minute)}`;
 
       case 'DAILY':
-        return `${WEEKDAYS[date.getUTCDay()]} ${day}`;
+        return `${pad2(month + 1)}-${pad2(day)}`;                       // "04-03"
 
       case 'WEEKLY':
-        return `${day} ${MONTHS[month]}`;
+        return `${pad2(month + 1)}-${pad2(day)}`;                       // "04-03"
 
       case 'MONTHLY':
-        return String(day);
+        // MM-DD format so KLineChart's first-tick regex matches and
+        // calls MM-DD override → shows "2026-04" month context.
+        return `${pad2(month + 1)}-${pad2(day)}`;                       // "04-15"
 
       case 'QUARTERLY':
-        return MONTHS[month];
+        return `${year}-${pad2(month + 1)}`;                            // "2026-04"
 
       case 'YEARLY':
-        return MONTHS[month];
+        return `${year}-${pad2(month + 1)}`;                            // "2026-04"
 
       default:
         return dateTimeFormat.format(date);
@@ -213,8 +217,16 @@
 
   function applyBarSpace() {
     if (!chart) return;
-    chart.setBarSpace(getBarSpace());
+    const bs = getBarSpace();
+    chart.setBarSpace(bs);
     chart.setOffsetRightDistance(RIGHT_OFFSET_PX, true);
+    console.log('[applyBarSpace]',
+      'barSpace:', bs.toFixed(3),
+      'offsetPx:', chart.getOffsetRightDistance?.()?.toFixed(1),
+      'visibleRange:', JSON.stringify(chart.getVisibleRange?.()),
+      'dataLen:', chart.getDataList?.()?.length,
+      'containerW:', chartContainer?.clientWidth
+    );
   }
 
   function applyPricePrecision(symbol) {
@@ -349,10 +361,6 @@
     currentResolution = newResolution;
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
 
-    if (chart) {
-      applyBarSpace();
-    }
-
     loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
 
@@ -377,10 +385,6 @@
 
     currentWindow = newWindow;
 
-    if (chart) {
-      applyBarSpace();
-    }
-
     loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { window: newWindow });
   }
@@ -390,8 +394,8 @@
     chart.applyNewData(klineData);
     requestAnimationFrame(() => {
       if (chart) {
-        applyBarSpace();
         chart.resize();
+        applyBarSpace();
         chart.scrollToRealTime();
         updateBoundaryOverlays();
       }
@@ -502,14 +506,7 @@
             // KLineChart's DPR buffer update, producing fuzzy rendering.
             chart.resize();
             applyBarSpace();
-            // Restore scroll position from interact.js resize
-            if (pendingScrollIndex >= 0) {
-              const idx = pendingScrollIndex;
-              pendingScrollIndex = -1;
-              requestAnimationFrame(() => {
-                if (chart) chart.scrollToDataIndex(idx);
-              });
-            }
+            chart.scrollToRealTime();
             if (pendingDataApply) {
               const data = pendingDataApply;
               pendingDataApply = null;
@@ -534,15 +531,8 @@
 
       // Re-lock on zoom attempt
       chart.subscribeAction('onZoom', () => {
-        const range = chart.getVisibleRange();
-        const dataList = chart.getDataList();
-        const rightIndex = dataList?.length > 0 ? range.to - 1 : -1;
         applyBarSpace();
-        if (rightIndex >= 0) {
-          requestAnimationFrame(() => {
-            if (chart) chart.scrollToDataIndex(rightIndex);
-          });
-        }
+        chart.scrollToRealTime();
       });
 
       // Progressive loading: fetch more history when scrolled near left edge
@@ -575,13 +565,6 @@
       onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
       onResizeMove: (event) => {
         workspaceActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height });
-        // Save scroll position — ResizeObserver handles chart.resize() after DOM updates.
-        // Calling chart ops here uses stale pre-DOM dimensions, causing fuzzy rendering.
-        if (chart) {
-          const range = chart.getVisibleRange();
-          const dataList = chart.getDataList();
-          pendingScrollIndex = dataList?.length > 0 ? range.to - 1 : -1;
-        }
       },
       onTap: () => workspaceActions.bringToFront(display.id)
     });
@@ -620,7 +603,6 @@
       wheelHandler = null;
     }
     pendingDataApply = null;
-    pendingScrollIndex = -1;
 
     if (chart) {
       disposeChart(chartContainer);
