@@ -89,7 +89,7 @@
     justify-content: space-between;
     align-items: center;
     height: 40px;
-    background: rgba(42, 42, 42, 0.95);
+    background: rgba(245, 245, 245, 0.97);
     backdrop-filter: blur(4px);
     padding: 0 4px;
     cursor: move;
@@ -105,7 +105,7 @@
   }
 
   .symbol {
-    color: #fff;
+    color: #333333;
     font-weight: 600;
     font-size: var(--font-symbol);
     pointer-events: none;
@@ -148,7 +148,7 @@
   .refresh {
     background: none;
     border: none;
-    color: #999;
+    color: #777777;
     font-size: 11px;
     cursor: pointer;
     padding: 2px 3px;
@@ -159,18 +159,18 @@
 
   .refresh:hover,
   .refresh:focus {
-    background: #3a3a3a;
-    color: #4a9eff;
+    background: #E0E0E0;
+    color: #48752c;
   }
 
   .refresh:focus {
-    outline: 1px solid #4a9eff;
+    outline: 1px solid #48752c;
   }
 
   .minimize {
     background: none;
     border: none;
-    color: #999;
+    color: #777777;
     font-size: 14px;
     cursor: pointer;
     padding: 2px 3px;
@@ -182,12 +182,12 @@
 
   .minimize:hover,
   .minimize:focus {
-    background: #3a3a3a;
-    color: #4a9eff;
+    background: #E0E0E0;
+    color: #48752c;
   }
 
   .minimize:focus {
-    outline: 1px solid #4a9eff;
+    outline: 1px solid #48752c;
   }
 
   .close-always-visible {
@@ -195,9 +195,9 @@
     top: 4px;
     right: 4px;
     z-index: 15;
-    background: rgba(42, 42, 42, 0.7);
+    background: rgba(245, 245, 245, 0.8);
     border: none;
-    color: #999;
+    color: #777777;
     font-size: 16px;
     cursor: pointer;
     padding: 2px 6px;
@@ -208,11 +208,11 @@
 
   .close-always-visible:hover,
   .close-always-visible:focus {
-    background: #3a3a3a;
-    color: #fff;
+    background: #E0E0E0;
+    color: #333333;
   }
 
   .close-always-visible:focus {
-    outline: 1px solid #4a9eff;
+    outline: 1px solid #48752c;
   }
 </style>

@@ -7,7 +7,9 @@
   import { createInteractConfig } from '../lib/interactSetup.js';
   import ChartHeader from './displays/ChartHeader.svelte';
   import ChartToolbar from './ChartToolbar.svelte';
-  import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs } from '../lib/chart/chartConfig.js';
+  import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange } from '../lib/chart/chartConfig.js';
+  import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
+  import '../lib/chart/customOverlays.js';
   import { drawingStore } from '../lib/chart/drawingStore.js';
   import {
     DrawingCommandStack,
@@ -29,17 +31,44 @@
 
   let commandStack = new DrawingCommandStack();
   let activeDrawingTool = null;
-  let magnetMode = false;
+  let magnetMode = true;
   let resizeObserver = null;
+  let resizeRAF = null;
   let pendingDataApply = null;
   let wheelHandler = null;
   let isLoadingMore = false;
+  let currentRangeFrom = 0;       // calendar-aligned window start (for barSpace)
+  let currentFetchFrom = 0;       // window start + buffer (for data fetch)
 
   function getBarSpace() {
     const width = chartContainer?.clientWidth || 0;
-    return width > 0
-      ? calcBarSpace(currentResolution, currentWindow, width)
-      : (TIMEFRAME_BAR_SPACE[currentResolution] || 10);
+    if (width <= 0) return TIMEFRAME_BAR_SPACE[currentResolution] || 10;
+
+    // Data-aware: count actual candles in the target time window.
+    // Accounts for weekend gaps — 540 4H candles ≠ 3 calendar months.
+    if (chart) {
+      const dataList = chart.getDataList();
+      if (dataList && dataList.length >= 2) {
+        const lastTs = dataList[dataList.length - 1].timestamp;
+        const fromTs = currentRangeFrom || (lastTs - windowToMs(currentWindow));
+
+        // Binary search for first candle at or after fromTs
+        let lo = 0, hi = dataList.length - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (dataList[mid].timestamp < fromTs) lo = mid + 1;
+          else hi = mid;
+        }
+
+        const candleCount = dataList.length - lo;
+        if (candleCount > 0) {
+          return Math.max(1, Math.min(50, width / candleCount));
+        }
+      }
+    }
+
+    // Fallback before data is available
+    return calcBarSpace(currentResolution, currentWindow, width);
   }
 
   function applyPricePrecision(symbol) {
@@ -210,6 +239,7 @@
       if (chart) {
         chart.setBarSpace(getBarSpace());
         chart.resize();
+        chart.scrollToRealTime();
       }
     });
   }
@@ -281,12 +311,13 @@
       });
     });
 
-    // Calculate time range: window * 2 for scroll buffer
-    const windowMs = windowToMs(window);
-    const to = Date.now();
-    const from = to - windowMs * 2;
+    // Calendar-aligned time range with scroll buffer
+    const exact = getCalendarAlignedRange(window, 0);
+    const buffered = getCalendarAlignedRange(window, 1);
+    currentRangeFrom = exact.from;
+    currentFetchFrom = buffered.from;
 
-    loadHistoricalBars(symbol, resolution, from, to);
+    loadHistoricalBars(symbol, resolution, buffered.from, buffered.to);
   }
 
   onMount(async () => {
@@ -294,7 +325,7 @@
     await tick();
 
     // Initialize KLineChart
-    chart = init(chartContainer);
+    chart = init(chartContainer, { styles: LIGHT_THEME });
 
     // Ensure the browser has completed layout before KLineChart reads dimensions
     requestAnimationFrame(() => {
@@ -304,15 +335,19 @@
     // Observe container resizes: initial layout, parent changes, interact.js resize
     if (chartContainer) {
       resizeObserver = new ResizeObserver(() => {
-        if (chart) {
-          chart.setBarSpace(getBarSpace());
-          chart.resize();
-          if (pendingDataApply) {
-            const data = pendingDataApply;
-            pendingDataApply = null;
-            applyDataToChart(data);
+        if (resizeRAF) return;
+        resizeRAF = requestAnimationFrame(() => {
+          resizeRAF = null;
+          if (chart) {
+            chart.setBarSpace(getBarSpace());
+            chart.resize();
+            if (pendingDataApply) {
+              const data = pendingDataApply;
+              pendingDataApply = null;
+              applyDataToChart(data);
+            }
           }
-        }
+        });
       });
       resizeObserver.observe(chartContainer);
     }
@@ -325,9 +360,20 @@
       chart.setBarSpace(getBarSpace());
       applyPricePrecision(currentSymbol);
 
+      // Add Bollinger Bands (20 period) on candle pane
+      chart.createIndicator('BOLL', false, { id: 'candle_pane' });
+
       // Re-lock on zoom attempt
       chart.subscribeAction('onZoom', () => {
+        const range = chart.getVisibleRange();
+        const dataList = chart.getDataList();
+        const rightIndex = dataList?.length > 0 ? range.to - 1 : -1;
         chart.setBarSpace(getBarSpace());
+        if (rightIndex >= 0) {
+          requestAnimationFrame(() => {
+            if (chart) chart.scrollToDataIndex(rightIndex);
+          });
+        }
       });
 
       // Progressive loading: fetch more history when scrolled near left edge
@@ -356,13 +402,21 @@
 
     // Set up interact.js for drag/resize
     interactable = createInteractConfig(element, {
-      ignoreFrom: '.chart-canvas-container, .chart-toolbar button, .chart-toolbar span',
+      ignoreFrom: '.chart-toolbar button, .chart-toolbar span',
       onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
       onResizeMove: (event) => {
         workspaceActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height });
         if (chart) {
+          const range = chart.getVisibleRange();
+          const dataList = chart.getDataList();
+          const rightIndex = dataList?.length > 0 ? range.to - 1 : -1;
           chart.setBarSpace(getBarSpace());
           chart.resize();
+          if (rightIndex >= 0) {
+            requestAnimationFrame(() => {
+              if (chart) chart.scrollToDataIndex(rightIndex);
+            });
+          }
         }
       },
       onTap: () => workspaceActions.bringToFront(display.id)
@@ -388,6 +442,10 @@
 
     unsubscribeFromCandles(currentSymbol, currentResolution);
 
+    if (resizeRAF) {
+      cancelAnimationFrame(resizeRAF);
+      resizeRAF = null;
+    }
     if (resizeObserver) {
       resizeObserver.disconnect();
       resizeObserver = null;
@@ -440,8 +498,8 @@
 <style>
   .chart-window {
     position: absolute;
-    background: #1a1a2e;
-    border: 1px solid #2a2a4a;
+    background: #FAFAFA;
+    border: 1px solid #D0D0D0;
     border-radius: 4px;
     overflow: hidden;
     user-select: none;
@@ -453,21 +511,21 @@
   }
 
   .chart-window:focus {
-    border-color: #4a9eff;
-    box-shadow: 0 0 8px rgba(74, 158, 255, 0.4);
+    border-color: #48752c;
+    box-shadow: 0 0 8px rgba(72, 117, 44, 0.3);
   }
 
   .chart-window:focus-visible {
-    border-color: #4a9eff;
-    box-shadow: 0 0 12px rgba(74, 158, 255, 0.6);
-    outline: 2px solid rgba(74, 158, 255, 0.3);
+    border-color: #48752c;
+    box-shadow: 0 0 12px rgba(72, 117, 44, 0.4);
+    outline: 2px solid rgba(72, 117, 44, 0.3);
     outline-offset: 2px;
   }
 
   .chart-canvas-container {
     flex: 1;
     width: 100%;
-    background: #0d0d1a;
+    background: #FFFFFF;
     position: relative;
     overflow: hidden;
   }

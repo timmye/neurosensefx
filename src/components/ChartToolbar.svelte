@@ -17,14 +17,23 @@
   const DRAWING_TOOLS = [
     { id: 'segment', label: '/', title: 'Trendline' },
     { id: 'horizontalStraightLine', label: '\u2500', title: 'Horizontal Line' },
+    { id: 'horizontalRayLine', label: '\u2500\u25B6', title: 'Horizontal Ray' },
+    { id: 'horizontalSegment', label: '\u2500\u25A0', title: 'Horizontal Segment' },
     { id: 'verticalStraightLine', label: '|', title: 'Vertical Line' },
+    { id: 'verticalRayLine', label: '|\u25B2', title: 'Vertical Ray' },
+    { id: 'verticalSegment', label: '|\u25A0', title: 'Vertical Segment' },
     { id: 'rayLine', label: '\u2571', title: 'Ray Line' },
+    { id: 'straightLine', label: '\u2500/', title: 'Straight Line' },
     { id: 'parallelStraightLine', label: '\u25B1', title: 'Parallel Channel' },
-    { id: 'rect', label: '\u25AD', title: 'Rectangle' },
-    { id: 'circle', label: '\u25CB', title: 'Circle' },
-    { id: 'triangle', label: '\u25B3', title: 'Triangle' },
-    { id: 'arc', label: '\u23DB', title: 'Arc' },
+    { id: 'priceChannelLine', label: '\u2551', title: 'Price Channel' },
     { id: 'fibonacciLine', label: 'Fib', title: 'Fibonacci' },
+    { id: 'rectOverlay', label: '\u25AD', title: 'Rectangle' },
+    { id: 'circleOverlay', label: '\u25CB', title: 'Circle' },
+    { id: 'polygonOverlay', label: '\u25B3', title: 'Triangle' },
+    { id: 'arcOverlay', label: '\u23DB', title: 'Arc' },
+    { id: 'priceLine', label: 'Pl', title: 'Price Line' },
+    { id: 'simpleAnnotation', label: '\u270E', title: 'Annotation' },
+    { id: 'simpleTag', label: 'Tag', title: 'Tag' },
   ];
 
   function handleResolutionClick(resolution) {
@@ -42,9 +51,18 @@
       return;
     }
     activeDrawingTool = tool.id;
+
+    // Fibonacci lines use dark red, everything else uses default (dk green)
+    const fibStyles = tool.id === 'fibonacciLine' ? {
+      line: { color: '#bb2719' },
+      text: { color: '#FFFFFF', backgroundColor: '#bb2719' }
+    } : undefined;
+
     const overlayCreate = {
       name: tool.id,
       mode: magnetMode ? 'weak_magnet' : 'normal',
+      styles: fibStyles,
+      extendData: tool.id === 'simpleAnnotation' ? prompt('Annotation text:') || '' : undefined,
       onDrawEnd: (event) => {
         if (event.overlay) {
           dispatch('drawingCreated', {
@@ -164,8 +182,8 @@
 
 <style>
   .chart-toolbar {
-    background: rgba(26, 26, 46, 0.95);
-    border-bottom: 1px solid #2a2a4a;
+    background: rgba(250, 250, 250, 0.97);
+    border-bottom: 1px solid #D0D0D0;
     display: flex;
     flex-direction: column;
     padding: 3px 8px;
@@ -184,15 +202,15 @@
   .separator {
     width: 1px;
     height: 16px;
-    background: #3a3a5a;
+    background: #D0D0D0;
     margin: 0 6px;
   }
 
   .resolution-btn,
   .window-btn {
-    background: #1e1e38;
-    border: 1px solid #3a3a5a;
-    color: #999;
+    background: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    color: #555555;
     padding: 2px 7px;
     margin: 0 1px;
     border-radius: 3px;
@@ -205,16 +223,16 @@
 
   .resolution-btn:hover,
   .window-btn:hover {
-    background: #2a2a4a;
-    border-color: #4a4a6a;
-    color: #ddd;
+    background: #F0F0F0;
+    border-color: #999999;
+    color: #333333;
   }
 
   .resolution-btn.active,
   .window-btn.active {
-    background: #4a9eff;
-    border-color: #4a9eff;
-    color: #000;
+    background: #48752c;
+    border-color: #48752c;
+    color: #FFFFFF;
     font-weight: 600;
   }
 
@@ -223,9 +241,9 @@
   }
 
   .drawing-btn {
-    background: #1e1e38;
-    border: 1px solid #3a3a5a;
-    color: #999;
+    background: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    color: #555555;
     padding: 2px 6px;
     margin: 0;
     border-radius: 3px;
@@ -239,22 +257,22 @@
   }
 
   .drawing-btn:hover {
-    background: #2a2a4a;
-    border-color: #4a4a6a;
-    color: #ddd;
+    background: #F0F0F0;
+    border-color: #999999;
+    color: #333333;
   }
 
   .drawing-btn.active {
-    background: #4a9eff;
-    border-color: #4a9eff;
-    color: #000;
+    background: #48752c;
+    border-color: #48752c;
+    color: #FFFFFF;
     font-weight: 600;
   }
 
   .action-btn {
-    background: #1e1e38;
-    border: 1px solid #3a3a5a;
-    color: #999;
+    background: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    color: #555555;
     padding: 2px 7px;
     margin: 0 1px;
     border-radius: 3px;
@@ -266,15 +284,15 @@
   }
 
   .action-btn:hover:not(:disabled) {
-    background: #2a2a4a;
-    border-color: #4a4a6a;
-    color: #ddd;
+    background: #F0F0F0;
+    border-color: #999999;
+    color: #333333;
   }
 
   .action-btn.active {
-    background: #e8a020;
-    border-color: #e8a020;
-    color: #000;
+    background: #48752c;
+    border-color: #48752c;
+    color: #FFFFFF;
     font-weight: 600;
   }
 
@@ -284,8 +302,8 @@
   }
 
   .clear-btn:hover:not(:disabled) {
-    background: #5a2020;
-    border-color: #8a3030;
-    color: #ff6666;
+    background: #fce4e4;
+    border-color: #bb2719;
+    color: #bb2719;
   }
 </style>

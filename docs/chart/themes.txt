@@ -1,0 +1,18 @@
+Body: 
+green: #9dc384
+red: #de9d9b
+
+Border 
+Dark green: #48752c
+dark red: #bb2719
+
+Fib:
+Dark red
+
+Levels,lines, channels:
+Dark green
+
+Bollinger band:
+upper band red
+lower green
+MA black 2px

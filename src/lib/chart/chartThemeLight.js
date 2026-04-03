@@ -1,0 +1,443 @@
+/**
+ * NeuroSense FX — Light Theme (Natural Reds & Greens)
+ * All features enabled for exploration.
+ *
+ * Palette from docs/chart/themes.txt:
+ *   Body up:    #9dc384 (green)     Body down:  #de9d9b (red)
+ *   Border up:  #48752c (dk green)  Border dn:  #bb2719 (dk red)
+ *   Fib: dk red (#bb2719, applied via overlay styles when drawn)
+ *   Levels/lines/channels: dk green (#48752c, default overlay color)
+ *   Bollinger:  upper=red, lower=green, MA=black 2px
+ */
+
+export const LIGHT_THEME = {
+  grid: {
+    show: true,
+    horizontal: {
+      show: true,
+      size: 1,
+      color: '#E0E0E0',
+      style: 'dashed',
+      dashedValue: [2, 2]
+    },
+    vertical: {
+      show: true,
+      size: 1,
+      color: '#E0E0E0',
+      style: 'dashed',
+      dashedValue: [2, 2]
+    }
+  },
+  candle: {
+    type: 'candle_solid',
+    bar: {
+      compareRule: 'current_open',
+      upColor: '#9dc384',
+      downColor: '#de9d9b',
+      noChangeColor: '#999999',
+      upBorderColor: '#48752c',
+      downBorderColor: '#bb2719',
+      noChangeBorderColor: '#777777',
+      upWickColor: '#48752c',
+      downWickColor: '#bb2719',
+      noChangeWickColor: '#777777'
+    },
+    area: {
+      lineSize: 2,
+      lineColor: '#48752c',
+      smooth: false,
+      value: 'close',
+      backgroundColor: [
+        { offset: 0, color: 'rgba(157, 195, 132, 0.01)' },
+        { offset: 1, color: 'rgba(157, 195, 132, 0.25)' }
+      ],
+      point: {
+        show: true,
+        color: '#48752c',
+        radius: 4,
+        rippleColor: 'rgba(72, 117, 44, 0.3)',
+        rippleRadius: 8,
+        animation: true,
+        animationDuration: 1000
+      }
+    },
+    priceMark: {
+      show: true,
+      high: {
+        show: true,
+        color: '#48752c',
+        textMargin: 5,
+        textSize: 10,
+        textFamily: 'Helvetica Neue',
+        textWeight: 'normal'
+      },
+      low: {
+        show: true,
+        color: '#bb2719',
+        textMargin: 5,
+        textSize: 10,
+        textFamily: 'Helvetica Neue',
+        textWeight: 'normal'
+      },
+      last: {
+        show: true,
+        compareRule: 'current_open',
+        upColor: '#48752c',
+        downColor: '#bb2719',
+        noChangeColor: '#999999',
+        line: {
+          show: true,
+          style: 'dashed',
+          dashedValue: [4, 4],
+          size: 1
+        },
+        text: {
+          show: true,
+          style: 'fill',
+          size: 12,
+          paddingLeft: 4,
+          paddingTop: 4,
+          paddingRight: 4,
+          paddingBottom: 4,
+          borderStyle: 'solid',
+          borderSize: 1,
+          borderColor: 'rgba(0,0,0,0.1)',
+          borderDashedValue: [2, 2],
+          color: '#FFFFFF',
+          family: 'Helvetica Neue',
+          weight: 'normal',
+          borderRadius: 2
+        },
+        extendTexts: [
+          {
+            show: true,
+            style: 'fill',
+            position: 'above_price',
+            updateInterval: 0,
+            size: 11,
+            paddingLeft: 4,
+            paddingTop: 3,
+            paddingRight: 4,
+            paddingBottom: 3,
+            borderStyle: 'solid',
+            borderSize: 0,
+            borderColor: 'transparent',
+            borderDashedValue: [2, 2],
+            color: '#FFFFFF',
+            family: 'Helvetica Neue',
+            weight: 'normal',
+            borderRadius: 2
+          }
+        ]
+      }
+    },
+    tooltip: {
+      offsetLeft: 4,
+      offsetTop: 6,
+      offsetRight: 4,
+      offsetBottom: 6,
+      showRule: 'always',
+      showType: 'standard',
+      title: {
+        show: true,
+        size: 13,
+        family: 'Helvetica Neue',
+        weight: 'bold',
+        color: '#333333',
+        marginLeft: 8,
+        marginTop: 4,
+        marginRight: 8,
+        marginBottom: 4,
+        template: '{ticker} · {period}'
+      },
+      legend: {
+        size: 12,
+        family: 'Helvetica Neue',
+        weight: 'normal',
+        color: '#555555',
+        marginLeft: 8,
+        marginTop: 4,
+        marginRight: 8,
+        marginBottom: 4,
+        defaultValue: 'n/a',
+        template: [
+          { title: 'time', value: '{time}' },
+          { title: { text: 'open', color: '#555555' }, value: { text: '{open}', color: '#333333' } },
+          { title: { text: 'high', color: '#555555' }, value: { text: '{high}', color: '#48752c' } },
+          { title: { text: 'low', color: '#555555' }, value: { text: '{low}', color: '#bb2719' } },
+          { title: { text: 'close', color: '#555555' }, value: { text: '{close}', color: '#333333' } },
+          { title: 'volume', value: '{volume}' }
+        ]
+      },
+      features: []
+    }
+  },
+  indicator: {
+    ohlc: {
+      compareRule: 'current_open',
+      upColor: 'rgba(72, 117, 44, .7)',
+      downColor: 'rgba(187, 39, 25, .7)',
+      noChangeColor: '#999999'
+    },
+    bars: [{
+      style: 'fill',
+      borderStyle: 'solid',
+      borderSize: 1,
+      borderDashedValue: [2, 2],
+      upColor: 'rgba(157, 195, 132, .7)',
+      downColor: 'rgba(222, 157, 155, .7)',
+      noChangeColor: '#999999'
+    }],
+    // lines[0..2] map to BOLL figures: up=upper, mid=MA, dn=lower
+    // [0] upper=red  [1] MA=black 2px  [2] lower=green  [3..4] general purpose
+    lines: [
+      { style: 'solid', smooth: false, size: 1, dashedValue: [2, 2], color: '#bb2719' },
+      { style: 'solid', smooth: false, size: 2, dashedValue: [2, 2], color: '#000000' },
+      { style: 'solid', smooth: false, size: 1, dashedValue: [2, 2], color: '#48752c' },
+      { style: 'solid', smooth: false, size: 1, dashedValue: [2, 2], color: '#48752c' },
+      { style: 'solid', smooth: false, size: 1, dashedValue: [2, 2], color: '#bb2719' }
+    ],
+    circles: [{
+      style: 'fill',
+      borderStyle: 'solid',
+      borderSize: 1,
+      borderDashedValue: [2, 2],
+      upColor: 'rgba(72, 117, 44, .7)',
+      downColor: 'rgba(187, 39, 25, .7)',
+      noChangeColor: '#999999'
+    }],
+    lastValueMark: {
+      show: true,
+      text: {
+        show: true,
+        style: 'fill',
+        color: '#FFFFFF',
+        size: 11,
+        family: 'Helvetica Neue',
+        weight: 'normal',
+        borderStyle: 'solid',
+        borderSize: 1,
+        borderDashedValue: [2, 2],
+        paddingLeft: 4,
+        paddingTop: 4,
+        paddingRight: 4,
+        paddingBottom: 4,
+        borderRadius: 2
+      }
+    },
+    tooltip: {
+      offsetLeft: 4,
+      offsetTop: 6,
+      offsetRight: 4,
+      offsetBottom: 6,
+      showRule: 'always',
+      showType: 'standard',
+      title: {
+        show: true,
+        showName: true,
+        showParams: true,
+        size: 12,
+        family: 'Helvetica Neue',
+        weight: 'normal',
+        color: '#555555',
+        marginLeft: 8,
+        marginTop: 4,
+        marginRight: 8,
+        marginBottom: 4
+      },
+      legend: {
+        size: 12,
+        family: 'Helvetica Neue',
+        weight: 'normal',
+        color: '#555555',
+        marginLeft: 8,
+        marginTop: 4,
+        marginRight: 8,
+        marginBottom: 4,
+        defaultValue: 'n/a'
+      },
+      features: []
+    }
+  },
+  xAxis: {
+    show: true,
+    size: 'auto',
+    axisLine: {
+      show: true,
+      color: '#CCCCCC',
+      size: 1
+    },
+    tickText: {
+      show: true,
+      color: '#666666',
+      family: 'Helvetica Neue',
+      weight: 'normal',
+      size: 11,
+      marginStart: 4,
+      marginEnd: 4
+    },
+    tickLine: {
+      show: true,
+      size: 1,
+      length: 3,
+      color: '#CCCCCC'
+    }
+  },
+  yAxis: {
+    show: true,
+    size: 'auto',
+    axisLine: {
+      show: true,
+      color: '#CCCCCC',
+      size: 1
+    },
+    tickText: {
+      show: true,
+      color: '#666666',
+      family: 'Helvetica Neue',
+      weight: 'normal',
+      size: 11,
+      marginStart: 4,
+      marginEnd: 4
+    },
+    tickLine: {
+      show: true,
+      size: 1,
+      length: 3,
+      color: '#CCCCCC'
+    }
+  },
+  separator: {
+    size: 1,
+    color: '#CCCCCC',
+    fill: true,
+    activeBackgroundColor: 'rgba(72, 117, 44, .08)'
+  },
+  crosshair: {
+    show: true,
+    horizontal: {
+      show: true,
+      line: {
+        show: true,
+        style: 'dashed',
+        dashedValue: [4, 2],
+        size: 1,
+        color: '#999999'
+      },
+      text: {
+        show: true,
+        style: 'fill',
+        color: '#FFFFFF',
+        size: 11,
+        family: 'Helvetica Neue',
+        weight: 'normal',
+        borderStyle: 'solid',
+        borderDashedValue: [2, 2],
+        borderSize: 1,
+        borderColor: '#48752c',
+        borderRadius: 2,
+        paddingLeft: 4,
+        paddingRight: 4,
+        paddingTop: 4,
+        paddingBottom: 4,
+        backgroundColor: '#48752c'
+      },
+      features: []
+    },
+    vertical: {
+      show: true,
+      line: {
+        show: true,
+        style: 'dashed',
+        dashedValue: [4, 2],
+        size: 1,
+        color: '#999999'
+      },
+      text: {
+        show: true,
+        style: 'fill',
+        color: '#FFFFFF',
+        size: 11,
+        family: 'Helvetica Neue',
+        weight: 'normal',
+        borderStyle: 'solid',
+        borderDashedValue: [2, 2],
+        borderSize: 1,
+        borderColor: '#48752c',
+        borderRadius: 2,
+        paddingLeft: 4,
+        paddingRight: 4,
+        paddingTop: 4,
+        paddingBottom: 4,
+        backgroundColor: '#48752c'
+      }
+    }
+  },
+  overlay: {
+    point: {
+      color: '#48752c',
+      borderColor: 'rgba(72, 117, 44, 0.35)',
+      borderSize: 1,
+      radius: 5,
+      activeColor: '#48752c',
+      activeBorderColor: 'rgba(72, 117, 44, 0.35)',
+      activeBorderSize: 3,
+      activeRadius: 5
+    },
+    line: {
+      style: 'solid',
+      smooth: false,
+      color: '#48752c',
+      size: 1,
+      dashedValue: [2, 2]
+    },
+    rect: {
+      style: 'fill',
+      color: 'rgba(72, 117, 44, 0.12)',
+      borderColor: '#48752c',
+      borderSize: 1,
+      borderRadius: 0,
+      borderStyle: 'solid',
+      borderDashedValue: [2, 2]
+    },
+    polygon: {
+      style: 'fill',
+      color: 'rgba(72, 117, 44, 0.12)',
+      borderColor: '#48752c',
+      borderSize: 1,
+      borderStyle: 'solid',
+      borderDashedValue: [2, 2]
+    },
+    circle: {
+      style: 'fill',
+      color: 'rgba(72, 117, 44, 0.12)',
+      borderColor: '#48752c',
+      borderSize: 1,
+      borderStyle: 'solid',
+      borderDashedValue: [2, 2]
+    },
+    arc: {
+      style: 'solid',
+      color: '#48752c',
+      size: 1,
+      dashedValue: [2, 2]
+    },
+    text: {
+      style: 'fill',
+      color: '#FFFFFF',
+      size: 12,
+      family: 'Helvetica Neue',
+      weight: 'normal',
+      borderStyle: 'solid',
+      borderDashedValue: [2, 2],
+      borderSize: 0,
+      borderRadius: 2,
+      borderColor: '#48752c',
+      paddingLeft: 0,
+      paddingRight: 0,
+      paddingTop: 0,
+      paddingBottom: 0,
+      backgroundColor: '#48752c'
+    }
+  }
+};
