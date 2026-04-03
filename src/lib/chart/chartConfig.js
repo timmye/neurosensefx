@@ -195,3 +195,107 @@ export function calcBarSpace(resolution, window, containerWidth) {
   if (!numCandles || !containerWidth || containerWidth <= 0) return TIMEFRAME_BAR_SPACE[resolution] || 10;
   return Math.max(1, Math.min(50, containerWidth / numCandles));
 }
+
+// ---------------------------------------------------------------------------
+// Time axis label tiers and calendar boundary timestamps
+// ---------------------------------------------------------------------------
+
+export const WINDOW_TIER = {
+  '1d': 'INTRADAY', '2d': 'INTRADAY',
+  '1W': 'DAILY', '2W': 'DAILY',
+  '1M': 'WEEKLY',
+  '3M': 'MONTHLY', '6M': 'MONTHLY',
+  '1Y': 'QUARTERLY',
+  '2Y': 'YEARLY', '5Y': 'YEARLY', '10Y': 'YEARLY'
+};
+
+export function getWindowTier(windowStr) {
+  return WINDOW_TIER[windowStr] ?? 'MONTHLY';
+}
+
+function generateDayStarts(from, to, set) {
+  let d = new Date(from);
+  d.setUTCHours(0, 0, 0, 0);
+  while (d.getTime() <= to) {
+    if (d.getTime() >= from) set.add(d.getTime());
+    d = new Date(d.getTime() + 86400000);
+  }
+}
+
+function generateMondays(from, to, set) {
+  let d = new Date(from);
+  d.setUTCHours(0, 0, 0, 0);
+  const dow = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() + ((1 - dow + 7) % 7));
+  while (d.getTime() <= to) {
+    if (d.getTime() >= from) set.add(d.getTime());
+    d = new Date(d.getTime() + 7 * 86400000);
+  }
+}
+
+function generateMonthStarts(from, to, set) {
+  let d = new Date(from);
+  d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+  if (d.getTime() < from) d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+  while (d.getTime() <= to) {
+    if (d.getTime() >= from) set.add(d.getTime());
+    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+  }
+}
+
+function generateQuarterStarts(from, to, set) {
+  let d = new Date(from);
+  const qMonth = Math.floor(d.getUTCMonth() / 3) * 3;
+  d = new Date(Date.UTC(d.getUTCFullYear(), qMonth, 1));
+  if (d.getTime() < from) d = new Date(Date.UTC(d.getUTCFullYear(), qMonth + 3, 1));
+  while (d.getTime() <= to) {
+    if (d.getTime() >= from) set.add(d.getTime());
+    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 3, 1));
+  }
+}
+
+function generateYearStarts(from, to, set) {
+  let year = new Date(from).getUTCFullYear();
+  let d = new Date(Date.UTC(year, 0, 1));
+  if (d.getTime() < from) d = new Date(Date.UTC(year + 1, 0, 1));
+  while (d.getTime() <= to) {
+    if (d.getTime() >= from) set.add(d.getTime());
+    d = new Date(Date.UTC(d.getUTCFullYear() + 1, 0, 1));
+  }
+}
+
+/**
+ * Generate calendar boundary timestamps within [from, to] for the given window.
+ *
+ * Boundary types depend on the window tier:
+ *   INTRADAY (1d/2d): day starts + month starts + year starts
+ *   DAILY    (1W/2W): Mondays + month starts + year starts
+ *   WEEKLY   (1M):    Mondays + month starts + year starts
+ *   MONTHLY  (3M/6M): month starts + year starts
+ *   QUARTERLY (1Y):   quarter starts + year starts
+ *   YEARLY   (2Y+):   year starts
+ */
+export function getCalendarBoundaryTimestamps(from, to, windowStr) {
+  const boundaries = new Set();
+  const { unit, count } = parseWindowString(windowStr);
+
+  if (windowStr === '1d' || windowStr === '2d') {
+    generateDayStarts(from, to, boundaries);
+    generateMonthStarts(from, to, boundaries);
+    generateYearStarts(from, to, boundaries);
+  } else if (unit === 'W') {
+    generateMondays(from, to, boundaries);
+    generateMonthStarts(from, to, boundaries);
+    generateYearStarts(from, to, boundaries);
+  } else if (unit === 'M' && count < 6) {
+    generateMonthStarts(from, to, boundaries);
+    generateYearStarts(from, to, boundaries);
+  } else if ((unit === 'M' && count >= 6) || (unit === 'Y' && count === 1)) {
+    generateQuarterStarts(from, to, boundaries);
+    generateYearStarts(from, to, boundaries);
+  } else if (unit === 'Y' && count >= 2) {
+    generateYearStarts(from, to, boundaries);
+  }
+
+  return Array.from(boundaries).sort((a, b) => a - b);
+}

@@ -7,7 +7,7 @@
   import { createInteractConfig } from '../lib/interactSetup.js';
   import ChartHeader from './displays/ChartHeader.svelte';
   import ChartToolbar from './ChartToolbar.svelte';
-  import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange } from '../lib/chart/chartConfig.js';
+  import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange, getWindowTier, getCalendarBoundaryTimestamps } from '../lib/chart/chartConfig.js';
   import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
   import '../lib/chart/customOverlays.js';
   import { drawingStore } from '../lib/chart/drawingStore.js';
@@ -39,9 +39,147 @@
   let isLoadingMore = false;
   let currentRangeFrom = 0;       // calendar-aligned window start (for barSpace)
   let currentFetchFrom = 0;       // window start + buffer (for data fetch)
+  let boundaryOverlayIds = [];    // calendar boundary vertical line overlay IDs
+  let pendingScrollIndex = -1;    // scroll position to restore after resize
+
+  // Month and weekday abbreviations for axis labels
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  /**
+   * KLineChart formatDate override for smart time axis labels.
+   *
+   * KLineChart's _optimalTickLabel calls this function with format strings
+   * 'YYYY', 'YYYY-MM', 'MM-DD' to detect calendar transitions between adjacent
+   * ticks. We return tier-appropriate strings for each level so that:
+   *   - Transitions are detected at the CORRECT granularity for the window tier
+   *   - The override label text matches our desired format (not KLineChart defaults)
+   *   - No stateful dedup is needed — _optimalTickLabel handles uniqueness
+   *
+   * The primary call uses 'HH:mm' format and returns the within-period label.
+   */
+  function formatAxisLabel(dateTimeFormat, timestamp, format, type) {
+    if (type !== 2) {
+      return dateTimeFormat.format(new Date(timestamp));
+    }
+
+    const date = new Date(timestamp);
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    const hour = date.getUTCHours();
+    const minute = date.getUTCMinutes();
+    const tier = getWindowTier(currentWindow);
+
+    // KLineChart _optimalTickLabel format requests.
+    // Return tier-appropriate strings so:
+    //   1. Transitions are detected at the RIGHT granularity (year/month/day)
+    //   2. Override label text MATCHES the primary format (no visual change on no-op)
+    //   3. Levels below the tier's granularity return SAME string for same-period ticks,
+    //      preventing unwanted day-level overrides on monthly/yearly views
+    if (format === 'YYYY') {
+      return String(year);
+    }
+    if (format === 'YYYY-MM') {
+      if (tier === 'YEARLY') return String(year);                          // same for all months in year
+      if (tier === 'QUARTERLY') return `Q${Math.floor(month / 3) + 1} ${year}`; // same for same quarter
+      return MONTHS[month];                                                // "Mar" — same for same month
+    }
+    if (format === 'MM-DD') {
+      if (tier === 'YEARLY') return String(year);                          // same for all in year
+      if (tier === 'QUARTERLY') return `Q${Math.floor(month / 3) + 1}`;   // same for same quarter
+      if (tier === 'MONTHLY') return MONTHS[month];                        // same for same month
+      // INTRADAY/DAILY/WEEKLY: match primary format exactly so override is no-op
+      if (tier === 'WEEKLY') return `${day} ${MONTHS[month]}`;             // "30 Mar" — matches primary
+      return `${WEEKDAYS[date.getUTCDay()]} ${day}`;                       // "Mon 30" — matches primary
+    }
+
+    // Primary axis label (format is 'HH:mm' or similar).
+    // Only used for non-transition ticks within the same period.
+    switch (tier) {
+      case 'INTRADAY':
+        if (hour === 0 && minute === 0) return WEEKDAYS[date.getUTCDay()];
+        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+      case 'DAILY':
+        return `${WEEKDAYS[date.getUTCDay()]} ${day}`;
+
+      case 'WEEKLY':
+        return `${day} ${MONTHS[month]}`;
+
+      case 'MONTHLY':
+        return String(day);
+
+      case 'QUARTERLY':
+        return MONTHS[month];
+
+      case 'YEARLY':
+        return MONTHS[month];
+
+      default:
+        return dateTimeFormat.format(date);
+    }
+  }
+
+  /**
+   * Find the first bar at or after the target timestamp.
+   * Returns the bar's actual timestamp, or null if past the data range.
+   */
+  function findFirstBarAtOrAfter(dataList, targetTs) {
+    if (!dataList || dataList.length === 0) return null;
+    let lo = 0, hi = dataList.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (dataList[mid].timestamp < targetTs) lo = mid + 1;
+      else hi = mid;
+    }
+    return dataList[lo].timestamp >= targetTs ? dataList[lo].timestamp : null;
+  }
+
+  function updateBoundaryOverlays() {
+    if (!chart) return;
+    removeBoundaryOverlays();
+
+    const dataList = chart.getDataList();
+    if (!dataList || dataList.length < 2) return;
+
+    // Use actual data range — avoids future boundaries stacking on last bar
+    const firstTs = dataList[0].timestamp;
+    const lastTs = dataList[dataList.length - 1].timestamp;
+
+    const boundaries = getCalendarBoundaryTimestamps(firstTs, lastTs, currentWindow);
+
+    const usedTimestamps = new Set();
+    for (const ts of boundaries) {
+      // Snap to first bar at or after the calendar boundary
+      const barTs = findFirstBarAtOrAfter(dataList, ts);
+      if (barTs === null || barTs > lastTs) continue;
+      if (usedTimestamps.has(barTs)) continue; // dedup snapped boundaries
+      usedTimestamps.add(barTs);
+
+      const id = `cal-boundary-${barTs}`;
+      chart.createOverlay({
+        name: 'calendarBoundary',
+        id,
+        points: [{ timestamp: barTs }],
+        styles: { style: 'dashed', color: 'rgba(0, 0, 0, 0.08)' }
+      });
+      boundaryOverlayIds.push(id);
+    }
+  }
+
+  function removeBoundaryOverlays() {
+    if (!chart) return;
+    for (const id of boundaryOverlayIds) {
+      chart.removeOverlay(id);
+    }
+    boundaryOverlayIds = [];
+  }
 
   function getBarSpace() {
-    const width = chartContainer?.clientWidth || 0;
+    // Use chart's main pane width (excludes y-axis/price axis area)
+    const chartArea = chart?.getSize?.('candle_pane', 'main');
+    const width = chartArea?.width || chartContainer?.clientWidth || 0;
     if (width <= 0) return TIMEFRAME_BAR_SPACE[currentResolution] || 10;
 
     // Data-aware: count actual candles in the target time window.
@@ -89,6 +227,7 @@
       tickUnsubscribe?.();
       tickUnsubscribe = null;
       unsubscribeFromCandles(currentSymbol, currentResolution);
+      removeBoundaryOverlays();
       if (chart) chart.clearData();
       loadChartData(currentSymbol, currentResolution, currentWindow);
     },
@@ -162,6 +301,8 @@
   function handleSymbolChange(newSymbol) {
     if (newSymbol === currentSymbol) return;
 
+    removeBoundaryOverlays();
+
     // Unsubscribe from old symbol's candles
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
@@ -188,6 +329,8 @@
 
   function handleResolutionChange(newResolution) {
     if (newResolution === currentResolution) return;
+
+    removeBoundaryOverlays();
 
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
@@ -216,6 +359,8 @@
   function handleWindowChange(newWindow) {
     if (newWindow === currentWindow) return;
 
+    removeBoundaryOverlays();
+
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
     tickUnsubscribe?.();
@@ -240,6 +385,7 @@
         chart.setBarSpace(getBarSpace());
         chart.resize();
         chart.scrollToRealTime();
+        updateBoundaryOverlays();
       }
     });
   }
@@ -327,6 +473,9 @@
     // Initialize KLineChart
     chart = init(chartContainer, { styles: LIGHT_THEME });
 
+    // Smart time axis labels adapted to window tier
+    chart.setCustomApi({ formatDate: formatAxisLabel });
+
     // Ensure the browser has completed layout before KLineChart reads dimensions
     requestAnimationFrame(() => {
       if (chart) chart.resize();
@@ -339,8 +488,20 @@
         resizeRAF = requestAnimationFrame(() => {
           resizeRAF = null;
           if (chart) {
-            chart.setBarSpace(getBarSpace());
+            // resize() updates the canvas buffer (DPR-aware) first.
+            // setBarSpace() recalculates from new dimensions after buffer is correct.
+            // Reversing this order causes setBarSpace's redraw rAF to block
+            // KLineChart's DPR buffer update, producing fuzzy rendering.
             chart.resize();
+            chart.setBarSpace(getBarSpace());
+            // Restore scroll position from interact.js resize
+            if (pendingScrollIndex >= 0) {
+              const idx = pendingScrollIndex;
+              pendingScrollIndex = -1;
+              requestAnimationFrame(() => {
+                if (chart) chart.scrollToDataIndex(idx);
+              });
+            }
             if (pendingDataApply) {
               const data = pendingDataApply;
               pendingDataApply = null;
@@ -402,21 +563,16 @@
 
     // Set up interact.js for drag/resize
     interactable = createInteractConfig(element, {
-      ignoreFrom: '.chart-toolbar button, .chart-toolbar span',
+      ignoreFrom: '.chart-canvas-container, .chart-toolbar button, .chart-toolbar span',
       onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
       onResizeMove: (event) => {
         workspaceActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height });
+        // Save scroll position — ResizeObserver handles chart.resize() after DOM updates.
+        // Calling chart ops here uses stale pre-DOM dimensions, causing fuzzy rendering.
         if (chart) {
           const range = chart.getVisibleRange();
           const dataList = chart.getDataList();
-          const rightIndex = dataList?.length > 0 ? range.to - 1 : -1;
-          chart.setBarSpace(getBarSpace());
-          chart.resize();
-          if (rightIndex >= 0) {
-            requestAnimationFrame(() => {
-              if (chart) chart.scrollToDataIndex(rightIndex);
-            });
-          }
+          pendingScrollIndex = dataList?.length > 0 ? range.to - 1 : -1;
         }
       },
       onTap: () => workspaceActions.bringToFront(display.id)
@@ -439,6 +595,7 @@
     barStoreUnsubscribe = null;
     tickUnsubscribe?.();
     tickUnsubscribe = null;
+    boundaryOverlayIds = [];
 
     unsubscribeFromCandles(currentSymbol, currentResolution);
 
@@ -455,6 +612,7 @@
       wheelHandler = null;
     }
     pendingDataApply = null;
+    pendingScrollIndex = -1;
 
     if (chart) {
       disposeChart(chartContainer);
