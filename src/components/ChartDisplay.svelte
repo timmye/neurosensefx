@@ -46,6 +46,19 @@
   /** ISO 8601 helper: zero-pad to 2 digits. */
   function pad2(n) { return String(n).padStart(2, '0'); }
 
+  /** ISO 8601 week number (1–53). Weeks start Monday; week 1 has the year's first Thursday. */
+  function getISOWeek(d) {
+    const day = d.getUTCDay();
+    const thu = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 3 - ((day + 6) % 7)));
+    const jan1 = Date.UTC(thu.getUTCFullYear(), 0, 1);
+    return 1 + Math.floor((thu.getTime() - jan1) / 604800000);
+  }
+
+  // Major label marker — ▸ prefix distinguishes month/year boundaries from regular ticks.
+  // KLineChart renders all axis labels with the same font weight; this is the only way
+  // to make major labels visually distinct on canvas.
+  const MAJ = '\u25B8 ';   // ▸
+
   /**
    * KLineChart formatDate override for smart time axis labels.
    *
@@ -54,9 +67,9 @@
    *
    *   'YYYY'    — year level.  If year differs between ticks, this value is shown.
    *   'YYYY-MM' — month level.  If month differs (same year), this value is shown.
-   *               THIS is the month-start label.  No day===1 checks needed —
-   *               KLineChart detects month change regardless of weekend gaps.
+   *               THIS is the month-start label.  Prefixed with ▸ marker.
    *   'MM-DD'   — day level.  If only day differs (same year+month), this value is shown.
+   *               Mondays get a W## week-number prefix.
    *
    * The primary call uses 'HH:mm' format for within-period labels.
    * All dates use ISO 8601 ordering.
@@ -74,29 +87,38 @@
     const minute = date.getUTCMinutes();
     const tier = getWindowTier(currentWindow);
 
-    // --- Year-level transition label ---
+    // --- Year-level transition label (MAJOR) ---
     if (format === 'YYYY') {
-      return String(year);
+      return `${MAJ}${year}`;
     }
 
-    // --- Month-level transition label ---
+    // --- Month-level transition label (MAJOR) ---
     // Fires when month changes between adjacent ticks (= month boundary).
     // KLineChart detects this correctly even when the 1st falls on a weekend
     // and the first trading bar is day 2 or 3.
     if (format === 'YYYY-MM') {
-      if (tier === 'YEARLY') return String(year);
-      if (tier === 'QUARTERLY') return `Q${Math.floor(month / 3) + 1} ${year}`;
-      return `${year}-${pad2(month + 1)}`;                               // "2026-04"
+      if (tier === 'YEARLY') return `${MAJ}${year}`;
+      if (tier === 'QUARTERLY') return `${MAJ}Q${Math.floor(month / 3) + 1} ${year}`;
+      return `${MAJ}${year}-${pad2(month + 1)}`;                          // "▸ 2026-04"
     }
 
     // --- Day-level transition label ---
     // Only fires when year AND month are the same but day differs.
     // This can NEVER be a month start — those are caught by YYYY-MM above.
     if (format === 'MM-DD') {
-      if (tier === 'YEARLY') return String(year);
-      if (tier === 'QUARTERLY') return `Q${Math.floor(month / 3) + 1} ${year}`;
-      if (tier === 'MONTHLY') return `${year}-${pad2(month + 1)}`;
-      return `${pad2(month + 1)}-${pad2(day)}`;                          // "04-03"
+      if (tier === 'YEARLY') return `${MAJ}${year}`;
+      if (tier === 'QUARTERLY') return `${MAJ}Q${Math.floor(month / 3) + 1} ${year}`;
+      if (tier === 'MONTHLY') return `${MAJ}${year}-${pad2(month + 1)}`;
+
+      const isMonday = date.getUTCDay() === 1;
+      if (tier === 'INTRADAY') {
+        // Every day change is major on intraday charts
+        if (isMonday) return `${MAJ}W${getISOWeek(date)} ${pad2(month + 1)}-${pad2(day)}`;
+        return `${MAJ}${pad2(month + 1)}-${pad2(day)}`;                    // "▸ 04-03"
+      }
+      // DAILY / WEEKLY: Mondays are major (week start), other days are minor
+      if (isMonday) return `${MAJ}W${getISOWeek(date)} ${pad2(month + 1)}-${pad2(day)}`;
+      return `${pad2(month + 1)}-${pad2(day)}`;                           // "04-03"
     }
 
     // --- Primary axis label (format === 'HH:mm' or similar) ---
@@ -106,21 +128,21 @@
         return `${pad2(hour)}:${pad2(minute)}`;
 
       case 'DAILY':
-        return `${pad2(month + 1)}-${pad2(day)}`;                       // "04-03"
+        return `${pad2(month + 1)}-${pad2(day)}`;                        // "04-03"
 
       case 'WEEKLY':
-        return `${pad2(month + 1)}-${pad2(day)}`;                       // "04-03"
+        return `${pad2(month + 1)}-${pad2(day)}`;                        // "04-03"
 
       case 'MONTHLY':
         // MM-DD format so KLineChart's first-tick regex matches and
-        // calls MM-DD override → shows "2026-04" month context.
-        return `${pad2(month + 1)}-${pad2(day)}`;                       // "04-15"
+        // calls MM-DD override → shows "▸ 2026-04" month context.
+        return `${pad2(month + 1)}-${pad2(day)}`;                        // "04-15"
 
       case 'QUARTERLY':
-        return `${year}-${pad2(month + 1)}`;                            // "2026-04"
+        return `${year}-${pad2(month + 1)}`;                             // "2026-04"
 
       case 'YEARLY':
-        return `${year}-${pad2(month + 1)}`;                            // "2026-04"
+        return `${year}-${pad2(month + 1)}`;                             // "2026-04"
 
       default:
         return dateTimeFormat.format(date);
@@ -234,7 +256,7 @@
     const store = getMarketDataStore(symbol);
     let pricePrecision = 5; // default for FX
     const unsub = store.subscribe(data => {
-      pricePrecision = (data.pipPosition ?? 4) + 1;
+      pricePrecision = data.digits ?? (data.pipPosition ?? 4) + 1;
     });
     unsub();
     chart.setPriceVolumePrecision(pricePrecision, 0);

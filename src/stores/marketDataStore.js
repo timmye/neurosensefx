@@ -57,6 +57,7 @@ function createInitialData(symbol) {
     pipPosition: 4,
     pipSize: 0.0001,
     pipetteSize: 0.00001,
+    digits: null,
     previousPrice: null,
     direction: 'neutral',
     marketProfile: null,
@@ -106,6 +107,7 @@ function normalizeData(data, currentState) {
       pipPosition: data.pipPosition ?? currentState.pipPosition,
       pipSize: data.pipSize ?? currentState.pipSize,
       pipetteSize: data.pipetteSize ?? currentState.pipetteSize,
+      digits: data.digits ?? currentState.digits,
       source: data.source ?? currentState.source,
       marketProfile: currentState.marketProfile,
       previousPrice: data.current ?? data.price ?? data.bid ?? data.ask ?? currentState.current ?? null,
@@ -135,6 +137,7 @@ function normalizeData(data, currentState) {
       pipPosition: data.pipPosition ?? currentState.pipPosition,
       pipSize: data.pipSize ?? currentState.pipSize,
       pipetteSize: data.pipetteSize ?? currentState.pipetteSize,
+      digits: data.digits ?? currentState.digits,
       receivedAt: data.receivedAt ?? null,
       sentAt: data.sentAt ?? null
     };
