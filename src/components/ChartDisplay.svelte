@@ -18,6 +18,8 @@
 
   export let display;
 
+  const RIGHT_OFFSET_PX = 10;
+
   let element;
   let interactable;
   let chartContainer;
@@ -200,13 +202,19 @@
 
         const candleCount = dataList.length - lo;
         if (candleCount > 0) {
-          return Math.max(1, Math.min(50, width / candleCount));
+          return Math.max(1, Math.min(50, (width - RIGHT_OFFSET_PX) / candleCount));
         }
       }
     }
 
     // Fallback before data is available
-    return calcBarSpace(currentResolution, currentWindow, width);
+    return calcBarSpace(currentResolution, currentWindow, width - RIGHT_OFFSET_PX);
+  }
+
+  function applyBarSpace() {
+    if (!chart) return;
+    chart.setBarSpace(getBarSpace());
+    chart.setOffsetRightDistance(RIGHT_OFFSET_PX, true);
   }
 
   function applyPricePrecision(symbol) {
@@ -342,7 +350,7 @@
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
 
     if (chart) {
-      chart.setBarSpace(getBarSpace());
+      applyBarSpace();
     }
 
     loadChartData(currentSymbol, currentResolution, currentWindow);
@@ -370,7 +378,7 @@
     currentWindow = newWindow;
 
     if (chart) {
-      chart.setBarSpace(getBarSpace());
+      applyBarSpace();
     }
 
     loadChartData(currentSymbol, currentResolution, currentWindow);
@@ -382,7 +390,7 @@
     chart.applyNewData(klineData);
     requestAnimationFrame(() => {
       if (chart) {
-        chart.setBarSpace(getBarSpace());
+        applyBarSpace();
         chart.resize();
         chart.scrollToRealTime();
         updateBoundaryOverlays();
@@ -493,7 +501,7 @@
             // Reversing this order causes setBarSpace's redraw rAF to block
             // KLineChart's DPR buffer update, producing fuzzy rendering.
             chart.resize();
-            chart.setBarSpace(getBarSpace());
+            applyBarSpace();
             // Restore scroll position from interact.js resize
             if (pendingScrollIndex >= 0) {
               const idx = pendingScrollIndex;
@@ -518,7 +526,7 @@
       chart.setZoomEnabled(false);
       chart.setScrollEnabled(true);
 
-      chart.setBarSpace(getBarSpace());
+      applyBarSpace();
       applyPricePrecision(currentSymbol);
 
       // Add Bollinger Bands (20 period) on candle pane
@@ -529,7 +537,7 @@
         const range = chart.getVisibleRange();
         const dataList = chart.getDataList();
         const rightIndex = dataList?.length > 0 ? range.to - 1 : -1;
-        chart.setBarSpace(getBarSpace());
+        applyBarSpace();
         if (rightIndex >= 0) {
           requestAnimationFrame(() => {
             if (chart) chart.scrollToDataIndex(rightIndex);
