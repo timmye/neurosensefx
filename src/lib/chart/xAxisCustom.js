@@ -1,27 +1,21 @@
 /**
  * Calendar-aware custom X-axis for KLineChart.
  *
- * Replaces the index-based x-axis with calendar-aligned ticks that
- * understand year/quarter/month/week/day boundaries and suppress
- * overlapping labels.
- *
- * Uses a two-phase "Anchor + Fill" algorithm:
- *   Phase 1: Place boundary ticks (anchors) sorted by rank.
- *   Phase 2: Context fill around MONTH+ anchors, then gap fill.
- *   Phase 3: Format labels in a final pass.
+ * Uses a span-tier lookup matrix to determine tick placement and formatting.
+ * No overlap suppression — ticks are placed at deterministic intervals
+ * and skipped only if they'd be closer than MIN_FLOOR px to the previous tick.
  *
  * @module xAxisCustom
  */
 
 import { registerXAxis } from 'klinecharts';
-import { TICK_INTERVALS, RESOLUTION_FLOOR } from './chartConfig.js';
+import { RESOLUTION_FLOOR, TICK_INTERVALS } from './chartConfig.js';
 
 // ---------------------------------------------------------------------------
 // Module-level state
 // ---------------------------------------------------------------------------
 
-// Single-instance chart: safe to store as module state.
-// If multi-chart is ever supported, replace with WeakMap keyed on chart instance.
+// Single-instance only. Multi-chart support requires WeakMap keyed on chart instance.
 let _chart = null;
 let _resolution = '4h';
 let _tickTextStyles = null;
@@ -41,17 +35,63 @@ export function setAxisResolution(resolution) {
 }
 
 // ---------------------------------------------------------------------------
-// Constants (local to module)
+// Constants
 // ---------------------------------------------------------------------------
 
-const TARGET_MIN_TICKS = 8;
-const TARGET_MAX_TICKS = 18;
-const MIN_FLOOR = 30;   // px, absolute minimum suppression radius
-const PADDING = 8;      // px, minimum gap between adjacent label edges
+const MIN_FLOOR = 30;   // px, minimum gap between adjacent tick centers
 const WEEK_START_DAY = 0; // Sunday for forex
+
+const MS_PER_DAY = 86_400_000;
+const MS_PER_TWO_DAYS = 2 * MS_PER_DAY;
+const MS_PER_WEEK = 7 * MS_PER_DAY;
+const MS_PER_MONTH = 2_592_000_000;
+const MS_PER_QUARTER = 3 * MS_PER_MONTH;
+const MS_PER_YEAR = 4 * MS_PER_QUARTER;
 
 const RANK = { YEAR: 1, QUARTER: 2, MONTH: 3, WEEK: 4, DAY: 5 };
 const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Duration lookup for sub-day interval names
+const INTERVAL_MS = Object.fromEntries(
+  TICK_INTERVALS.filter(iv => iv.durationMs).map(iv => [iv.name, iv.durationMs])
+);
+
+// ---------------------------------------------------------------------------
+// Span-tier classification
+// ---------------------------------------------------------------------------
+
+function classifySpan(spanMs) {
+  if (spanMs <= MS_PER_TWO_DAYS) return 'INTRADAY';
+  if (spanMs <= 2 * MS_PER_WEEK) return 'DAILY';
+  if (spanMs <= 2 * MS_PER_MONTH) return 'WEEKLY';
+  if (spanMs <= 6 * MS_PER_MONTH) return 'MONTHLY';
+  if (spanMs <= MS_PER_YEAR) return 'QUARTERLY';
+  return 'YEARLY';
+}
+
+// ---------------------------------------------------------------------------
+// Tick strategy matrix
+//
+// Each row defines: which calendar boundaries to place as anchors,
+// what interval to use for fill ticks between boundaries, and label format.
+// ---------------------------------------------------------------------------
+
+const STRATEGY = {
+  INTRADAY:  { boundaries: ['DAY'],                                           fillMs: null /* overridden by getFillMs */, fillStep: 1 },
+  DAILY:     { boundaries: ['MONTH', 'QUARTER', 'YEAR'],                      fillMs: 12 * 3600000, fillStep: 1 },
+  WEEKLY:    { boundaries: ['MONTH', 'QUARTER', 'YEAR'],                      fillMs: MS_PER_DAY,    fillStep: 1 },
+  MONTHLY:   { boundaries: ['MONTH', 'QUARTER'],                              fillMs: 12 * 3600000, fillStep: 2 },
+  QUARTERLY: { boundaries: ['MONTH', 'QUARTER'],                              fillMs: MS_PER_DAY,    fillStep: 3 },
+  YEARLY:    { boundaries: ['MONTH', 'QUARTER', 'YEAR'],                      fillMs: MS_PER_MONTH,  fillStep: 1 },
+};
+
+// For INTRADAY, use the resolution's own floor interval for fill
+function getFillMs(tier) {
+  if (tier !== 'INTRADAY') return STRATEGY[tier].fillMs;
+  const floorName = RESOLUTION_FLOOR[_resolution];
+  if (!floorName) return 3600000; // 1HOUR default
+  return INTERVAL_MS[floorName] || 3600000;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -61,7 +101,7 @@ function pad2(n) {
   return String(n).padStart(2, '0');
 }
 
-function dataIndexOf(dataList, timestamp) {
+function _binarySearch(dataList, timestamp) {
   let lo = 0;
   let hi = dataList.length - 1;
   while (lo <= hi) {
@@ -69,9 +109,13 @@ function dataIndexOf(dataList, timestamp) {
     const ts = dataList[mid].timestamp;
     if (ts < timestamp) lo = mid + 1;
     else if (ts > timestamp) hi = mid - 1;
-    else return mid;
+    else return { found: mid, lo, hi };
   }
-  return -1;
+  return { found: -1, lo, hi };
+}
+
+function dataIndexOf(dataList, timestamp) {
+  return _binarySearch(dataList, timestamp).found;
 }
 
 function barCoord(chart, dataIndex) {
@@ -86,67 +130,78 @@ function barCoord(chart, dataIndex) {
 
 export function snapToBar(targetTs, dataList) {
   if (!dataList || dataList.length === 0) return null;
-  let lo = 0;
-  let hi = dataList.length - 1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >>> 1;
-    const ts = dataList[mid].timestamp;
-    if (ts < targetTs) lo = mid + 1;
-    else if (ts > targetTs) hi = mid - 1;
-    else return ts;
-  }
-  // lo is the first bar >= targetTs, hi is the last bar < targetTs
-  if (lo >= dataList.length) {
-    // Target is after all bars — return last bar if it exists
-    return hi >= 0 ? dataList[hi].timestamp : null;
-  }
-  if (hi < 0) {
-    // Target is before all bars — return first bar
-    return dataList[0].timestamp;
-  }
-  // Both candidates exist — return whichever is closer to targetTs
+  const { found, lo, hi } = _binarySearch(dataList, targetTs);
+  if (found !== -1) return targetTs;
+
+  if (lo >= dataList.length) return hi >= 0 ? dataList[hi].timestamp : null;
+  if (hi < 0) return dataList[0].timestamp;
   const diffLo = dataList[lo].timestamp - targetTs;
   const diffHi = targetTs - dataList[hi].timestamp;
   return diffLo <= diffHi ? dataList[lo].timestamp : dataList[hi].timestamp;
 }
 
 // ---------------------------------------------------------------------------
-// selectTickInterval
+// Calendar boundary generators
 // ---------------------------------------------------------------------------
 
-export function selectTickInterval(resolution, spanMs) {
-  const floorName = RESOLUTION_FLOOR[resolution] || 'DAY';
-  const floorIdx = TICK_INTERVALS.findIndex(iv => iv.name === floorName);
-  if (floorIdx === -1) return TICK_INTERVALS[TICK_INTERVALS.length - 1];
+function nextYear(d)    { return new Date(Date.UTC(d.getUTCFullYear() + 1, 0, 1)); }
+function nextQuarter(d) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 3, 1)); }
+function nextMonth(d)   { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)); }
+function nextWeek(d)    { return new Date(d.getTime() + MS_PER_WEEK); }
+function nextDay(d)     { return new Date(d.getTime() + MS_PER_DAY); }
 
-  // Walk coarsest (end) → finest (floorIdx)
-  for (let i = TICK_INTERVALS.length - 1; i >= floorIdx; i--) {
-    const iv = TICK_INTERVALS[i];
-    let count;
-    if (iv.calendar) {
-      // Calendar intervals: estimate by fixed averages
-      if (iv.name === 'YEAR') count = spanMs / 31_536_000_000;
-      else if (iv.name === 'QUARTER') count = spanMs / 7_776_000_000;
-      else if (iv.name === 'MONTH') count = spanMs / 2_592_000_000;
-      else count = spanMs / 2_592_000_000;
-    } else {
-      count = spanMs / iv.durationMs;
+function alignToBoundary(fromTs, boundaryType) {
+  const d = new Date(fromTs);
+  switch (boundaryType) {
+    case 'YEAR':    return new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    case 'QUARTER': {
+      const qMonth = Math.floor(d.getUTCMonth() / 3) * 3;
+      return new Date(Date.UTC(d.getUTCFullYear(), qMonth, 1));
     }
-
-    if (count >= TARGET_MIN_TICKS) {
-      // If too many ticks and not at finest, try next finer
-      if (count > TARGET_MAX_TICKS && i > floorIdx) {
-        return TICK_INTERVALS[i - 1];
-      }
-      return iv;
+    case 'MONTH':   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    case 'WEEK': {
+      d.setUTCHours(0, 0, 0, 0);
+      const dow = d.getUTCDay();
+      const daysToSunday = (WEEK_START_DAY - dow + 7) % 7;
+      d.setUTCDate(d.getUTCDate() + daysToSunday);
+      return d;
     }
+    case 'DAY': {
+      d.setUTCHours(0, 0, 0, 0);
+      return d;
+    }
+    default: return d;
   }
+}
 
-  return TICK_INTERVALS[floorIdx];
+const BOUNDARY_STEP = { YEAR: nextYear, QUARTER: nextQuarter, MONTH: nextMonth, WEEK: nextWeek, DAY: nextDay };
+
+function rankForBoundary(type) {
+  return RANK[type]; // YEAR→1, QUARTER→2, MONTH→3, WEEK→4, DAY→5
 }
 
 // ---------------------------------------------------------------------------
-// formatBoundaryLabel
+// calcTextWidth
+// ---------------------------------------------------------------------------
+
+const _canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+const _ctx = _canvas?.getContext('2d') || null;
+const _widthCache = new Map();
+
+export function calcTextWidth(text, size, weight, family) {
+  if (!text) return 0;
+  const key = `${text}|${size || 12}|${weight || 'normal'}|${family || 'Helvetica Neue'}`;
+  const cached = _widthCache.get(key);
+  if (cached !== undefined) return cached;
+  if (!_ctx) return text.length * 7;
+  _ctx.font = `${weight || 'normal'} ${size || 12}px ${family || 'Helvetica Neue'}`;
+  const width = _ctx.measureText(text).width;
+  _widthCache.set(key, width);
+  return width;
+}
+
+// ---------------------------------------------------------------------------
+// Label formatters
 // ---------------------------------------------------------------------------
 
 export function formatBoundaryLabel(ts, rank, prevTs) {
@@ -171,14 +226,14 @@ export function formatBoundaryLabel(ts, rank, prevTs) {
       return label;
     }
     case RANK.WEEK: {
-      const dayLabel = `${pad2(day)}`;
+      const dayLabel = pad2(day);
       const monthLabel = `${dayLabel} ${SHORT_MONTHS[month]}`;
       if (!prev || prev.getUTCFullYear() !== year) return `${monthLabel} ${year}`;
       if (prev.getUTCMonth() !== month) return monthLabel;
       return dayLabel;
     }
     case RANK.DAY: {
-      const label = `${pad2(day)}`;
+      const label = pad2(day);
       if (!prev || prev.getUTCMonth() !== month) return `${label} ${SHORT_MONTHS[month]}`;
       return label;
     }
@@ -187,370 +242,226 @@ export function formatBoundaryLabel(ts, rank, prevTs) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// formatBaseLabel
-// ---------------------------------------------------------------------------
-
-export function formatBaseLabel(ts, intervalName, prevTs) {
+export function formatBaseLabel(ts, prevTs, tier) {
   const d = new Date(ts);
   const prev = prevTs != null ? new Date(prevTs) : null;
-  const hours = pad2(d.getUTCHours());
-  const mins = pad2(d.getUTCMinutes());
   const day = d.getUTCDate();
   const month = d.getUTCMonth();
+  const hours = pad2(d.getUTCHours());
+  const mins = pad2(d.getUTCMinutes());
 
-  // Sub-day intervals
-  const subDayIntervals = ['1MIN','5MIN','15MIN','30MIN','1HOUR','2HOUR','4HOUR','8HOUR','12HOUR'];
-  if (subDayIntervals.includes(intervalName)) {
+  if (tier === 'INTRADAY') {
     const timeLabel = `${hours}:${mins}`;
-    if (!prev || prev.getUTCDate() !== day || prev.getUTCMonth() !== month) {
-      return `${pad2(day)} ${timeLabel}`;
-    }
-    return timeLabel;
+    const crossedDay = !prev || prev.getUTCDate() !== day || prev.getUTCMonth() !== month;
+    return crossedDay ? `${pad2(day)} ${timeLabel}` : timeLabel;
   }
 
-  if (intervalName === 'DAY') {
-    return `${pad2(day)}`;
-  }
-
-  // WEEK and above: boundary ticks handle these
-  return '';
+  // MULTIDAY tiers: show day number for cross-day ticks, suppress same-day
+  const crossedDay = !prev || prev.getUTCDate() !== day || prev.getUTCMonth() !== month;
+  if (!crossedDay) return '';
+  return pad2(day);
 }
 
 // ---------------------------------------------------------------------------
-// calcTextWidth
+// generateTicks — single-pass sweep using strategy matrix
 // ---------------------------------------------------------------------------
 
-export function calcTextWidth(text, size, weight, family) {
-  if (!text) return 0;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  const fontSize = size || 12;
-  const fontWeight = weight || 'normal';
-  const fontFamily = family || 'Helvetica Neue';
-  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-  const metrics = ctx.measureText(text);
-  return metrics.width;
-}
+export function generateTicks(fromTs, toTs, dataList, chart, tickTextStyles) {
+  if (!dataList || dataList.length === 0) return [];
 
-// ---------------------------------------------------------------------------
-// generateBoundaryTicks — raw candidates (no formatting)
-// ---------------------------------------------------------------------------
+  const spanMs = toTs - fromTs;
+  const tier = classifySpan(spanMs);
+  const strategy = STRATEGY[tier];
+  const fillMs = getFillMs(tier);
+  const fillStep = strategy.fillStep;
 
-export function generateBoundaryTicks(fromTs, toTs, dataList, chart) {
-  const boundaries = [];
-
-  // Generate year starts
-  let year = new Date(fromTs).getUTCFullYear();
-  let d = new Date(Date.UTC(year, 0, 1));
-  if (d.getTime() < fromTs) d = new Date(Date.UTC(year + 1, 0, 1));
-  while (d.getTime() <= toTs) {
-    if (d.getTime() >= fromTs) boundaries.push({ ts: d.getTime(), rank: RANK.YEAR });
-    d = new Date(Date.UTC(d.getUTCFullYear() + 1, 0, 1));
-  }
-
-  // Generate quarter starts
-  {
-    const sd = new Date(fromTs);
-    let qMonth = Math.floor(sd.getUTCMonth() / 3) * 3;
-    d = new Date(Date.UTC(sd.getUTCFullYear(), qMonth, 1));
-    if (d.getTime() < fromTs) d = new Date(Date.UTC(sd.getUTCFullYear(), qMonth + 3, 1));
-    while (d.getTime() <= toTs) {
-      if (d.getTime() >= fromTs) boundaries.push({ ts: d.getTime(), rank: RANK.QUARTER });
-      d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 3, 1));
-    }
-  }
-
-  // Generate month starts
-  {
-    const sd = new Date(fromTs);
-    d = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), 1));
-    if (d.getTime() < fromTs) d = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth() + 1, 1));
-    while (d.getTime() <= toTs) {
-      if (d.getTime() >= fromTs) boundaries.push({ ts: d.getTime(), rank: RANK.MONTH });
-      d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
-    }
-  }
-
-  // Generate week starts (Sunday)
-  {
-    d = new Date(fromTs);
-    d.setUTCHours(0, 0, 0, 0);
-    const dow = d.getUTCDay();
-    const daysToSunday = (WEEK_START_DAY - dow + 7) % 7;
-    d.setUTCDate(d.getUTCDate() + daysToSunday);
-    while (d.getTime() <= toTs) {
-      if (d.getTime() >= fromTs) boundaries.push({ ts: d.getTime(), rank: RANK.WEEK });
-      d = new Date(d.getTime() + 7 * 86_400_000);
-    }
-  }
-
-  // Generate day starts
-  {
-    d = new Date(fromTs);
-    d.setUTCHours(0, 0, 0, 0);
-    if (d.getTime() < fromTs) d = new Date(d.getTime() + 86_400_000);
-    while (d.getTime() <= toTs) {
-      if (d.getTime() >= fromTs) boundaries.push({ ts: d.getTime(), rank: RANK.DAY });
-      d = new Date(d.getTime() + 86_400_000);
-    }
-  }
-
-  // Snap to bars and group by snapped timestamp
-  const groups = new Map();
-  for (const b of boundaries) {
-    const snapped = snapToBar(b.ts, dataList);
-    if (snapped == null) continue;
-    if (!groups.has(snapped)) groups.set(snapped, []);
-    groups.get(snapped).push(b);
-  }
-
-  // For each group, pick highest rank (lowest number)
-  const candidates = [];
-  const sorted = Array.from(groups.entries()).sort((a, b) => a[0] - b[0]);
-  for (const [snappedTs, entries] of sorted) {
-    entries.sort((a, b) => a.rank - b.rank);
-    const best = entries[0];
-
-    const idx = dataIndexOf(dataList, snappedTs);
-    if (idx === -1) continue;
-    const coord = barCoord(chart, idx);
-    if (coord == null) continue;
-
-    candidates.push({ ts: best.ts, snappedTs, coord, rank: best.rank });
-  }
-
-  return candidates;
-}
-
-// ---------------------------------------------------------------------------
-// generateBaseTicks — raw candidates (no formatting)
-// ---------------------------------------------------------------------------
-
-export function generateBaseTicks(interval, fromTs, toTs, dataList, chart) {
-  // MONTH/QUARTER/YEAR are handled by boundary ticks
-  if (interval.calendar) return [];
-
-  const candidates = [];
-
-  if (interval.name === 'WEEK') {
-    // Sunday midnight
-    let d = new Date(fromTs);
-    d.setUTCHours(0, 0, 0, 0);
-    const dow = d.getUTCDay();
-    const daysToSunday = (WEEK_START_DAY - dow + 7) % 7;
-    d.setUTCDate(d.getUTCDate() + daysToSunday);
-    while (d.getTime() <= toTs) {
-      if (d.getTime() >= fromTs) {
-        const snapped = snapToBar(d.getTime(), dataList);
-        if (snapped != null) {
-          const idx = dataIndexOf(dataList, snapped);
-          if (idx !== -1) {
-            const coord = barCoord(chart, idx);
-            if (coord != null) {
-              candidates.push({ ts: d.getTime(), snappedTs: snapped, coord, type: 'base', intervalName: interval.name });
-            }
+  // --- Step 1: Place boundary ticks first (anchors) ---
+  // Collect candidates per boundary type, then deduplicate by rank
+  // so that when multiple boundaries snap to nearby bars, the highest-rank wins.
+  const candidates = []; // { ts, snappedTs, coord, rank }
+  for (const type of strategy.boundaries) {
+    let d = alignToBoundary(fromTs, type);
+    const step = BOUNDARY_STEP[type];
+    if (d.getTime() < fromTs) {
+      // Try to include the previous boundary if it snaps within the data range.
+      // This ensures the starting month/year label appears.
+      const prevSnapped = snapToBar(d.getTime(), dataList);
+      if (prevSnapped != null && prevSnapped >= fromTs && prevSnapped <= toTs) {
+        const prevIdx = dataIndexOf(dataList, prevSnapped);
+        if (prevIdx !== -1) {
+          const prevCoord = barCoord(chart, prevIdx);
+          if (prevCoord != null) {
+            candidates.push({ ts: d.getTime(), snappedTs: prevSnapped, coord: prevCoord, rank: rankForBoundary(type) });
           }
         }
       }
-      d = new Date(d.getTime() + 7 * 86_400_000);
+      d = step(d);
     }
-    return candidates;
-  }
 
-  if (interval.name === 'DAY') {
-    // Midnight UTC
-    let d = new Date(fromTs);
-    d.setUTCHours(0, 0, 0, 0);
-    if (d.getTime() < fromTs) d = new Date(d.getTime() + 86_400_000);
     while (d.getTime() <= toTs) {
-      if (d.getTime() >= fromTs) {
-        const snapped = snapToBar(d.getTime(), dataList);
-        if (snapped != null) {
-          const idx = dataIndexOf(dataList, snapped);
-          if (idx !== -1) {
-            const coord = barCoord(chart, idx);
-            if (coord != null) {
-              candidates.push({ ts: d.getTime(), snappedTs: snapped, coord, type: 'base', intervalName: interval.name });
-            }
-          }
-        }
-      }
-      d = new Date(d.getTime() + 86_400_000);
-    }
-    return candidates;
-  }
-
-  // Time-based intervals (1MIN through 12HOUR)
-  const durationMs = interval.durationMs;
-  if (!durationMs) return candidates;
-
-  // Align to interval boundaries
-  const d = new Date(fromTs);
-  d.setUTCSeconds(0, 0);
-
-  let alignFn;
-  switch (interval.name) {
-    case '1MIN': alignFn = dt => { dt.setUTCMinutes(Math.floor(dt.getUTCMinutes() / 1) * 1, 0, 0); }; break;
-    case '5MIN': alignFn = dt => { dt.setUTCMinutes(Math.floor(dt.getUTCMinutes() / 5) * 5, 0, 0); }; break;
-    case '15MIN': alignFn = dt => { dt.setUTCMinutes(Math.floor(dt.getUTCMinutes() / 15) * 15, 0, 0); }; break;
-    case '30MIN': alignFn = dt => { dt.setUTCMinutes(Math.floor(dt.getUTCMinutes() / 30) * 30, 0, 0); }; break;
-    case '1HOUR': alignFn = dt => { dt.setUTCMinutes(0, 0, 0); }; break;
-    case '2HOUR': alignFn = dt => { dt.setUTCHours(Math.floor(dt.getUTCHours() / 2) * 2, 0, 0, 0); }; break;
-    case '4HOUR': alignFn = dt => { dt.setUTCHours(Math.floor(dt.getUTCHours() / 4) * 4, 0, 0, 0); }; break;
-    case '8HOUR': alignFn = dt => { dt.setUTCHours(Math.floor(dt.getUTCHours() / 8) * 8, 0, 0, 0); }; break;
-    case '12HOUR': alignFn = dt => { dt.setUTCHours(Math.floor(dt.getUTCHours() / 12) * 12, 0, 0, 0); }; break;
-    default: alignFn = dt => { dt.setUTCMinutes(0, 0, 0); };
-  }
-
-  alignFn(d);
-  if (d.getTime() < fromTs) d.setTime(d.getTime() + durationMs);
-
-  while (d.getTime() <= toTs) {
-    if (d.getTime() >= fromTs) {
       const snapped = snapToBar(d.getTime(), dataList);
       if (snapped != null) {
         const idx = dataIndexOf(dataList, snapped);
         if (idx !== -1) {
           const coord = barCoord(chart, idx);
           if (coord != null) {
-            candidates.push({ ts: d.getTime(), snappedTs: snapped, coord, type: 'base', intervalName: interval.name });
+            candidates.push({ ts: d.getTime(), snappedTs: snapped, coord, rank: rankForBoundary(type) });
           }
         }
       }
+      d = step(d);
     }
-    d.setTime(d.getTime() + durationMs);
   }
 
-  return candidates;
-}
-
-// ---------------------------------------------------------------------------
-// overlapsPlaced
-// ---------------------------------------------------------------------------
-
-function overlapsPlaced(candidate, placed, halfWidthFn) {
-  const halfW = halfWidthFn(candidate.text || '');
-  for (const p of placed) {
-    const pHalfW = halfWidthFn(p.text || '');
-    if (Math.abs(candidate.coord - p.coord) < halfW + pHalfW) return true;
-  }
-  return false;
-}
-
-// ---------------------------------------------------------------------------
-// formatLabel
-// ---------------------------------------------------------------------------
-
-function formatLabel(tick, prev) {
-  if (tick.rank !== undefined) {
-    return formatBoundaryLabel(tick.ts, tick.rank, prev?.ts ?? null);
-  }
-  return formatBaseLabel(tick.snappedTs, tick.intervalName, prev?.ts ?? null);
-}
-
-// ---------------------------------------------------------------------------
-// generateTicks — main entry point (Anchor + Fill)
-// ---------------------------------------------------------------------------
-
-export function generateTicks(fromTs, toTs, dataList, chart, tickTextStyles) {
-  // 1. Compute base interval
-  const visibleSpanMs = toTs - fromTs;
-  const interval = selectTickInterval(_resolution, visibleSpanMs);
-
-  // 2. Enumerate candidates
-  const boundaryCandidates = generateBoundaryTicks(fromTs, toTs, dataList, chart);
-  const baseCandidates = generateBaseTicks(interval, fromTs, toTs, dataList, chart);
-
-  // Build half-width estimator
-  const styles = tickTextStyles || {};
-  const size = styles.size || 12;
-  const weight = styles.weight || 'normal';
-  const family = styles.family || 'Helvetica Neue';
-
-  function halfWidth(text) {
-    if (!text) return MIN_FLOOR;
-    return Math.max(calcTextWidth(text, size, weight, family) / 2 + PADDING, MIN_FLOOR);
-  }
-
-  // Compute adaptive transitionRadius
-  const minSpacing = 2 * MIN_FLOOR + 2 * PADDING;
-  const transitionRadius = 2 * minSpacing;
-
-  // 3. PHASE 1 — Anchor placement (boundary ticks only)
-  const sortedBoundary = [...boundaryCandidates].sort((a, b) => a.rank - b.rank || a.coord - b.coord);
+  // Sort by coord, then deduplicate: when two candidates are within MIN_FLOOR,
+  // keep the one with the higher rank (lower number).
+  // Same-rank boundaries at different calendar dates are both kept.
+  candidates.sort((a, b) => a.coord - b.coord);
   const placed = [];
-  for (const candidate of sortedBoundary) {
-    if (!overlapsPlaced(candidate, placed, halfWidth)) {
-      placed.push(candidate);
-    }
-  }
-
-  // Track which boundary candidates are placed
-  const placedSet = new Set(placed);
-  const allUnplaced = [...boundaryCandidates, ...baseCandidates].filter(c => !placedSet.has(c));
-
-  // 4. PHASE 2 — Context fill
-  // For each placed anchor with rank <= MONTH, scan unplaced for nearest within transitionRadius
-  for (const anchor of placed) {
-    if (anchor.rank > RANK.MONTH) continue;
-
-    // Scan backward through unplaced for nearest within transitionRadius
-    let nearestBefore = null;
-    let nearestBeforeDist = Infinity;
-    for (const c of allUnplaced) {
-      if (c.coord >= anchor.coord) continue;
-      const dist = anchor.coord - c.coord;
-      if (dist <= transitionRadius && dist < nearestBeforeDist) {
-        nearestBeforeDist = dist;
-        nearestBefore = c;
+  for (const c of candidates) {
+    let dominated = false;
+    for (let j = placed.length - 1; j >= 0; j--) {
+      const p = placed[j];
+      if (Math.abs(c.coord - p.coord) < MIN_FLOOR) {
+        if (c.rank < p.rank) {
+          // New candidate strictly outranks existing — remove existing
+          placed.splice(j, 1);
+        } else if (c.rank === p.rank) {
+          // Same rank at different dates — both are valid, don't dominate
+          break;
+        } else {
+          // New candidate has lower rank (higher number) — dominated
+          dominated = true;
+        }
+        break;
       }
     }
-    if (nearestBefore && !overlapsPlaced(nearestBefore, placed, halfWidth)) {
-      placed.push(nearestBefore);
-      placedSet.add(nearestBefore);
-      allUnplaced.splice(allUnplaced.indexOf(nearestBefore), 1);
-    }
-
-    // Scan forward through unplaced for nearest within transitionRadius
-    let nearestAfter = null;
-    let nearestAfterDist = Infinity;
-    for (const c of allUnplaced) {
-      if (c.coord <= anchor.coord) continue;
-      const dist = c.coord - anchor.coord;
-      if (dist <= transitionRadius && dist < nearestAfterDist) {
-        nearestAfterDist = dist;
-        nearestAfter = c;
-      }
-    }
-    if (nearestAfter && !overlapsPlaced(nearestAfter, placed, halfWidth)) {
-      placed.push(nearestAfter);
-      placedSet.add(nearestAfter);
-      allUnplaced.splice(allUnplaced.indexOf(nearestAfter), 1);
+    if (!dominated) {
+      placed.push(c);
     }
   }
 
-  // 5. PHASE 3 — Gap fill
-  const remainingBase = allUnplaced.filter(c => c.type === 'base').sort((a, b) => a.coord - b.coord);
-  for (const candidate of remainingBase) {
-    if (!overlapsPlaced(candidate, placed, halfWidth)) {
-      placed.push(candidate);
-    }
-  }
-
-  // 6. FORMAT labels in a final pass
+  // Sort placed boundaries by coord
   placed.sort((a, b) => a.coord - b.coord);
-  let prev = null;
-  for (const tick of placed) {
-    tick.text = formatLabel(tick, prev);
-    prev = tick;
+
+  // --- Step 2: Fill ticks ---
+  // Walk bars left-to-right, placing fill ticks at the strategy's interval.
+  // Apply adaptive step to skip bars that would be too dense,
+  // then enforce MIN_FLOOR against the last placed tick.
+  const placedCoords = new Set(placed.map(p => p.coord));
+  const actualFillMs = fillMs || MS_PER_DAY;
+
+  // Compute adaptive step from pixel density so that fills are spaced >= MIN_FLOOR.
+  // Use pxPerBar for the calculation since bars are the atomic unit.
+  const startCoord = barCoord(chart, 0);
+  const endCoord = barCoord(chart, dataList.length - 1);
+  let adaptiveStep = strategy.fillStep;
+  let minBarsBetweenFills = 1;
+  if (startCoord != null && endCoord != null && endCoord > startCoord && dataList.length > 1) {
+    const totalPx = endCoord - startCoord;
+    const pxPerBar = totalPx / (dataList.length - 1);
+    if (pxPerBar > 0) {
+      minBarsBetweenFills = Math.ceil(MIN_FLOOR / pxPerBar);
+      adaptiveStep = Math.max(strategy.fillStep, minBarsBetweenFills);
+    }
   }
 
-  // 7. RETURN final tick array
-  return placed
-    .filter(t => t.text) // drop ticks with empty labels
-    .map(t => ({ text: t.text, coord: t.coord, value: t.snappedTs }))
-    .sort((a, b) => a.coord - b.coord);
+  let boundaryIdx = 0;
+  let lastPlacedCoord = -Infinity;
+  let lastFillBarIdx = -minBarsBetweenFills;
+
+  for (let i = 0; i < dataList.length; i++) {
+    const bar = dataList[i];
+    const coord = barCoord(chart, i);
+    if (coord == null) continue;
+
+    // Advance past any boundaries at or before this bar's coord
+    while (boundaryIdx < placed.length && placed[boundaryIdx].coord <= coord) {
+      lastPlacedCoord = placed[boundaryIdx].coord;
+      boundaryIdx++;
+    }
+
+    if (placedCoords.has(coord)) continue;
+
+    // Check if this bar aligns with the fill interval (relative to fromTs)
+    const offsetFromStart = bar.timestamp - fromTs;
+    if (offsetFromStart < 0) continue;
+    if (offsetFromStart % actualFillMs !== 0) continue;
+
+    // Apply adaptive step: skip if not enough bars since last fill
+    if (i - lastFillBarIdx < adaptiveStep) continue;
+
+    // Check MIN_FLOOR against last placed (boundary or fill)
+    if (coord - lastPlacedCoord < MIN_FLOOR) continue;
+
+    // Check MIN_FLOOR against next boundary (look ahead)
+    if (boundaryIdx < placed.length && placed[boundaryIdx].coord - coord < MIN_FLOOR) continue;
+
+    placed.push({ ts: bar.timestamp, snappedTs: bar.timestamp, coord, rank: undefined });
+    placedCoords.add(coord);
+    lastPlacedCoord = coord;
+    lastFillBarIdx = i;
+  }
+
+  // --- Step 3: Format labels ---
+  // Boundary ticks take priority. Walk boundaries first, emitting fills
+  // that are >= MIN_FLOOR from both the previous tick and the next boundary.
+  placed.sort((a, b) => a.coord - b.coord);
+
+  const boundaries = placed.filter(t => t.rank !== undefined);
+  const fills = placed.filter(t => t.rank === undefined);
+
+  const result = [];
+  let prev = null;
+  let lastResultCoord = -Infinity;
+  let fillIdx = 0;
+
+  for (let bi = 0; bi < boundaries.length; bi++) {
+    const boundary = boundaries[bi];
+
+    // Emit fills between last result and this boundary
+    while (fillIdx < fills.length && fills[fillIdx].coord < boundary.coord) {
+      const fill = fills[fillIdx];
+      if (fill.coord - lastResultCoord >= MIN_FLOOR && boundary.coord - fill.coord >= MIN_FLOOR) {
+        const text = formatBaseLabel(fill.snappedTs, prev?.snappedTs ?? null, tier);
+        if (text) {
+          result.push({ text, coord: fill.coord, value: fill.snappedTs });
+          prev = fill;
+          lastResultCoord = fill.coord;
+        }
+      }
+      fillIdx++;
+    }
+
+    // Skip fills at or past this boundary
+    while (fillIdx < fills.length && fills[fillIdx].coord <= boundary.coord) {
+      fillIdx++;
+    }
+
+    // Emit boundary
+    const text = formatBoundaryLabel(boundary.ts, boundary.rank, prev?.snappedTs ?? null);
+    if (text) {
+      result.push({ text, coord: boundary.coord, value: boundary.snappedTs });
+      prev = boundary;
+      lastResultCoord = boundary.coord;
+    }
+  }
+
+  // Emit remaining fills after last boundary
+  while (fillIdx < fills.length) {
+    const fill = fills[fillIdx];
+    if (fill.coord - lastResultCoord >= MIN_FLOOR) {
+      const text = formatBaseLabel(fill.snappedTs, prev?.snappedTs ?? null, tier);
+      if (text) {
+        result.push({ text, coord: fill.coord, value: fill.snappedTs });
+        prev = fill;
+        lastResultCoord = fill.coord;
+      }
+    }
+    fillIdx++;
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
