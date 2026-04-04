@@ -7,7 +7,8 @@
   import { createInteractConfig } from '../lib/interactSetup.js';
   import ChartHeader from './displays/ChartHeader.svelte';
   import ChartToolbar from './ChartToolbar.svelte';
-  import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange, getWindowTier, getCalendarBoundaryTimestamps } from '../lib/chart/chartConfig.js';
+  import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange, getWindowTier } from '../lib/chart/chartConfig.js';
+  import { setAxisChart, setAxisResolution } from '../lib/chart/xAxisCustom.js';
   import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
   import '../lib/chart/customOverlays.js';
   import { drawingStore } from '../lib/chart/drawingStore.js';
@@ -41,23 +42,10 @@
   let isLoadingMore = false;
   let currentRangeFrom = 0;       // calendar-aligned window start (for barSpace)
   let currentFetchFrom = 0;       // window start + buffer (for data fetch)
-  let boundaryOverlayIds = [];    // calendar boundary vertical line overlay IDs
-
   /** ISO 8601 helper: zero-pad to 2 digits. */
   function pad2(n) { return String(n).padStart(2, '0'); }
 
-  /** ISO 8601 week number (1–53). Weeks start Monday; week 1 has the year's first Thursday. */
-  function getISOWeek(d) {
-    const day = d.getUTCDay();
-    const thu = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 3 - ((day + 6) % 7)));
-    const jan1 = Date.UTC(thu.getUTCFullYear(), 0, 1);
-    return 1 + Math.floor((thu.getTime() - jan1) / 604800000);
-  }
-
-  // Major label marker — ▸ prefix distinguishes month/year boundaries from regular ticks.
-  // KLineChart renders all axis labels with the same font weight; this is the only way
-  // to make major labels visually distinct on canvas.
-  const MAJ = '\u25B8 ';   // ▸
+  const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   /**
    * KLineChart formatDate override for smart time axis labels.
@@ -65,143 +53,41 @@
    * KLineChart's _optimalTickLabel compares adjacent displayed ticks at three
    * levels to detect transitions.  It calls formatDate with these format strings:
    *
-   *   'YYYY'    — year level.  If year differs between ticks, this value is shown.
-   *   'YYYY-MM' — month level.  If month differs (same year), this value is shown.
-   *               THIS is the month-start label.  Prefixed with ▸ marker.
-   *   'MM-DD'   — day level.  If only day differs (same year+month), this value is shown.
-   *               Mondays get a W## week-number prefix.
+   *   'YYYY'            — year level.  If year differs between ticks, this value is shown.
+   *   'YYYY-MM'         — month level.  If month differs (same year), this value is shown.
+   *   'MM-DD'           — day level.  If only day differs (same year+month), this value is shown.
+   *   'YYYY-MM-DD HH:mm' — full datetime level.
    *
    * The primary call uses 'HH:mm' format for within-period labels.
-   * All dates use ISO 8601 ordering.
    */
   function formatAxisLabel(dateTimeFormat, timestamp, format, type) {
-    if (type !== 2) {
-      return dateTimeFormat.format(new Date(timestamp));
-    }
+    if (type !== 2) return dateTimeFormat.format(new Date(timestamp));
 
-    const date = new Date(timestamp);
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth();
-    const day = date.getUTCDate();
-    const hour = date.getUTCHours();
-    const minute = date.getUTCMinutes();
+    const d = new Date(timestamp);
+    const year = d.getUTCFullYear();
+    const month = d.getUTCMonth();
+    const day = d.getUTCDate();
+    const hour = d.getUTCHours();
+    const minute = d.getUTCMinutes();
+
+    // Transition detection — pure date components that change when date changes
+    // KLineChart compares these strings between adjacent ticks to detect transitions
+    if (format === 'YYYY')              return `${year}`;
+    if (format === 'YYYY-MM')           return `${year}-${pad2(month + 1)}`;
+    if (format === 'MM-DD')             return `${pad2(month + 1)}-${pad2(day)}`;
+    if (format === 'YYYY-MM-DD HH:mm')  return `${year}-${pad2(month + 1)}-${pad2(day)} ${pad2(hour)}:${pad2(minute)}`;
+
+    // Primary display (format === 'HH:mm') — tier-based formatting
     const tier = getWindowTier(currentWindow);
-
-    // --- Year-level transition label (MAJOR) ---
-    if (format === 'YYYY') {
-      return `${MAJ}${year}`;
-    }
-
-    // --- Month-level transition label (MAJOR) ---
-    // Fires when month changes between adjacent ticks (= month boundary).
-    // KLineChart detects this correctly even when the 1st falls on a weekend
-    // and the first trading bar is day 2 or 3.
-    if (format === 'YYYY-MM') {
-      if (tier === 'YEARLY') return `${MAJ}${year}`;
-      if (tier === 'QUARTERLY') return `${MAJ}Q${Math.floor(month / 3) + 1} ${year}`;
-      return `${MAJ}${year}-${pad2(month + 1)}`;                          // "▸ 2026-04"
-    }
-
-    // --- Day-level transition label ---
-    // Only fires when year AND month are the same but day differs.
-    // This can NEVER be a month start — those are caught by YYYY-MM above.
-    if (format === 'MM-DD') {
-      if (tier === 'YEARLY') return `${MAJ}${year}`;
-      if (tier === 'QUARTERLY') return `${MAJ}Q${Math.floor(month / 3) + 1} ${year}`;
-      if (tier === 'MONTHLY') return `${MAJ}${year}-${pad2(month + 1)}`;
-
-      const isMonday = date.getUTCDay() === 1;
-      if (tier === 'INTRADAY') {
-        // Every day change is major on intraday charts
-        if (isMonday) return `${MAJ}W${getISOWeek(date)} ${pad2(month + 1)}-${pad2(day)}`;
-        return `${MAJ}${pad2(month + 1)}-${pad2(day)}`;                    // "▸ 04-03"
-      }
-      // DAILY / WEEKLY: Mondays are major (week start), other days are minor
-      if (isMonday) return `${MAJ}W${getISOWeek(date)} ${pad2(month + 1)}-${pad2(day)}`;
-      return `${pad2(month + 1)}-${pad2(day)}`;                           // "04-03"
-    }
-
-    // --- Primary axis label (format === 'HH:mm' or similar) ---
-    // Shown for non-transition ticks within the same period.
     switch (tier) {
-      case 'INTRADAY':
-        return `${pad2(hour)}:${pad2(minute)}`;
-
-      case 'DAILY':
-        return `${pad2(month + 1)}-${pad2(day)}`;                        // "04-03"
-
-      case 'WEEKLY':
-        return `${pad2(month + 1)}-${pad2(day)}`;                        // "04-03"
-
-      case 'MONTHLY':
-        // MM-DD format so KLineChart's first-tick regex matches and
-        // calls MM-DD override → shows "▸ 2026-04" month context.
-        return `${pad2(month + 1)}-${pad2(day)}`;                        // "04-15"
-
-      case 'QUARTERLY':
-        return `${year}-${pad2(month + 1)}`;                             // "2026-04"
-
-      case 'YEARLY':
-        return `${year}-${pad2(month + 1)}`;                             // "2026-04"
-
-      default:
-        return dateTimeFormat.format(date);
+      case 'INTRADAY':  return `${pad2(hour)}:${pad2(minute)}`;
+      case 'DAILY':     return `${pad2(month + 1)}-${pad2(day)}`;
+      case 'WEEKLY':    return `${pad2(month + 1)}-${pad2(day)}`;
+      case 'MONTHLY':   return shortMonths[month];
+      case 'QUARTERLY': return `${shortMonths[month]} ${year}`;
+      case 'YEARLY':    return `${year}`;
+      default:          return dateTimeFormat.format(d);
     }
-  }
-
-  /**
-   * Find the first bar at or after the target timestamp.
-   * Returns the bar's actual timestamp, or null if past the data range.
-   */
-  function findFirstBarAtOrAfter(dataList, targetTs) {
-    if (!dataList || dataList.length === 0) return null;
-    let lo = 0, hi = dataList.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (dataList[mid].timestamp < targetTs) lo = mid + 1;
-      else hi = mid;
-    }
-    return dataList[lo].timestamp >= targetTs ? dataList[lo].timestamp : null;
-  }
-
-  function updateBoundaryOverlays() {
-    if (!chart) return;
-    removeBoundaryOverlays();
-
-    const dataList = chart.getDataList();
-    if (!dataList || dataList.length < 2) return;
-
-    // Use actual data range — avoids future boundaries stacking on last bar
-    const firstTs = dataList[0].timestamp;
-    const lastTs = dataList[dataList.length - 1].timestamp;
-
-    const boundaries = getCalendarBoundaryTimestamps(firstTs, lastTs, currentWindow);
-
-    const usedTimestamps = new Set();
-    for (const ts of boundaries) {
-      // Snap to first bar at or after the calendar boundary
-      const barTs = findFirstBarAtOrAfter(dataList, ts);
-      if (barTs === null || barTs > lastTs) continue;
-      if (usedTimestamps.has(barTs)) continue; // dedup snapped boundaries
-      usedTimestamps.add(barTs);
-
-      const id = `cal-boundary-${barTs}`;
-      chart.createOverlay({
-        name: 'calendarBoundary',
-        id,
-        points: [{ timestamp: barTs }],
-        styles: { style: 'dashed', color: 'rgba(0, 0, 0, 0.08)' }
-      });
-      boundaryOverlayIds.push(id);
-    }
-  }
-
-  function removeBoundaryOverlays() {
-    if (!chart) return;
-    for (const id of boundaryOverlayIds) {
-      chart.removeOverlay(id);
-    }
-    boundaryOverlayIds = [];
   }
 
   function getBarSpace() {
@@ -269,7 +155,6 @@
       tickUnsubscribe?.();
       tickUnsubscribe = null;
       unsubscribeFromCandles(currentSymbol, currentResolution);
-      removeBoundaryOverlays();
       if (chart) chart.clearData();
       loadChartData(currentSymbol, currentResolution, currentWindow);
     },
@@ -343,8 +228,6 @@
   function handleSymbolChange(newSymbol) {
     if (newSymbol === currentSymbol) return;
 
-    removeBoundaryOverlays();
-
     // Unsubscribe from old symbol's candles
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
@@ -372,8 +255,6 @@
   function handleResolutionChange(newResolution) {
     if (newResolution === currentResolution) return;
 
-    removeBoundaryOverlays();
-
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
     tickUnsubscribe?.();
@@ -382,6 +263,8 @@
 
     currentResolution = newResolution;
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
+
+    setAxisResolution(newResolution);
 
     loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
@@ -396,8 +279,6 @@
 
   function handleWindowChange(newWindow) {
     if (newWindow === currentWindow) return;
-
-    removeBoundaryOverlays();
 
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
@@ -419,7 +300,6 @@
         chart.resize();
         applyBarSpace();
         chart.scrollToRealTime();
-        updateBoundaryOverlays();
       }
     });
   }
@@ -509,6 +389,12 @@
 
     // Smart time axis labels adapted to window tier
     chart.setCustomApi({ formatDate: formatAxisLabel });
+    chart.setTimezone('UTC');
+
+    // Custom calendar-aware x-axis
+    setAxisChart(chart);
+    setAxisResolution(currentResolution);
+    chart.setStyles({ xAxis: { name: 'calendar' } });
 
     // Ensure the browser has completed layout before KLineChart reads dimensions
     requestAnimationFrame(() => {
@@ -608,7 +494,6 @@
     barStoreUnsubscribe = null;
     tickUnsubscribe?.();
     tickUnsubscribe = null;
-    boundaryOverlayIds = [];
 
     unsubscribeFromCandles(currentSymbol, currentResolution);
 

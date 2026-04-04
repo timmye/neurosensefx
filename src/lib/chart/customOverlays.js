@@ -92,35 +92,3 @@ registerOverlay({
     return [];
   }
 });
-
-/**
- * Calendar boundary vertical line — subtle dashed line at calendar boundaries.
- * Created programmatically (not interactive), locked and non-editable.
- */
-registerOverlay({
-  name: 'calendarBoundary',
-  totalStep: 1,
-  lock: true,
-  mode: 'normal',
-  needDefaultPointFigure: false,
-  needDefaultXAxisFigure: false,
-  needDefaultYAxisFigure: false,
-  createPointFigures: ({ coordinates, bounding }) => {
-    if (coordinates.length < 1 || !bounding) return [];
-    const x = coordinates[0].x;
-    return [{
-      type: 'line',
-      attrs: {
-        coordinates: [
-          { x, y: bounding.top },
-          { x, y: bounding.bottom }
-        ]
-      },
-      styles: {
-        style: 'dashed',
-        color: 'rgba(0, 0, 0, 0.08)',
-        size: 1
-      }
-    }];
-  }
-});

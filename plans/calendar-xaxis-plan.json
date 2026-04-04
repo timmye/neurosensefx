@@ -1,0 +1,555 @@
+{
+  "plan_id": "41a9768b-ad3c-4fb4-bf84-8d205bc9d6e1",
+  "created_at": "2026-04-04T06:03:28.382296",
+  "frozen_at": null,
+  "overview": {
+    "title": "Calendar-Aware X-Axis via registerXAxis",
+    "problem": "KLineChart's built-in x-axis generates ticks at evenly-spaced data indices, producing labels offset 3-11+ bars from actual calendar boundaries. Professional trading platforms use calendar-aware tick placement at every zoom level.",
+    "approach": "Full replacement of KLineChart's tick generation pipeline via registerXAxis API. Two-pass algorithm generates calendar-aligned boundary ticks (year/quarter/month/week/day) and base interval ticks with dynamic label-width suppression. Module-level chart instance provides convertToPixel access since createTicks this-context is the plain template object, not XAxisImp."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-001",
+        "version": 1,
+        "decision": "Use registerXAxis for full custom tick generation instead of hybrid or overlay approach",
+        "reasoning": "KLineChart built-in x-axis generates index-based ticks not calendar-aligned -> overlays produce dual rendering systems with no collision coordination -> registerXAxis gives unified control over all ticks and grid lines in one place -> only API for custom tick generation in KLineChart 9.8.12"
+      },
+      {
+        "id": "DL-002",
+        "version": 1,
+        "decision": "Use module-level chart instance + chart.convertToPixel public API for pixel coordinate mapping inside createTicks",
+        "reasoning": "Source verification shows template.createTicks(params) at KLineChart line 11324 is called without .call(this) -> this inside createTicks is NOT XAxisImp instance -> this.convertToPixel is unavailable -> chart.convertToPixel([{dataIndex}], {paneId:candle_pane}) is public API confirmed at line 13751 -> module-level chart instance is single-chart safe per workspace.js single-display constraint"
+      },
+      {
+        "id": "DL-003",
+        "version": 1,
+        "decision": "Two-pass tick algorithm: boundary ticks first with suppression, then base ticks suppressed by boundaries",
+        "reasoning": "Calendar boundaries are the primary visual anchors traders expect -> base ticks fill gaps between boundaries -> suppression prevents label collision -> dynamic radius based on actual label text width avoids over/under suppression -> all ticks calendar-aligned, no bar-index spacing"
+      },
+      {
+        "id": "DL-004",
+        "version": 1,
+        "decision": "Remove calendarBoundary overlay entirely, grid lines now come from registerXAxis ticks",
+        "reasoning": "With full replacement ticks already land at calendar boundaries -> GridView draws vertical grid lines at every tick.coord -> keeping overlay dashed lines would double-render at same pixel position -> TradingView uses single uniform grid line set"
+      },
+      {
+        "id": "DL-005",
+        "version": 1,
+        "decision": "Keep formatDate registered for crosshair vertical label only, remove x-axis formatting from it",
+        "reasoning": "CrosshairVerticalLabelView at KLineChart line 11097 calls formatDate independently for crosshair time label -> this is critical and separate from x-axis ticks -> optimalTicks also calls it before createTicks but this is wasted unavoidable without patching KLineChart"
+      },
+      {
+        "id": "DL-006",
+        "version": 1,
+        "decision": "Extract findFirstBarAtOrAfter to shared module as snapToBar for reuse by xAxisCustom.js",
+        "reasoning": "Identical binary search logic needed in createTicks for snapping calendar boundaries to actual bars -> currently in ChartDisplay.svelte as local function -> extracting to shared module follows DRY principle and enables independent unit testing"
+      },
+      {
+        "id": "DL-007",
+        "version": 1,
+        "decision": "Use weekStartDay: 0 (Sunday) for forex week boundaries",
+        "reasoning": "Forex week starts Sunday with Sydney open -> industry standard for FX platforms -> configurable via constant for future equity market support"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Overlay-based boundary labels as primary approach",
+        "rejection_reason": "Dual rendering systems with no collision coordination, grid lines stay misaligned at native tick positions, two independent pipelines to maintain",
+        "decision_ref": "DL-001"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "setCustomApi({createTicks}) for custom tick generation",
+        "rejection_reason": "API does not exist in KLineChart 9.8.12 - setCustomApi only supports formatDate",
+        "decision_ref": "DL-001"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Hybrid approach with native ticks plus overlay boundaries",
+        "rejection_reason": "Inconsistent experience with some labels at calendar boundaries and others at evenly-spaced indices, collision issues between two systems",
+        "decision_ref": "DL-001"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Use this.convertToPixel inside createTicks as design doc specified",
+        "rejection_reason": "Source verification proves this is NOT the XAxisImp instance - template.createTicks(params) at KLineChart line 11324 is called without .call(this), so this is the plain template object",
+        "decision_ref": "DL-002"
+      }
+    ],
+    "constraints": [
+      "C-001: MUST use registerXAxis (not overlays or hybrid) - only API for custom tick generation in KLineChart 9.8.12",
+      "C-002: MUST produce 8-18 ticks for normal views, accept fewer for narrow views",
+      "C-003: MUST calendar-aligned ticks at all zoom levels (year/quarter/month/week/day boundaries + base intervals)",
+      "C-004: MUST keep formatDate registered for crosshair vertical label (CrosshairVerticalLabelView at KLineChart line 11097)",
+      "C-005: MUST two-pass algorithm with boundary ticks first (with suppression), then base ticks suppressed by boundaries",
+      "C-006: MUST dynamic suppression radius based on actual label text width",
+      "C-007: MUST remove calendarBoundary overlays entirely - grid lines now come from ticks",
+      "C-008: MUST all helpers are pure functions testable independently",
+      "C-009: this inside createTicks is NOT the XAxisImp instance - must use module-level chart instance + chart.convertToPixel public API"
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "KLineChart registerXAxis API may have undocumented behaviors with coordinate mapping",
+        "mitigation": "Use chart.convertToPixel public API (confirmed at line 13751) which internally delegates to xAxis.convertToPixel. Safety net: fallback to defaultTicks with diagnostic logging.",
+        "anchor": "node_modules/klinecharts/dist/index.esm.js:L11324",
+        "decision_ref": "DL-002"
+      },
+      {
+        "id": "R-002",
+        "risk": "Module-level mutable state (chart instance, resolution) breaks if multi-chart support is added",
+        "mitigation": "Workspace enforces single-chart at 3 layers (Workspace.svelte:161, workspace.js:338, no UI affordance). Guard comment documents the constraint.",
+        "anchor": "src/stores/workspace.js:L338",
+        "decision_ref": "DL-002"
+      },
+      {
+        "id": "R-003",
+        "risk": "calcTextWidth for suppression radius may not match KLineChart's internal text measurement",
+        "mitigation": "Use canvas measureText with identical font metrics from chart.getStyles().xAxis.tickText (family, size, weight). KLineChart uses the same approach at line 11200.",
+        "anchor": "node_modules/klinecharts/dist/index.esm.js:L11200",
+        "decision_ref": "DL-003"
+      }
+    ]
+  },
+  "invisible_knowledge": {
+    "system": "registerXAxis registers a custom XAxisImp subclass. KLineChart's buildTicks calls this.createTicks(params) where this IS the XAxisImp instance, but the subclass delegates to template.createTicks(params) WITHOUT binding this. So inside createTicks, this is the plain template object, not XAxisImp. The fix is module-level chart state using chart.convertToPixel public API. createTicks only fires when range.from/to changes (guard at line 10220), so no caching needed. Forex is 24/5 so bar counts use trading days not calendar days. Weekend gaps: snapToBar finds next Monday bar, label still shows calendar date.",
+    "invariants": [
+      "createTicks this-context is NEVER the XAxisImp instance - always use module-level chart for convertToPixel",
+      "All ticks must be calendar-aligned - no bar-index spacing anywhere",
+      "formatDate registration MUST be kept for crosshair (separate from x-axis ticks)",
+      "Week starts Sunday (weekStartDay: 0) for forex",
+      "Single-chart constraint at 3 layers makes module-level state safe"
+    ],
+    "tradeoffs": [
+      "Module-level mutable state over per-instance state: simpler but blocks multi-chart. Acceptable due to single-chart constraint.",
+      "Dynamic text-width suppression over fixed pixel values: more accurate but requires canvas context. Acceptable because KLineChart already uses canvas rendering.",
+      "Two-pass algorithm (boundaries then base) over single-pass: clearer separation of concerns and easier to test, at cost of marginally more computation. Negligible at O(K log n) where K < 30."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 1,
+      "number": 1,
+      "name": "Foundation: xAxisCustom.js module with tick algorithm",
+      "files": [
+        "src/lib/chart/xAxisCustom.js",
+        "src/lib/chart/chartConfig.js"
+      ],
+      "flags": ["error-handling", "new-file"],
+      "requirements": [
+        "New file src/lib/chart/xAxisCustom.js with registerXAxis call, createTicks implementation, and all helper functions",
+        "selectTickInterval enforces resolution floor and targets 8-18 ticks",
+        "generateBoundaryTicks detects 5 boundary ranks with coincident resolution",
+        "generateBaseTicks produces calendar-aligned ticks at selected interval",
+        "applySuppression uses dynamic text-width-based radius",
+        "All helpers are pure functions (except chart.convertToPixel dependency)",
+        "Add TICK_INTERVALS and RESOLUTION_FLOOR constants to chartConfig.js"
+      ],
+      "acceptance_criteria": [
+        "registerXAxis({name:'calendar', createTicks}) call exists and is exported",
+        "selectTickInterval returns interval >= RESOLUTION_FLOOR for all resolutions",
+        "snapToBar returns correct bar for exact, gap, and out-of-range cases",
+        "generateBoundaryTicks resolves coincident boundaries (YEAR > QUARTER > MONTH > WEEK > DAY)",
+        "applySuppression enforces MIN_FLOOR 30px and removes base ticks within boundary radius",
+        "createTicks falls back to defaultTicks with console.warn when producing 0 ticks",
+        "setAxisChart and setAxisResolution exported for ChartDisplay integration"
+      ],
+      "tests": [],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 1,
+          "file": "src/lib/chart/xAxisCustom.js",
+          "function": "registerXAxis + createTicks",
+          "behavior": "Register a custom x-axis named calendar with KLineChart. createTicks receives {range, bounding, defaultTicks}, accesses dataList via module-level chart instance, computes visible time span, selects tick interval, generates boundary ticks and base ticks with two-pass suppression, returns {text, coord, value}[] sorted by coord. Falls back to defaultTicks with diagnostic logging when result is empty.",
+          "decision_refs": [
+            "DL-001",
+            "DL-002",
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 1,
+          "file": "src/lib/chart/xAxisCustom.js",
+          "function": "selectTickInterval",
+          "behavior": "Given resolution string and visible time span in ms, select the coarsest tick interval from TICK_INTERVALS array that produces at least 8 ticks. Uses RESOLUTION_FLOOR to enforce minimum interval per resolution. Returns the interval object with name, durationMs, and calendar rule.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 1,
+          "file": "src/lib/chart/xAxisCustom.js",
+          "function": "generateBoundaryTicks",
+          "behavior": "Scan visible timestamp range for calendar boundaries (year/quarter/month/week/day starts). Snap each to nearest bar at or after boundary using snapToBar. Resolve coincident boundaries keeping highest rank. Assign label text with context promotion (year suffix on month change, day prefix on day change, first tick gets max context). Compute coord via chart.convertToPixel. Return sorted array of {text, coord, value, rank}.",
+          "decision_refs": [
+            "DL-003",
+            "DL-006"
+          ]
+        },
+        {
+          "id": "CI-M-001-004",
+          "version": 1,
+          "file": "src/lib/chart/xAxisCustom.js",
+          "function": "generateBaseTicks",
+          "behavior": "Generate calendar-aligned ticks at the selected interval within visible range. For sub-day intervals align to hour/minute boundaries (e.g., 00:00, 04:00, 08:00 for 4HOUR). For DAY align to midnight. For WEEK align to Sunday 00:00 UTC. For MONTH/QUARTER/YEAR align to respective calendar starts. Snap each to nearest bar. Compute coord via chart.convertToPixel. Return array of {text, coord, value}.",
+          "decision_refs": [
+            "DL-003",
+            "DL-007"
+          ]
+        },
+        {
+          "id": "CI-M-001-005",
+          "version": 1,
+          "file": "src/lib/chart/xAxisCustom.js",
+          "function": "applySuppression",
+          "behavior": "Two-pass suppression: first apply high-rank-over-low-rank suppression among boundary ticks, then suppress base ticks that fall within any boundary tick suppression radius. Suppression radius computed from actual label text width using canvas measureText (matching KLineChart font metrics from chart.getStyles().xAxis.tickText). MIN_FLOOR of 30px and PADDING of 8px. Returns {boundary, base} filtered arrays.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-006",
+          "version": 1,
+          "file": "src/lib/chart/xAxisCustom.js",
+          "function": "formatBoundaryLabel",
+          "behavior": "Format boundary tick label based on rank and context promotion rules. YEAR -> YYYY. QUARTER -> Qn or Qn YYYY if year changed. MONTH -> Mon or Mon YYYY if year changed. WEEK -> DD Mon or DD Mon YYYY. DAY -> DD or DD Mon. Context promotion uses previous tick timestamp for year/month/day change detection.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-007",
+          "version": 1,
+          "file": "src/lib/chart/xAxisCustom.js",
+          "function": "formatBaseLabel",
+          "behavior": "Format base tick label based on interval. Sub-day intervals -> HH:mm or DD HH:mm if day changed. DAY -> DD or DD Mon if month changed. WEEK -> DD Mon. Context promotion on first tick and day/month boundaries.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-008",
+          "version": 1,
+          "file": "src/lib/chart/xAxisCustom.js",
+          "function": "snapToBar",
+          "behavior": "Binary search for first bar in dataList with timestamp >= targetTs. Returns the bar timestamp or null if past data range. O(log n). Pure function extracted from ChartDisplay.svelte findFirstBarAtOrAfter.",
+          "decision_refs": [
+            "DL-006"
+          ]
+        },
+        {
+          "id": "CI-M-001-009",
+          "version": 1,
+          "file": "src/lib/chart/xAxisCustom.js",
+          "function": "setAxisChart + setAxisResolution",
+          "behavior": "Module-level setters for chart instance and current resolution. chart is used for convertToPixel and getDataList calls. resolution is used by selectTickInterval. Single-chart safe per workspace.js single-display constraint. setAxisChart also reads chart.getStyles().xAxis.tickText for font metrics.",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-001-010",
+          "version": 1,
+          "file": "src/lib/chart/chartConfig.js",
+          "function": "TICK_INTERVALS + RESOLUTION_FLOOR constants",
+          "behavior": "Add TICK_INTERVALS array (14 entries from 1MIN to YEAR with durationMs and calendar rule) and RESOLUTION_FLOOR map (11 resolutions to minimum interval names). These constants feed selectTickInterval in xAxisCustom.js. Extend existing WINDOW_TIER and boundary generators remain unchanged.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 1,
+      "number": 2,
+      "name": "Integration: wire registerXAxis into ChartDisplay, remove overlays",
+      "files": [
+        "src/components/ChartDisplay.svelte",
+        "src/lib/chart/customOverlays.js",
+        "src/lib/chart/chartThemeLight.js"
+      ],
+      "flags": ["breaking-change", "removal"],
+      "requirements": [
+        "Import and call setAxisChart(chart) and setAxisResolution(resolution) in onMount after chart init",
+        "Apply custom axis via chart.setStyles({xAxis:{name:'calendar'}})",
+        "Remove updateBoundaryOverlays, removeBoundaryOverlays, boundaryOverlayIds from ChartDisplay.svelte",
+        "Remove all calls to updateBoundaryOverlays and removeBoundaryOverlays",
+        "Keep formatDate registered via setCustomApi for crosshair (remove type===2 x-axis path only)",
+        "Remove calendarBoundary overlay registration from customOverlays.js"
+      ],
+      "acceptance_criteria": [
+        "Chart renders with calendar x-axis showing boundary labels at year/quarter/month/week/day starts",
+        "Grid lines appear at calendar boundary positions (not at old overlay positions)",
+        "Crosshair vertical label still shows formatted time via formatDate",
+        "No calendarBoundary overlay registrations remain in customOverlays.js",
+        "Resolution change updates tick interval correctly",
+        "Window change triggers tick recalculation"
+      ],
+      "tests": [],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 1,
+          "file": "src/components/ChartDisplay.svelte",
+          "function": "onMount integration",
+          "behavior": "Import xAxisCustom module (setAxisChart, setAxisResolution) and registerXAxis from klinecharts. In onMount after chart init: call setAxisChart(chart), setAxisResolution(currentResolution), then chart.setStyles({xAxis:{name:calendar}}). Remove formatAxisLabel x-axis formatting (type===2 path) but keep type!==2 path for crosshair. Remove updateBoundaryOverlays, removeBoundaryOverlays, boundaryOverlayIds, and all calls to them.",
+          "decision_refs": [
+            "DL-001",
+            "DL-002",
+            "DL-004",
+            "DL-005"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 1,
+          "file": "src/components/ChartDisplay.svelte",
+          "function": "handleResolutionChange resolution sync",
+          "behavior": "In handleResolutionChange, call setAxisResolution(newResolution) to keep module-level state in sync. In handleSymbolChange, no resolution change needed. In handleWindowChange, no resolution change needed.",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 1,
+          "file": "src/lib/chart/customOverlays.js",
+          "function": "Remove calendarBoundary overlay",
+          "behavior": "Delete the calendarBoundary registerOverlay call (lines 100-126). This overlay is replaced by grid lines from registerXAxis ticks. All other overlays (rect, circle, polygon, arc) remain unchanged.",
+          "decision_refs": [
+            "DL-004"
+          ]
+        },
+        {
+          "id": "CI-M-002-004",
+          "version": 1,
+          "file": "src/lib/chart/chartThemeLight.js",
+          "function": "xAxis tickText styling",
+          "behavior": "No changes needed. The existing xAxis.tickText configuration (family: Helvetica Neue, size: 11, color: #666666) provides font metrics for suppression radius calculation via chart.getStyles().xAxis.tickText.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 1,
+      "number": 3,
+      "name": "Tests: property-based tests for pure helper functions",
+      "files": [
+        "src/lib/chart/__tests__/xAxisCustom.test.js"
+      ],
+      "flags": ["testing"],
+      "requirements": [
+        "Property-based tests for selectTickInterval covering all 11 resolutions",
+        "Unit tests for snapToBar edge cases",
+        "Unit tests for formatBoundaryLabel and formatBaseLabel at all ranks",
+        "Unit tests for coincident boundary resolution",
+        "Unit tests for suppression radius behavior"
+      ],
+      "acceptance_criteria": [
+        "All selectTickInterval results satisfy RESOLUTION_FLOOR constraint",
+        "snapToBar returns null for empty list and past-range targets",
+        "Jan 1 boundary resolves to YEAR label, Apr 1 to QUARTER, month start Monday to MONTH",
+        "Suppression removes base ticks within radius, preserves ticks outside radius",
+        "All tests pass without KLineChart runtime (pure function testing)"
+      ],
+      "tests": [],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 1,
+          "file": "src/lib/chart/__tests__/xAxisCustom.test.js",
+          "function": "selectTickInterval tests",
+          "behavior": "Property-based tests: for each resolution in RESOLUTION_FLOOR, verify selected interval is >= floor. For standard resolution+window combos from matrix, verify tick count falls in 8-18 range (accepting fewer for narrow views). Verify fallback to floor when no interval meets minimum.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 1,
+          "file": "src/lib/chart/__tests__/xAxisCustom.test.js",
+          "function": "snapToBar tests",
+          "behavior": "Unit tests: exact match returns that bar. Target before first returns first. Target after last returns null. Target in weekend gap returns Monday bar. Empty list returns null. Single element list.",
+          "decision_refs": [
+            "DL-006"
+          ]
+        },
+        {
+          "id": "CI-M-003-003",
+          "version": 1,
+          "file": "src/lib/chart/__tests__/xAxisCustom.test.js",
+          "function": "formatBoundaryLabel and formatBaseLabel tests",
+          "behavior": "Unit tests for each rank: YEAR produces YYYY. QUARTER produces Qn, Qn YYYY on year change. MONTH produces Mon, Mon YYYY on year change. WEEK produces DD Mon. DAY produces DD, DD Mon on month change. Context promotion: first tick always gets max context. Intra-day base: HH:mm, DD HH:mm on day change.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-003-004",
+          "version": 1,
+          "file": "src/lib/chart/__tests__/xAxisCustom.test.js",
+          "function": "coincident boundary resolution tests",
+          "behavior": "Unit tests: Jan 1 (YEAR+QUARTER+MONTH+WEEK+DAY) -> YEAR wins with YYYY label. Apr 1 (QUARTER+MONTH+DAY) -> QUARTER wins with Q2 label. May 1 Monday (MONTH+WEEK+DAY) -> MONTH wins with May label. Any Monday (WEEK+DAY) -> WEEK wins.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-003-005",
+          "version": 1,
+          "file": "src/lib/chart/__tests__/xAxisCustom.test.js",
+          "function": "suppression tests",
+          "behavior": "Unit tests: boundary suppresses base tick within radius. High-rank boundary suppresses low-rank boundary within radius. Base ticks outside radius survive. Empty boundary list means all base ticks survive. MIN_FLOOR of 30px enforced when label width is very small.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    { "id": "W-001", "wave": 1, "milestones": ["M-001"] },
+    { "id": "W-002", "wave": 2, "milestones": ["M-002"] },
+    { "id": "W-003", "wave": 3, "milestones": ["M-003"] }
+  ],
+  "diagram_graphs": [
+    {
+      "id": "DIAG-001",
+      "type": "architecture",
+      "scope": "overview",
+      "title": "Custom Calendar X-Axis Data Flow",
+      "nodes": [
+        {
+          "id": "klinechart",
+          "label": "KLineChart buildTicks()",
+          "type": "service"
+        },
+        {
+          "id": "createticks",
+          "label": "createTicks (xAxisCustom.js)",
+          "type": "service"
+        },
+        {
+          "id": "selectinterval",
+          "label": "selectTickInterval",
+          "type": "function"
+        },
+        {
+          "id": "boundaries",
+          "label": "generateBoundaryTicks",
+          "type": "function"
+        },
+        {
+          "id": "base",
+          "label": "generateBaseTicks",
+          "type": "function"
+        },
+        {
+          "id": "suppress",
+          "label": "applySuppression",
+          "type": "function"
+        },
+        {
+          "id": "chartinstance",
+          "label": "Chart Instance (module-level)",
+          "type": "datastore"
+        }
+      ],
+      "edges": [
+        {
+          "source": "klinechart",
+          "target": "createticks",
+          "label": "{range, bounding, defaultTicks}",
+          "protocol": "callback"
+        },
+        {
+          "source": "createticks",
+          "target": "selectinterval",
+          "label": "resolution + visibleSpanMs",
+          "protocol": "sync"
+        },
+        {
+          "source": "createticks",
+          "target": "boundaries",
+          "label": "fromTs, toTs, dataList",
+          "protocol": "sync"
+        },
+        {
+          "source": "createticks",
+          "target": "base",
+          "label": "interval, fromTs, toTs, dataList",
+          "protocol": "sync"
+        },
+        {
+          "source": "createticks",
+          "target": "suppress",
+          "label": "boundaryTicks + baseTicks",
+          "protocol": "sync"
+        },
+        {
+          "source": "chartinstance",
+          "target": "createticks",
+          "label": "getDataList(), getStyles().xAxis.tickText",
+          "protocol": "module-state"
+        },
+        {
+          "source": "chartinstance",
+          "target": "boundaries",
+          "label": "convertToPixel([{dataIndex}])",
+          "protocol": "module-state"
+        },
+        {
+          "source": "chartinstance",
+          "target": "base",
+          "label": "convertToPixel([{dataIndex}])",
+          "protocol": "module-state"
+        },
+        {
+          "source": "suppress",
+          "target": "klinechart",
+          "label": "{text, coord, value}[] as this._ticks",
+          "protocol": "return"
+        }
+      ],
+      "ascii_render": null
+    }
+  ],
+  "readme_entries": []
+}

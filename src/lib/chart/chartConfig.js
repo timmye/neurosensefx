@@ -213,89 +213,31 @@ export function getWindowTier(windowStr) {
   return WINDOW_TIER[windowStr] ?? 'MONTHLY';
 }
 
-function generateDayStarts(from, to, set) {
-  let d = new Date(from);
-  d.setUTCHours(0, 0, 0, 0);
-  while (d.getTime() <= to) {
-    if (d.getTime() >= from) set.add(d.getTime());
-    d = new Date(d.getTime() + 86400000);
-  }
-}
+// ---------------------------------------------------------------------------
+// Calendar-aware X-axis tick configuration
+// ---------------------------------------------------------------------------
 
-function generateMondays(from, to, set) {
-  let d = new Date(from);
-  d.setUTCHours(0, 0, 0, 0);
-  const dow = d.getUTCDay();
-  d.setUTCDate(d.getUTCDate() + ((1 - dow + 7) % 7));
-  while (d.getTime() <= to) {
-    if (d.getTime() >= from) set.add(d.getTime());
-    d = new Date(d.getTime() + 7 * 86400000);
-  }
-}
+// TICK_INTERVALS — 14 entries from 1MIN to YEAR
+export const TICK_INTERVALS = [
+  { name: '1MIN',    durationMs: 60_000,      rule: 'roundMinute' },
+  { name: '5MIN',    durationMs: 300_000,     rule: 'roundMinute5' },
+  { name: '15MIN',   durationMs: 900_000,     rule: 'roundMinute15' },
+  { name: '30MIN',   durationMs: 1_800_000,   rule: 'roundMinute30' },
+  { name: '1HOUR',   durationMs: 3_600_000,   rule: 'roundHour' },
+  { name: '2HOUR',   durationMs: 7_200_000,   rule: 'roundHour2' },
+  { name: '4HOUR',   durationMs: 14_400_000,  rule: 'roundHour4' },
+  { name: '8HOUR',   durationMs: 28_800_000,  rule: 'roundHour8' },
+  { name: '12HOUR',  durationMs: 43_200_000,  rule: 'roundHour12' },
+  { name: 'DAY',     durationMs: 86_400_000,  rule: 'midnight' },
+  { name: 'WEEK',    durationMs: 604_800_000, rule: 'weekStart' },
+  { name: 'MONTH',   durationMs: null,        rule: 'monthStart', calendar: true },
+  { name: 'QUARTER', durationMs: null,        rule: 'quarterStart', calendar: true },
+  { name: 'YEAR',    durationMs: null,        rule: 'yearStart', calendar: true }
+];
 
-function generateMonthStarts(from, to, set) {
-  let d = new Date(from);
-  d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
-  if (d.getTime() < from) d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
-  while (d.getTime() <= to) {
-    if (d.getTime() >= from) set.add(d.getTime());
-    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
-  }
-}
-
-function generateQuarterStarts(from, to, set) {
-  let d = new Date(from);
-  const qMonth = Math.floor(d.getUTCMonth() / 3) * 3;
-  d = new Date(Date.UTC(d.getUTCFullYear(), qMonth, 1));
-  if (d.getTime() < from) d = new Date(Date.UTC(d.getUTCFullYear(), qMonth + 3, 1));
-  while (d.getTime() <= to) {
-    if (d.getTime() >= from) set.add(d.getTime());
-    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 3, 1));
-  }
-}
-
-function generateYearStarts(from, to, set) {
-  let year = new Date(from).getUTCFullYear();
-  let d = new Date(Date.UTC(year, 0, 1));
-  if (d.getTime() < from) d = new Date(Date.UTC(year + 1, 0, 1));
-  while (d.getTime() <= to) {
-    if (d.getTime() >= from) set.add(d.getTime());
-    d = new Date(Date.UTC(d.getUTCFullYear() + 1, 0, 1));
-  }
-}
-
-/**
- * Generate calendar boundary timestamps within [from, to] for the given window.
- *
- * Boundary types depend on the window tier:
- *   INTRADAY (1d/2d): day starts + month starts + year starts
- *   DAILY    (1W/2W): Mondays + month starts + year starts
- *   WEEKLY   (1M):    Mondays + month starts + year starts
- *   MONTHLY  (3M/6M): month starts + year starts
- *   QUARTERLY (1Y):   quarter starts + year starts
- *   YEARLY   (2Y+):   year starts
- */
-export function getCalendarBoundaryTimestamps(from, to, windowStr) {
-  const boundaries = new Set();
-  const { unit, count } = parseWindowString(windowStr);
-
-  if (windowStr === '1d' || windowStr === '2d') {
-    generateDayStarts(from, to, boundaries);
-    generateMonthStarts(from, to, boundaries);
-    generateYearStarts(from, to, boundaries);
-  } else if (unit === 'W') {
-    generateMondays(from, to, boundaries);
-    generateMonthStarts(from, to, boundaries);
-    generateYearStarts(from, to, boundaries);
-  } else if (unit === 'M' && count < 6) {
-    generateMonthStarts(from, to, boundaries);
-    generateYearStarts(from, to, boundaries);
-  } else if ((unit === 'M' && count >= 6) || (unit === 'Y' && count === 1)) {
-    generateQuarterStarts(from, to, boundaries);
-    generateYearStarts(from, to, boundaries);
-  } else if (unit === 'Y' && count >= 2) {
-    generateYearStarts(from, to, boundaries);
-  }
-
-  return Array.from(boundaries).sort((a, b) => a - b);
-}
+// RESOLUTION_FLOOR — map of 11 resolutions to minimum interval names
+export const RESOLUTION_FLOOR = {
+  '1m': '1MIN', '5m': '5MIN', '10m': '5MIN', '15m': '15MIN',
+  '30m': '30MIN', '1h': '1HOUR', '4h': '1HOUR',
+  '12h': '4HOUR', 'D': 'DAY', 'W': 'WEEK', 'M': 'MONTH'
+};

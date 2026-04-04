@@ -30,14 +30,22 @@ The 1M alignment logic is correct (verified: always snaps to 1st of previous mon
 
 ---
 
-## 2. Time Axis — Current State
+## 2. Time Axis — Current State (Broken)
 
-KLineChart's default tick generation:
-- Places ticks at **even data-index intervals** (every Nth bar), not calendar boundaries
-- Formats labels as `HH:mm` by default, upgrades to `MM-DD` or `YYYY-MM` when adjacent ticks cross a boundary
-- No concept of month starts, Mondays, or quarter boundaries
+The custom `formatAxisLabel` override was implemented to produce tiered labels, but it **breaks KLineChart's transition detection** at every level. Result: transitions never fire, and all labels show the same format regardless of calendar boundaries.
 
-The result: a 3M chart shows ticks at `Jan 14 08:00`, `Feb 02 20:00`, `Mar 09 20:00` — arbitrary positions a trader can't read at a glance.
+### Why Transitions Never Work
+
+KLineChart detects transitions by calling `formatDate` with format strings `'YYYY'`, `'YYYY-MM'`, `'MM-DD'` and **comparing adjacent tick strings for equality**. If two adjacent ticks produce the same string, no transition is detected.
+
+Our implementation returns:
+- The same string for every day in a month at MONTHLY tier (`"▸ 2026-04"` for all ticks in April)
+- The same string for every month in a quarter at QUARTERLY tier (`"▸ Q2 2026"`)
+- The same string for every month in a year at YEARLY tier (`"▸ 2026"`)
+- Strings with a `▸` prefix that break KLineChart's first-tick regex matching
+- No handler for `'YYYY-MM-DD HH:mm'` (single-tick view)
+
+See `docs/chart/date-marker-analysis.md` for full root cause analysis.
 
 ---
 
@@ -50,12 +58,13 @@ The result: a 3M chart shows ticks at `Jan 14 08:00`, `Feb 02 20:00`, `Mar 09 20
 1. **`chart.setCustomApi({ formatDate })`** — smart labels that adapt to the window
 2. **Vertical line overlays** at calendar boundaries — subtle visual anchors
 
-### Files to modify
+### Required Fixes
 
-| File | Change |
-|------|--------|
-| `src/lib/chart/chartConfig.js` | Add `getCalendarBoundaryTimestamps(from, to, window)` |
-| `src/components/ChartDisplay.svelte` | Add `setCustomApi({ formatDate })` after init. Add boundary line overlays after data loads. Clear/recreate on window change. |
+| Fix | File | What |
+|-----|------|------|
+| Rewrite `formatAxisLabel` | `ChartDisplay.svelte` | Return clean strings for `'YYYY'`/`'YYYY-MM'`/`'MM-DD'` that change when year/month/day changes. Remove tier-based variations from comparison returns. Handle `'YYYY-MM-DD HH:mm'`. |
+| Remove `▸` prefix | `ChartDisplay.svelte` | Strip from all `formatDate` returns. Breaks KLineChart's regex matching. Boundary overlays provide visual distinction instead. |
+| Set timezone | `ChartDisplay.svelte` | Add `chart.setTimezone('UTC')` after init. Aligns KLineChart's internal DateTimeFormat with our `getUTC*()` calls. |
 
 ### Boundary line style
 
@@ -66,7 +75,7 @@ The result: a 3M chart shows ticks at `Jan 14 08:00`, `Feb 02 20:00`, `Mar 09 20
 
 ---
 
-## 4. Label Rules
+## 4. Label Rules (Target Specification)
 
 Simple tiered system. The window determines the label granularity. Higher-order boundaries always show when crossed.
 
@@ -109,19 +118,53 @@ Simple tiered system. The window determines the label granularity. Higher-order 
 
 ---
 
-## 5. KLineChart formatDate API
+## 5. KLineChart formatDate API Contract
 
 KLineChart calls `formatDate(dateTimeFormat, timestamp, format, type)` once per tick per render.
 
-- `type === 2` (FormatDateType.XAxis) targets the axis — we only override this
-- `format` is KLineChart's suggested string ('HH:mm', 'MM-DD', etc.) — we ignore it
-- `timestamp` is the tick's actual timestamp — we use this to detect boundaries
+### Parameters
 
-Our override:
-1. Get current window tier
-2. Check if timestamp is on a boundary (month 1st, Monday, quarter start, year start)
-3. If boundary → show the higher-order label (month name, year, quarter)
-4. Otherwise → show the tier's default format
+- `dateTimeFormat` — KLineChart's internal `Intl.DateTimeFormat` instance
+- `timestamp` — the tick's Unix millisecond timestamp
+- `format` — one of: `'YYYY'`, `'YYYY-MM'`, `'MM-DD'`, `'HH:mm'`, `'YYYY-MM-DD HH:mm'`
+- `type` — `2` for X-axis ticks (we only override this)
+
+### How KLineChart Uses the Return Value
+
+**The return value serves dual purposes: comparison AND display.**
+
+KLineChart's `_optimalTickLabel` detects transitions by comparing strings between adjacent ticks:
+
+```
+1. Call formatDate(ts, 'YYYY') for current and previous tick
+   → If strings differ → year transition detected → return value becomes tick text
+
+2. Call formatDate(ts, 'YYYY-MM') for current and previous tick
+   → If strings differ → month transition detected → return value becomes tick text
+
+3. Call formatDate(ts, 'MM-DD') for current and previous tick
+   → If strings differ → day transition detected → return value becomes tick text
+
+4. No transition → fall back to formatDate(ts, 'HH:mm') for primary display
+```
+
+**Critical implication**: The strings returned for `'YYYY'`, `'YYYY-MM'`, and `'MM-DD'` must change when year/month/day changes. If they don't (e.g., returning `"▸ 2026-04"` for every day in April), the comparison produces identical strings and transitions are never detected.
+
+### First-Tick Formatting
+
+KLineChart's `optimalTicks` regex-matches the third tick's text to determine the first tick's format:
+
+- `/^[0-9]{2}-[0-9]{2}$/` expects `"04-03"` (not `"▸ 04-03"`)
+- `/^[0-9]{4}-[0-9]{2}$/` expects `"2026-04"` (not `"▸ 2026-04"`)
+- `/^[0-9]{4}$/` expects `"2026"` (not `"▸ 2026"`)
+
+Any prefix characters prevent matching. The returned strings must start with the expected digit pattern.
+
+### Implementation Constraints
+
+- Per-tick styling is impossible — `AxisTick` only has `{ coord, value, text }`
+- No font weight, color, or size variation per tick regardless of API (`formatDate`, `createTicks`, or `registerXAxis`)
+- Visual distinction for major boundaries must come from text content (e.g., "2026" vs "04-03") or from the boundary overlay system (dashed vertical lines)
 
 ---
 
