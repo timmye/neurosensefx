@@ -391,10 +391,10 @@
     chart.setCustomApi({ formatDate: formatAxisLabel });
     chart.setTimezone('UTC');
 
-    // Custom calendar-aware x-axis
+    // Custom calendar-aware x-axis — activate via setPaneOptions (not setStyles)
     setAxisChart(chart);
     setAxisResolution(currentResolution);
-    chart.setStyles({ xAxis: { name: 'calendar' } });
+    chart.setPaneOptions({ id: 'x_axis_pane', axisOptions: { name: 'calendar' } });
 
     // Ensure the browser has completed layout before KLineChart reads dimensions
     requestAnimationFrame(() => {

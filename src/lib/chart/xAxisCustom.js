@@ -5,6 +5,11 @@
  * understand year/quarter/month/week/day boundaries and suppress
  * overlapping labels.
  *
+ * Uses a two-phase "Anchor + Fill" algorithm:
+ *   Phase 1: Place boundary ticks (anchors) sorted by rank.
+ *   Phase 2: Context fill around MONTH+ anchors, then gap fill.
+ *   Phase 3: Format labels in a final pass.
+ *
  * @module xAxisCustom
  */
 
@@ -90,9 +95,19 @@ export function snapToBar(targetTs, dataList) {
     else if (ts > targetTs) hi = mid - 1;
     else return ts;
   }
-  // lo is the first bar >= targetTs
-  if (lo < dataList.length) return dataList[lo].timestamp;
-  return null;
+  // lo is the first bar >= targetTs, hi is the last bar < targetTs
+  if (lo >= dataList.length) {
+    // Target is after all bars — return last bar if it exists
+    return hi >= 0 ? dataList[hi].timestamp : null;
+  }
+  if (hi < 0) {
+    // Target is before all bars — return first bar
+    return dataList[0].timestamp;
+  }
+  // Both candidates exist — return whichever is closer to targetTs
+  const diffLo = dataList[lo].timestamp - targetTs;
+  const diffHi = targetTs - dataList[hi].timestamp;
+  return diffLo <= diffHi ? dataList[lo].timestamp : dataList[hi].timestamp;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,31 +146,6 @@ export function selectTickInterval(resolution, spanMs) {
 }
 
 // ---------------------------------------------------------------------------
-// detectBoundaryRanks
-// ---------------------------------------------------------------------------
-
-export function detectBoundaryRanks(ts) {
-  const d = new Date(ts);
-  const ranks = [];
-
-  if (d.getUTCMonth() === 0 && d.getUTCDate() === 1) {
-    ranks.push(RANK.YEAR);
-  }
-  if (d.getUTCMonth() % 3 === 0 && d.getUTCDate() === 1) {
-    ranks.push(RANK.QUARTER);
-  }
-  if (d.getUTCDate() === 1) {
-    ranks.push(RANK.MONTH);
-  }
-  if (d.getUTCDay() === WEEK_START_DAY) {
-    ranks.push(RANK.WEEK);
-  }
-  ranks.push(RANK.DAY);
-
-  return ranks;
-}
-
-// ---------------------------------------------------------------------------
 // formatBoundaryLabel
 // ---------------------------------------------------------------------------
 
@@ -181,9 +171,11 @@ export function formatBoundaryLabel(ts, rank, prevTs) {
       return label;
     }
     case RANK.WEEK: {
-      const label = `${pad2(day)} ${SHORT_MONTHS[month]}`;
-      if (!prev || prev.getUTCFullYear() !== year) return `${label} ${year}`;
-      return label;
+      const dayLabel = `${pad2(day)}`;
+      const monthLabel = `${dayLabel} ${SHORT_MONTHS[month]}`;
+      if (!prev || prev.getUTCFullYear() !== year) return `${monthLabel} ${year}`;
+      if (prev.getUTCMonth() !== month) return monthLabel;
+      return dayLabel;
     }
     case RANK.DAY: {
       const label = `${pad2(day)}`;
@@ -242,7 +234,7 @@ export function calcTextWidth(text, size, weight, family) {
 }
 
 // ---------------------------------------------------------------------------
-// generateBoundaryTicks
+// generateBoundaryTicks — raw candidates (no formatting)
 // ---------------------------------------------------------------------------
 
 export function generateBoundaryTicks(fromTs, toTs, dataList, chart) {
@@ -314,12 +306,9 @@ export function generateBoundaryTicks(fromTs, toTs, dataList, chart) {
   }
 
   // For each group, pick highest rank (lowest number)
-  const ticks = [];
-  let prevTs = null;
-
+  const candidates = [];
   const sorted = Array.from(groups.entries()).sort((a, b) => a[0] - b[0]);
   for (const [snappedTs, entries] of sorted) {
-    // Pick the entry with lowest rank number (highest rank)
     entries.sort((a, b) => a.rank - b.rank);
     const best = entries[0];
 
@@ -328,45 +317,21 @@ export function generateBoundaryTicks(fromTs, toTs, dataList, chart) {
     const coord = barCoord(chart, idx);
     if (coord == null) continue;
 
-    const text = formatBoundaryLabel(snappedTs, best.rank, prevTs);
-    if (!text) { prevTs = snappedTs; continue; }
-
-    ticks.push({ text, coord, value: snappedTs, rank: best.rank });
-    prevTs = snappedTs;
+    candidates.push({ ts: best.ts, snappedTs, coord, rank: best.rank });
   }
 
-  return ticks;
+  return candidates;
 }
 
 // ---------------------------------------------------------------------------
-// generateBaseTicks
+// generateBaseTicks — raw candidates (no formatting)
 // ---------------------------------------------------------------------------
-
-/**
- * Attempt to emit a base tick for a candidate timestamp.
- * Returns updated prevTs (or same prevTs if tick was skipped).
- */
-function tryEmitBaseTick(ts, dataList, chart, intervalName, prevTs, ticks) {
-  const snapped = snapToBar(ts, dataList);
-  if (snapped == null) return prevTs;
-  const idx = dataIndexOf(dataList, snapped);
-  if (idx === -1) return prevTs;
-  const coord = barCoord(chart, idx);
-  if (coord == null) return prevTs;
-  const text = formatBaseLabel(snapped, intervalName, prevTs);
-  if (text) {
-    ticks.push({ text, coord, value: snapped });
-    return snapped;
-  }
-  return prevTs;
-}
 
 export function generateBaseTicks(interval, fromTs, toTs, dataList, chart) {
   // MONTH/QUARTER/YEAR are handled by boundary ticks
   if (interval.calendar) return [];
 
-  const ticks = [];
-  let prevTs = null;
+  const candidates = [];
 
   if (interval.name === 'WEEK') {
     // Sunday midnight
@@ -376,10 +341,21 @@ export function generateBaseTicks(interval, fromTs, toTs, dataList, chart) {
     const daysToSunday = (WEEK_START_DAY - dow + 7) % 7;
     d.setUTCDate(d.getUTCDate() + daysToSunday);
     while (d.getTime() <= toTs) {
-      if (d.getTime() >= fromTs) prevTs = tryEmitBaseTick(d.getTime(), dataList, chart, interval.name, prevTs, ticks);
+      if (d.getTime() >= fromTs) {
+        const snapped = snapToBar(d.getTime(), dataList);
+        if (snapped != null) {
+          const idx = dataIndexOf(dataList, snapped);
+          if (idx !== -1) {
+            const coord = barCoord(chart, idx);
+            if (coord != null) {
+              candidates.push({ ts: d.getTime(), snappedTs: snapped, coord, type: 'base', intervalName: interval.name });
+            }
+          }
+        }
+      }
       d = new Date(d.getTime() + 7 * 86_400_000);
     }
-    return ticks;
+    return candidates;
   }
 
   if (interval.name === 'DAY') {
@@ -388,15 +364,26 @@ export function generateBaseTicks(interval, fromTs, toTs, dataList, chart) {
     d.setUTCHours(0, 0, 0, 0);
     if (d.getTime() < fromTs) d = new Date(d.getTime() + 86_400_000);
     while (d.getTime() <= toTs) {
-      if (d.getTime() >= fromTs) prevTs = tryEmitBaseTick(d.getTime(), dataList, chart, interval.name, prevTs, ticks);
+      if (d.getTime() >= fromTs) {
+        const snapped = snapToBar(d.getTime(), dataList);
+        if (snapped != null) {
+          const idx = dataIndexOf(dataList, snapped);
+          if (idx !== -1) {
+            const coord = barCoord(chart, idx);
+            if (coord != null) {
+              candidates.push({ ts: d.getTime(), snappedTs: snapped, coord, type: 'base', intervalName: interval.name });
+            }
+          }
+        }
+      }
       d = new Date(d.getTime() + 86_400_000);
     }
-    return ticks;
+    return candidates;
   }
 
   // Time-based intervals (1MIN through 12HOUR)
   const durationMs = interval.durationMs;
-  if (!durationMs) return ticks;
+  if (!durationMs) return candidates;
 
   // Align to interval boundaries
   const d = new Date(fromTs);
@@ -420,60 +407,150 @@ export function generateBaseTicks(interval, fromTs, toTs, dataList, chart) {
   if (d.getTime() < fromTs) d.setTime(d.getTime() + durationMs);
 
   while (d.getTime() <= toTs) {
-    if (d.getTime() >= fromTs) prevTs = tryEmitBaseTick(d.getTime(), dataList, chart, interval.name, prevTs, ticks);
+    if (d.getTime() >= fromTs) {
+      const snapped = snapToBar(d.getTime(), dataList);
+      if (snapped != null) {
+        const idx = dataIndexOf(dataList, snapped);
+        if (idx !== -1) {
+          const coord = barCoord(chart, idx);
+          if (coord != null) {
+            candidates.push({ ts: d.getTime(), snappedTs: snapped, coord, type: 'base', intervalName: interval.name });
+          }
+        }
+      }
+    }
     d.setTime(d.getTime() + durationMs);
   }
 
-  return ticks;
+  return candidates;
 }
 
 // ---------------------------------------------------------------------------
-// applySuppression
+// overlapsPlaced
 // ---------------------------------------------------------------------------
 
-export function applySuppression(boundaryTicks, baseTicks, tickTextStyles) {
+function overlapsPlaced(candidate, placed, halfWidthFn) {
+  const halfW = halfWidthFn(candidate.text || '');
+  for (const p of placed) {
+    const pHalfW = halfWidthFn(p.text || '');
+    if (Math.abs(candidate.coord - p.coord) < halfW + pHalfW) return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// formatLabel
+// ---------------------------------------------------------------------------
+
+function formatLabel(tick, prev) {
+  if (tick.rank !== undefined) {
+    return formatBoundaryLabel(tick.ts, tick.rank, prev?.ts ?? null);
+  }
+  return formatBaseLabel(tick.snappedTs, tick.intervalName, prev?.ts ?? null);
+}
+
+// ---------------------------------------------------------------------------
+// generateTicks — main entry point (Anchor + Fill)
+// ---------------------------------------------------------------------------
+
+export function generateTicks(fromTs, toTs, dataList, chart, tickTextStyles) {
+  // 1. Compute base interval
+  const visibleSpanMs = toTs - fromTs;
+  const interval = selectTickInterval(_resolution, visibleSpanMs);
+
+  // 2. Enumerate candidates
+  const boundaryCandidates = generateBoundaryTicks(fromTs, toTs, dataList, chart);
+  const baseCandidates = generateBaseTicks(interval, fromTs, toTs, dataList, chart);
+
+  // Build half-width estimator
   const styles = tickTextStyles || {};
   const size = styles.size || 12;
   const weight = styles.weight || 'normal';
   const family = styles.family || 'Helvetica Neue';
 
   function halfWidth(text) {
+    if (!text) return MIN_FLOOR;
     return Math.max(calcTextWidth(text, size, weight, family) / 2 + PADDING, MIN_FLOOR);
   }
 
-  // First pass: among boundary ticks, high-rank suppresses low-rank within radius
-  const sortedBoundary = [...boundaryTicks].sort((a, b) => a.coord - b.coord);
-  const keptBoundary = [];
-  for (let i = 0; i < sortedBoundary.length; i++) {
-    const current = sortedBoundary[i];
-    let suppressed = false;
-    // Check against previously kept boundaries (which have higher or equal rank due to sort)
-    for (const kept of keptBoundary) {
-      const radius = (halfWidth(kept.text) + halfWidth(current.text));
-      if (Math.abs(current.coord - kept.coord) < radius) {
-        suppressed = true;
-        break;
-      }
+  // Compute adaptive transitionRadius
+  const minSpacing = 2 * MIN_FLOOR + 2 * PADDING;
+  const transitionRadius = 2 * minSpacing;
+
+  // 3. PHASE 1 — Anchor placement (boundary ticks only)
+  const sortedBoundary = [...boundaryCandidates].sort((a, b) => a.rank - b.rank || a.coord - b.coord);
+  const placed = [];
+  for (const candidate of sortedBoundary) {
+    if (!overlapsPlaced(candidate, placed, halfWidth)) {
+      placed.push(candidate);
     }
-    if (!suppressed) keptBoundary.push(current);
   }
 
-  // Second pass: suppress base ticks that fall within any boundary tick's radius
-  const keptBase = [];
-  const sortedBase = [...baseTicks].sort((a, b) => a.coord - b.coord);
-  for (const bt of sortedBase) {
-    let suppressed = false;
-    for (const bnd of keptBoundary) {
-      const radius = (halfWidth(bnd.text) + halfWidth(bt.text));
-      if (Math.abs(bt.coord - bnd.coord) < radius) {
-        suppressed = true;
-        break;
+  // Track which boundary candidates are placed
+  const placedSet = new Set(placed);
+  const allUnplaced = [...boundaryCandidates, ...baseCandidates].filter(c => !placedSet.has(c));
+
+  // 4. PHASE 2 — Context fill
+  // For each placed anchor with rank <= MONTH, scan unplaced for nearest within transitionRadius
+  for (const anchor of placed) {
+    if (anchor.rank > RANK.MONTH) continue;
+
+    // Scan backward through unplaced for nearest within transitionRadius
+    let nearestBefore = null;
+    let nearestBeforeDist = Infinity;
+    for (const c of allUnplaced) {
+      if (c.coord >= anchor.coord) continue;
+      const dist = anchor.coord - c.coord;
+      if (dist <= transitionRadius && dist < nearestBeforeDist) {
+        nearestBeforeDist = dist;
+        nearestBefore = c;
       }
     }
-    if (!suppressed) keptBase.push(bt);
+    if (nearestBefore && !overlapsPlaced(nearestBefore, placed, halfWidth)) {
+      placed.push(nearestBefore);
+      placedSet.add(nearestBefore);
+      allUnplaced.splice(allUnplaced.indexOf(nearestBefore), 1);
+    }
+
+    // Scan forward through unplaced for nearest within transitionRadius
+    let nearestAfter = null;
+    let nearestAfterDist = Infinity;
+    for (const c of allUnplaced) {
+      if (c.coord <= anchor.coord) continue;
+      const dist = c.coord - anchor.coord;
+      if (dist <= transitionRadius && dist < nearestAfterDist) {
+        nearestAfterDist = dist;
+        nearestAfter = c;
+      }
+    }
+    if (nearestAfter && !overlapsPlaced(nearestAfter, placed, halfWidth)) {
+      placed.push(nearestAfter);
+      placedSet.add(nearestAfter);
+      allUnplaced.splice(allUnplaced.indexOf(nearestAfter), 1);
+    }
   }
 
-  return { boundary: keptBoundary, base: keptBase };
+  // 5. PHASE 3 — Gap fill
+  const remainingBase = allUnplaced.filter(c => c.type === 'base').sort((a, b) => a.coord - b.coord);
+  for (const candidate of remainingBase) {
+    if (!overlapsPlaced(candidate, placed, halfWidth)) {
+      placed.push(candidate);
+    }
+  }
+
+  // 6. FORMAT labels in a final pass
+  placed.sort((a, b) => a.coord - b.coord);
+  let prev = null;
+  for (const tick of placed) {
+    tick.text = formatLabel(tick, prev);
+    prev = tick;
+  }
+
+  // 7. RETURN final tick array
+  return placed
+    .filter(t => t.text) // drop ticks with empty labels
+    .map(t => ({ text: t.text, coord: t.coord, value: t.snappedTs }))
+    .sort((a, b) => a.coord - b.coord);
 }
 
 // ---------------------------------------------------------------------------
@@ -496,14 +573,7 @@ registerXAxis({
     const toTs = dataList[to].timestamp;
     const visibleSpanMs = toTs - fromTs;
 
-    const interval = selectTickInterval(_resolution, visibleSpanMs);
-    const boundaryTicks = generateBoundaryTicks(fromTs, toTs, dataList, _chart);
-    const baseTicks = generateBaseTicks(interval, fromTs, toTs, dataList, _chart);
-    const { boundary, base } = applySuppression(boundaryTicks, baseTicks, _tickTextStyles);
-
-    const result = [...boundary, ...base]
-      .map(t => ({ text: t.text, coord: t.coord, value: t.value }))
-      .sort((a, b) => a.coord - b.coord);
+    const result = generateTicks(fromTs, toTs, dataList, _chart, _tickTextStyles);
 
     if (result.length === 0) {
       console.warn('[calendarAxis] createTicks produced 0 ticks', {
