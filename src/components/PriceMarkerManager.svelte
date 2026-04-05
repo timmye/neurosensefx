@@ -28,8 +28,8 @@
     // Load saved markers and set in workspace
     const symbol = localFormattedSymbol || formattedSymbol;
     if (!symbol) return;
-    priceMarkers = loadMarkers(symbol);
-    workspaceActions.setDisplayPriceMarkers(display.id, priceMarkers);
+    // loadMarkers is async (server API call) — use .then() (ref: DL-007)
+    loadMarkers(symbol).then(m => { priceMarkers = m; workspaceActions.setDisplayPriceMarkers(display.id, m); });
 
     // Initialize interaction system after a short delay
     setTimeout(() => {

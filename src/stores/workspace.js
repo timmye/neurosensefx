@@ -1,4 +1,8 @@
+// Workspace persistence dual-targets localStorage and server API when authenticated (ref: DL-007).
+// Server is the source of truth; localStorage is fallback if server load fails.
 import { writable } from 'svelte/store';
+import { get } from 'svelte/store';
+import { authStore } from './authStore.js';
 import { drawingStore } from '../lib/chart/drawingStore.js';
 
 function compareSemver(a, b) {
@@ -418,34 +422,78 @@ const actions = {
     return null;
   },
 
-  saveChartDrawings: (symbol, resolution, drawings) => {
-    try {
-      const key = `chart-drawings-${symbol}-${resolution}`;
-      localStorage.setItem(key, JSON.stringify(drawings || []));
-    } catch (error) {
-      console.warn('Failed to save chart drawings:', error);
-    }
-  },
-
-  loadChartDrawings: (symbol, resolution) => {
-    try {
-      const key = `chart-drawings-${symbol}-${resolution}`;
-      const stored = localStorage.getItem(key);
-      return stored ? JSON.parse(stored) : null;
-    } catch (error) {
-      console.warn('Failed to load chart drawings:', error);
-      return null;
-    }
-  },
-
 };
 
 const persistence = {
-  loadFromStorage: () => {
+  loadFromStorage: async () => {
     try {
       if (typeof localStorage === 'undefined') {
         return;
       }
+      // When authenticated, try server first. Fall back to localStorage on failure (ref: DL-007).
+      if (get(authStore).isAuthenticated) {
+        try {
+          const resp = await fetch((import.meta.env.VITE_API_BASE_URL || '') + '/api/workspace', { credentials: 'include' });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.layout) {
+              const layout = typeof data.layout === 'string' ? JSON.parse(data.layout) : data.layout;
+              workspaceStore.update(state => ({
+                ...state,
+                displays: new Map(layout.displays || []),
+                nextZIndex: layout.nextZIndex || 1,
+                chartGhost: layout.chartGhost || null
+              }));
+              // Cache server data in localStorage for offline fallback
+              localStorage.setItem('workspace-state', JSON.stringify(layout));
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('[Workspace] Server load failed, falling back to localStorage:', err);
+        }
+      }
+      loadFromLocalStorage();
+    } catch (error) {
+      console.warn('Failed to load workspace from storage:', error);
+    }
+  },
+
+  initPersistence: () => {
+    if (typeof localStorage === 'undefined') {
+      return () => {};
+    }
+    let debounceTimer = null;
+    return workspaceStore.subscribe(state => {
+      const data = {
+        displays: Array.from(state.displays.entries()),
+        nextZIndex: state.nextZIndex,
+        chartGhost: state.chartGhost || null
+      };
+      try {
+        localStorage.setItem('workspace-state', JSON.stringify(data));
+      } catch (error) {
+        console.warn('Failed to save workspace to storage:', error);
+      }
+      // Debounced server sync: 2-second delay to batch rapid workspace changes (ref: DL-007).
+      if (get(authStore).isAuthenticated) {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          fetch((import.meta.env.VITE_API_BASE_URL || '') + '/api/workspace', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(data)
+          }).catch(err => console.warn('Failed to sync workspace to server:', err));
+        }, 2000);
+      }
+    });
+  }
+};
+
+/** Load workspace state from localStorage only. Used as fallback when server is unavailable. */
+function loadFromLocalStorage() {
+  try {
       const stored = localStorage.getItem('workspace-state');
       if (!stored) {
         return;
@@ -458,29 +506,10 @@ const persistence = {
         nextZIndex: data.nextZIndex || 1,
         chartGhost: data.chartGhost || null
       }));
-    } catch (error) {
-      console.warn('Failed to load workspace from storage:', error);
-    }
-  },
-
-  initPersistence: () => {
-    if (typeof localStorage === 'undefined') {
-      return () => {};
-    }
-    return workspaceStore.subscribe(state => {
-      const data = {
-        displays: Array.from(state.displays.entries()),
-        nextZIndex: state.nextZIndex,
-        chartGhost: state.chartGhost || null
-      };
-      try {
-        localStorage.setItem('workspace-state', JSON.stringify(data));
-      } catch (error) {
-        console.warn('Failed to save workspace to storage:', error);
-      }
-    });
+  } catch (error) {
+    console.warn('Failed to load workspace from localStorage:', error);
   }
-};
+}
 
 export const workspaceActions = actions;
 export const workspacePersistence = persistence;

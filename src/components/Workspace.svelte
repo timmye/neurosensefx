@@ -176,7 +176,7 @@
     workspaceActions.addChartDisplay(symbol);
   }
 
-  onMount(() => {
+  onMount(async () => {
     if (import.meta.env.DEV) {
       console.log('[Workspace] onMount fired');
     }
@@ -185,7 +185,8 @@
     window.workspaceStore = workspaceStore;
 
     // Load workspace persistence first
-    workspacePersistence.loadFromStorage();
+    // Async: server API load may take time, so await before proceeding (ref: DL-007)
+    await workspacePersistence.loadFromStorage();
     unsubscribePersistence = workspacePersistence.initPersistence();
 
     // Initialize keyboard handler

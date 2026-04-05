@@ -1,4 +1,6 @@
 const WebSocket = require('ws');
+const cookie = require('cookie');
+const { sessionManager, SESSION_COOKIE_NAME } = require('./middleware');
 const { DataRouter } = require('./DataRouter');
 const { MarketProfileService } = require('./MarketProfileService');
 const { TwapService } = require('./TwapService');
@@ -16,10 +18,25 @@ const RESOLUTION_TO_PERIOD = {
 };
 
 class WebSocketServer {
-    constructor(port, cTraderSession, tradingViewSession, twapService = null, marketProfileService = null) {
-        this.wss = new WebSocket.Server({ port });
+    // Constructor receives an http.Server instead of a port number (ref: DL-002).
+    // The ws.Server attaches to the same HTTP server that Express uses.
+    constructor(server, cTraderSession, tradingViewSession, twapService = null, marketProfileService = null) {
+        this.wss = new WebSocket.Server({ server });
         this.cTraderSession = cTraderSession;
         this.tradingViewSession = tradingViewSession;
+
+        // Registry of active WebSocket connections by userId.
+        // Used to close old connections when a new login invalidates the session (ref: DL-023).
+        this.wsByUserId = new Map();
+
+        // When a session is invalidated (new login from another device),
+        // close the old WebSocket connection with code 4001 (ref: DL-006, DL-023).
+        sessionManager.on('sessionInvalidated', ({ userId }) => {
+            const oldWs = this.wsByUserId.get(userId);
+            if (oldWs && oldWs.readyState === WebSocket.OPEN) {
+                oldWs.close(4001, 'Session invalidated by new login');
+            }
+        });
 
         // Initialize sub-managers
         this.subscriptionManager = new SubscriptionManager();
@@ -30,7 +47,8 @@ class WebSocketServer {
         this.marketProfileService = marketProfileService || new MarketProfileService();
         this.twapService = twapService || new TwapService();
 
-        this.wss.on('connection', (ws) => this.handleConnection(ws));
+        // Connection handler receives the HTTP upgrade request for cookie parsing (ref: DL-005).
+        this.wss.on('connection', (ws, req) => this.handleConnection(ws, req));
 
         this.cTraderSession.on('tick', (tick) => this.dataRouter.routeFromCTrader(tick));
         this.cTraderSession.on('connected', (symbols) => {
@@ -213,12 +231,42 @@ class WebSocketServer {
         }
     }
 
-    handleConnection(ws) {
-        console.log('Client connected');
+    /**
+     * Authenticate the WebSocket upgrade request via session cookie.
+     * Rejects unauthenticated connections immediately with close code 4001 (ref: DL-005).
+     * No unauthenticated window — unlike first-message auth which allows resource occupation (ref: RA-003).
+     */
+    handleConnection(ws, req) {
+        const cookieHeader = req.headers.cookie || '';
+        const parsed = cookie.parse(cookieHeader);
+        const sessionToken = parsed[SESSION_COOKIE_NAME];
+
+        if (!sessionToken) {
+            ws.close(4001, 'No session cookie');
+            return;
+        }
+
+        // Session validation is async; handlers are attached only after auth succeeds.
+        // This prevents unauthenticated sockets from receiving any market data (ref: DL-005).
+        sessionManager.validateSession(sessionToken).then(userId => {
+            if (!userId) {
+                ws.close(4001, 'Invalid session');
+                return;
+            }
+            ws.userId = userId;
+            this.wsByUserId.set(userId, ws);
+            console.log('Client connected (userId=' + userId + ')');
+            this.attachConnectionHandlers(ws);
+        }).catch(() => {
+            ws.close(4001, 'Session validation failed');
+        });
+    }
+
+    /** Attach message/close/error handlers after successful authentication. */
+    attachConnectionHandlers(ws) {
         ws.on('message', (message) => this.handleMessage(ws, message));
         ws.on('close', () => this.handleClose(ws));
         ws.on('error', (error) => console.error('Client WebSocket error:', error));
-
         this.statusBroadcaster.sendInitialStatus(ws);
     }
 
@@ -560,6 +608,15 @@ class WebSocketServer {
 
     handleClose(ws) {
         console.log('Client disconnected');
+        // Clean up userId registry on disconnect. Only delete if this is the
+        // current connection for the user (avoids deleting a newer connection) (ref: DL-023).
+        if (ws.userId) {
+            const existing = this.wsByUserId.get(ws.userId);
+            if (existing === ws) {
+                this.wsByUserId.delete(ws.userId);
+            }
+        }
+
         const subscriptions = this.subscriptionManager.removeClient(ws);
 
         // Unsubscribe from backends if no more subscribers

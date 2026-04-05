@@ -7,6 +7,8 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const { CTraderSession } = require('./CTraderSession');
 const { TradingViewSession } = require('./TradingViewSession');
 const { WebSocketServer } = require('./WebSocketServer');
+const { listen: listenHttp, server: httpServer } = require('./httpServer');
+const { verifySchema } = require('./db');
 
 // Create services first (needed by WebSocketServer and TradingViewSession)
 const { TwapService } = require('./TwapService');
@@ -29,7 +31,13 @@ console.log(`📊 TradingView Session: ${tradingViewSessionId ? 'authenticated' 
 
 const session = new CTraderSession();
 const tradingViewSession = new TradingViewSession(twapService, marketProfileService);
-const wsServer = new WebSocketServer(port, session, tradingViewSession, twapService, marketProfileService);
+// WebSocketServer receives the shared http.Server instead of a port (ref: DL-002).
+// Express and ws share the same HTTP server; cookies are sent on WS upgrade.
+const wsServer = new WebSocketServer(httpServer, session, tradingViewSession, twapService, marketProfileService);
+
+// Start Express HTTP server and verify PostgreSQL auth schema on startup (ref: DL-002, DL-004)
+listenHttp(port);
+verifySchema().catch(err => console.error('[DB] Schema verification failed on startup:', err.message));
 
 // Global error handlers to prevent crashes on connection interrupt
 process.on('uncaughtException', (error) => {
