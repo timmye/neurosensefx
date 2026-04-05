@@ -6,7 +6,7 @@ const initialState = {
   selectedDisplayId: null,
   chartGhost: null,
   config: {
-    defaultSize: { width: 160, height: 240 },
+    defaultSize: { width: 2000, height: 680 },
     defaultPosition: { x: 100, y: 100 }
   }
 };
@@ -316,7 +316,7 @@ const actions = {
         source,
         created: Date.now(),
         position: position || ghost?.position || { x: 100, y: 100 },
-        size: ghost?.size || { width: 800, height: 500 },
+        size: ghost?.size || { ...state.config.defaultSize },
         zIndex: state.nextZIndex,
         resolution: ghost?.resolution || '4h',
         window: ghost?.window || '3M',
