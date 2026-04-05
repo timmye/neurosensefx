@@ -202,20 +202,22 @@
   async function restoreDrawings(symbol, resolution) {
     const drawings = await drawingStore.load(symbol, resolution);
     for (const drawing of drawings) {
-      chart.createOverlay({
+      const opts = {
         id: drawing.overlayId,
         name: drawing.overlayType,
         points: drawing.points,
         styles: drawing.styles,
-      });
+      };
+      if (drawing.extendData != null) opts.extendData = drawing.extendData;
+      chart.createOverlay(opts);
     }
   }
 
   function handleDrawingCreated(event) {
-    const { overlayId, overlayType, points, styles } = event.detail;
+    const { overlayId, overlayType, points, styles, extendData } = event.detail;
     const command = new CreateDrawingCommand(
       chart, drawingStore, currentSymbol, currentResolution,
-      overlayType, points, styles
+      overlayType, points, styles, extendData
     );
     command.overlayId = overlayId;
     commandStack.execute(command);

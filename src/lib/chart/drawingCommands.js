@@ -43,7 +43,7 @@ export class DrawingCommandStack {
 }
 
 export class CreateDrawingCommand {
-  constructor(chart, store, symbol, resolution, overlayType, points, styles) {
+  constructor(chart, store, symbol, resolution, overlayType, points, styles, extendData) {
     this.chart = chart;
     this.store = store;
     this.symbol = symbol;
@@ -51,27 +51,32 @@ export class CreateDrawingCommand {
     this.overlayType = overlayType;
     this.points = points;
     this.styles = styles;
+    this.extendData = extendData;
     this.overlayId = null;
     this.dbId = null;
   }
 
   execute() {
-    this.overlayId = this.chart.createOverlay({
+    const opts = {
       name: this.overlayType,
       points: this.points,
       styles: this.styles,
       onDrawEnd: null,
-    });
+    };
+    if (this.extendData != null) opts.extendData = this.extendData;
+    this.overlayId = this.chart.createOverlay(opts);
   }
 
   async persist() {
     if (this.overlayId) {
-      this.dbId = await this.store.save(this.symbol, this.resolution, {
+      const data = {
         overlayId: this.overlayId,
         overlayType: this.overlayType,
         points: this.points,
         styles: this.styles,
-      });
+      };
+      if (this.extendData != null) data.extendData = this.extendData;
+      this.dbId = await this.store.save(this.symbol, this.resolution, data);
     }
   }
 
@@ -102,11 +107,13 @@ export class DeleteDrawingCommand {
   }
 
   undo() {
-    this.chart.createOverlay({
+    const opts = {
       name: this.serializedOverlay.overlayType,
       id: this.serializedOverlay.overlayId,
       points: this.serializedOverlay.points,
       styles: this.serializedOverlay.styles,
-    });
+    };
+    if (this.serializedOverlay.extendData != null) opts.extendData = this.serializedOverlay.extendData;
+    this.chart.createOverlay(opts);
   }
 }

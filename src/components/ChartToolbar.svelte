@@ -70,6 +70,7 @@
             overlayType: event.overlay.name,
             points: event.overlay.points,
             styles: event.overlay.styles,
+            extendData: event.overlay.extendData,
           });
         }
         activeDrawingTool = null;
