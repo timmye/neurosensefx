@@ -5,7 +5,16 @@
     "context": ".."
   },
   "features": {
-    "ghcr.io/devcontainers/features/git:1": {}
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/postgres:1": {
+      "version": "13",
+      "username": "neurosensefx",
+      "password": "neurosensefx_dev_123",
+      "database": "neurosensefx_dev"
+    },
+    "ghcr.io/devcontainers/features/redis:1": {
+      "version": "7"
+    }
   },
   "customizations": {
     "vscode": {
