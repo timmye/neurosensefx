@@ -6,6 +6,8 @@
   export let currentWindow = '3M';
   export let chart = null;
   export let commandStack = null;
+  export let canUndo = false;
+  export let canRedo = false;
   export let activeDrawingTool = null;
   export let magnetMode = false;
 
@@ -158,7 +160,7 @@
     <button
       class="action-btn"
       title="Undo (Ctrl+Z)"
-      disabled={!commandStack?.canUndo}
+      disabled={!canUndo}
       on:click={handleUndo}
     >
       Undo
@@ -166,7 +168,7 @@
     <button
       class="action-btn"
       title="Redo (Ctrl+Y)"
-      disabled={!commandStack?.canRedo}
+      disabled={!canRedo}
       on:click={handleRedo}
     >
       Redo

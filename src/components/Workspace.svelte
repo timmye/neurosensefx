@@ -229,7 +229,7 @@
   style="display: none"
 />
 
-<div class="workspace-container" role="application">
+<div class="workspace-container" role="application" on:contextmenu|preventDefault>
   <BackgroundShader />
   <div class="workspace" role="region" tabindex="0" aria-label="Workspace" on:keydown={handleKeydown} on:keyup={handleKeyup}>
     {#each Array.from($workspaceStore.displays.values()) as display (display.id)}

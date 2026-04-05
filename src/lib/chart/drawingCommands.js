@@ -1,8 +1,17 @@
+import { writable, derived } from 'svelte/store';
+
 export class DrawingCommandStack {
   constructor(maxDepth = 50) {
     this.undoStack = [];
     this.redoStack = [];
     this.maxDepth = maxDepth;
+    this._update = writable(0);
+    this.canUndo = derived(this._update, () => this.undoStack.length > 0);
+    this.canRedo = derived(this._update, () => this.redoStack.length > 0);
+  }
+
+  _notify() {
+    this._update.set(n => n + 1);
   }
 
   execute(command) {
@@ -10,6 +19,7 @@ export class DrawingCommandStack {
     this.undoStack.push(command);
     this.redoStack = [];
     if (this.undoStack.length > this.maxDepth) this.undoStack.shift();
+    this._notify();
   }
 
   undo() {
@@ -17,6 +27,7 @@ export class DrawingCommandStack {
     if (cmd) {
       cmd.undo();
       this.redoStack.push(cmd);
+      this._notify();
     }
   }
 
@@ -24,21 +35,16 @@ export class DrawingCommandStack {
     const cmd = this.redoStack.pop();
     if (cmd) {
       cmd.execute();
+      if (cmd.persist) cmd.persist();
       this.undoStack.push(cmd);
+      this._notify();
     }
-  }
-
-  get canUndo() {
-    return this.undoStack.length > 0;
-  }
-
-  get canRedo() {
-    return this.redoStack.length > 0;
   }
 
   clear() {
     this.undoStack = [];
     this.redoStack = [];
+    this._notify();
   }
 }
 
@@ -57,14 +63,18 @@ export class CreateDrawingCommand {
   }
 
   execute() {
-    const opts = {
-      name: this.overlayType,
-      points: this.points,
-      styles: this.styles,
-      onDrawEnd: null,
-    };
-    if (this.extendData != null) opts.extendData = this.extendData;
-    this.overlayId = this.chart.createOverlay(opts);
+    // During initial creation the overlay already exists (created by user drawing).
+    // execute() is only called by redo(), which needs to re-create it.
+    if (!this.overlayId) {
+      const opts = {
+        name: this.overlayType,
+        points: this.points,
+        styles: this.styles,
+        onDrawEnd: null,
+      };
+      if (this.extendData != null) opts.extendData = this.extendData;
+      this.overlayId = this.chart.createOverlay(opts);
+    }
   }
 
   async persist() {
@@ -83,9 +93,11 @@ export class CreateDrawingCommand {
   undo() {
     if (this.overlayId) {
       this.chart.removeOverlay({ id: this.overlayId });
+      this.overlayId = null; // clear so redo() knows to re-create
     }
     if (this.dbId) {
       this.store.remove(this.dbId);
+      this.dbId = null;
     }
   }
 }

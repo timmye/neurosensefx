@@ -16,7 +16,9 @@
   import {
     DrawingCommandStack,
     CreateDrawingCommand,
+    DeleteDrawingCommand,
   } from '../lib/chart/drawingCommands.js';
+  import OverlayContextMenu from './OverlayContextMenu.svelte';
 
   export let display;
 
@@ -34,6 +36,14 @@
   let isMinimized = display.isMinimized ?? false;
 
   let commandStack = new DrawingCommandStack();
+  let canUndo = false;
+  let canRedo = false;
+  const unsubUndo = commandStack.canUndo.subscribe(v => canUndo = v);
+  const unsubRedo = commandStack.canRedo.subscribe(v => canRedo = v);
+  let selectedOverlayId = null;
+  let overlayDbIdMap = new Map(); // overlayId → dbId for delete command lookups
+  let contextMenu = { visible: false, x: 0, y: 0, overlayId: null };
+  let isOverlayLocked = false;
   let activeDrawingTool = null;
   let magnetMode = true;
   let resizeObserver = null;
@@ -199,17 +209,55 @@
     }
   }
 
+  function handleDocumentKeydown(e) {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (selectedOverlayId && chart) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleOverlayDelete(selectedOverlayId);
+      }
+    }
+  }
+
+  function getOverlayCallbacks() {
+    return {
+      onSelected: (event) => {
+        selectedOverlayId = event.overlay.id;
+      },
+      onDeselected: () => {
+        selectedOverlayId = null;
+      },
+      onRightClick: (event) => {
+        const overlay = event.overlay;
+        isOverlayLocked = overlay.lock;
+        contextMenu = {
+          visible: true,
+          x: event.pageX || event.x,
+          y: event.pageY || event.y,
+          overlayId: overlay.id,
+        };
+        return true; // prevent KLineChart default right-click behavior
+      },
+    };
+  }
+
   async function restoreDrawings(symbol, resolution) {
     const drawings = await drawingStore.load(symbol, resolution);
+    const callbacks = getOverlayCallbacks();
     for (const drawing of drawings) {
       const opts = {
         id: drawing.overlayId,
         name: drawing.overlayType,
         points: drawing.points,
         styles: drawing.styles,
+        ...callbacks,
       };
       if (drawing.extendData != null) opts.extendData = drawing.extendData;
       chart.createOverlay(opts);
+      overlayDbIdMap.set(drawing.overlayId, drawing.id);
+      if (drawing.locked) {
+        chart.overrideOverlay({ id: drawing.overlayId, lock: true });
+      }
     }
   }
 
@@ -221,7 +269,59 @@
     );
     command.overlayId = overlayId;
     commandStack.execute(command);
-    command.persist();
+    command.persist().then(dbId => {
+      overlayDbIdMap.set(overlayId, dbId);
+    });
+    // Attach interaction callbacks to the newly created overlay
+    chart.overrideOverlay({ id: overlayId, ...getOverlayCallbacks() });
+  }
+
+  async function handleOverlayDelete(overlayId) {
+    const overlay = chart.getOverlayById(overlayId);
+    if (!overlay) return;
+    const dbId = overlayDbIdMap.get(overlayId) || null;
+    const serialized = {
+      overlayId: overlay.id,
+      overlayType: overlay.name,
+      points: overlay.points,
+      styles: overlay.styles,
+      extendData: overlay.extendData,
+    };
+    const command = new DeleteDrawingCommand(chart, drawingStore, overlayId, dbId, serialized);
+    commandStack.execute(command);
+    overlayDbIdMap.delete(overlayId);
+    if (selectedOverlayId === overlayId) selectedOverlayId = null;
+  }
+
+  async function handleOverlayToggleLock(overlayId) {
+    const overlay = chart.getOverlayById(overlayId);
+    if (!overlay) return;
+    const newLock = !overlay.lock;
+    chart.overrideOverlay({ id: overlayId, lock: newLock });
+    // Persist lock state
+    const dbId = overlayDbIdMap.get(overlayId);
+    if (dbId) {
+      drawingStore.update(dbId, { locked: newLock });
+    }
+    isOverlayLocked = newLock;
+  }
+
+  function handleContextMenuDelete() {
+    if (contextMenu.overlayId) {
+      handleOverlayDelete(contextMenu.overlayId);
+    }
+    contextMenu.visible = false;
+  }
+
+  function handleContextMenuToggleLock() {
+    if (contextMenu.overlayId) {
+      handleOverlayToggleLock(contextMenu.overlayId);
+    }
+    contextMenu.visible = false;
+  }
+
+  function handleContextMenuClose() {
+    contextMenu.visible = false;
   }
 
   async function handleClearDrawings() {
@@ -494,6 +594,13 @@
       }
     };
     chartContainer?.addEventListener('wheel', wheelHandler, { passive: false });
+
+    // Focus chart-window on any canvas interaction so keyboard shortcuts work
+    chartContainer?.addEventListener('mousedown', () => element.focus());
+
+    // Document-level keydown for Delete key — div-level keydown is unreliable
+    // because KLineChart canvas doesn't propagate focus to the parent div
+    document.addEventListener('keydown', handleDocumentKeydown);
   });
 
   onDestroy(() => {
@@ -516,6 +623,7 @@
       chartContainer.removeEventListener('wheel', wheelHandler);
       wheelHandler = null;
     }
+    document.removeEventListener('keydown', handleDocumentKeydown);
     pendingDataApply = null;
 
     if (chart) {
@@ -529,6 +637,9 @@
     }
 
     commandStack.clear();
+    overlayDbIdMap.clear();
+    unsubUndo();
+    unsubRedo();
   });
 </script>
 
@@ -544,7 +655,7 @@
     onMinimize={handlers?.minimize} />
 
   {#if !isMinimized}
-    <ChartToolbar {currentResolution} {currentWindow} {chart} {commandStack}
+    <ChartToolbar {currentResolution} {currentWindow} {chart} {commandStack} {canUndo} {canRedo}
       bind:activeDrawingTool bind:magnetMode
       on:resolution={e => handleResolutionChange(e.detail)}
       on:window={e => handleWindowChange(e.detail)}
@@ -558,6 +669,14 @@
   {/if}
 
   <div class="resize-handle"></div>
+  <OverlayContextMenu
+    visible={contextMenu.visible}
+    x={contextMenu.x}
+    y={contextMenu.y}
+    isLocked={isOverlayLocked}
+    on:delete={handleContextMenuDelete}
+    on:toggleLock={handleContextMenuToggleLock}
+    on:close={handleContextMenuClose} />
 </div>
 
 <style>
