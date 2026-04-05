@@ -7,6 +7,7 @@
   import { createInteractConfig } from '../lib/interactSetup.js';
   import ChartHeader from './displays/ChartHeader.svelte';
   import ChartToolbar from './ChartToolbar.svelte';
+  import QuickRuler from './QuickRuler.svelte';
   import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange, getWindowTier } from '../lib/chart/chartConfig.js';
   import { setAxisChart, setAxisResolution, setAxisWindow } from '../lib/chart/xAxisCustom.js';
   import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
@@ -548,7 +549,10 @@
       on:drawingCreated={handleDrawingCreated}
       on:clearDrawings={handleClearDrawings} />
 
-    <div class="chart-canvas-container" bind:this={chartContainer}></div>
+    <div style="position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column;">
+      <div class="chart-canvas-container" bind:this={chartContainer}></div>
+      <QuickRuler {chart} {chartContainer} {currentSymbol} />
+    </div>
   {/if}
 
   <div class="resize-handle"></div>
