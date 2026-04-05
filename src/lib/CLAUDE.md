@@ -32,7 +32,7 @@
 | `marketProfile/` | Market Profile module (orchestrator, scaling, rendering, calculations) | See `marketProfile/CLAUDE.md` |
 | `fxBasket/` | FX Basket module (calculations, state machine, rendering, subscriptions) | See `fxBasket/CLAUDE.md` |
 | `connection/` | WebSocket connection management (handler, subscription, reconnection) | See `connection/CLAUDE.md` |
-| `chart/` | KLineChart configuration, drawing persistence, undo/redo command pattern | Adding chart features, modifying drawing tools, changing resolutions |
+| `chart/` | KLineChart configuration, transition-matrix x-axis, drawing persistence, undo/redo command pattern | Adding chart features, modifying drawing tools, changing resolutions, x-axis behavior |
 
 ## Price Markers
 

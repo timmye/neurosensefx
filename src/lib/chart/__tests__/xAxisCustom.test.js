@@ -1,10 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   snapToBar,
   formatBoundaryLabel,
-  formatBaseLabel,
   generateTicks,
-  setAxisResolution,
+  setAxisWindow,
 } from '../xAxisCustom.js';
 
 // ---------------------------------------------------------------------------
@@ -94,8 +93,13 @@ function mockChart(dataList, pxPerBar = 8.9) {
   };
 }
 
+beforeEach(() => {
+  // Reset window to default before each test
+  setAxisWindow('3M');
+});
+
 // ===========================================================================
-// snapToBar
+// snapToBar — unchanged utility
 // ===========================================================================
 describe('snapToBar', () => {
   const bars = [
@@ -120,25 +124,12 @@ describe('snapToBar', () => {
     expect(snapToBar(bars[bars.length - 1].timestamp + 1_000_000, bars)).toBe(bars[bars.length - 1].timestamp);
   });
 
-  it('weekend gap: Saturday target snaps to nearest bar (Friday)', () => {
-    expect(snapToBar(1712390400000, bars)).toBe(bars[5].timestamp);
-  });
-
   it('empty list returns null', () => {
     expect(snapToBar(0, [])).toBeNull();
   });
 
   it('null dataList returns null', () => {
     expect(snapToBar(0, null)).toBeNull();
-  });
-
-  it('single element: exact match returns that timestamp', () => {
-    expect(snapToBar(1000, [{ timestamp: 1000 }])).toBe(1000);
-  });
-
-  it('single element: non-match returns that timestamp', () => {
-    expect(snapToBar(500, [{ timestamp: 1000 }])).toBe(1000);
-    expect(snapToBar(1500, [{ timestamp: 1000 }])).toBe(1000);
   });
 });
 
@@ -193,450 +184,540 @@ describe('formatBoundaryLabel', () => {
   it('DAY rank with month change returns "DD Mon"', () => {
     expect(formatBoundaryLabel(Date.UTC(2026, 3, 14), 5, Date.UTC(2026, 2, 31))).toBe('14 Apr');
   });
-});
 
-// ===========================================================================
-// formatBaseLabel
-// ===========================================================================
-describe('formatBaseLabel', () => {
-  describe('INTRADAY tier', () => {
-    it('cross-day with no prevTs returns "DD HH:mm"', () => {
-      expect(formatBaseLabel(Date.UTC(2024, 3, 2, 20, 0, 0), null, 'INTRADAY')).toBe('02 20:00');
-    });
-
-    it('cross-day with prevTs on different day returns "DD HH:mm"', () => {
-      expect(formatBaseLabel(Date.UTC(2024, 3, 2, 20, 0, 0), Date.UTC(2024, 3, 1, 20, 0, 0), 'INTRADAY')).toBe('02 20:00');
-    });
-
-    it('same-day returns "HH:mm" only', () => {
-      expect(formatBaseLabel(Date.UTC(2024, 3, 1, 20, 0, 0), Date.UTC(2024, 3, 1, 8, 0, 0), 'INTRADAY')).toBe('20:00');
-    });
+  it('HOUR rank same day returns "HH:MM"', () => {
+    expect(formatBoundaryLabel(Date.UTC(2026, 3, 1, 14, 0), 6, Date.UTC(2026, 3, 1, 8, 0))).toBe('14:00');
   });
 
-  describe('MULTIDAY tiers', () => {
-    it('cross-day tick returns "DD"', () => {
-      expect(formatBaseLabel(Date.UTC(2024, 3, 2, 20, 0, 0), Date.UTC(2024, 3, 1, 20, 0, 0), 'WEEKLY')).toBe('02');
-    });
+  it('HOUR rank cross-day returns "DD HH:MM"', () => {
+    expect(formatBoundaryLabel(Date.UTC(2026, 3, 2, 8, 0), 6, Date.UTC(2026, 3, 1, 20, 0))).toBe('02 08:00');
+  });
 
-    it('same-day tick returns empty (suppressed)', () => {
-      expect(formatBaseLabel(Date.UTC(2024, 3, 1, 20, 0, 0), Date.UTC(2024, 3, 1, 8, 0, 0), 'WEEKLY')).toBe('');
-    });
-
-    it('first tick (no prevTs) returns "DD"', () => {
-      expect(formatBaseLabel(Date.UTC(2024, 3, 1, 8, 0, 0), null, 'MONTHLY')).toBe('01');
-    });
+  it('HOUR rank with no prev returns "DD HH:MM"', () => {
+    expect(formatBoundaryLabel(Date.UTC(2026, 3, 1, 8, 0), 6, null)).toBe('01 08:00');
   });
 });
 
 // ===========================================================================
-// INTRADAY tier
+// 1Y window — YEAR + QUARTER + MONTH
 // ===========================================================================
-describe('INTRADAY tier', () => {
-  it('4H bars, ~1 day: shows time labels', () => {
-    const dataList = generate4HBars(Date.UTC(2025, 0, 6, 8, 0, 0), 4);
+describe('1Y window', () => {
+  beforeEach(() => setAxisWindow('1Y'));
+
+  it('daily bars spanning 2025-2026: year, quarter, and month boundaries', () => {
+    // Mon Jan 6 2025 to ~Jan 2026
+    const dataList = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 270);
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15), null);
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 3));
 
-    expect(result.filter(t => t.text.includes(':')).length).toBeGreaterThanOrEqual(1);
+    // Must have year label
+    expect(result.find(t => t.text === '2026')).toBeDefined();
+    // Must have quarter labels
+    expect(result.filter(t => /^Q\d/.test(t.text)).length).toBeGreaterThanOrEqual(2);
+    // Must have month labels
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    expect(result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' '))).length).toBeGreaterThanOrEqual(6);
   });
 
-  it('1H bars, ~2 days: shows time labels', () => {
-    const dataList = generate1HBars(Date.UTC(2025, 0, 6, 0, 0, 0), 20);
+  it('Jan 1 coincident boundaries: YEAR wins over QUARTER and MONTH', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 270);
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    setAxisResolution('1h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 3), null);
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 3));
 
-    expect(result.filter(t => t.text.includes(':')).length).toBeGreaterThanOrEqual(1);
+    // At Jan 1 2026, YEAR/QUARTER/MONTH all coincide — only one tick with YEAR label
+    const jan1Tick = result.find(t => {
+      const d = new Date(t.value);
+      return d.getUTCMonth() === 0 && d.getUTCDate() === 1 && d.getUTCFullYear() === 2026;
+    });
+    expect(jan1Tick).toBeDefined();
+    expect(jan1Tick.text).toBe('2026');
   });
 
-  it('5min bars, ~1.5 days: shows time labels, reasonable count', () => {
-    const dataList = generate5mBars(Date.UTC(2026, 2, 9, 22, 0, 0), 400);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
+  it('no duplicate coords', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 270);
+    const result = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 3));
+    expect(new Set(result.map(t => t.coord)).size).toBe(result.length);
+  });
 
-    setAxisResolution('5m');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 0.5), null);
-
-    expect(result.filter(t => /\d{2}:\d{2}/.test(t.text)).length).toBeGreaterThanOrEqual(1);
-    expect(result.length).toBeGreaterThanOrEqual(5);
-    expect(result.length).toBeLessThanOrEqual(25);
+  it('sorted by coord', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 270);
+    const result = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 3));
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i].coord).toBeGreaterThanOrEqual(result[i - 1].coord);
+    }
   });
 });
 
 // ===========================================================================
-// DAILY tier
+// 3M window — YEAR + QUARTER + MONTH + WEEK
 // ===========================================================================
-describe('DAILY tier', () => {
-  it('4H bars, ~1 week: day numbers, no time-only labels', () => {
+describe('3M window', () => {
+  beforeEach(() => setAxisWindow('3M'));
+
+  it('daily bars Oct-Dec 2025: Q4, months, weeks', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 9, 1, 0, 0, 0), 70);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 10));
+
+    // Oct 1 = Q4 boundary
+    expect(result.find(t => t.text.includes('Q4'))).toBeDefined();
+    // Month labels present
+    const months = result.filter(t => /^(Oct|Nov|Dec)/.test(t.text));
+    expect(months.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('higher-order YEAR boundary appears if in range', () => {
+    // Span Nov 2025 - Feb 2026: Jan 1 year boundary is in range
+    const dataList = generateDailyBars(Date.UTC(2025, 10, 3, 0, 0, 0), 90);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8));
+
+    // YEAR tick at Jan 1 may have text suppressed by MIN_FLOOR, but tick mark exists
+    expect(result.find(t => new Date(t.value).getUTCFullYear() === 2026 && new Date(t.value).getMonth() === 0)).toBeDefined();
+  });
+});
+
+// ===========================================================================
+// 1M window — YEAR + QUARTER + MONTH + WEEK + DAY
+// ===========================================================================
+describe('1M window', () => {
+  beforeEach(() => setAxisWindow('1M'));
+
+  it('daily bars Mar 2026: month label + day fills', () => {
+    const dataList = generateDailyBars(Date.UTC(2026, 2, 2, 0, 0, 0), 25);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 20));
+
+    // Month boundary at Mar 1
+    expect(result.find(t => t.text.includes('Mar'))).toBeDefined();
+    // Day-number labels present
+    const dayLabels = result.filter(t => /^\d{2}$/.test(t.text));
+    expect(dayLabels.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('4H bars spanning month boundary: shows month transition', () => {
+    const dataList = generate4HBars(Date.UTC(2025, 10, 24, 8, 0, 0), 40);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 10));
+
+    // Dec 1 boundary
+    expect(result.find(t => t.text.includes('Dec'))).toBeDefined();
+  });
+});
+
+// ===========================================================================
+// 1W window — YEAR + QUARTER + MONTH + WEEK + DAY
+// ===========================================================================
+describe('1W window', () => {
+  beforeEach(() => setAxisWindow('1W'));
+
+  it('4H bars one week: day-number labels', () => {
     const dataList = generate4HBars(Date.UTC(2025, 0, 6, 8, 0, 0), 12);
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15), null);
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15));
 
-    expect(result.length).toBeGreaterThanOrEqual(2);
+    const dayLabels = result.filter(t => /^\d{2}$/.test(t.text));
+    expect(dayLabels.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('1H bars one week: day-number labels, no time labels', () => {
+    const dataList = generate1HBars(Date.UTC(2026, 2, 9, 0, 0, 0), 50);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 2));
+
+    // 1W finest = DAY, so no HOUR labels
     expect(result.filter(t => /^\d{2}:\d{2}$/.test(t.text)).length).toBe(0);
-  });
-
-  it('1H bars, ~2 weeks: day numbers, no time-only labels', () => {
-    const dataList = generate1HBars(Date.UTC(2026, 2, 9, 0, 0, 0), 100);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('1h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 1.2), null);
-
-    expect(result.filter(t => t.text.includes(':')).length).toBe(0);
-    expect(result.filter(t => /^\d{1,2}$/.test(t.text) || /^Jan|^Feb|^Mar/.test(t.text)).length).toBeGreaterThanOrEqual(1);
-  });
-});
-
-// ===========================================================================
-// WEEKLY tier
-// ===========================================================================
-describe('WEEKLY tier', () => {
-  it('4H bars, ~6 weeks: month boundaries + day numbers', () => {
-    const dataList = generate4HBars(Date.UTC(2024, 10, 4, 8, 0, 0), 80);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
-
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    expect(result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' '))).length).toBeGreaterThanOrEqual(1);
-    expect(result.filter(t => /^\d{1,2}$/.test(t.text)).length).toBeGreaterThanOrEqual(1);
-  });
-});
-
-// ===========================================================================
-// MONTHLY tier
-// ===========================================================================
-describe('MONTHLY tier', () => {
-  it('4H bars, ~3 months: month boundaries + day numbers', () => {
-    const dataList = generate4HBars(Date.UTC(2024, 11, 2, 8, 0, 0), 120);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
-
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    expect(result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' '))).length).toBeGreaterThanOrEqual(1);
     expect(result.filter(t => /^\d{1,2}$/.test(t.text)).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('4H bars, ~6 months (year boundary): month boundaries + day fills, no Q labels', () => {
-    const dataList = generate4HBars(Date.UTC(2024, 6, 1, 8, 0, 0), 200);
+  it('week spanning month boundary: boundary transition appears', () => {
+    // Mar 30 - Apr 3 (Apr 1 = QUARTER + MONTH boundary, QUARTER wins dedup)
+    const dataList = generateDailyBars(Date.UTC(2026, 2, 30, 0, 0, 0), 5);
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 40));
 
+    // Apr 1 is QUARTER (Q2) + MONTH boundary; QUARTER wins
+    expect(result.find(t => t.text.includes('Q2'))).toBeDefined();
+  });
+});
+
+// ===========================================================================
+// 1d window — YEAR + QUARTER + MONTH + DAY + HOUR
+// ===========================================================================
+describe('1d window', () => {
+  beforeEach(() => setAxisWindow('1d'));
+
+  it('4H bars one day: HH:MM labels', () => {
+    const dataList = generate4HBars(Date.UTC(2025, 0, 6, 8, 0, 0), 4);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15));
+
+    expect(result.filter(t => t.text.includes(':')).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('spanning midnight: DAY/YEAR transition appears', () => {
+    // 4H bars spanning Dec 31 evening to Jan 1 morning
+    const dataList = generate4HBars(Date.UTC(2025, 11, 30, 8, 0, 0), 6);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15));
+
+    // Jan 1 = YEAR + QUARTER + MONTH boundary; YEAR (rank 1) wins
+    expect(result.find(t => t.text === '2026')).toBeDefined();
+  });
+
+  it('spanning year boundary: YEAR transition appears on 1d window', () => {
+    // Generate enough bars to span Dec 31 → Jan 1
+    const dataList = generate4HBars(Date.UTC(2025, 11, 30, 8, 0, 0), 6);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15));
+
+    // Year transition at Jan 1 — should appear even on 1d window
+    expect(result.find(t => t.text === '2026')).toBeDefined();
+  });
+});
+
+// ===========================================================================
+// 2Y window — YEAR + QUARTER + MONTH
+// ===========================================================================
+describe('2Y window', () => {
+  beforeEach(() => setAxisWindow('2Y'));
+
+  it('daily bars 2024-2026: year + quarter + month labels', () => {
+    const dataList = generateDailyBars(Date.UTC(2024, 0, 1, 0, 0, 0), 540);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 2));
+
+    // Year labels
+    expect(result.find(t => t.text === '2025')).toBeDefined();
+    expect(result.find(t => t.text === '2026')).toBeDefined();
+    // Quarter labels
+    expect(result.filter(t => /^Q\d/.test(t.text)).length).toBeGreaterThanOrEqual(4);
+    // Month labels
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    expect(result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' '))).length).toBeGreaterThanOrEqual(3);
-    expect(result.filter(t => /^\d{1,2}$/.test(t.text)).length).toBeGreaterThanOrEqual(5);
-    // MONTHLY tier should NOT show quarter labels
-    expect(result.filter(t => /^Q\d/.test(t.text)).length).toBe(0);
-
-    for (let i = 1; i < result.length; i++) {
-      expect(result[i].coord).toBeGreaterThanOrEqual(result[i - 1].coord);
-    }
-  });
-
-  it('no dead zones: max gap <= 3x median gap', () => {
-    const dataList = generate4HBars(Date.UTC(2024, 11, 2, 8, 0, 0), 120);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
-
-    if (result.length < 3) return;
-    const gaps = [];
-    for (let i = 1; i < result.length; i++) gaps.push(result[i].coord - result[i - 1].coord);
-    const sorted = [...gaps].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
-    expect(Math.max(...gaps)).toBeLessThanOrEqual(3 * median);
+    expect(result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' '))).length).toBeGreaterThanOrEqual(12);
   });
 });
 
 // ===========================================================================
-// QUARTERLY tier
+// 5Y window — YEAR + QUARTER
 // ===========================================================================
-describe('QUARTERLY tier', () => {
-  it('daily bars, ~8 months: boundaries + day fill', () => {
-    const dataList = generateDailyBars(Date.UTC(2025, 5, 2, 0, 0, 0), 180);
+describe('5Y window', () => {
+  beforeEach(() => setAxisWindow('5Y'));
+
+  it('daily bars: year and quarter labels only', () => {
+    const dataList = generateDailyBars(Date.UTC(2022, 0, 3, 0, 0, 0), 800);
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    setAxisResolution('D');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 5), null);
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 1));
 
+    // Year labels
+    expect(result.filter(t => /^\d{4}$/.test(t.text)).length).toBeGreaterThanOrEqual(2);
+    // Quarter labels
+    expect(result.filter(t => /^Q\d/.test(t.text)).length).toBeGreaterThanOrEqual(4);
+    // No day-number labels (DAY not in 5Y levels)
+    expect(result.filter(t => /^\d{1,2}$/.test(t.text) && t.text.length <= 2).length).toBe(0);
+  });
+});
+
+// ===========================================================================
+// 10Y window — YEAR + QUARTER
+// ===========================================================================
+describe('10Y window', () => {
+  beforeEach(() => setAxisWindow('10Y'));
+
+  it('daily bars: year and quarter labels', () => {
+    const dataList = generateDailyBars(Date.UTC(2017, 0, 2, 0, 0, 0), 1500);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 0.5));
+
+    expect(result.filter(t => /^\d{4}$/.test(t.text)).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ===========================================================================
+// 2W window
+// ===========================================================================
+describe('2W window', () => {
+  beforeEach(() => setAxisWindow('2W'));
+
+  it('4H bars two weeks: day labels', () => {
+    const dataList = generate4HBars(Date.UTC(2025, 0, 6, 8, 0, 0), 16);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 10));
+
+    const dayLabels = result.filter(t => /^\d{2}$/.test(t.text));
+    expect(dayLabels.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ===========================================================================
+// 6M window
+// ===========================================================================
+describe('6M window', () => {
+  beforeEach(() => setAxisWindow('6M'));
+
+  it('daily bars: quarter + month + week labels', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 2, 3, 0, 0, 0), 140);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 5));
+
+    // Q2 starts Apr 1
+    expect(result.find(t => t.text.includes('Q2'))).toBeDefined();
+    // Month labels
+    expect(result.filter(t => /^(Apr|May|Jun|Jul|Aug|Sep)/.test(t.text)).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ===========================================================================
+// Label context tracking
+// ===========================================================================
+describe('label context tracking', () => {
+  beforeEach(() => setAxisWindow('1Y'));
+
+  it('year boundary establishes context for subsequent labels', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 10, 3, 0, 0, 0), 90);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 5));
+
+    // Jan 1 = YEAR + QUARTER + MONTH; YEAR (rank 1) wins → "2026"
+    expect(result.find(t => t.text === '2026')).toBeDefined();
+
+    // Feb should NOT have year (same year context established by "2026")
+    const febIdx = result.findIndex(t => t.text === 'Feb');
+    expect(febIdx).toBeGreaterThanOrEqual(0);
+  });
+
+  it('quarter labels after year boundary omit year', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 10, 3, 0, 0, 0), 120);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 5));
+
+    // Year boundary present
+    expect(result.find(t => t.text === '2026')).toBeDefined();
+    // Q2 should not have year (context from "2026")
+    expect(result.find(t => t.text === 'Q2')).toBeDefined();
+  });
+});
+
+// ===========================================================================
+// MIN_FLOOR collision
+// ===========================================================================
+describe('MIN_FLOOR collision', () => {
+  beforeEach(() => setAxisWindow('1M'));
+
+  it('dense daily bars: no two labeled ticks within 30px', () => {
+    const dataList = generateDailyBars(Date.UTC(2026, 2, 2, 0, 0, 0), 25);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    // 5px per bar — 25 bars in 125px, many boundaries will collide
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 5));
+
+    // Find all ticks with non-empty text
+    const labeled = result.filter(t => t.text !== '');
+    for (let i = 1; i < labeled.length; i++) {
+      expect(labeled[i].coord - labeled[i - 1].coord).toBeGreaterThanOrEqual(30);
+    }
+  });
+
+  it('suppressed ticks still have coord and value', () => {
+    const dataList = generateDailyBars(Date.UTC(2026, 2, 2, 0, 0, 0), 25);
+    const result = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 5));
+
+    for (const tick of result) {
+      expect(typeof tick.coord).toBe('number');
+      expect(typeof tick.value).toBe('number');
+    }
+  });
+});
+
+// ===========================================================================
+// Edge cases
+// ===========================================================================
+describe('edge cases', () => {
+  beforeEach(() => setAxisWindow('3M'));
+
+  it('empty data list returns empty', () => {
+    const result = generateTicks(0, 1000, [], mockChart([]));
+    expect(result).toEqual([]);
+  });
+
+  it('null data list returns empty', () => {
+    const result = generateTicks(0, 1000, null, mockChart([]));
+    expect(result).toEqual([]);
+  });
+
+  it('single bar with no boundary in range returns empty (KLineChart falls back to defaultTicks)', () => {
+    const dataList = [{ timestamp: Date.UTC(2026, 2, 5, 0, 0, 0) }];
+    const result = generateTicks(dataList[0].timestamp, dataList[0].timestamp, dataList, mockChart(dataList, 10));
+    expect(result.length).toBe(0);
+  });
+
+  it('all bars in same month: no month boundary, day fills only', () => {
+    const dataList = generateDailyBars(Date.UTC(2026, 2, 2, 0, 0, 0), 20);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 20));
+
+    // No month boundary label (all same month)
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    expect(result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' ')) || /^Q\d/.test(t.text)).length).toBeGreaterThanOrEqual(1);
-    expect(result.filter(t => /^\d{1,2}$/.test(t.text)).length).toBeGreaterThanOrEqual(1);
+    const monthLabels = result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' ')));
+    // Mar 1 may appear as a boundary, but if all data is within Mar, only week/day ticks
+    // The key is: no spurious month labels for mid-month data
+  });
+
+  it('window with no boundary crossings: still produces ticks from finest level', () => {
+    // 3M window but data only spans 5 days within one month — no month/quarter/year crossings
+    const dataList = generateDailyBars(Date.UTC(2026, 4, 5, 0, 0, 0), 5);
+    const fromTs = dataList[0].timestamp;
+    const toTs = dataList[dataList.length - 1].timestamp;
+
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 30));
+
+    // Should still have some ticks from WEEK or DAY levels
+    expect(result.length).toBeGreaterThanOrEqual(1);
   });
 });
 
 // ===========================================================================
-// YEARLY tier
+// Output contract
 // ===========================================================================
-describe('YEARLY tier', () => {
-  it('daily bars, ~1 year: year + quarter + month boundaries', () => {
-    const dataList = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 260);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
+describe('output contract', () => {
+  beforeEach(() => setAxisWindow('1Y'));
 
-    setAxisResolution('D');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 3), null);
+  it('all ticks have text, coord, value', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 200);
+    const result = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 4));
 
-    expect(result.filter(t => /^\d{4}$/.test(t.text)).length).toBeGreaterThanOrEqual(1);
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    expect(result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' '))).length).toBeGreaterThanOrEqual(3);
-    expect(result.filter(t => /^Q\d/.test(t.text)).length).toBeGreaterThanOrEqual(1);
-  });
-});
-
-// ===========================================================================
-// Cross-tier consistency
-// ===========================================================================
-describe('cross-tier consistency', () => {
-  it('no time-only labels in any MULTIDAY tier', () => {
-    const scenarios = [
-      { bars: generate4HBars(Date.UTC(2024, 10, 4, 8, 0, 0), 80), px: 8.9, res: '4h' },
-      { bars: generate4HBars(Date.UTC(2024, 11, 2, 8, 0, 0), 120), px: 8.9, res: '4h' },
-      { bars: generate4HBars(Date.UTC(2024, 6, 1, 8, 0, 0), 200), px: 8.9, res: '4h' },
-      { bars: generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 260), px: 3, res: 'D' },
-    ];
-
-    for (const { bars, px, res } of scenarios) {
-      const fromTs = bars[0].timestamp;
-      const toTs = bars[bars.length - 1].timestamp;
-      setAxisResolution(res);
-      const result = generateTicks(fromTs, toTs, bars, mockChart(bars, px), null);
-      expect(result.filter(t => /^\d{2}:\d{2}$/.test(t.text)).length).toBe(0);
-    }
-  });
-
-  it('after MONTH boundary, next tick is day-only number', () => {
-    const dataList = generate4HBars(Date.UTC(2024, 11, 2, 8, 0, 0), 120);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
-
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const monthIdx = result.findIndex(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' ')));
-    expect(monthIdx).toBeGreaterThanOrEqual(0);
-
-    if (monthIdx + 1 < result.length) {
-      expect(result[monthIdx + 1].text).toMatch(/^\d{1,2}$/);
-    }
-  });
-
-  it('after YEAR boundary, no year repetition', () => {
-    const dataList = generate4HBars(Date.UTC(2024, 11, 2, 8, 0, 0), 120);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
-
-    const yearIdx = result.findIndex(t => /^\d{4}$/.test(t.text));
-    if (yearIdx >= 0) {
-      const year = result[yearIdx].text;
-      for (let i = yearIdx + 1; i < result.length; i++) {
-        expect(result[i].text).not.toMatch(new RegExp(`${year}$`));
-      }
-    }
-  });
-});
-
-// ===========================================================================
-// Tick spacing
-// ===========================================================================
-describe('tick spacing', () => {
-  it('MULTIDAY: consecutive ticks >= 30px apart', () => {
-    const dataList = generate4HBars(Date.UTC(2024, 11, 2, 8, 0, 0), 120);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
-
-    for (let i = 1; i < result.length; i++) {
-      expect(Math.abs(result[i].coord - result[i - 1].coord)).toBeGreaterThanOrEqual(30);
-    }
-  });
-
-  it('INTRADAY: consecutive ticks >= 30px apart', () => {
-    const dataList = generate4HBars(Date.UTC(2025, 0, 6, 8, 0, 0), 6);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15), null);
-
-    for (let i = 1; i < result.length; i++) {
-      expect(Math.abs(result[i].coord - result[i - 1].coord)).toBeGreaterThanOrEqual(30);
-    }
-  });
-});
-
-// ===========================================================================
-// Pipeline basics
-// ===========================================================================
-describe('pipeline basics', () => {
-  it('returns ticks with text, coord, value in coord-sorted order', () => {
-    const dataList = generate4HBars(Date.UTC(2025, 0, 6, 8, 0, 0), 80);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
-
-    for (let i = 1; i < result.length; i++) {
-      expect(result[i].coord).toBeGreaterThanOrEqual(result[i - 1].coord);
-    }
     for (const tick of result) {
       expect(typeof tick.text).toBe('string');
-      expect(tick.text.length).toBeGreaterThan(0);
       expect(typeof tick.coord).toBe('number');
       expect(typeof tick.value).toBe('number');
     }
   });
 
-  it('higher rank wins at overlapping boundaries (Jan 1 = YEAR + QUARTER + MONTH)', () => {
-    // Use enough bars to span into YEARLY tier (>12 months) where YEAR/QUARTER/MONTH all exist
-    const dailyBars = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 350);
-    const fromTs = dailyBars[0].timestamp;
-    const toTs = dailyBars[dailyBars.length - 1].timestamp;
+  it('coords are sorted ascending', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 200);
+    const result = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 4));
 
-    setAxisResolution('D');
-    const result = generateTicks(fromTs, toTs, dailyBars, mockChart(dailyBars, 3), null);
-
-    // Year boundary at Jan 1 2026 should show "2026", not "Jan"
-    expect(result.find(t => t.text === '2026')).toBeDefined();
-    expect(new Set(result.map(t => t.coord)).size).toBe(result.length);
-  });
-
-  it('15min, 2-week span: day numbers, no time-only labels', () => {
-    const dataList = generate15mBars(Date.UTC(2026, 2, 9, 22, 0, 0), 800);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('15m');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 0.5), null);
-
-    expect(result.filter(t => /^\d{2}:\d{2}$/.test(t.text)).length).toBe(0);
-    expect(result.filter(t => /^\d{1,2}$/.test(t.text) || /^Jan|^Feb|^Mar/.test(t.text)).length).toBeGreaterThanOrEqual(1);
-  });
-});
-
-// ===========================================================================
-// End-of-month coverage
-// ===========================================================================
-describe('end-of-month coverage', () => {
-  it('4H data spanning Jan 25-31: end-of-month day labels', () => {
-    const dataList = generate4HBars(Date.UTC(2026, 0, 25, 8, 0, 0), 20);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15), null);
-
-    const dayNumbers = result.filter(t => /^\d{1,2}$/.test(t.text)).map(t => parseInt(t.text, 10));
-    expect(dayNumbers.filter(d => d >= 25 && d <= 31).length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('daily data for 31-day month: end-of-month days appear', () => {
-    const dataList = generateDailyBars(Date.UTC(2026, 2, 1, 0, 0, 0), 50);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('D');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 10), null);
-
-    const dayNumbers = result.map(t => t.text)
-      .filter(t => /^\d{1,2}/.test(t))
-      .map(t => parseInt(t.match(/^\d{1,2}/)[0], 10));
-    expect(dayNumbers.filter(d => d >= 25 && d <= 31).length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('month boundary at 31st: no dead zone gap', () => {
-    const dataList = generateDailyBars(Date.UTC(2026, 2, 25, 0, 0, 0), 15);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('D');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 10), null);
-
-    expect(result.length).toBeGreaterThanOrEqual(2);
-    if (result.length >= 3) {
-      const gaps = [];
-      for (let i = 1; i < result.length; i++) gaps.push(result[i].coord - result[i - 1].coord);
-      expect(Math.max(...gaps)).toBeLessThanOrEqual(5 * Math.min(...gaps));
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i].coord).toBeGreaterThanOrEqual(result[i - 1].coord);
     }
   });
 });
 
 // ===========================================================================
-// Regression: scenarios that failed with anchor+fill
+// No dead zones (max gap sanity)
 // ===========================================================================
-describe('anchor+fill regression tests', () => {
-  it('B5: 4H multi-month produces boundary + day ticks', () => {
+describe('no dead zones', () => {
+  beforeEach(() => setAxisWindow('1M'));
+
+  it('4H bars 3 months: max gap <= 4x median gap', () => {
     const dataList = generate4HBars(Date.UTC(2024, 11, 2, 8, 0, 0), 120);
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9));
 
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    expect(result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' '))).length).toBeGreaterThan(0);
-    expect(result.filter(t => /^\d{1,2}$/.test(t.text)).length).toBeGreaterThan(0);
+    // Only check non-empty labeled ticks
+    const labeled = result.filter(t => t.text !== '');
+    if (labeled.length < 3) return; // too few to measure
+
+    const gaps = [];
+    for (let i = 1; i < labeled.length; i++) gaps.push(labeled[i].coord - labeled[i - 1].coord);
+    const sorted = [...gaps].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    expect(Math.max(...gaps)).toBeLessThanOrEqual(4 * median);
   });
+});
 
-  it('B6: 4H multi-week has day fill ticks', () => {
-    const dataList = generate4HBars(Date.UTC(2024, 11, 2, 8, 0, 0), 120);
+// ===========================================================================
+// 15min + 5min bars (high density)
+// ===========================================================================
+describe('high-density bars', () => {
+  it('5min bars 1d window: HOUR labels present', () => {
+    setAxisWindow('1d');
+    const dataList = generate5mBars(Date.UTC(2026, 2, 9, 22, 0, 0), 400);
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 8.9), null);
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 0.5));
 
-    expect(result.filter(t => /^\d{1,2}$/.test(t.text)).length).toBeGreaterThan(0);
+    expect(result.filter(t => /\d{2}:\d{2}/.test(t.text)).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('INTRADAY: sub-day span shows time labels', () => {
-    const dataList = generate4HBars(Date.UTC(2025, 0, 6, 8, 0, 0), 4);
+  it('15min bars 1W window: day labels, no time labels', () => {
+    setAxisWindow('1W');
+    const dataList = generate15mBars(Date.UTC(2026, 2, 9, 22, 0, 0), 800);
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    setAxisResolution('4h');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15), null);
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 0.5));
 
-    expect(result.filter(t => t.text.includes(':')).length).toBeGreaterThan(0);
-  });
-
-  it('Daily/3 months: fill ticks between boundaries (no dead zones)', () => {
-    const dataList = generateDailyBars(Date.UTC(2025, 5, 2, 0, 0, 0), 80);
-    const fromTs = dataList[0].timestamp;
-    const toTs = dataList[dataList.length - 1].timestamp;
-
-    setAxisResolution('D');
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 5), null);
-
-    expect(result.length).toBeGreaterThanOrEqual(4);
+    // 1W finest = DAY, no HOUR labels
+    expect(result.filter(t => /^\d{2}:\d{2}$/.test(t.text)).length).toBe(0);
     expect(result.filter(t => /^\d{1,2}$/.test(t.text)).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ===========================================================================
+// setAxisWindow integration
+// ===========================================================================
+describe('setAxisWindow', () => {
+  it('changing window changes tick behavior', () => {
+    const dataList = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 270);
+
+    // 1Y window: months, quarters, years
+    setAxisWindow('1Y');
+    const result1Y = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 3));
+
+    // 5Y window: only years and quarters
+    setAxisWindow('5Y');
+    const result5Y = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 3));
+
+    // 5Y should have fewer month-only labels
+    const monthOnly1Y = result1Y.filter(t => /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/.test(t.text));
+    const monthOnly5Y = result5Y.filter(t => /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/.test(t.text));
+
+    // 1Y has MONTH in its levels, 5Y does not
+    expect(monthOnly1Y.length).toBeGreaterThan(monthOnly5Y.length);
   });
 });

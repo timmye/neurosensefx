@@ -28,7 +28,7 @@ export const TIME_WINDOW_GROUPS = [
 
 export const DEFAULT_RESOLUTION_WINDOW = {
   '1m': '1d', '5m': '2d', '10m': '2d', '15m': '2d', '30m': '1W',
-  '1h': '2W', '4h': '3M', '12h': '1Y', 'D': '1Y', 'W': '5Y', 'M': '5Y'
+  '1h': '2W', '4h': '3M', '12h': '6M', 'D': '1Y', 'W': '5Y', 'M': '10Y'
 };
 
 const RESOLUTION_TO_PERIOD = {
@@ -235,9 +235,31 @@ export const TICK_INTERVALS = [
   { name: 'YEAR',    durationMs: null,        rule: 'yearStart', calendar: true }
 ];
 
-// RESOLUTION_FLOOR — map of 11 resolutions to minimum interval names
+// RESOLUTION_FLOOR — map of 11 resolutions to minimum interval names (legacy)
 export const RESOLUTION_FLOOR = {
   '1m': '1MIN', '5m': '5MIN', '10m': '5MIN', '15m': '15MIN',
   '30m': '30MIN', '1h': '1HOUR', '4h': '1HOUR',
   '12h': '4HOUR', 'D': 'DAY', 'W': 'WEEK', 'M': 'MONTH'
+};
+
+// ---------------------------------------------------------------------------
+// Transition matrix — hardcoded per-window x-axis hierarchy
+//
+// Each window maps to an ordered list of calendar levels (coarse → fine).
+// Last entry = finest level (most ticks, acts as fill).
+// Higher-order transitions always fire when their boundary falls in range.
+// ---------------------------------------------------------------------------
+
+export const TRANSITION_MATRIX = {
+  '1d':  ['YEAR', 'QUARTER', 'MONTH', 'DAY', 'HOUR'],
+  '2d':  ['YEAR', 'QUARTER', 'MONTH', 'DAY', 'HOUR'],
+  '1W':  ['YEAR', 'QUARTER', 'MONTH', 'WEEK', 'DAY'],
+  '2W':  ['YEAR', 'QUARTER', 'MONTH', 'WEEK', 'DAY'],
+  '1M':  ['YEAR', 'QUARTER', 'MONTH', 'WEEK', 'DAY'],
+  '3M':  ['YEAR', 'QUARTER', 'MONTH', 'WEEK'],
+  '6M':  ['YEAR', 'QUARTER', 'MONTH', 'WEEK'],
+  '1Y':  ['YEAR', 'QUARTER', 'MONTH'],
+  '2Y':  ['YEAR', 'QUARTER', 'MONTH'],
+  '5Y':  ['YEAR', 'QUARTER'],
+  '10Y': ['YEAR', 'QUARTER'],
 };

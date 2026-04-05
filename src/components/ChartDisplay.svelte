@@ -8,7 +8,7 @@
   import ChartHeader from './displays/ChartHeader.svelte';
   import ChartToolbar from './ChartToolbar.svelte';
   import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange, getWindowTier } from '../lib/chart/chartConfig.js';
-  import { setAxisChart, setAxisResolution } from '../lib/chart/xAxisCustom.js';
+  import { setAxisChart, setAxisResolution, setAxisWindow } from '../lib/chart/xAxisCustom.js';
   import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
   import '../lib/chart/customOverlays.js';
   import { drawingStore } from '../lib/chart/drawingStore.js';
@@ -266,6 +266,7 @@
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
 
     setAxisResolution(newResolution);
+    setAxisWindow(currentWindow);
 
     loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
@@ -289,6 +290,7 @@
 
     currentWindow = newWindow;
 
+    setAxisWindow(currentWindow);
     loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { window: newWindow });
   }
@@ -395,6 +397,7 @@
     // Custom calendar-aware x-axis — activate via setPaneOptions (not setStyles)
     setAxisChart(chart);
     setAxisResolution(currentResolution);
+    setAxisWindow(currentWindow);
     chart.setPaneOptions({ id: 'x_axis_pane', axisOptions: { name: 'calendar' } });
 
     // Ensure the browser has completed layout before KLineChart reads dimensions
