@@ -1,4 +1,15 @@
 import { writable } from 'svelte/store';
+import { drawingStore } from '../lib/chart/drawingStore.js';
+
+function compareSemver(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+    if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+  }
+  return 0;
+}
 
 const initialState = {
   displays: new Map(),
@@ -244,6 +255,50 @@ const actions = {
         }
       }
 
+      // Restore drawings from export data (v1.1.0+)
+      try {
+        const version = data.version || '1.0.0';
+        if (compareSemver(version, '1.1.0') >= 0 && data.drawings) {
+          for (const [key, drawings] of Object.entries(data.drawings)) {
+            const [symbol, resolution] = key.split('|');
+            if (!symbol || !resolution) continue;
+
+            try {
+              // Snapshot existing drawings for rollback on save failure
+              const snapshot = await drawingStore.load(symbol, resolution);
+
+              await drawingStore.clearAll(symbol, resolution);
+
+              for (const drawing of drawings) {
+                try {
+                  // Omit id/createdAt/updatedAt so Dexie auto-generates fresh values
+                  const { id, createdAt, updatedAt, ...rest } = drawing;
+                  await drawingStore.save(symbol, resolution, rest);
+                } catch (saveErr) {
+                  console.error(`Failed to save drawing for ${symbol}/${resolution}:`, saveErr);
+                  // Abort remaining saves for this pair, attempt rollback
+                  try {
+                    for (const s of snapshot) {
+                      // Preserve original ids during rollback for exact state restoration
+                      await drawingStore.save(symbol, resolution, s);
+                    }
+                  } catch (rollbackErr) {
+                    console.error(`Rollback failed for ${symbol}/${resolution}:`, rollbackErr);
+                  }
+                  break;
+                }
+              }
+            } catch (clearErr) {
+              console.error(`Failed to clear drawings for ${symbol}/${resolution}:`, clearErr);
+              continue;
+            }
+          }
+        }
+      } catch (drawingErr) {
+        // Drawing restore failures do not block display restoration
+        console.error('Drawing restoration error (non-fatal):', drawingErr);
+      }
+
       // Add displays in batches to avoid rate limiting
       for (let i = 0; i < displays.length; i += batchSize) {
         const batch = displays.slice(i, i + batchSize);
@@ -268,7 +323,7 @@ const actions = {
     }
   },
 
-  exportWorkspace: () => {
+  exportWorkspace: async () => {
     try {
       const state = workspaceStore.getState();
       const priceMarkers = {};
@@ -281,14 +336,31 @@ const actions = {
         }
       }
 
+      // Collect drawings from IndexedDB for each chart display
+      const drawings = {};
+      for (const display of state.displays.values()) {
+        if (display.symbol && display.resolution) {
+          try {
+            const displayDrawings = await drawingStore.load(display.symbol, display.resolution);
+            if (displayDrawings.length > 0) {
+              drawings[`${display.symbol}|${display.resolution}`] = displayDrawings;
+            }
+          } catch (err) {
+            // Partial export is better than total failure
+            console.warn(`Failed to load drawings for ${display.symbol}/${display.resolution}:`, err);
+          }
+        }
+      }
+
       const exportData = {
-        version: '1.0.0',
+        version: '1.1.0',
         timestamp: new Date().toISOString(),
         workspace: {
           displays: Array.from(state.displays.entries()),
           nextZIndex: state.nextZIndex
         },
-        priceMarkers
+        priceMarkers,
+        drawings
       };
 
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -302,6 +374,7 @@ const actions = {
       console.log('Workspace exported successfully');
     } catch (error) {
       console.error('Failed to export workspace:', error);
+      throw error;
     }
   },
 

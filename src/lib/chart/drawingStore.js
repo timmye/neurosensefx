@@ -35,3 +35,8 @@ export const drawingStore = {
     return db.drawings.where({ symbol, resolution }).delete();
   },
 };
+
+// Expose to window for E2E test access (seed/verify drawings)
+if (typeof window !== 'undefined') {
+  window.drawingStore = drawingStore;
+}

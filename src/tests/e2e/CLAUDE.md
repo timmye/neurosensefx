@@ -18,4 +18,5 @@ Frontend E2E browser tests (Playwright).
 | `previous-day-ohlc.spec.js` | Previous day OHLC data validation | Testing OHLC data accuracy |
 | `prevDay-ohlc-simple.spec.js` | Simplified previous day OHLC tests | Quick OHLC verification |
 | `chart-display.spec.js` | Chart display "c" key workflow (10 tests: create, dimensions, minimize/restore, toolbar buttons, resolution switching, store persistence, console errors) | Testing chart window creation, toolbar interactions, state management |
+| `workspace-drawing-persistence.spec.js` | Drawing export/import round-trip (v1.1.0 drawings in IndexedDB, v1.0.0 backward compat, full round-trip) | Testing drawing persistence across workspace export/import |
 | `QUICK_START.md` | Quick start guide for running E2E tests | Getting started with test execution |
