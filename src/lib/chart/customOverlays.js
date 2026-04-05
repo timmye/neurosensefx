@@ -94,6 +94,46 @@ registerOverlay({
 });
 
 /**
+ * Arrow overlay — 2 clicks (tail → head) with filled arrowhead.
+ * Arrowhead: 3:1 ratio (base:depth), 30px long, filled black.
+ */
+registerOverlay({
+  name: 'arrowOverlay',
+  totalStep: 3,
+  needDefaultPointFigure: true,
+  needDefaultXAxisFigure: true,
+  needDefaultYAxisFigure: true,
+  createPointFigures: ({ coordinates }) => {
+    if (coordinates.length !== 2) return [];
+    const [tail, head] = coordinates;
+    const dx = head.x - tail.x;
+    const dy = head.y - tail.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) return [];
+    const ux = dx / len;
+    const uy = dy / len;
+    const px = -uy;
+    const py = ux;
+    const depth = 30;
+    const halfWidth = 5;
+    return [
+      { type: 'line', attrs: { coordinates: [tail, head] }, styles: { color: '#333333' } },
+      {
+        type: 'polygon',
+        attrs: {
+          coordinates: [
+            head,
+            { x: head.x - depth * ux + halfWidth * px, y: head.y - depth * uy + halfWidth * py },
+            { x: head.x - depth * ux - halfWidth * px, y: head.y - depth * uy - halfWidth * py },
+          ]
+        },
+        styles: { style: 'fill', color: '#333333' }
+      }
+    ];
+  }
+});
+
+/**
  * Interactive annotation — replaces built-in simpleAnnotation.
  * Built-in version sets ignoreEvent:true on all figures, making overlays
  * non-selectable. This version removes that flag so click/select/right-click work.

@@ -33,6 +33,7 @@
     { id: 'circleOverlay', label: '\u25CB', title: 'Circle' },
     { id: 'polygonOverlay', label: '\u25B3', title: 'Triangle' },
     { id: 'arcOverlay', label: '\u23DB', title: 'Arc' },
+    { id: 'arrowOverlay', label: '\u2192', title: 'Arrow' },
     { id: 'priceLine', label: 'Pl', title: 'Price Line' },
     { id: 'simpleAnnotation', label: '\u270E', title: 'Annotation' },
     { id: 'simpleTag', label: 'Tag', title: 'Tag' },
@@ -95,6 +96,25 @@
   function handleRedo() {
     if (commandStack) {
       commandStack.redo();
+    }
+  }
+
+  let clearHoldTimer = null;
+  let clearHolding = false;
+
+  function handleClearDown() {
+    clearHolding = true;
+    clearHoldTimer = setTimeout(() => {
+      clearHolding = false;
+      handleClearDrawings();
+    }, 800);
+  }
+
+  function handleClearUp() {
+    clearHolding = false;
+    if (clearHoldTimer) {
+      clearTimeout(clearHoldTimer);
+      clearHoldTimer = null;
     }
   }
 
@@ -175,8 +195,11 @@
     </button>
     <button
       class="action-btn clear-btn"
-      title="Clear All Drawings"
-      on:click={handleClearDrawings}
+      class:clear-holding={clearHolding}
+      title="Hold to Clear All Drawings"
+      on:pointerdown={handleClearDown}
+      on:pointerup={handleClearUp}
+      on:pointerleave={handleClearUp}
     >
       Clear
     </button>
@@ -273,7 +296,7 @@
   }
 
   .action-btn {
-    background: #FFFFFF;
+    background-color: #FFFFFF;
     border: 1px solid #CCCCCC;
     color: #555555;
     padding: 2px 7px;
@@ -304,8 +327,18 @@
     cursor: default;
   }
 
-  .clear-btn:hover:not(:disabled) {
-    background: #fce4e4;
+  .clear-btn {
+    transition: background-color 800ms linear, border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .clear-btn.clear-holding {
+    background-color: #bb2719;
+    border-color: #bb2719;
+    color: #FFFFFF;
+  }
+
+  .clear-btn:hover:not(:disabled):not(.clear-holding) {
+    background-color: #fce4e4;
     border-color: #bb2719;
     color: #bb2719;
   }
