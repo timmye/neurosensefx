@@ -168,6 +168,10 @@ frontend.log
 .serena/
 .roomodes
 
+# Secrets
+secrets/
+!secrets/*.example
+
 # AI Memory Banks
 memory-bank/
 _archive_memory-bank/

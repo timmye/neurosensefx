@@ -58,7 +58,7 @@
     // Fibonacci lines use dark red, everything else uses default (dk green)
     const fibStyles = tool.id === 'fibonacciLine' ? {
       line: { color: '#bb2719' },
-      text: { color: '#FFFFFF', backgroundColor: '#bb2719' }
+      text: { color: '#bb2719', backgroundColor: '#FFFFFF' }
     } : undefined;
 
     const overlayCreate = {
