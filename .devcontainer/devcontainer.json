@@ -25,5 +25,6 @@
     "source=${localWorkspaceFolder}/dist,target=/workspaces/neurosensefx/dist,type=bind"
   ],
   "remoteUser": "node",
-  "postCreateCommand": "npm install && ./scripts/setup_claude.sh"
+  "postCreateCommand": "npm install && ./scripts/setup_claude.sh && ./scripts/setup_codespace_db.sh",
+  "postStartCommand": "./scripts/setup_codespace_db.sh"
 }
