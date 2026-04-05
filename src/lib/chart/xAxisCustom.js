@@ -18,16 +18,9 @@ import { RESOLUTION_FLOOR, TICK_INTERVALS } from './chartConfig.js';
 // Single-instance only. Multi-chart support requires WeakMap keyed on chart instance.
 let _chart = null;
 let _resolution = '4h';
-let _tickTextStyles = null;
 
 export function setAxisChart(chart) {
   _chart = chart;
-  if (chart) {
-    const styles = chart.getStyles?.();
-    if (styles?.xAxis?.tickText) {
-      _tickTextStyles = styles.xAxis.tickText;
-    }
-  }
 }
 
 export function setAxisResolution(resolution) {
@@ -77,20 +70,19 @@ function classifySpan(spanMs) {
 // ---------------------------------------------------------------------------
 
 const STRATEGY = {
-  INTRADAY:  { boundaries: ['DAY'],                                           fillMs: null /* overridden by getFillMs */, fillStep: 1 },
-  DAILY:     { boundaries: ['MONTH', 'QUARTER', 'YEAR'],                      fillMs: 12 * 3600000, fillStep: 1 },
-  WEEKLY:    { boundaries: ['MONTH', 'QUARTER', 'YEAR'],                      fillMs: MS_PER_DAY,    fillStep: 1 },
-  MONTHLY:   { boundaries: ['MONTH', 'QUARTER'],                              fillMs: 12 * 3600000, fillStep: 2 },
-  QUARTERLY: { boundaries: ['MONTH', 'QUARTER'],                              fillMs: MS_PER_DAY,    fillStep: 3 },
-  YEARLY:    { boundaries: ['MONTH', 'QUARTER', 'YEAR'],                      fillMs: MS_PER_MONTH,  fillStep: 1 },
+  INTRADAY:  { boundaries: [],                           fillMs: null, fillStep: 1 },
+  DAILY:     { boundaries: ['MONTH'],                    fillMs: MS_PER_DAY, fillStep: 1 },
+  WEEKLY:    { boundaries: ['MONTH'],                    fillMs: MS_PER_DAY, fillStep: 1 },
+  MONTHLY:   { boundaries: ['MONTH'],                    fillMs: MS_PER_DAY, fillStep: 1 },
+  QUARTERLY: { boundaries: ['MONTH', 'QUARTER'],         fillMs: MS_PER_DAY, fillStep: 1 },
+  YEARLY:    { boundaries: ['MONTH', 'QUARTER', 'YEAR'], fillMs: MS_PER_DAY, fillStep: 1 },
 };
 
 // For INTRADAY, use the resolution's own floor interval for fill
 function getFillMs(tier) {
   if (tier !== 'INTRADAY') return STRATEGY[tier].fillMs;
   const floorName = RESOLUTION_FLOOR[_resolution];
-  if (!floorName) return 3600000; // 1HOUR default
-  return INTERVAL_MS[floorName] || 3600000;
+  return INTERVAL_MS[floorName] || 3600000; // 1HOUR default
 }
 
 // ---------------------------------------------------------------------------
@@ -181,26 +173,6 @@ function rankForBoundary(type) {
 }
 
 // ---------------------------------------------------------------------------
-// calcTextWidth
-// ---------------------------------------------------------------------------
-
-const _canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-const _ctx = _canvas?.getContext('2d') || null;
-const _widthCache = new Map();
-
-export function calcTextWidth(text, size, weight, family) {
-  if (!text) return 0;
-  const key = `${text}|${size || 12}|${weight || 'normal'}|${family || 'Helvetica Neue'}`;
-  const cached = _widthCache.get(key);
-  if (cached !== undefined) return cached;
-  if (!_ctx) return text.length * 7;
-  _ctx.font = `${weight || 'normal'} ${size || 12}px ${family || 'Helvetica Neue'}`;
-  const width = _ctx.measureText(text).width;
-  _widthCache.set(key, width);
-  return width;
-}
-
-// ---------------------------------------------------------------------------
 // Label formatters
 // ---------------------------------------------------------------------------
 
@@ -245,6 +217,7 @@ export function formatBoundaryLabel(ts, rank, prevTs) {
 export function formatBaseLabel(ts, prevTs, tier) {
   const d = new Date(ts);
   const prev = prevTs != null ? new Date(prevTs) : null;
+  const year = d.getUTCFullYear();
   const day = d.getUTCDate();
   const month = d.getUTCMonth();
   const hours = pad2(d.getUTCHours());
@@ -252,12 +225,12 @@ export function formatBaseLabel(ts, prevTs, tier) {
 
   if (tier === 'INTRADAY') {
     const timeLabel = `${hours}:${mins}`;
-    const crossedDay = !prev || prev.getUTCDate() !== day || prev.getUTCMonth() !== month;
+    const crossedDay = !prev || prev.getUTCFullYear() !== year || prev.getUTCMonth() !== month || prev.getUTCDate() !== day;
     return crossedDay ? `${pad2(day)} ${timeLabel}` : timeLabel;
   }
 
   // MULTIDAY tiers: show day number for cross-day ticks, suppress same-day
-  const crossedDay = !prev || prev.getUTCDate() !== day || prev.getUTCMonth() !== month;
+  const crossedDay = !prev || prev.getUTCFullYear() !== year || prev.getUTCMonth() !== month || prev.getUTCDate() !== day;
   if (!crossedDay) return '';
   return pad2(day);
 }
@@ -266,7 +239,7 @@ export function formatBaseLabel(ts, prevTs, tier) {
 // generateTicks — single-pass sweep using strategy matrix
 // ---------------------------------------------------------------------------
 
-export function generateTicks(fromTs, toTs, dataList, chart, tickTextStyles) {
+export function generateTicks(fromTs, toTs, dataList, chart) {
   if (!dataList || dataList.length === 0) return [];
 
   const spanMs = toTs - fromTs;
@@ -315,34 +288,37 @@ export function generateTicks(fromTs, toTs, dataList, chart, tickTextStyles) {
 
   // Sort by coord, then deduplicate: when two candidates are within MIN_FLOOR,
   // keep the one with the higher rank (lower number).
-  // Same-rank boundaries at different calendar dates are both kept.
+  // Two-pass: group into windows of MIN_FLOOR, keep highest rank per window.
   candidates.sort((a, b) => a.coord - b.coord);
   const placed = [];
-  for (const c of candidates) {
-    let dominated = false;
-    for (let j = placed.length - 1; j >= 0; j--) {
-      const p = placed[j];
-      if (Math.abs(c.coord - p.coord) < MIN_FLOOR) {
-        if (c.rank < p.rank) {
-          // New candidate strictly outranks existing — remove existing
-          placed.splice(j, 1);
-        } else if (c.rank === p.rank) {
-          // Same rank at different dates — both are valid, don't dominate
-          break;
-        } else {
-          // New candidate has lower rank (higher number) — dominated
-          dominated = true;
-        }
-        break;
-      }
+  for (let ci = 0; ci < candidates.length; ) {
+    // Find the window: all candidates within MIN_FLOOR of candidates[ci]
+    const windowStart = candidates[ci].coord;
+    let windowEnd = windowStart + MIN_FLOOR;
+    let best = candidates[ci];
+    let wi = ci + 1;
+    while (wi < candidates.length && candidates[wi].coord < windowEnd) {
+      if (candidates[wi].rank < best.rank) best = candidates[wi];
+      wi++;
     }
-    if (!dominated) {
-      placed.push(c);
-    }
+    placed.push(best);
+    ci = wi;
   }
 
   // Sort placed boundaries by coord
   placed.sort((a, b) => a.coord - b.coord);
+
+  // Post-dedup: merge any adjacent entries closer than MIN_FLOOR (keep higher rank)
+  for (let i = placed.length - 1; i > 0; i--) {
+    if (placed[i].coord - placed[i - 1].coord < MIN_FLOOR) {
+      // Keep the higher-ranked one (lower rank number); remove the other
+      if (placed[i].rank < placed[i - 1].rank) {
+        placed.splice(i - 1, 1);
+      } else {
+        placed.splice(i, 1);
+      }
+    }
+  }
 
   // --- Step 2: Fill ticks ---
   // Walk bars left-to-right, placing fill ticks at the strategy's interval.
@@ -372,6 +348,7 @@ export function generateTicks(fromTs, toTs, dataList, chart, tickTextStyles) {
 
   for (let i = 0; i < dataList.length; i++) {
     const bar = dataList[i];
+    if (bar.timestamp > toTs) break;
     const coord = barCoord(chart, i);
     if (coord == null) continue;
 
@@ -383,7 +360,7 @@ export function generateTicks(fromTs, toTs, dataList, chart, tickTextStyles) {
 
     if (placedCoords.has(coord)) continue;
 
-    // Check if this bar aligns with the fill interval (relative to fromTs)
+    // Check if this bar aligns with the fill interval
     const offsetFromStart = bar.timestamp - fromTs;
     if (offsetFromStart < 0) continue;
     if (offsetFromStart % actualFillMs !== 0) continue;
@@ -484,7 +461,7 @@ registerXAxis({
     const toTs = dataList[to].timestamp;
     const visibleSpanMs = toTs - fromTs;
 
-    const result = generateTicks(fromTs, toTs, dataList, _chart, _tickTextStyles);
+    const result = generateTicks(fromTs, toTs, dataList, _chart);
 
     if (result.length === 0) {
       console.warn('[calendarAxis] createTicks produced 0 ticks', {

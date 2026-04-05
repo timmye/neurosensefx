@@ -61,8 +61,6 @@
    * The primary call uses 'HH:mm' format for within-period labels.
    */
   function formatAxisLabel(dateTimeFormat, timestamp, format, type) {
-    if (type !== 2) return dateTimeFormat.format(new Date(timestamp));
-
     const d = new Date(timestamp);
     const year = d.getUTCFullYear();
     const month = d.getUTCMonth();
@@ -70,23 +68,26 @@
     const hour = d.getUTCHours();
     const minute = d.getUTCMinutes();
 
+    // Crosshair/tooltip (type !== 2): always ISO format
+    if (type !== 2) return `${year}-${pad2(month + 1)}-${pad2(day)} ${pad2(hour)}:${pad2(minute)}`;
+
     // Transition detection — pure date components that change when date changes
     // KLineChart compares these strings between adjacent ticks to detect transitions
     if (format === 'YYYY')              return `${year}`;
     if (format === 'YYYY-MM')           return `${year}-${pad2(month + 1)}`;
-    if (format === 'MM-DD')             return `${pad2(month + 1)}-${pad2(day)}`;
+    if (format === 'MM-DD')             return `${pad2(day)}-${pad2(month + 1)}`;
     if (format === 'YYYY-MM-DD HH:mm')  return `${year}-${pad2(month + 1)}-${pad2(day)} ${pad2(hour)}:${pad2(minute)}`;
 
     // Primary display (format === 'HH:mm') — tier-based formatting
     const tier = getWindowTier(currentWindow);
     switch (tier) {
       case 'INTRADAY':  return `${pad2(hour)}:${pad2(minute)}`;
-      case 'DAILY':     return `${pad2(month + 1)}-${pad2(day)}`;
-      case 'WEEKLY':    return `${pad2(month + 1)}-${pad2(day)}`;
+      case 'DAILY':     return `${pad2(day)}-${pad2(month + 1)}`;
+      case 'WEEKLY':    return `${pad2(day)}-${pad2(month + 1)}`;
       case 'MONTHLY':   return shortMonths[month];
       case 'QUARTERLY': return `${shortMonths[month]} ${year}`;
       case 'YEARLY':    return `${year}`;
-      default:          return dateTimeFormat.format(d);
+      default:          return `${year}-${pad2(month + 1)}-${pad2(day)} ${pad2(hour)}:${pad2(minute)}`;
     }
   }
 

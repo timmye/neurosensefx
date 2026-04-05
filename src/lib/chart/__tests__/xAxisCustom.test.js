@@ -332,7 +332,7 @@ describe('MONTHLY tier', () => {
     expect(result.filter(t => /^\d{1,2}$/.test(t.text)).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('4H bars, ~6 months (year boundary): full hierarchy', () => {
+  it('4H bars, ~6 months (year boundary): month boundaries + day fills, no Q labels', () => {
     const dataList = generate4HBars(Date.UTC(2024, 6, 1, 8, 0, 0), 200);
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
@@ -343,7 +343,8 @@ describe('MONTHLY tier', () => {
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     expect(result.filter(t => monthNames.some(m => t.text === m || t.text.startsWith(m + ' '))).length).toBeGreaterThanOrEqual(3);
     expect(result.filter(t => /^\d{1,2}$/.test(t.text)).length).toBeGreaterThanOrEqual(5);
-    expect(result.filter(t => /^Q\d/.test(t.text)).length).toBeGreaterThanOrEqual(1);
+    // MONTHLY tier should NOT show quarter labels
+    expect(result.filter(t => /^Q\d/.test(t.text)).length).toBe(0);
 
     for (let i = 1; i < result.length; i++) {
       expect(result[i].coord).toBeGreaterThanOrEqual(result[i - 1].coord);
@@ -515,20 +516,15 @@ describe('pipeline basics', () => {
   });
 
   it('higher rank wins at overlapping boundaries (Jan 1 = YEAR + QUARTER + MONTH)', () => {
-    const dailyBars = [
-      { timestamp: Date.UTC(2025, 11, 28, 0, 0, 0) },
-      { timestamp: Date.UTC(2025, 11, 29, 0, 0, 0) },
-      { timestamp: Date.UTC(2025, 11, 30, 0, 0, 0) },
-      { timestamp: Date.UTC(2025, 11, 31, 0, 0, 0) },
-      { timestamp: Date.UTC(2026, 0, 1, 0, 0, 0) },
-      { timestamp: Date.UTC(2026, 0, 2, 0, 0, 0) },
-    ];
+    // Use enough bars to span into YEARLY tier (>12 months) where YEAR/QUARTER/MONTH all exist
+    const dailyBars = generateDailyBars(Date.UTC(2025, 0, 6, 0, 0, 0), 350);
+    const fromTs = dailyBars[0].timestamp;
+    const toTs = dailyBars[dailyBars.length - 1].timestamp;
 
     setAxisResolution('D');
-    const result = generateTicks(
-      Date.UTC(2025, 11, 28), Date.UTC(2026, 0, 2), dailyBars, mockChart(dailyBars, 3), null
-    );
+    const result = generateTicks(fromTs, toTs, dailyBars, mockChart(dailyBars, 3), null);
 
+    // Year boundary at Jan 1 2026 should show "2026", not "Jan"
     expect(result.find(t => t.text === '2026')).toBeDefined();
     expect(new Set(result.map(t => t.coord)).size).toBe(result.length);
   });
