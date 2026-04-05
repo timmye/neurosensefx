@@ -1,5 +1,9 @@
 # Plan
 
+> **Status: Code complete, not yet deployed** — Commit 2e2dc86 (2026-04-05)
+> All 7 milestones coded across 7 execution waves. QR findings fixed. 21/21 mocked E2E tests pass.
+> **Not verified against a live backend** — no PostgreSQL/Redis available in Codespaces; 11 integration tests skipped.
+
 ## Overview
 
 NeuroSense FX has no authentication. Anyone who discovers the WebSocket URL can subscribe to all market data through the cTrader API connection. User data (workspace layout, chart drawings, price markers) is client-side only (localStorage + IndexedDB) and lost on browser data clear, device switch, or private browsing. The app is designed for single-VPS deployment but has no multi-user enforcement.
@@ -3635,3 +3639,84 @@ The backend is a pure WebSocket server (ws library) with no HTTP framework. Addi
 - W-005: M-005
 - W-006: M-006
 - W-007: M-007
+
+## Implementation Record
+
+- **Commit**: 2e2dc86
+- **Date**: 2026-04-05
+- **Waves**: 7 sequential waves (W-001 through W-007)
+- **Files created**: 10 (02-auth-tables.sql, ssl.conf, httpServer.js, sessionManager.js, middleware.js, db.js, authRoutes.js, persistenceRoutes.js, authStore.js, LoginForm.svelte)
+- **Files modified**: 12 (docker-compose.yml, frontend.conf, displayDataProcessor.js, WebSocketServer.js, server.js, package.json, App.svelte, Workspace.svelte, PriceMarkerManager.svelte, workspace.js, priceMarkerPersistence.js, drawingStore.js)
+- **QR findings fixed**: 5 (migration-once flag, dead code removal, pool.query optimization, unused session params, password error message)
+- **Build verification**: All backend files pass `node -c`, frontend Vite build succeeds
+
+## E2E Test Verification
+
+> Date: 2026-04-05
+> Environment: Codespaces (no Docker/PG/Redis — integration tests auto-skipped)
+
+### Test Suites Created
+
+| Suite | File | Mocked | Integration | Status |
+|-------|------|--------|-------------|--------|
+| Auth Flow | `src/tests/e2e/auth-flow.spec.js` | 12 pass | 6 skipped | All pass |
+| Server Persistence | `src/tests/e2e/server-persistence.spec.js` | 5 pass | 5 skipped | All pass |
+| Drawing Persistence | `src/tests/e2e/workspace-drawing-persistence.spec.js` | 4 pass | — | All pass |
+
+**Total: 21/21 mocked tests pass, 11 integration tests correctly skipped (no backend).**
+
+### Auth Flow Tests (12 mocked)
+
+| Test | What it verifies |
+|------|-----------------|
+| Shows login form when not authenticated | GET /api/me → 401 renders LoginForm |
+| Shows loading state initially, then resolves to login form | Deferred /api/me response shows `.loading`, then login form |
+| Successful login transitions to workspace | POST /api/login → 200, workspace appears |
+| Login with invalid credentials shows error | POST /api/login → 401, `.error` displayed |
+| Login validation: empty email shows error | `form.noValidate` bypasses HTML5, `handleSubmit` sets `localError` |
+| Login validation: short password shows error | Same noValidate approach for `minlength` bypass |
+| Tab switching between Login and Register | `.tabs button.active` toggles, display name field appears/hides |
+| Successful register transitions to workspace | POST /api/register → 200, workspace appears |
+| Register with existing email shows error | POST /api/register → 409, `.error` displayed |
+| Logout returns to login form | Authenticated → POST /api/logout → reload → login form |
+| Network error during login shows generic error | `route.abort()` on /api/login, `.error` contains "Network error" |
+| Loading state during login submission | Click submit → `.loading` appears (App.svelte replaces LoginForm when `isLoading=true`) |
+
+Key findings during auth test development:
+- App.svelte `{#if loading}` replaces LoginForm with loading screen when `isLoading=true`, so button state cannot be tested during submission — test for `.loading` instead
+- HTML5 `required`/`minlength` attributes block form `submit` event before `handleSubmit()` runs — tests must set `form.noValidate = true` to exercise Svelte validation
+- Post-login endpoint calls (`/api/migrate`, `/api/workspace`, `/api/drawings/*`, `/api/markers/*`) must all be mocked to prevent network errors after successful login
+
+### Server Persistence Tests (5 mocked)
+
+| Test | What it verifies |
+|------|-----------------|
+| Drawing save triggers server sync | Drawing save → PUT /api/drawings/{symbol}/{resolution} within 500ms debounce |
+| Drawing load fetches from server when authenticated | Authenticated mount → GET /api/drawings/{symbol}/{resolution} |
+| Workspace change triggers server sync | Workspace update → PUT /api/workspace within 2s debounce |
+| Unauthenticated requests get 401 | No session cookie → all persistence endpoints return 401 |
+| Data migration on first login | Login flow triggers POST /api/migrate with workspace+drawings+markers payload |
+
+### Drawing Persistence Tests (4, pre-existing)
+
+| Test | What it verifies |
+|------|-----------------|
+| Export produces v1.1.0 JSON with drawings from IndexedDB | Export includes `drawings` key with `symbol\|resolution` entries |
+| Import v1.1.0 restores drawings to IndexedDB | Drawings round-trip through export/import |
+| Import v1.0.0 backward compat | Missing `drawings` key does not error |
+| Round-trip: seed → export → clear → import → verify | Full end-to-end drawing persistence |
+
+### Integration Tests (11, auto-skipped)
+
+All integration tests detect backend availability at `localhost:8080` via `beforeAll` and skip when unavailable. Tests cover:
+- Auth: full registration, login, session persistence across reload, logout, invalid credentials, duplicate registration
+- Persistence: workspace round-trip, drawing round-trip, price marker round-trip, migration upload, server as source of truth
+
+### Tests Blocked by Backend Dependency
+
+| Suite | Tests | Reason |
+|-------|-------|--------|
+| `price-markers-import.spec.js` | 3 | Requires backend (no route mocking) |
+| `batched-import-rate-limit.spec.js` | 6 | Requires backend on port 8080 |
+
+These tests are pre-existing and unrelated to Phase 4 — they require the full backend stack (PostgreSQL + Redis) which is unavailable in Codespaces.

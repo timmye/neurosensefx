@@ -57,6 +57,14 @@ services:
       - CTRADER_ACCESS_TOKEN=${CTRADER_ACCESS_TOKEN}
       - CTRADER_REFRESH_TOKEN=${CTRADER_REFRESH_TOKEN}
       - CTRADER_ACCOUNT_ID=${CTRADER_ACCOUNT_ID}
+      # Redis Configuration
+      - REDIS_URL=redis://redis-dev:6379
+      # PostgreSQL Configuration
+      - PG_HOST=postgres-dev
+      - PG_PORT=5432
+      - PG_DATABASE=neurosensefx_dev
+      - PG_USER=neurosensefx
+      - PG_PASSWORD=neurosensefx_dev_123
     ports:
       - "8080:8080"
       - "9229:9229"  # Node.js debugger port
@@ -69,6 +77,11 @@ services:
       - dev-logs:/app/logs
     networks:
       - neurosensefx-dev-network
+    depends_on:
+      redis-dev:
+        condition: service_healthy
+      postgres-dev:
+        condition: service_healthy
     command: npm run dev
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]

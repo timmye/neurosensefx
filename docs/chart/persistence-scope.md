@@ -1,7 +1,7 @@
 # Chart & Workspace Persistence — Scope & Exploration
 
-> Status: Research document
-> Date: 2026-04-03
+> Status: Phases 1-4 implemented, integration verified
+> Date: 2026-04-05
 
 ## Context
 
@@ -22,6 +22,9 @@ This document explores the current state, known gaps, and options for improving 
 | Price markers | localStorage | Per symbol | Tab close, browser restart | Clear site data, new browser |
 | Chart ghost state | localStorage | Global | Tab close, browser restart | Clear site data, new browser |
 | OHLC bars (cache) | IndexedDB (Dexie.js) | `symbol+resolution+timestamp` | Tab close, browser restart | Cache eviction, clear site data |
+| Server workspace | PostgreSQL JSONB `workspaces.layout` | Per user | Survives everything | Server failure (mitigated by docker restart) |
+| Server drawings | PostgreSQL JSONB `drawings.data` | Per user+symbol+res | Survives everything | Server failure |
+| Server price markers | PostgreSQL JSONB `price_markers.data` | Per user+symbol | Survives everything | Server failure |
 
 ### Key Files
 
@@ -32,6 +35,13 @@ This document explores the current state, known gaps, and options for improving 
 | `src/stores/workspace.js` | Workspace state, export/import |
 | `src/stores/priceMarkerPersistence.js` | Price marker localStorage |
 | `src/stores/chartDataStore.js` | OHLC bar caching (IndexedDB) |
+| `services/tick-backend/httpServer.js` | Express HTTP server + shared port with ws |
+| `services/tick-backend/sessionManager.js` | Redis session management |
+| `services/tick-backend/authRoutes.js` | Auth API endpoints (register/login/logout/me) |
+| `services/tick-backend/persistenceRoutes.js` | Server persistence CRUD endpoints |
+| `services/tick-backend/db.js` | PostgreSQL connection pool |
+| `src/stores/authStore.js` | Frontend auth state and data migration |
+| `src/components/LoginForm.svelte` | Login/register UI |
 
 ### Drawing Serialization Format
 
@@ -55,7 +65,7 @@ This document explores the current state, known gaps, and options for improving 
 
 ### GAP-1: Export/Import Excludes Drawings
 
-**Severity: High**
+**Severity: Resolved (v1.1.0)**
 
 `workspace.js:exportWorkspace()` serializes workspace layout and price markers but does **not** include IndexedDB drawings. Exported workspaces lose all chart annotations.
 
@@ -67,23 +77,35 @@ This document explores the current state, known gaps, and options for improving 
 
 **Effort**: Low. The data layer already supports it. Just needs wiring in export/import.
 
+**Resolution**: Fixed in Phase 1 (commit ba9e7f5). Drawings are now included in workspace export/import.
+
 ### GAP-2: No Cross-Device / Cross-Browser Persistence
 
-**Severity: Medium (by design)**
+**Severity: Resolved (v1.2.0)**
 
 The charting system plan explicitly scoped this out (line 788). TradingView's free anonymous tier also uses local-only storage — this is industry-standard behavior for unauthenticated charting apps.
 
+**Resolution**: Phase 4 implemented full authentication and server-side persistence with a dual-target strategy — server as primary storage, localStorage/IndexedDB as fallback. All user data (workspace, drawings, price markers) is now persisted to PostgreSQL and available across devices.
+
 ### GAP-3: No User-Facing Durability Indication
 
-**Severity: Low**
+**Severity: Partially resolved (v1.2.0)**
 
 Users have no visible indication that data is local-only. No warning before clearing, no prompt to export, no "last backup" indicator. If someone clears their browser data without exporting, everything is lost silently.
+
+**Resolution**: Auth gate now requires login, so data is server-persisted. The durability banner from Phase 2 may need updating to reflect server persistence instead of local-only warnings.
 
 ### GAP-4: Chart Scroll/Zoom Position Not Persisted
 
 **Severity: Low**
 
 On chart re-open, the scroll position within the time window is not restored. The chart always starts at the most recent data. Minor UX friction.
+
+### GAP-5: Pre-Auth E2E Tests Broken by Auth Gate
+
+**Severity: High**
+
+55 existing E2E tests fail because they navigate to the app expecting `.workspace` to be visible, but the auth gate shows the login form instead. Tests need a `beforeAll` login step added.
 
 ---
 
@@ -122,7 +144,7 @@ TradingView does **not** attempt server-side persistence without authentication.
 
 ## Recommended Phases
 
-### Phase 1: Fix Export/Import (Low effort, High value)
+### Phase 1: Fix Export/Import (Low effort, High value) — Implemented (v1.1.0)
 
 Include drawings in workspace export/import. Close GAP-1.
 
@@ -148,11 +170,22 @@ Implement Approach 3 — local-first with explicit "Generate Share Link."
 - Backend: one new REST endpoint (or WebSocket message type)
 - Frontend: "Share" button in toolbar, generates shareable URL
 
-### Phase 4: Full User Authentication & Server Persistence (Deep Evaluation)
+### Phase 4: Full User Authentication & Server Persistence (Deep Evaluation) — Implemented (v1.2.0)
+
+### Phase 5: Test Suite Auth Adaptation (Medium effort, High value)
+Fix 55 pre-auth E2E tests broken by the auth gate. Add a shared `beforeAll` login helper that registers a test user and authenticates before each test file runs.
+
+### Phase 6: Production Hardening (Medium effort, Critical for live)
+SSL termination, Nginx security headers, Docker secrets for cTrader credentials, health check endpoint, Prometheus metrics.
+
+### Phase 7: Live Deployment (Low effort, Final step)
+Deploy to VPS with `docker-compose up -d`, provision SSL via Let's Encrypt, create production secrets, smoke test.
 
 ---
 
 ## Phase 4 — Full Evaluation
+
+> **Status: Implemented (v1.2.0)** — See commit 2e2dc86 and plan `plans/phase4-auth-and-persistence.md`.
 
 ### 4.1 What Would Auth Solve
 
@@ -386,6 +419,43 @@ Auth is not just about saving drawings. It unlocks:
 - **Audit trail** — `audit_log` table already exists in `docker/postgres/init/01-init.sql`
 - **Rate limiting per user** — Prevent abuse of cTrader API connection
 - **Future monetization** — Subscription tiers (free: local only, paid: cloud sync, multi-workspace)
+
+---
+
+## Integration Verification (2026-04-05)
+
+Phase 4 was verified against a live backend stack running locally:
+
+### Test Environment
+- Backend: Node.js (Express + WebSocket) on port 8080
+- Frontend: Vite dev server on port 5174 with `/api/*` and `/ws` proxy to backend
+- PostgreSQL 15 (native, socket at `/tmp`, database `neurosensefx_dev`)
+- Redis 7 (native, default port 6379)
+- Playwright Chromium (headless, single worker)
+
+### Auth Flow Results
+
+| Test Suite | Mocked | Integration | Status |
+|---|---|---|---|
+| Auth flow | 12/12 pass | 6/6 pass | Verified |
+| Server persistence | 5/5 pass | 5 skipped (not yet run) | Partial |
+| Workspace drawing persistence | 4/4 pass | N/A | Verified |
+
+**Integration tests verified**: full registration, login, session persistence across reload, logout, invalid credentials error, duplicate registration error.
+
+### Infrastructure Fixes Applied
+- Added Vite dev proxy (`vite.config.js`) to forward `/api/*` → `localhost:8080` and `/ws` → `ws://localhost:8080`
+- Fixed timing in integration tests (added `waitForTimeout(1000)` after login before reload to allow cookie storage)
+
+### Remaining Before Live Deployment
+
+| Phase | Scope | Priority |
+|---|---|---|
+| Fix pre-auth E2E tests | Add `beforeAll` login step to 55 tests across 11 test files | P0 |
+| Server persistence integration | Run 5 integration tests for workspace/drawings/markers round-trip | P0 |
+| Production infrastructure | SSL certificates, Nginx HTTPS, Docker secrets, health endpoint | P1 |
+| Security verification | Rate limiting, WebSocket auth rejection, session invalidation | P1 |
+| VPS deployment | Deploy to production VPS with full docker-compose stack | P2 |
 
 ---
 

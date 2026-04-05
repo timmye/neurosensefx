@@ -16,7 +16,17 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
     host: true,
-    allowedHosts: true
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'ws://localhost:8080',
+        ws: true,
+      },
+    },
   },
   preview: {
     port: 4173,

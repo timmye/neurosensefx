@@ -1,0 +1,967 @@
+{
+  "version": "1.1.0",
+  "timestamp": "2026-04-05T12:00:00.000Z",
+  "workspace": {
+    "displays": [
+      [
+        "display-1700000000000-test0",
+        {
+          "id": "display-1700000000000-test0",
+          "symbol": "EURUSD",
+          "source": "ctrader",
+          "created": 1700000000000,
+          "position": {
+            "x": 100,
+            "y": 100
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 1,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": [
+            {
+              "id": "marker-eurusd-1",
+              "price": 1.085,
+              "type": {
+                "name": "horizontal-line",
+                "color": "#ff0000"
+              }
+            },
+            {
+              "id": "marker-eurusd-2",
+              "price": 1.092,
+              "type": {
+                "name": "horizontal-line",
+                "color": "#00ff00"
+              }
+            },
+            {
+              "id": "marker-eurusd-3",
+              "price": 1.078,
+              "type": {
+                "name": "horizontal-line",
+                "color": "#0000ff"
+              }
+            }
+          ]
+        }
+      ],
+      [
+        "display-1700000100000-test1",
+        {
+          "id": "display-1700000100000-test1",
+          "symbol": "GBPUSD",
+          "source": "ctrader",
+          "created": 1700000100000,
+          "position": {
+            "x": 400,
+            "y": 100
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 2,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": [
+            {
+              "id": "marker-gbpusd-1",
+              "price": 1.265,
+              "type": {
+                "name": "horizontal-line",
+                "color": "#ff8800"
+              }
+            },
+            {
+              "id": "marker-gbpusd-2",
+              "price": 1.258,
+              "type": {
+                "name": "horizontal-line",
+                "color": "#8800ff"
+              }
+            }
+          ]
+        }
+      ],
+      [
+        "display-1700000200000-test2",
+        {
+          "id": "display-1700000200000-test2",
+          "symbol": "USDJPY",
+          "source": "ctrader",
+          "created": 1700000200000,
+          "position": {
+            "x": 700,
+            "y": 100
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 3,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1d",
+          "window": "3M",
+          "priceMarkers": [
+            {
+              "id": "marker-usdjpy-1",
+              "price": 149.5,
+              "type": {
+                "name": "horizontal-line",
+                "color": "#ff0000"
+              }
+            },
+            {
+              "id": "marker-usdjpy-2",
+              "price": 150.2,
+              "type": {
+                "name": "horizontal-line",
+                "color": "#00cc00"
+              }
+            }
+          ]
+        }
+      ],
+      [
+        "display-1700000300000-test3",
+        {
+          "id": "display-1700000300000-test3",
+          "symbol": "AUDUSD",
+          "source": "ctrader",
+          "created": 1700000300000,
+          "position": {
+            "x": 1000,
+            "y": 100
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 4,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": [
+            {
+              "id": "marker-audusd-1",
+              "price": 0.655,
+              "type": {
+                "name": "horizontal-line",
+                "color": "#ffcc00"
+              }
+            }
+          ]
+        }
+      ],
+      [
+        "display-1700000400000-test4",
+        {
+          "id": "display-1700000400000-test4",
+          "symbol": "USDCAD",
+          "source": "ctrader",
+          "created": 1700000400000,
+          "position": {
+            "x": 1300,
+            "y": 100
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 5,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700000500000-test5",
+        {
+          "id": "display-1700000500000-test5",
+          "symbol": "NZDUSD",
+          "source": "ctrader",
+          "created": 1700000500000,
+          "position": {
+            "x": 1600,
+            "y": 100
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 6,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1d",
+          "window": "3M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700000600000-test6",
+        {
+          "id": "display-1700000600000-test6",
+          "symbol": "EURGBP",
+          "source": "ctrader",
+          "created": 1700000600000,
+          "position": {
+            "x": 1900,
+            "y": 100
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 7,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700000700000-test7",
+        {
+          "id": "display-1700000700000-test7",
+          "symbol": "EURJPY",
+          "source": "ctrader",
+          "created": 1700000700000,
+          "position": {
+            "x": 100,
+            "y": 820
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 8,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700000800000-test8",
+        {
+          "id": "display-1700000800000-test8",
+          "symbol": "GBPJPY",
+          "source": "ctrader",
+          "created": 1700000800000,
+          "position": {
+            "x": 400,
+            "y": 820
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 9,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1d",
+          "window": "3M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700000900000-test9",
+        {
+          "id": "display-1700000900000-test9",
+          "symbol": "AUDJPY",
+          "source": "ctrader",
+          "created": 1700000900000,
+          "position": {
+            "x": 700,
+            "y": 820
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 10,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001000000-test10",
+        {
+          "id": "display-1700001000000-test10",
+          "symbol": "EURAUD",
+          "source": "ctrader",
+          "created": 1700001000000,
+          "position": {
+            "x": 1000,
+            "y": 820
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 11,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001100000-test11",
+        {
+          "id": "display-1700001100000-test11",
+          "symbol": "EURNZD",
+          "source": "ctrader",
+          "created": 1700001100000,
+          "position": {
+            "x": 1300,
+            "y": 820
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 12,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1d",
+          "window": "3M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001200000-test12",
+        {
+          "id": "display-1700001200000-test12",
+          "symbol": "GBPAUD",
+          "source": "ctrader",
+          "created": 1700001200000,
+          "position": {
+            "x": 1600,
+            "y": 820
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 13,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001300000-test13",
+        {
+          "id": "display-1700001300000-test13",
+          "symbol": "GBPNZD",
+          "source": "ctrader",
+          "created": 1700001300000,
+          "position": {
+            "x": 1900,
+            "y": 820
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 14,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001400000-test14",
+        {
+          "id": "display-1700001400000-test14",
+          "symbol": "AUDNZD",
+          "source": "ctrader",
+          "created": 1700001400000,
+          "position": {
+            "x": 100,
+            "y": 1540
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 15,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1d",
+          "window": "3M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001500000-test15",
+        {
+          "id": "display-1700001500000-test15",
+          "symbol": "USDCHF",
+          "source": "ctrader",
+          "created": 1700001500000,
+          "position": {
+            "x": 400,
+            "y": 1540
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 16,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001600000-test16",
+        {
+          "id": "display-1700001600000-test16",
+          "symbol": "EURCHF",
+          "source": "ctrader",
+          "created": 1700001600000,
+          "position": {
+            "x": 700,
+            "y": 1540
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 17,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001700000-test17",
+        {
+          "id": "display-1700001700000-test17",
+          "symbol": "GBPCHF",
+          "source": "ctrader",
+          "created": 1700001700000,
+          "position": {
+            "x": 1000,
+            "y": 1540
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 18,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1d",
+          "window": "3M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001800000-test18",
+        {
+          "id": "display-1700001800000-test18",
+          "symbol": "CADCHF",
+          "source": "ctrader",
+          "created": 1700001800000,
+          "position": {
+            "x": 1300,
+            "y": 1540
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 19,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700001900000-test19",
+        {
+          "id": "display-1700001900000-test19",
+          "symbol": "AUDCAD",
+          "source": "ctrader",
+          "created": 1700001900000,
+          "position": {
+            "x": 1600,
+            "y": 1540
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 20,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700002000000-test20",
+        {
+          "id": "display-1700002000000-test20",
+          "symbol": "NZDCAD",
+          "source": "ctrader",
+          "created": 1700002000000,
+          "position": {
+            "x": 1900,
+            "y": 1540
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 21,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1d",
+          "window": "3M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700002100000-test21",
+        {
+          "id": "display-1700002100000-test21",
+          "symbol": "EURCAD",
+          "source": "ctrader",
+          "created": 1700002100000,
+          "position": {
+            "x": 100,
+            "y": 2260
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 22,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700002200000-test22",
+        {
+          "id": "display-1700002200000-test22",
+          "symbol": "GBPCAD",
+          "source": "ctrader",
+          "created": 1700002200000,
+          "position": {
+            "x": 400,
+            "y": 2260
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 23,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700002300000-test23",
+        {
+          "id": "display-1700002300000-test23",
+          "symbol": "AUDCHF",
+          "source": "ctrader",
+          "created": 1700002300000,
+          "position": {
+            "x": 700,
+            "y": 2260
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 24,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1d",
+          "window": "3M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700002400000-test24",
+        {
+          "id": "display-1700002400000-test24",
+          "symbol": "NZDCHF",
+          "source": "ctrader",
+          "created": 1700002400000,
+          "position": {
+            "x": 1000,
+            "y": 2260
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 25,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700002500000-test25",
+        {
+          "id": "display-1700002500000-test25",
+          "symbol": "NZDJPY",
+          "source": "ctrader",
+          "created": 1700002500000,
+          "position": {
+            "x": 1300,
+            "y": 2260
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 26,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700002600000-test26",
+        {
+          "id": "display-1700002600000-test26",
+          "symbol": "CADJPY",
+          "source": "ctrader",
+          "created": 1700002600000,
+          "position": {
+            "x": 1600,
+            "y": 2260
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 27,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1d",
+          "window": "3M",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700002700000-test27",
+        {
+          "id": "display-1700002700000-test27",
+          "symbol": "CHFJPY",
+          "source": "ctrader",
+          "created": 1700002700000,
+          "position": {
+            "x": 1900,
+            "y": 2260
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 28,
+          "showMarketProfile": true,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "1h",
+          "window": "5d",
+          "priceMarkers": []
+        }
+      ],
+      [
+        "display-1700002800000-test28",
+        {
+          "id": "display-1700002800000-test28",
+          "symbol": "USDSGD",
+          "source": "ctrader",
+          "created": 1700002800000,
+          "position": {
+            "x": 100,
+            "y": 2980
+          },
+          "size": {
+            "width": 2000,
+            "height": 680
+          },
+          "zIndex": 29,
+          "showMarketProfile": false,
+          "showHeader": false,
+          "type": "chart",
+          "resolution": "4h",
+          "window": "1M",
+          "priceMarkers": []
+        }
+      ]
+    ],
+    "nextZIndex": 30
+  },
+  "priceMarkers": {
+    "price-markers-EURUSD": [
+      {
+        "id": "marker-eurusd-1",
+        "price": 1.085,
+        "type": {
+          "name": "horizontal-line",
+          "color": "#ff0000"
+        }
+      },
+      {
+        "id": "marker-eurusd-2",
+        "price": 1.092,
+        "type": {
+          "name": "horizontal-line",
+          "color": "#00ff00"
+        }
+      },
+      {
+        "id": "marker-eurusd-3",
+        "price": 1.078,
+        "type": {
+          "name": "horizontal-line",
+          "color": "#0000ff"
+        }
+      }
+    ],
+    "price-markers-GBPUSD": [
+      {
+        "id": "marker-gbpusd-1",
+        "price": 1.265,
+        "type": {
+          "name": "horizontal-line",
+          "color": "#ff8800"
+        }
+      },
+      {
+        "id": "marker-gbpusd-2",
+        "price": 1.258,
+        "type": {
+          "name": "horizontal-line",
+          "color": "#8800ff"
+        }
+      }
+    ],
+    "price-markers-USDJPY": [
+      {
+        "id": "marker-usdjpy-1",
+        "price": 149.5,
+        "type": {
+          "name": "horizontal-line",
+          "color": "#ff0000"
+        }
+      },
+      {
+        "id": "marker-usdjpy-2",
+        "price": 150.2,
+        "type": {
+          "name": "horizontal-line",
+          "color": "#00cc00"
+        }
+      }
+    ],
+    "price-markers-AUDUSD": [
+      {
+        "id": "marker-audusd-1",
+        "price": 0.655,
+        "type": {
+          "name": "horizontal-line",
+          "color": "#ffcc00"
+        }
+      }
+    ]
+  },
+  "drawings": {
+    "EURUSD|4h": [
+      {
+        "id": "drawing-eurusd-4h-1",
+        "overlayType": "rect",
+        "symbol": "EURUSD",
+        "resolution": "4h",
+        "points": [
+          {
+            "timestamp": 1700000000000,
+            "price": 1.085
+          },
+          {
+            "timestamp": 1700006400000,
+            "price": 1.095
+          }
+        ],
+        "styles": {
+          "color": "#ff0000",
+          "fill": "rgba(255,0,0,0.1)"
+        },
+        "createdAt": 1700000000000,
+        "updatedAt": 1700000000000
+      },
+      {
+        "id": "drawing-eurusd-4h-2",
+        "overlayType": "line",
+        "symbol": "EURUSD",
+        "resolution": "4h",
+        "points": [
+          {
+            "timestamp": 1700086400000,
+            "price": 1.082
+          },
+          {
+            "timestamp": 1700172800000,
+            "price": 1.091
+          }
+        ],
+        "styles": {
+          "color": "#00ff00",
+          "lineWidth": 2
+        },
+        "createdAt": 1700000000000,
+        "updatedAt": 1700000000000
+      }
+    ],
+    "GBPUSD|1h": [
+      {
+        "id": "drawing-gbpusd-1h-1",
+        "overlayType": "line",
+        "symbol": "GBPUSD",
+        "resolution": "1h",
+        "points": [
+          {
+            "timestamp": 1700000000000,
+            "price": 1.26
+          },
+          {
+            "timestamp": 1700003600000,
+            "price": 1.268
+          }
+        ],
+        "styles": {
+          "color": "#ff8800",
+          "lineWidth": 1
+        },
+        "createdAt": 1700000000000,
+        "updatedAt": 1700000000000
+      }
+    ],
+    "USDJPY|4h": [
+      {
+        "id": "drawing-usdjpy-4h-1",
+        "overlayType": "rect",
+        "symbol": "USDJPY",
+        "resolution": "4h",
+        "points": [
+          {
+            "timestamp": 1700000000000,
+            "price": 149
+          },
+          {
+            "timestamp": 1700006400000,
+            "price": 150.5
+          }
+        ],
+        "styles": {
+          "color": "#0000ff",
+          "fill": "rgba(0,0,255,0.1)"
+        },
+        "createdAt": 1700000000000,
+        "updatedAt": 1700000000000
+      }
+    ],
+    "AUDUSD|1d": [
+      {
+        "id": "drawing-audusd-1d-1",
+        "overlayType": "line",
+        "symbol": "AUDUSD",
+        "resolution": "1d",
+        "points": [
+          {
+            "timestamp": 1700000000000,
+            "price": 0.65
+          },
+          {
+            "timestamp": 1700086400000,
+            "price": 0.658
+          }
+        ],
+        "styles": {
+          "color": "#ffcc00",
+          "lineWidth": 2
+        },
+        "createdAt": 1700000000000,
+        "updatedAt": 1700000000000
+      }
+    ]
+  }
+}
