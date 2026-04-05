@@ -13,6 +13,7 @@ Architecture, design, and implementation documentation.
 | `weekly-market-profile-implementation-plan.md` | Weekly implementation roadmap | Planning market profile feature work |
 | `workspace-editor.html` | Standalone workspace layout editor tool | Debugging workspace editor, testing editor UI standalone |
 | `data-pipeline-audit.md` | Data pipeline architecture audit | Reviewing data flow, identifying pipeline issues |
+| `local-dev-setup.md` | Step-by-step local dev setup with auth, PostgreSQL, Redis | Setting up development environment, onboarding |
 
 ## Subdirectories
 

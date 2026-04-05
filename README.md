@@ -11,6 +11,9 @@ A foreign exchange trading visualization platform that provides visual patterns 
 - Drag-and-drop workspace management with persistence
 - Canvas rendering with DPR-aware crisp text
 - WebSocket-based real-time data streaming
+- User authentication (register/login/logout) with session management
+- Server-side persistence for workspaces, chart drawings, and price markers (PostgreSQL)
+- Automatic migration of browser data to server on first login
 
 ## Quick Start
 
@@ -18,6 +21,7 @@ A foreign exchange trading visualization platform that provides visual patterns 
 - Node.js (v18 or higher)
 - npm or yarn
 - cTrader API credentials (set in `.env`)
+- PostgreSQL 15+ and Redis 7+ (via Docker or native install; see [docs/local-dev-setup.md](docs/local-dev-setup.md))
 
 ### Installation
 ```bash
@@ -48,11 +52,19 @@ Tests cover the complete application workflow including display creation, intera
 
 ## Environment Variables
 
-Create a `.env` file based on `.env.example`:
+Create a `.env` file based on `.env.example`. Required variables include cTrader API credentials and database connection settings:
 ```
 CTRADER_API_ID=your_api_id
 CTRADER_API_SECRET=your_api_secret
+PG_HOST=localhost
+PG_PORT=5432
+PG_DATABASE=neurosensefx_dev
+PG_USER=neurosensefx
+PG_PASSWORD=your_password
+REDIS_URL=redis://localhost:6379
 ```
+
+See [docs/local-dev-setup.md](docs/local-dev-setup.md) for the full setup guide.
 
 ## Service Management
 
@@ -69,19 +81,23 @@ Use the provided scripts for service management:
 - **Frontend**: Svelte 4.x with Vite build system
 - **Rendering**: Canvas 2D API with DPR-aware rendering
 - **State Management**: Svelte stores
-- **Backend**: Node.js WebSocket server with cTrader Open API
+- **Backend**: Node.js WebSocket server with cTrader Open API, Express HTTP server for auth and persistence
+- **Authentication**: bcrypt password hashing, Redis-backed sessions (HTTP-only cookies, 30-day TTL)
+- **Database**: PostgreSQL 15 for workspaces, drawings, and price markers
+- **Cache**: Redis 7 for session storage
 - **Data Processing**: Real-time tick processing with WebSocket streaming
 
 ## Project Structure
 
 ```
 src/                    # Frontend Svelte application
-├── components/         # Svelte components
+├── components/         # Svelte components (includes LoginForm.svelte)
+├── stores/             # Svelte stores (includes authStore.js for session state)
 ├── lib/               # Utility libraries and visualizers
 └── App.svelte         # Main application component
 
 services/              # Backend services
-├── tick-backend/      # WebSocket backend
+├── tick-backend/      # WebSocket backend, Express HTTP server, auth, persistence
 └── ...
 
 libs/                  # External libraries

@@ -175,6 +175,7 @@ _archive_memory-bank/
 # Backup directories
 .git_backup/
 backup/
+backups/
 
 # Generated UI files
 services/*/UI/*.html

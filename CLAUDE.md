@@ -52,6 +52,17 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `docker-healthcheck.sh` | Docker health check script | Debugging container health checks |
 | `setup-dev-workaround.sh` | Dev setup workaround | Bootstrapping dev environment on Codespaces |
 | `setup_project.sh` | Project setup script | Initial project setup, onboarding to new machine |
+| `services/tick-backend/httpServer.js` | Express HTTP server alongside WebSocket server | Adding HTTP endpoints, modifying auth/persistence routes |
+| `services/tick-backend/authRoutes.js` | Register, login, logout endpoints | Modifying authentication flow, adding auth endpoints |
+| `services/tick-backend/persistenceRoutes.js` | CRUD routes for workspaces, drawings, price markers | Adding persistence endpoints, modifying data sync |
+| `services/tick-backend/middleware.js` | Auth middleware (session validation) | Adding protected routes, modifying auth checks |
+| `services/tick-backend/sessionManager.js` | Redis-backed session create/validate/destroy | Debugging session issues, modifying session TTL or storage |
+| `services/tick-backend/db.js` | PostgreSQL connection and query helpers | Adding database queries, debugging persistence |
+| `src/stores/authStore.js` | Svelte store for authentication state | Modifying login/logout UI behavior, checking auth state |
+| `src/components/LoginForm.svelte` | Login and registration form component | Modifying login UI, auth form behavior |
+| `docker/postgres/init/02-auth-tables.sql` | Auth tables DDL (users, sessions, workspaces, drawings, price_markers) | Modifying database schema, adding tables |
+| `docs/local-dev-setup.md` | Step-by-step local dev setup with auth, PostgreSQL, Redis | Setting up development environment, onboarding |
+| `scripts/backup.sh` | Database backup script | Running backups, scheduling backup jobs |
 
 ## Subdirectories
 
@@ -66,11 +77,13 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `docs/` | Architecture and design documentation | Understanding system design decisions |
 | `skills/` | Solatis claude-config skills for structured LLM workflows | Using development skills |
 | `plans/` | Implementation plans for features and refactors | Executing planned work, reviewing feature scope |
-| `tests/` | Additional E2E test suites (Market Profile) | Running Market Profile E2E tests |
+| `tests/` | Additional E2E test suites (Market Profile, auth flow, server persistence) | Running E2E tests |
 | `public/` | Static assets | Adding static assets, modifying favicon |
 | `secrets/` | Secrets template | Setting up API credentials, configuring secrets |
 
 ## Development
+
+Requires PostgreSQL 15+ and Redis 7+ running (see `docs/local-dev-setup.md`).
 
 ```bash
 ./run.sh dev              # Start development with HMR
@@ -81,7 +94,9 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 
 ## Test
 
+E2E tests require a running backend with PostgreSQL and Redis. Pre-auth test suites need a login step before chart interactions.
+
 ```bash
-npm test                 # Run all E2E tests (requires running backend)
+npm test                 # Run all E2E tests (requires running backend + PG + Redis)
 npx playwright test --ui    # Run tests with Playwright UI
 ```

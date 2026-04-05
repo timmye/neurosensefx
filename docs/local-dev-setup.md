@@ -212,12 +212,12 @@ All variables go in the `.env` file at the project root.
 | `HOST` | cTrader host (e.g., `live.ctraderapi.com`) | In `.env.example` |
 | `PORT` | cTrader port (e.g., `5035`) | In `.env.example` |
 | `VITE_BACKEND_URL` | WebSocket URL for the frontend (`ws://localhost:8080` in dev) | In `.env.example` |
-| `PG_HOST` | PostgreSQL host | **New** (not in `.env.example` yet) |
-| `PG_PORT` | PostgreSQL port (default `5432`) | **New** |
-| `PG_DATABASE` | Database name (`neurosensefx_dev`) | **New** |
-| `PG_USER` | Database user (`neurosensefx`) | **New** |
-| `PG_PASSWORD` | Database password | **New** |
-| `REDIS_URL` | Redis connection URL (`redis://localhost:6379`) | **New** |
+| `PG_HOST` | PostgreSQL host | In `.env.example` |
+| `PG_PORT` | PostgreSQL port (default `5432`) | In `.env.example` |
+| `PG_DATABASE` | Database name (`neurosensefx_dev`) | In `.env.example` |
+| `PG_USER` | Database user (`neurosensefx`) | In `.env.example` |
+| `PG_PASSWORD` | Database password | In `.env.example` |
+| `REDIS_URL` | Redis connection URL (`redis://localhost:6379`) | In `.env.example` |
 
 ---
 
