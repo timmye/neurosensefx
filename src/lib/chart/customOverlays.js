@@ -4,7 +4,35 @@
  * These register them as interactive drawing overlays via registerOverlay().
  */
 
-import { registerOverlay } from 'klinecharts';
+import { registerOverlay, registerIndicator } from 'klinecharts';
+
+/**
+ * Background symbol watermark — large faded text centered at top of candle pane.
+ * Symbol string passed via extendData when creating.
+ */
+registerIndicator({
+  name: 'symbolWatermark',
+  shortName: '',
+  series: 'price',
+  visible: true,
+  zLevel: -1,
+  calcParams: [],
+  shouldOhlc: false,
+  calc: (dataList) => dataList.map(() => ({})),
+  draw: ({ ctx, bounding, indicator }) => {
+    const text = indicator.extendData ?? '';
+    if (!text) return true;
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.font = 'bold 72px "DejaVu Serif", Georgia, serif';
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(text, bounding.width / 2, bounding.top + 16);
+    ctx.restore();
+    return true;
+  }
+});
 
 /**
  * Horizontal line extending right from a single click point.
@@ -165,7 +193,7 @@ registerOverlay({
 const ANNOTATION_STYLE = {
   color: '#FFFFFF',
   size: 12,
-  family: 'Helvetica Neue',
+  family: '"DejaVu Serif", Georgia, serif',
   weight: 'normal',
   backgroundColor: '#48752c',
   borderRadius: 0,

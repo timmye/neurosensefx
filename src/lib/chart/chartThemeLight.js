@@ -68,7 +68,7 @@ export const LIGHT_THEME = {
         color: '#48752c',
         textMargin: 5,
         textSize: 10,
-        textFamily: 'Helvetica Neue',
+        textFamily: '"DejaVu Serif", Georgia, serif',
         textWeight: 'normal'
       },
       low: {
@@ -76,7 +76,7 @@ export const LIGHT_THEME = {
         color: '#bb2719',
         textMargin: 5,
         textSize: 10,
-        textFamily: 'Helvetica Neue',
+        textFamily: '"DejaVu Serif", Georgia, serif',
         textWeight: 'normal'
       },
       last: {
@@ -104,7 +104,7 @@ export const LIGHT_THEME = {
           borderColor: 'rgba(0,0,0,0.1)',
           borderDashedValue: [2, 2],
           color: '#FFFFFF',
-          family: 'Helvetica Neue',
+          family: '"DejaVu Serif", Georgia, serif',
           weight: 'normal',
           borderRadius: 2
         },
@@ -124,7 +124,7 @@ export const LIGHT_THEME = {
             borderColor: 'transparent',
             borderDashedValue: [2, 2],
             color: '#FFFFFF',
-            family: 'Helvetica Neue',
+            family: '"DejaVu Serif", Georgia, serif',
             weight: 'normal',
             borderRadius: 2
           }
@@ -141,7 +141,7 @@ export const LIGHT_THEME = {
       title: {
         show: true,
         size: 13,
-        family: 'Helvetica Neue',
+        family: '"DejaVu Serif", Georgia, serif',
         weight: 'bold',
         color: '#333333',
         marginLeft: 8,
@@ -152,7 +152,7 @@ export const LIGHT_THEME = {
       },
       legend: {
         size: 12,
-        family: 'Helvetica Neue',
+        family: '"DejaVu Serif", Georgia, serif',
         weight: 'normal',
         color: '#555555',
         marginLeft: 8,
@@ -213,7 +213,7 @@ export const LIGHT_THEME = {
         style: 'fill',
         color: '#FFFFFF',
         size: 11,
-        family: 'Helvetica Neue',
+        family: '"DejaVu Serif", Georgia, serif',
         weight: 'normal',
         borderStyle: 'solid',
         borderSize: 1,
@@ -237,7 +237,7 @@ export const LIGHT_THEME = {
         showName: true,
         showParams: true,
         size: 12,
-        family: 'Helvetica Neue',
+        family: '"DejaVu Serif", Georgia, serif',
         weight: 'normal',
         color: '#555555',
         marginLeft: 8,
@@ -247,7 +247,7 @@ export const LIGHT_THEME = {
       },
       legend: {
         size: 12,
-        family: 'Helvetica Neue',
+        family: '"DejaVu Serif", Georgia, serif',
         weight: 'normal',
         color: '#555555',
         marginLeft: 8,
@@ -270,7 +270,7 @@ export const LIGHT_THEME = {
     tickText: {
       show: true,
       color: '#666666',
-      family: 'Helvetica Neue',
+      family: '"DejaVu Serif", Georgia, serif',
       weight: 'normal',
       size: 11,
       marginStart: 4,
@@ -294,7 +294,7 @@ export const LIGHT_THEME = {
     tickText: {
       show: true,
       color: '#666666',
-      family: 'Helvetica Neue',
+      family: '"DejaVu Serif", Georgia, serif',
       weight: 'normal',
       size: 11,
       marginStart: 4,
@@ -329,7 +329,7 @@ export const LIGHT_THEME = {
         style: 'fill',
         color: '#FFFFFF',
         size: 11,
-        family: 'Helvetica Neue',
+        family: '"DejaVu Serif", Georgia, serif',
         weight: 'normal',
         borderStyle: 'solid',
         borderDashedValue: [2, 2],
@@ -358,7 +358,7 @@ export const LIGHT_THEME = {
         style: 'fill',
         color: '#FFFFFF',
         size: 11,
-        family: 'Helvetica Neue',
+        family: '"DejaVu Serif", Georgia, serif',
         weight: 'normal',
         borderStyle: 'solid',
         borderDashedValue: [2, 2],
@@ -426,7 +426,7 @@ export const LIGHT_THEME = {
       style: 'fill',
       color: '#FFFFFF',
       size: 11,
-      family: 'Helvetica Neue',
+      family: '"DejaVu Serif", Georgia, serif',
       weight: 'normal',
       borderStyle: 'solid',
       borderDashedValue: [2, 2],
