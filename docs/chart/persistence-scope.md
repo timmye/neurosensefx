@@ -59,6 +59,16 @@ This document explores the current state, known gaps, and options for improving 
 }
 ```
 
+### Drawing Restore Timing
+
+Drawings are restored via an `onDataReady` callback inside the bar store subscription in `loadChartData()`. This ensures `restoreDrawings()` runs synchronously after `chart.applyNewData()` completes — the Y-axis range is established and `timestampToDataIndex` can resolve overlay points against real candle data.
+
+The callback fires on the first `updateType === 'full'` store emission with non-empty bars, then nulls itself to prevent double-fire (cache hit followed by server response would otherwise trigger twice).
+
+**Call sites**: `onMount`, `handleSymbolChange`, `handleResolutionChange`, `handlers.refresh` — all pass the callback to `loadChartData`.
+
+**Failure mode**: If data loading times out (30s) or the WebSocket is disconnected, the store transitions to `ready` with empty bars. The `bars.length > 0` guard prevents the callback from firing, so drawings simply don't appear. This is intentional — drawings cannot be meaningfully positioned without price data.
+
 ---
 
 ## Known Gaps

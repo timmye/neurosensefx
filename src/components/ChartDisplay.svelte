@@ -167,8 +167,15 @@
       tickUnsubscribe?.();
       tickUnsubscribe = null;
       unsubscribeFromCandles(currentSymbol, currentResolution);
-      if (chart) chart.clearData();
-      loadChartData(currentSymbol, currentResolution, currentWindow);
+      if (chart) {
+        chart.removeOverlay();
+        chart.clearData();
+      }
+      commandStack.clear();
+      overlayDbIdMap.clear();
+      loadChartData(currentSymbol, currentResolution, currentWindow, () => {
+        restoreDrawings(currentSymbol, currentResolution);
+      });
     },
     keydown: (e) => {
       if (e.key === 'Escape') {
@@ -349,11 +356,10 @@
     }
     commandStack.clear();
 
-    // Load new symbol data
-    loadChartData(currentSymbol, currentResolution, currentWindow);
-
-    // Restore drawings for new symbol after data loads
-    restoreDrawings(currentSymbol, currentResolution);
+    // Load new symbol data, restore drawings after data is applied
+    loadChartData(currentSymbol, currentResolution, currentWindow, () => {
+      restoreDrawings(currentSymbol, currentResolution);
+    });
   }
 
   function handleResolutionChange(newResolution) {
@@ -371,15 +377,16 @@
     setAxisResolution(newResolution);
     setAxisWindow(currentWindow);
 
-    loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
 
-    // Clear overlays and restore for new resolution
+    // Clear overlays, load new data, restore drawings after data is applied
     if (chart) {
       chart.removeOverlay();
     }
     commandStack.clear();
-    restoreDrawings(currentSymbol, currentResolution);
+    loadChartData(currentSymbol, currentResolution, currentWindow, () => {
+      restoreDrawings(currentSymbol, currentResolution);
+    });
   }
 
   function handleWindowChange(newWindow) {
@@ -418,7 +425,7 @@
     }
   }
 
-  function loadChartData(symbol, resolution, window) {
+  function loadChartData(symbol, resolution, window, onDataReady) {
     const store = getChartBarStore(symbol, resolution);
 
     // Reset store BEFORE subscribing to prevent stale cached data from
@@ -440,6 +447,7 @@
             volume: bar.volume || 0
           }));
           tryApplyData(klineData);
+          if (onDataReady) { onDataReady(); onDataReady = null; }
         } else {
           // Incremental — only the last bar, no array map
           if (chart) {
@@ -567,11 +575,10 @@
         }
       });
 
-      // Load data
-      loadChartData(currentSymbol, currentResolution, currentWindow);
-
-      // Restore persisted drawings
-      await restoreDrawings(currentSymbol, currentResolution);
+      // Load data, restore persisted drawings after data is applied
+      loadChartData(currentSymbol, currentResolution, currentWindow, () => {
+        restoreDrawings(currentSymbol, currentResolution);
+      });
     }
 
     // Set up interact.js for drag/resize
