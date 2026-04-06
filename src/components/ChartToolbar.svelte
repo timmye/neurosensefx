@@ -18,8 +18,8 @@
 
   const DRAWING_TOOLS = [
     { id: 'segment', label: '/', title: 'Trendline' },
-    { id: 'horizontalStraightLine', label: '\u2500', title: 'Horizontal Line' },
-    { id: 'horizontalRayLine', label: '\u2500\u25B6', title: 'Horizontal Ray' },
+    { id: 'horizontalRayLine', label: '\u2500', title: 'Horizontal Line' },
+    { id: 'horizontalStraightLine', label: '\u2500\u25C0\u2500', title: 'Horizontal Full' },
     { id: 'horizontalSegment', label: '\u2500\u25A0', title: 'Horizontal Segment' },
     { id: 'verticalStraightLine', label: '|', title: 'Vertical Line' },
     { id: 'verticalRayLine', label: '|\u25B2', title: 'Vertical Ray' },

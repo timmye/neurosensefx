@@ -32,15 +32,15 @@ export const LIGHT_THEME = {
     type: 'candle_solid',
     bar: {
       compareRule: 'current_open',
-      upColor: '#9dc384',
-      downColor: '#de9d9b',
+      upColor: '#c8e6b8',       // was #9dc384
+      downColor: '#f0c4c2',     // was #de9d9b
       noChangeColor: '#999999',
-      upBorderColor: '#48752c',
-      downBorderColor: '#bb2719',
-      noChangeBorderColor: '#777777',
-      upWickColor: '#48752c',
-      downWickColor: '#bb2719',
-      noChangeWickColor: '#777777'
+      upBorderColor: '#000000',       // was #48752c (dk green)
+      downBorderColor: '#000000',     // was #bb2719 (dk red)
+      noChangeBorderColor: '#000000', // was #777777
+      upWickColor: '#000000',         // was #48752c (dk green)
+      downWickColor: '#000000',       // was #bb2719 (dk red)
+      noChangeWickColor: '#000000'    // was #777777
     },
     area: {
       lineSize: 2,
@@ -425,18 +425,18 @@ export const LIGHT_THEME = {
     text: {
       style: 'fill',
       color: '#FFFFFF',
-      size: 12,
+      size: 11,
       family: 'Helvetica Neue',
       weight: 'normal',
       borderStyle: 'solid',
       borderDashedValue: [2, 2],
-      borderSize: 0,
+      borderSize: 1,
       borderRadius: 2,
       borderColor: '#48752c',
-      paddingLeft: 0,
-      paddingRight: 0,
-      paddingTop: 0,
-      paddingBottom: 0,
+      paddingLeft: 4,
+      paddingRight: 4,
+      paddingTop: 4,
+      paddingBottom: 4,
       backgroundColor: '#48752c'
     }
   }

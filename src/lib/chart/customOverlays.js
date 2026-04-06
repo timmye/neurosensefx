@@ -7,6 +7,35 @@
 import { registerOverlay } from 'klinecharts';
 
 /**
+ * Horizontal line extending right from a single click point.
+ * 1-click, right-extending, with permanent price label on Y axis.
+ */
+registerOverlay({
+  name: 'horizontalRayLine',
+  totalStep: 2,
+  needDefaultPointFigure: true,
+  createPointFigures: ({ coordinates, bounding }) => {
+    return [{
+      type: 'line',
+      attrs: {
+        coordinates: [
+          { x: coordinates[0].x, y: coordinates[0].y },
+          { x: bounding.width, y: coordinates[0].y }
+        ]
+      }
+    }];
+  },
+  createYAxisFigures: ({ coordinates, bounding, yAxis, precision, overlay }) => {
+    const isFromZero = yAxis?.isFromZero() ?? false;
+    const x = isFromZero ? 0 : bounding.width;
+    const align = isFromZero ? 'left' : 'right';
+    const value = overlay.points?.[0]?.value;
+    const text = value != null ? value.toFixed(precision.price) : '';
+    return { type: 'text', attrs: { x, y: coordinates[0].y, text, align, baseline: 'middle' }, ignoreEvent: true };
+  }
+});
+
+/**
  * Rectangle overlay — 2 clicks (opposite corners)
  */
 registerOverlay({
@@ -133,6 +162,19 @@ registerOverlay({
   }
 });
 
+const ANNOTATION_STYLE = {
+  color: '#FFFFFF',
+  size: 12,
+  family: 'Helvetica Neue',
+  weight: 'normal',
+  backgroundColor: '#48752c',
+  borderRadius: 0,
+  paddingLeft: 4,
+  paddingRight: 4,
+  paddingTop: 3,
+  paddingBottom: 3,
+};
+
 /**
  * Interactive annotation — replaces built-in simpleAnnotation.
  * Built-in version sets ignoreEvent:true on all figures, making overlays
@@ -165,7 +207,8 @@ registerOverlay({
       },
       {
         type: 'text',
-        attrs: { x: startX, y: arrowEndY, text: text || '', align: 'center', baseline: 'bottom' }
+        attrs: { x: startX, y: arrowEndY, text: text || '', align: 'center', baseline: 'bottom' },
+        styles: ANNOTATION_STYLE
       }
     ];
   }
