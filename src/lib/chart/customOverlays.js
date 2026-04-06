@@ -311,6 +311,52 @@ registerOverlay({
 });
 
 /**
+ * Custom parallelStraightLine overlay — overrides built-in.
+ * Built-in renders two parallel rays (x=0 to x=bounding.width).
+ * This version draws fixed-length lines bounded by the control points:
+ * line 1 from point 1 to point 2, line 2 same slope with intercept
+ * derived from point 3, spanning the same x-range.
+ */
+registerOverlay({
+  name: 'parallelStraightLine',
+  totalStep: 4,
+  needDefaultPointFigure: true,
+  needDefaultXAxisFigure: true,
+  needDefaultYAxisFigure: true,
+  createPointFigures: ({ coordinates }) => {
+    if (coordinates.length < 2) return [];
+    const [p1, p2] = coordinates;
+
+    if (coordinates.length === 2) {
+      return [{ type: 'line', attrs: { coordinates: [p1, p2] } }];
+    }
+
+    const p3 = coordinates[2];
+
+    // Same slope math as KLineChart's getParallelLines
+    if (p1.x === p2.x) {
+      // Vertical edge case: use x coordinates directly
+      return [
+        { type: 'line', attrs: { coordinates: [p1, p2] } },
+        { type: 'line', attrs: { coordinates: [{ x: p3.x, y: p1.y }, { x: p3.x, y: p2.y }] } }
+      ];
+    }
+
+    const k = (p2.y - p1.y) / (p2.x - p1.x);
+    const b = p1.y - k * p1.x;
+    const b1 = p3.y - k * p3.x;
+
+    const startX = p1.x;
+    const endX = p2.x;
+
+    return [
+      { type: 'line', attrs: { coordinates: [p1, p2] } },
+      { type: 'line', attrs: { coordinates: [{ x: startX, y: startX * k + b1 }, { x: endX, y: endX * k + b1 }] } }
+    ];
+  }
+});
+
+/**
  * Custom fibonacciLine overlay — overrides built-in.
  * Built-in draws fib level lines as rays from x=0 (left chart edge).
  * This version draws lines as segments starting at the leftmost click point,
