@@ -275,3 +275,52 @@ registerOverlay({
     };
   }
 });
+
+/**
+ * Custom fibonacciLine overlay — overrides built-in.
+ * Built-in draws fib level lines as rays from x=0 (left chart edge).
+ * This version draws lines as segments starting at the leftmost click point,
+ * extending right to the chart edge. Y-axis price labels are preserved.
+ */
+registerOverlay({
+  name: 'fibonacciLine',
+  totalStep: 3,
+  needDefaultPointFigure: true,
+  needDefaultXAxisFigure: true,
+  needDefaultYAxisFigure: true,
+  createPointFigures: ({ coordinates, bounding, overlay, precision, yAxis }) => {
+    const points = overlay.points;
+    if (coordinates.length === 0) return [];
+
+    const inCandle = yAxis?.isInCandle() ?? true;
+    const currentPrecision = inCandle ? precision.price : precision.excludePriceVolumeMax;
+
+    const lines = [];
+    const texts = [];
+
+    if (coordinates.length > 1 && typeof points[0].value === 'number' && typeof points[1].value === 'number') {
+      const startX = Math.min(coordinates[0].x, coordinates[1].x);
+      const endX = bounding.width;
+      const percents = [1, 0.786, 0.618, 0.5, 0.382, 0.236, 0];
+      const yDif = coordinates[0].y - coordinates[1].y;
+      const valueDif = points[0].value - points[1].value;
+
+      percents.forEach((percent) => {
+        const y = coordinates[1].y + yDif * percent;
+        const value = ((points[1].value ?? 0) + valueDif * percent).toFixed(currentPrecision);
+        lines.push({ coordinates: [{ x: startX, y }, { x: endX, y }] });
+        texts.push({
+          x: startX,
+          y,
+          text: `${value} (${(percent * 100).toFixed(1)}%)`,
+          baseline: 'bottom'
+        });
+      });
+    }
+
+    return [
+      { type: 'line', attrs: lines },
+      { type: 'text', isCheckEvent: false, attrs: texts }
+    ];
+  }
+});
