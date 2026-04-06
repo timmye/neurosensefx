@@ -7,8 +7,8 @@
 import { registerOverlay, registerIndicator } from 'klinecharts';
 
 /**
- * Background symbol watermark — large faded text centered at top of candle pane.
- * Symbol string passed via extendData when creating.
+ * Background symbol watermark — faded text centered at top of candle pane.
+ * extendData: { symbol, resolution, window } — updated via setExtendData().
  */
 registerIndicator({
   name: 'symbolWatermark',
@@ -20,15 +20,21 @@ registerIndicator({
   shouldOhlc: false,
   calc: (dataList) => dataList.map(() => ({})),
   draw: ({ ctx, bounding, indicator }) => {
-    const text = indicator.extendData ?? '';
-    if (!text) return true;
+    const { symbol, resolution, window: windowLabel } = indicator.extendData ?? {};
+    if (!symbol) return true;
     ctx.save();
     ctx.globalAlpha = 0.06;
-    ctx.font = 'bold 72px "DejaVu Serif", Georgia, serif';
     ctx.fillStyle = '#000000';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(text, bounding.width / 2, bounding.top + 16);
+    const cx = bounding.width / 2;
+    const top = bounding.top + 16;
+    ctx.font = 'bold 48px "DejaVu Serif", Georgia, serif';
+    ctx.fillText(symbol, cx, top);
+    if (resolution && windowLabel) {
+      ctx.font = 'normal 24px "DejaVu Serif", Georgia, serif';
+      ctx.fillText(`${resolution} · ${windowLabel}`, cx, top + 52);
+    }
     ctx.restore();
     return true;
   }

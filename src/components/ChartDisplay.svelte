@@ -8,7 +8,7 @@
   import ChartHeader from './displays/ChartHeader.svelte';
   import ChartToolbar from './ChartToolbar.svelte';
   import QuickRuler from './QuickRuler.svelte';
-  import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange, getWindowTier } from '../lib/chart/chartConfig.js';
+  import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange, getWindowTier, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
   import { setAxisChart, setAxisResolution, setAxisWindow } from '../lib/chart/xAxisCustom.js';
   import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
   import '../lib/chart/customOverlays.js';
@@ -336,6 +336,15 @@
     commandStack.clear();
   }
 
+  function getWatermarkData() {
+    return { symbol: currentSymbol, resolution: RESOLUTION_LABELS[currentResolution], window: currentWindow };
+  }
+
+  function updateWatermark() {
+    if (!chart) return;
+    chart.overrideIndicator({ name: 'symbolWatermark', extendData: getWatermarkData() }, 'candle_pane');
+  }
+
   function handleSymbolChange(newSymbol) {
     if (newSymbol === currentSymbol) return;
 
@@ -351,6 +360,7 @@
     // Clear chart overlays and command stack
     if (chart) {
       chart.removeOverlay();
+      chart.removeIndicator('candle_pane', 'symbolWatermark');
       chart.clearData();
       applyPricePrecision(newSymbol);
     }
@@ -359,6 +369,7 @@
     // Load new symbol data, restore drawings after data is applied
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
       restoreDrawings(currentSymbol, currentResolution);
+      chart.createIndicator({ name: 'symbolWatermark', extendData: getWatermarkData() }, false, { id: 'candle_pane' });
     });
   }
 
@@ -376,6 +387,7 @@
 
     setAxisResolution(newResolution);
     setAxisWindow(currentWindow);
+    updateWatermark();
 
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
 
@@ -401,6 +413,7 @@
     currentWindow = newWindow;
 
     setAxisWindow(currentWindow);
+    updateWatermark();
     loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { window: newWindow });
   }
@@ -551,6 +564,9 @@
 
       // Add Bollinger Bands (20 period) on candle pane
       chart.createIndicator('BOLL', false, { id: 'candle_pane' });
+
+      // Symbol watermark background text
+      chart.createIndicator({ name: 'symbolWatermark', extendData: getWatermarkData() }, false, { id: 'candle_pane' });
 
       // Re-lock on zoom attempt
       chart.subscribeAction('onZoom', () => {
