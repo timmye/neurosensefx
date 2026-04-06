@@ -27,11 +27,6 @@ export function setAxisWindow(window_) {
   _window = window_;
 }
 
-// Legacy — kept for backward compat but no longer used by generateTicks.
-export function setAxisResolution(_resolution) {
-  // no-op: resolution no longer drives tick behavior
-}
-
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------

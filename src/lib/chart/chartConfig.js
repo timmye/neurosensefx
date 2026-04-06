@@ -217,31 +217,6 @@ export function getWindowTier(windowStr) {
 // Calendar-aware X-axis tick configuration
 // ---------------------------------------------------------------------------
 
-// TICK_INTERVALS — 14 entries from 1MIN to YEAR
-export const TICK_INTERVALS = [
-  { name: '1MIN',    durationMs: 60_000,      rule: 'roundMinute' },
-  { name: '5MIN',    durationMs: 300_000,     rule: 'roundMinute5' },
-  { name: '15MIN',   durationMs: 900_000,     rule: 'roundMinute15' },
-  { name: '30MIN',   durationMs: 1_800_000,   rule: 'roundMinute30' },
-  { name: '1HOUR',   durationMs: 3_600_000,   rule: 'roundHour' },
-  { name: '2HOUR',   durationMs: 7_200_000,   rule: 'roundHour2' },
-  { name: '4HOUR',   durationMs: 14_400_000,  rule: 'roundHour4' },
-  { name: '8HOUR',   durationMs: 28_800_000,  rule: 'roundHour8' },
-  { name: '12HOUR',  durationMs: 43_200_000,  rule: 'roundHour12' },
-  { name: 'DAY',     durationMs: 86_400_000,  rule: 'midnight' },
-  { name: 'WEEK',    durationMs: 604_800_000, rule: 'weekStart' },
-  { name: 'MONTH',   durationMs: null,        rule: 'monthStart', calendar: true },
-  { name: 'QUARTER', durationMs: null,        rule: 'quarterStart', calendar: true },
-  { name: 'YEAR',    durationMs: null,        rule: 'yearStart', calendar: true }
-];
-
-// RESOLUTION_FLOOR — map of 11 resolutions to minimum interval names (legacy)
-export const RESOLUTION_FLOOR = {
-  '1m': '1MIN', '5m': '5MIN', '10m': '5MIN', '15m': '15MIN',
-  '30m': '30MIN', '1h': '1HOUR', '4h': '1HOUR',
-  '12h': '4HOUR', 'D': 'DAY', 'W': 'WEEK', 'M': 'MONTH'
-};
-
 // ---------------------------------------------------------------------------
 // Transition matrix — hardcoded per-window x-axis hierarchy
 //

@@ -9,7 +9,7 @@
   import ChartToolbar from './ChartToolbar.svelte';
   import QuickRuler from './QuickRuler.svelte';
   import { TIMEFRAME_BAR_SPACE, DEFAULT_RESOLUTION_WINDOW, calcBarSpace, windowToMs, getCalendarAlignedRange, getWindowTier, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
-  import { setAxisChart, setAxisResolution, setAxisWindow } from '../lib/chart/xAxisCustom.js';
+  import { setAxisChart, setAxisWindow } from '../lib/chart/xAxisCustom.js';
   import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
   import '../lib/chart/customOverlays.js';
   import { drawingStore } from '../lib/chart/drawingStore.js';
@@ -346,15 +346,18 @@
     chart.overrideIndicator({ name: 'symbolWatermark', extendData: getWatermarkData() }, 'candle_pane');
   }
 
-  function handleSymbolChange(newSymbol) {
-    if (newSymbol === currentSymbol) return;
-
-    // Unsubscribe from old symbol's candles
+  function teardownSubscriptions() {
     barStoreUnsubscribe?.();
     barStoreUnsubscribe = null;
     tickUnsubscribe?.();
     tickUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution);
+  }
+
+  function handleSymbolChange(newSymbol) {
+    if (newSymbol === currentSymbol) return;
+
+    teardownSubscriptions();
 
     currentSymbol = newSymbol;
 
@@ -377,16 +380,11 @@
   function handleResolutionChange(newResolution) {
     if (newResolution === currentResolution) return;
 
-    barStoreUnsubscribe?.();
-    barStoreUnsubscribe = null;
-    tickUnsubscribe?.();
-    tickUnsubscribe = null;
-    unsubscribeFromCandles(currentSymbol, currentResolution);
+    teardownSubscriptions();
 
     currentResolution = newResolution;
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
 
-    setAxisResolution(newResolution);
     setAxisWindow(currentWindow);
     updateWatermark();
 
@@ -404,11 +402,7 @@
   function handleWindowChange(newWindow) {
     if (newWindow === currentWindow) return;
 
-    barStoreUnsubscribe?.();
-    barStoreUnsubscribe = null;
-    tickUnsubscribe?.();
-    tickUnsubscribe = null;
-    unsubscribeFromCandles(currentSymbol, currentResolution);
+    teardownSubscriptions();
 
     currentWindow = newWindow;
 
@@ -523,7 +517,6 @@
 
     // Custom calendar-aware x-axis — activate via setPaneOptions (not setStyles)
     setAxisChart(chart);
-    setAxisResolution(currentResolution);
     setAxisWindow(currentWindow);
     chart.setPaneOptions({ id: 'x_axis_pane', axisOptions: { name: 'calendar' } });
 
