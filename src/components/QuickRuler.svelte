@@ -11,8 +11,59 @@
   let origin = { x: 0, y: 0 };
   let cursor = { x: 0, y: 0 };
   let rulerData = null;
+  let originOverlayId = null;
+  let cursorOverlayId = null;
 
   const LINE_COLOR = '#958f00';
+
+  function removeOverlays() {
+    if (originOverlayId != null) {
+      chart.removeOverlay({ id: originOverlayId });
+      originOverlayId = null;
+    }
+    if (cursorOverlayId != null) {
+      chart.removeOverlay({ id: cursorOverlayId });
+      cursorOverlayId = null;
+    }
+  }
+
+  function createOverlays() {
+    const originPt = chart.convertFromPixel(
+      [{ x: origin.x, y: origin.y }],
+      { paneId: 'candle_pane' }
+    );
+    const cursorPt = chart.convertFromPixel(
+      [{ x: cursor.x, y: cursor.y }],
+      { paneId: 'candle_pane' }
+    );
+    if (originPt[0] == null || cursorPt[0] == null) return;
+
+    originOverlayId = chart.createOverlay({
+      name: 'rulerPriceLine',
+      points: [{ value: originPt[0].value }],
+      styles: { line: { color: LINE_COLOR } },
+      lock: true,
+    });
+    cursorOverlayId = chart.createOverlay({
+      name: 'rulerPriceLine',
+      points: [{ value: cursorPt[0].value }],
+      styles: { line: { color: LINE_COLOR } },
+      lock: true,
+    });
+  }
+
+  function updateCursorOverlay() {
+    if (cursorOverlayId == null) return;
+    const cursorPt = chart.convertFromPixel(
+      [{ x: cursor.x, y: cursor.y }],
+      { paneId: 'candle_pane' }
+    );
+    if (cursorPt[0] == null) return;
+    chart.overrideOverlay({
+      id: cursorOverlayId,
+      points: [{ value: cursorPt[0].value }],
+    });
+  }
 
   function getPixelOffset(e) {
     const rect = chartContainer.getBoundingClientRect();
@@ -72,18 +123,21 @@
     rulerData = null;
 
     chart.setStyles({ crosshair: { show: false } });
+    createOverlays();
   }
 
   function onMousemove(e) {
     if (!chart || !active) return;
     cursor = getPixelOffset(e);
     recalcData();
+    updateCursorOverlay();
   }
 
   function onMouseup(e) {
     if (!chart || e.button !== 2 || !active) return;
     active = false;
     rulerData = null;
+    removeOverlays();
 
     chart.setStyles({ crosshair: { show: true } });
   }
@@ -116,8 +170,11 @@
 
   onDestroy(() => {
     unbindListeners();
-    if (active && chart) {
-      chart.setStyles({ crosshair: { show: true } });
+    if (chart) {
+      removeOverlays();
+      if (active) {
+        chart.setStyles({ crosshair: { show: true } });
+      }
     }
   });
 </script>

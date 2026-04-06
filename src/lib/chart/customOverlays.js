@@ -237,3 +237,41 @@ registerOverlay({
     };
   }
 });
+
+/**
+ * Ruler price line — dashed horizontal line spanning full chart width with
+ * a permanent price label on the Y-axis. Used by QuickRuler to show price
+ * levels at the origin and cursor during right-click drag.
+ */
+registerOverlay({
+  name: 'rulerPriceLine',
+  totalStep: 2,
+  needDefaultPointFigure: true,
+  styles: {
+    line: { style: 'dashed' }
+  },
+  createPointFigures: ({ coordinates, bounding }) => {
+    return [{
+      type: 'line',
+      attrs: {
+        coordinates: [
+          { x: 0, y: coordinates[0].y },
+          { x: bounding.width, y: coordinates[0].y }
+        ]
+      }
+    }];
+  },
+  createYAxisFigures: ({ coordinates, bounding, yAxis, precision, overlay }) => {
+    const isFromZero = yAxis?.isFromZero() ?? false;
+    const x = isFromZero ? 0 : bounding.width;
+    const align = isFromZero ? 'left' : 'right';
+    const value = overlay.points?.[0]?.value;
+    const text = value != null ? value.toFixed(precision.price) : '';
+    return {
+      type: 'text',
+      attrs: { x, y: coordinates[0].y, text, align, baseline: 'middle' },
+      styles: { backgroundColor: '#958f00' },
+      ignoreEvent: true
+    };
+  }
+});
