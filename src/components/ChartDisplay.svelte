@@ -253,22 +253,18 @@
     const drawings = await drawingStore.load(symbol, resolution);
     const callbacks = getOverlayCallbacks();
     for (const drawing of drawings) {
-      try {
-        const opts = {
-          id: drawing.overlayId,
-          name: drawing.overlayType,
-          points: drawing.points,
-          styles: drawing.styles,
-          ...callbacks,
-        };
-        if (drawing.extendData != null) opts.extendData = drawing.extendData;
-        chart.createOverlay(opts);
-        overlayDbIdMap.set(drawing.overlayId, drawing.id);
-        if (drawing.locked) {
-          chart.overrideOverlay({ id: drawing.overlayId, lock: true });
-        }
-      } catch (err) {
-        console.error('[ChartDisplay] restoreDrawings error for', drawing.overlayId, err);
+      const opts = {
+        id: drawing.overlayId,
+        name: drawing.overlayType,
+        points: drawing.points,
+        styles: drawing.styles,
+        ...callbacks,
+      };
+      if (drawing.extendData != null) opts.extendData = drawing.extendData;
+      chart.createOverlay(opts);
+      overlayDbIdMap.set(drawing.overlayId, drawing.id);
+      if (drawing.locked) {
+        chart.overrideOverlay({ id: drawing.overlayId, lock: true });
       }
     }
   }
@@ -373,7 +369,6 @@
 
     // Load new symbol data, restore drawings after data is applied
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-      if (!chart) return;
       restoreDrawings(currentSymbol, currentResolution);
       chart.createIndicator({ name: 'symbolWatermark', extendData: getWatermarkData() }, true, { id: 'candle_pane' });
     });
@@ -391,13 +386,9 @@
     currentResolution = newResolution;
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
 
-    try {
-      setAxisResolution(newResolution);
-      setAxisWindow(currentWindow);
-      updateWatermark();
-    } catch (err) {
-      console.error('[ChartDisplay] handleResolutionChange axis/watermark error:', err);
-    }
+    setAxisResolution(newResolution);
+    setAxisWindow(currentWindow);
+    updateWatermark();
 
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
 
@@ -421,12 +412,8 @@
 
     currentWindow = newWindow;
 
-    try {
-      setAxisWindow(currentWindow);
-      updateWatermark();
-    } catch (err) {
-      console.error('[ChartDisplay] handleWindowChange axis/watermark error:', err);
-    }
+    setAxisWindow(currentWindow);
+    updateWatermark();
     loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { window: newWindow });
   }
@@ -460,10 +447,12 @@
     store.set({ bars: [], state: 'loading', error: null });
 
     barStoreUnsubscribe?.();
+    let initialFullReceived = false;
     barStoreUnsubscribe = store.subscribe(data => {
       if (data.state === 'ready' && data.bars.length > 0) {
         if (data.updateType === 'full') {
           // Full replace — map entire array
+          initialFullReceived = true;
           const klineData = data.bars.map(bar => ({
             timestamp: bar.timestamp,
             open: bar.open,
@@ -474,8 +463,9 @@
           }));
           tryApplyData(klineData);
           if (onDataReady) { onDataReady(); onDataReady = null; }
-        } else {
-          // Incremental — only the last bar, no array map
+        } else if (initialFullReceived) {
+          // Incremental — only after first full load to avoid
+          // applying mismatched bars on stale chart data
           if (chart) {
             const bar = data.bars[data.bars.length - 1];
             chart.updateData({

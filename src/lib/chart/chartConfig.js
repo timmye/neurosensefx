@@ -38,7 +38,7 @@ const RESOLUTION_TO_PERIOD = {
 };
 
 export const TIMEFRAME_BAR_SPACE = {
-  '1m': 2, '5m': 4, '10m': 6, '15m': 8, '30m': 10,
+  '1m': 4, '5m': 4, '10m': 6, '15m': 8, '30m': 10,
   '1h': 12, '4h': 20, '12h': 32,
   'D': 40, 'W': 48, 'M': 50
 };
@@ -193,7 +193,7 @@ export const RESOLUTION_MS = {
 export function calcBarSpace(resolution, window, containerWidth) {
   const numCandles = windowToMs(window) / RESOLUTION_MS[resolution];
   if (!numCandles || !containerWidth || containerWidth <= 0) return TIMEFRAME_BAR_SPACE[resolution] || 10;
-  return Math.max(1, Math.min(50, containerWidth / numCandles));
+  return Math.max(3, Math.min(50, containerWidth / numCandles));
 }
 
 // ---------------------------------------------------------------------------

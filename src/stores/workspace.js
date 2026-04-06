@@ -124,6 +124,7 @@ const actions = {
     });
   },
 
+  updateDisplay: (id, updates, extra) => updateDisplay(id, updates, extra),
   updatePosition: (id, position) => updateDisplay(id, { position }),
   updateSize: (id, size) => updateDisplay(id, { size }),
 
@@ -410,7 +411,7 @@ const actions = {
     });
   },
 
-  updateChartDisplay: (id, updates) => updateDisplay(id, updates),
+  updateChartDisplay: (id, updates) => actions.updateDisplay(id, updates),
 
   getChartDisplay: () => {
     const state = workspaceStore.getState();
