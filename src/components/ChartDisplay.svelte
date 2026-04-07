@@ -311,17 +311,13 @@
 
     // 6. Render pinned foreign drawings: faded, locked, with origin badge
     const visibleRange = chart.getVisibleRange();
-    const dataList = chart.getDataList();
-    const dataMinTs = dataList?.length ? dataList[0].timestamp : -Infinity;
-    const dataMaxTs = dataList?.length ? dataList[dataList.length - 1].timestamp : Infinity;
     for (const drawing of pinnedForeign) {
       const compoundId = `${drawing.overlayId}_pinned_${drawing.resolution}`;
       const mappedPoints = drawing.points.map(p => {
         if (isPriceOnlyOverlay(drawing.overlayType) && visibleRange) {
           return { ...p, timestamp: visibleRange.from };
         }
-        const clamped = Math.max(dataMinTs, Math.min(dataMaxTs, p.timestamp));
-        return clamped === p.timestamp ? p : { ...p, timestamp: clamped };
+        return p;
       });
       const fadedStyles = getFadedStyles(drawing.styles, 0.5);
       const opts = {

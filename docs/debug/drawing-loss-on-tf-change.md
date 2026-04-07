@@ -1,7 +1,7 @@
 # Debug: Cross-Timeframe Pin Issues
 
 **Date:** 2026-04-07
-**Status:** ACTIVE — pin doesn't work on first use
+**Status:** ACTIVE — pinned ray appearance on foreign timeframe (Issue 5)
 
 ## Resolved Issues
 
@@ -67,3 +67,29 @@ return this.dbId = await this.store.save(this.symbol, this.resolution, data);
 - KLineChart `overrideOverlay` correctly handles callbacks (onSelected, onDeselected, onRightClick) — selective merge works.
 - KLineChart `createOverlay` with existing ID returns null — handled correctly by `restoreDrawings` which runs after `removeOverlay()`.
 - Server persistence preserves ALL drawing fields (pinned, locked, overlayId) via JSONB — no field stripping.
+
+---
+
+## Issue 5 (UNRESOLVED): Pinned ray appearance broken on foreign timeframe
+
+**Symptom:** When a ray drawing (e.g., horizontal ray, trend line ray) is pinned and viewed on a different timeframe, it renders incorrectly — often as a very short line segment instead of a ray extending to the edge of the chart.
+
+**Status:** Investigated but NOT resolved.
+
+**Attempted fix — timestamp clamping (REVERTED):**
+The hypothesis was that ray control points with timestamps outside the current timeframe's data range caused KLineChart to misinterpret them. The fix clamped foreign overlay point timestamps to `[dataMinTs, dataMaxTs]`:
+
+```javascript
+// Attempted fix (REVERTED — did not work):
+const dataMinTs = dataList?.length ? dataList[0].timestamp : -Infinity;
+const dataMaxTs = dataList?.length ? dataList[dataList.length - 1].timestamp : Infinity;
+const clamped = Math.max(dataMinTs, Math.min(dataMaxTs, p.timestamp));
+return clamped === p.timestamp ? p : { ...p, timestamp: clamped };
+```
+
+This had no visible effect on ray rendering. The clamping code was reverted in commit `c5b4526` (the clamping portion only; the pin-first-use fixes in that commit remain).
+
+**Root cause:** Unknown. The issue is likely internal to KLineChart's ray rendering logic when control points fall far outside the visible data range. Possible avenues for future investigation:
+- KLineChart source code for ray overlay rendering — how it extends lines beyond control points
+- Whether `overrideOverlay` or custom drawing lifecycle hooks can intercept and fix ray geometry
+- Whether the issue is specific to certain overlay types (horizontal ray vs trend line ray)
