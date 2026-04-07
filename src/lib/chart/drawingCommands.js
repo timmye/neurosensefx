@@ -49,7 +49,7 @@ export class DrawingCommandStack {
 }
 
 export class CreateDrawingCommand {
-  constructor(chart, store, symbol, resolution, overlayType, points, styles, extendData) {
+  constructor(chart, store, symbol, resolution, overlayType, points, styles, extendData, pinned = false) {
     this.chart = chart;
     this.store = store;
     this.symbol = symbol;
@@ -58,6 +58,7 @@ export class CreateDrawingCommand {
     this.points = points;
     this.styles = styles;
     this.extendData = extendData;
+    this.pinned = pinned;
     this.overlayId = null;
     this.dbId = null;
   }
@@ -86,6 +87,7 @@ export class CreateDrawingCommand {
         styles: this.styles,
       };
       if (this.extendData != null) data.extendData = this.extendData;
+      if (this.pinned != null) data.pinned = this.pinned;
       this.dbId = await this.store.save(this.symbol, this.resolution, data);
     }
   }

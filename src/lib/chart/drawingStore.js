@@ -8,6 +8,9 @@ const db = new Dexie('NeuroSenseDrawings');
 db.version(1).stores({
   drawings: '++id, [symbol+resolution], overlayType, createdAt',
 });
+db.version(2).stores({
+  drawings: '++id, [symbol+resolution], symbol, overlayType, createdAt',
+});
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 const saveDebounceTimers = new Map();
@@ -34,13 +37,11 @@ export const drawingStore = {
         const resp = await fetch(API_BASE + '/api/drawings/' + symbol + '/' + resolution, { credentials: 'include' });
         if (resp.ok) {
           const { data } = await resp.json();
-          if (data) {
+          if (data && Array.isArray(data) && data.length > 0) {
             // Replace local IndexedDB data with server data to keep cache in sync
             await db.drawings.where({ symbol, resolution }).delete();
-            if (Array.isArray(data)) {
-              for (const d of data) {
-                await db.drawings.add({ ...d, symbol, resolution });
-              }
+            for (const d of data) {
+              await db.drawings.add({ ...d, symbol, resolution });
             }
             return data;
           }
@@ -50,6 +51,10 @@ export const drawingStore = {
       }
     }
     return db.drawings.where({ symbol, resolution }).toArray();
+  },
+
+  async loadPinned(symbol) {
+    return db.drawings.where('symbol').equals(symbol).and(d => d.pinned === true).toArray();
   },
 
   async update(id, changes) {

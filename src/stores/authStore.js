@@ -53,6 +53,7 @@ async function collectLocalData() {
     try {
         const db = new Dexie('NeuroSenseDrawings');
         db.version(1).stores({ drawings: '++id, [symbol+resolution], overlayType, createdAt' });
+        db.version(2).stores({ drawings: '++id, [symbol+resolution], symbol, overlayType, createdAt' });
         const allDrawings = await db.drawings.toArray();
         const byKey = new Map();
         for (const d of allDrawings) {

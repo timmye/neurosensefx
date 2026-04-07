@@ -19,6 +19,7 @@
     DeleteDrawingCommand,
   } from '../lib/chart/drawingCommands.js';
   import OverlayContextMenu from './OverlayContextMenu.svelte';
+  import { getFadedStyles, withOriginBadge, isPriceOnlyOverlay } from '../lib/chart/styleUtils.js';
 
   export let display;
 
@@ -42,8 +43,11 @@
   const unsubRedo = commandStack.canRedo.subscribe(v => canRedo = v);
   let selectedOverlayId = null;
   let overlayDbIdMap = new Map(); // overlayId → dbId for delete command lookups
+  let pinnedOverlayMap = new Map(); // compound overlayId → { dbId, resolution } for pinned foreign overlays
+  let overlayPinnedMap = new Map(); // overlayId → boolean (pinned state)
   let contextMenu = { visible: false, x: 0, y: 0, overlayId: null };
   let isOverlayLocked = false;
+  let isOverlayPinned = false;
   let activeDrawingTool = null;
   let magnetMode = true;
   let resizeObserver = null;
@@ -173,6 +177,8 @@
       }
       commandStack.clear();
       overlayDbIdMap.clear();
+      pinnedOverlayMap.clear();
+      overlayPinnedMap.clear();
       loadChartData(currentSymbol, currentResolution, currentWindow, () => {
         restoreDrawings(currentSymbol, currentResolution);
       });
@@ -237,6 +243,7 @@
       onRightClick: (event) => {
         const overlay = event.overlay;
         isOverlayLocked = overlay.lock;
+        isOverlayPinned = overlayPinnedMap.get(overlay.id) || false;
         contextMenu = {
           visible: true,
           x: event.pageX || event.x,
@@ -250,9 +257,42 @@
 
   async function restoreDrawings(symbol, resolution) {
     if (!chart) return;
-    const drawings = await drawingStore.load(symbol, resolution);
+    pinnedOverlayMap.clear();
+
+    // 1. Load local drawings for this symbol+resolution
+    const localDrawings = await drawingStore.load(symbol, resolution);
+
+    // 2. Load all pinned drawings for this symbol (across all resolutions)
+    const pinnedDrawings = await drawingStore.loadPinned(symbol);
+
+    // 3. Separate pinned into local (same resolution) and foreign (different resolution)
+    const pinnedLocal = new Map();
+    const pinnedForeign = [];
+    for (const d of pinnedDrawings) {
+      if (d.resolution === resolution) {
+        pinnedLocal.set(d.id, d);
+      } else {
+        pinnedForeign.push(d);
+      }
+    }
+
+    // 4. Merge local + pinnedLocal (dedup by dbId)
+    const mergedLocal = [];
+    const seenIds = new Set();
+    for (const d of localDrawings) {
+      mergedLocal.push(d);
+      seenIds.add(d.id);
+    }
+    for (const [, d] of pinnedLocal) {
+      if (!seenIds.has(d.id)) {
+        mergedLocal.push(d);
+        seenIds.add(d.id);
+      }
+    }
+
+    // 5. Render merged-local at full opacity with callbacks (existing logic)
     const callbacks = getOverlayCallbacks();
-    for (const drawing of drawings) {
+    for (const drawing of mergedLocal) {
       const opts = {
         id: drawing.overlayId,
         name: drawing.overlayType,
@@ -263,9 +303,33 @@
       if (drawing.extendData != null) opts.extendData = drawing.extendData;
       chart.createOverlay(opts);
       overlayDbIdMap.set(drawing.overlayId, drawing.id);
+      overlayPinnedMap.set(drawing.overlayId, drawing.pinned || false);
       if (drawing.locked) {
         chart.overrideOverlay({ id: drawing.overlayId, lock: true });
       }
+    }
+
+    // 6. Render pinned foreign drawings: faded, locked, with origin badge
+    const visibleRange = chart.getVisibleRange();
+    for (const drawing of pinnedForeign) {
+      const compoundId = `${drawing.overlayId}_pinned_${drawing.resolution}`;
+      const opts = {
+        id: compoundId,
+        name: drawing.overlayType,
+        points: drawing.points.map(p => {
+          if (isPriceOnlyOverlay(drawing.overlayType) && visibleRange) {
+            return { ...p, timestamp: visibleRange.from };
+          }
+          return p;
+        }),
+        styles: getFadedStyles(drawing.styles, 0.5),
+        lock: true,
+      };
+      if (drawing.extendData != null) {
+        opts.extendData = withOriginBadge(drawing.extendData, drawing.resolution);
+      }
+      chart.createOverlay(opts);
+      pinnedOverlayMap.set(compoundId, { dbId: drawing.id, resolution: drawing.resolution });
     }
   }
 
@@ -328,6 +392,18 @@
     contextMenu.visible = false;
   }
 
+  async function handleContextMenuTogglePin() {
+    const overlayId = contextMenu.overlayId;
+    if (!overlayId) return;
+    const dbId = overlayDbIdMap.get(overlayId);
+    if (dbId) {
+      const newPinned = !isOverlayPinned;
+      await drawingStore.update(dbId, { pinned: newPinned });
+      overlayPinnedMap.set(overlayId, newPinned);
+    }
+    contextMenu.visible = false;
+  }
+
   function handleContextMenuClose() {
     contextMenu.visible = false;
   }
@@ -369,6 +445,9 @@
       applyPricePrecision(newSymbol);
     }
     commandStack.clear();
+    overlayDbIdMap.clear();
+    pinnedOverlayMap.clear();
+    overlayPinnedMap.clear();
 
     // Load new symbol data, restore drawings after data is applied
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
@@ -393,6 +472,9 @@
     if (chart) {
       chart.removeOverlay();
     }
+    overlayDbIdMap.clear();
+    pinnedOverlayMap.clear();
+    overlayPinnedMap.clear();
     commandStack.clear();
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
       restoreDrawings(currentSymbol, currentResolution);
@@ -657,6 +739,8 @@
 
     commandStack.clear();
     overlayDbIdMap.clear();
+    pinnedOverlayMap.clear();
+    overlayPinnedMap.clear();
     unsubUndo();
     unsubRedo();
   });
@@ -693,8 +777,10 @@
     x={contextMenu.x}
     y={contextMenu.y}
     isLocked={isOverlayLocked}
+    isPinned={isOverlayPinned}
     on:delete={handleContextMenuDelete}
     on:toggleLock={handleContextMenuToggleLock}
+    on:togglePin={handleContextMenuTogglePin}
     on:close={handleContextMenuClose} />
 </div>
 

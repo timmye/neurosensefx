@@ -5,6 +5,7 @@
   export let x = 0;
   export let y = 0;
   export let isLocked = false;
+  export let isPinned = false;
 
   const dispatch = createEventDispatcher();
 
@@ -15,6 +16,11 @@
 
   function handleToggleLock() {
     dispatch('toggleLock');
+    dispatch('close');
+  }
+
+  function handleTogglePin() {
+    dispatch('togglePin');
     dispatch('close');
   }
 
@@ -46,6 +52,7 @@
     <div class="context-menu" style="left: {x}px; top: {y}px;">
       <button class="menu-item delete" on:click={handleDelete}>Delete</button>
       <button class="menu-item" on:click={handleToggleLock}>{isLocked ? 'Unlock' : 'Lock'}</button>
+      <button class="menu-item" on:click={handleTogglePin}>{isPinned ? 'Unpin' : 'Pin as Key Level'}</button>
     </div>
   </div>
 {/if}
