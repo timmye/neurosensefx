@@ -1,15 +1,13 @@
 <!--
-BackgroundShader - WebGL procedural background with 3-layer simplex noise patterns.
+BackgroundShader - WebGL procedural background with raymarched cos/sin fractal field.
 
-Full visual effects with coordinate transforms (skew, rotate, spiral, kaleidoscope, pulse),
-UV warping (wave, turbulence), 3-layer pattern blending, and dithering.
+Glowing neon line pattern created via raymarching with customizable:
+- Animation speed, spatial scale, color intensity
+- Iteration depth (detail vs performance tradeoff)
+- Corner roundness (smooth vs sharp fractal edges)
+- Three-color blending weighted by spatial position
 
-Pattern types:
-- 0: Fluid (default) - smooth noise flow
-- 1: Fabric - sine interference woven appearance
-- 2: Glass - caustics with additive blending
-
-All parameters hardcoded to user's original aesthetic values.
+Volatility-driven uniforms available but disabled by default.
 -->
 <script>
   import * as THREE from 'three';
@@ -71,144 +69,65 @@ All parameters hardcoded to user's original aesthetic values.
   `;
 
   const fragmentShader = `
-    uniform float uTime;
-    uniform vec2 uResolution;
-    uniform int uType;
+    uniform vec3 iResolution;
+    uniform float iTime;
+    uniform float uSpeed;
     uniform float uScaleX;
     uniform float uScaleY;
-    uniform float uSpeed;
-    uniform float uWaveAmount;
-    uniform float uRotate;
-    uniform float uSpiral;
-    uniform float uTurbulence;
-    uniform float uDitherStrength;
-    uniform float uSkew;
-    uniform float uKaleidoscope;
-    uniform float uPulse;
-    uniform float uBlur1;
-    uniform float uBlur2;
-    uniform float uBlurAccent;
+    uniform float uColorOffset;
+    uniform float uIterLimit;
+    uniform float uRoundness;
     uniform vec3 uColor1;
     uniform vec3 uColor2;
-    uniform vec3 uAccent;
-    uniform vec3 uBgColor;
+    uniform vec3 uColor3;
     uniform float uOpacity;
     varying vec2 vUv;
 
-    vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-    vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-    vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-    float snoise(vec2 v) {
-      const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-      vec2 i  = floor(v + dot(v, C.yy));
-      vec2 x0 = v - i + dot(i, C.xx);
-      vec2 i1;
-      i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-      vec4 x12 = x0.xyxy + C.xxzz;
-      x12.xy -= i1;
-      i = mod289(i);
-      vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
-      vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-      m = m*m; m = m*m;
-      vec3 x = 2.0 * fract(p * C.www) - 1.0;
-      vec3 h = abs(x) - 0.5;
-      vec3 ox = floor(x + 0.5);
-      vec3 a0 = x - ox;
-      m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
-      vec3 g;
-      g.x = a0.x * x0.x + h.x * x0.y;
-      g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-      return 130.0 * dot(m, g);
+    float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
     }
 
-    vec2 rotate2D(vec2 uv, float a) {
-      float s = sin(a);
-      float c = cos(a);
-      return mat2(c, -s, s, c) * uv;
-    }
+    void mainImage(out vec4 O, vec2 I) {
+        float i = 0.0, z = 0.0, d = 0.0;
+        O = vec4(0.0);
 
-    float random(vec2 uv) {
-      return fract(sin(dot(uv.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-    }
+        for(O *= i; i++ < uIterLimit;) {
+            vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyy);
+            vec3 v;
 
-    float patternFluid(vec2 uv, float t) {
-      return snoise(uv + t) * 0.5 + 0.5;
-    }
+            p.x += sin(p.x + iTime * uSpeed * 0.5) + cos(p.y + iTime * uSpeed * 0.3);
+            p.y += cos(p.x - iTime * uSpeed * 0.4) + sin(p.y + iTime * uSpeed * 0.6);
+            p.z += sin(iTime * uSpeed * 0.2) * 1.5;
 
-    float patternFabric(vec2 uv, float t) {
-      float v = sin(uv.x * 3.0 + t + sin(uv.y * 4.0 + t * 0.5));
-      return v * 0.5 + 0.5;
-    }
+            p.x *= uScaleX;
+            p.y *= uScaleY;
 
-    float patternGlass(vec2 uv, float t) {
-      float v = abs(snoise(uv + t));
-      return 1.0 - v;
-    }
+            v = cos(p) - sin(p).yzx;
 
-    float getPattern(vec2 uv, float t) {
-      if (uType == 1) return patternFabric(uv, t);
-      if (uType == 2) return patternGlass(uv, t);
-      return patternFluid(uv, t);
+            vec3 shape = mix(max(v, v.yzx * 0.2), v, uRoundness);
+
+            z += d = 1e-4 + 0.5 * length(shape);
+
+            vec3 weights = abs(cos(p));
+            weights /= dot(weights, vec3(1.0));
+
+            vec3 customColor = uColor1 * weights.x + uColor2 * weights.y + uColor3 * weights.z;
+
+            O.rgb += (customColor * uColorOffset) / d;
+        }
+
+        O /= O + 300.0;
+
+        float luminance = dot(O.rgb, vec3(0.299, 0.587, 0.114));
+        O.rgb = mix(vec3(luminance), O.rgb, 1.6);
+
+        O.rgb += (random(I) - 0.5) / 128.0;
+
+        O.a = uOpacity;
     }
 
     void main() {
-      vec2 uv = gl_FragCoord.xy / uResolution.xy;
-      float ratio = uResolution.x / uResolution.y;
-      vec2 p = uv - 0.5;
-      p.x *= ratio;
-
-      p.x += p.y * uSkew;
-      p = rotate2D(p, uRotate);
-
-      float len = length(p);
-      float angle = atan(p.y, p.x);
-      angle += uSpiral * (1.0 - smoothstep(0.0, 1.5, len));
-      p = vec2(cos(angle), sin(angle)) * len;
-
-      p = mix(p, abs(p), uKaleidoscope);
-      p.x *= uScaleX;
-      p.y *= uScaleY;
-
-      float pulse = 1.0 + sin(uTime * uSpeed * 3.0) * uPulse * 0.2;
-      p *= pulse;
-
-      float t = uTime * uSpeed;
-      vec2 noiseUV = p;
-      noiseUV.x += sin(noiseUV.y * 2.0 + t) * uWaveAmount * 0.1;
-      noiseUV.y += cos(noiseUV.x * 2.0 - t) * uWaveAmount * 0.1;
-
-      if (uTurbulence > 0.01) {
-        float turb = snoise(noiseUV * 3.0 + t);
-        noiseUV += turb * uTurbulence * 0.2;
-      }
-
-      vec3 color = uBgColor;
-      float n1 = getPattern(noiseUV + vec2(t * 0.5, 0.0), t * 0.1);
-      float n2 = getPattern(noiseUV * 1.5 - vec2(0.0, t * 0.3), t * 0.15);
-      float n3 = getPattern(noiseUV * 2.5 + vec2(t * 0.2, t * 0.2), t * 0.2);
-
-      float b1 = max(0.001, uBlur1);
-      float mask1 = smoothstep(0.5 - b1 * 0.5, 0.5 + b1 * 0.5, n1);
-      color = mix(color, uColor1, mask1);
-
-      float b2 = max(0.001, uBlur2);
-      float mask2 = smoothstep(0.5 - b2 * 0.5, 0.5 + b2 * 0.5, n2);
-      color = mix(color, uColor2, mask2);
-
-      float b3 = max(0.001, uBlurAccent);
-      float mask3 = smoothstep(0.5 - b3 * 0.5, 0.5 + b3 * 0.5, n3);
-      float intensity = clamp(uWaveAmount * 0.6 + 0.2, 0.0, 1.0);
-
-      if (uType == 2) {
-        color += uAccent * mask3 * intensity;
-      } else {
-        color = mix(color, uAccent, mask3 * intensity);
-      }
-
-      float dither = (random(uv + t) - 0.5) * uDitherStrength;
-      color += dither;
-
-      gl_FragColor = vec4(color, uOpacity);
+        mainImage(gl_FragColor, gl_FragCoord.xy);
     }
   `;
 
@@ -227,28 +146,18 @@ All parameters hardcoded to user's original aesthetic values.
 
       material = new THREE.ShaderMaterial({
         uniforms: {
-          uTime: { value: 0 },
-          uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-          uType: { value: 0 },
-          uScaleX: { value: 2.04 },
-          uScaleY: { value: 0.254 },
-          uSpeed: { value: 0.03 },
-          uWaveAmount: { value: 3.5 },
-          uRotate: { value: 1.21204 },
-          uSpiral: { value: 0.0 },
-          uTurbulence: { value: 1.6 },
-          uDitherStrength: { value: 0.0287 },
-          uSkew: { value: 0.0 },
-          uKaleidoscope: { value: 0.0 },
-          uPulse: { value: 0.0 },
-          uBlur1: { value: 0.9465 },
-          uBlur2: { value: 1.5 },
-          uBlurAccent: { value: 2.0 },
-          uColor1: { value: new THREE.Color('#020712') },
-          uColor2: { value: new THREE.Color('#578fff') },
-          uAccent: { value: new THREE.Color('#004280') },
-          uBgColor: { value: new THREE.Color('#1b1d50') },
-          uOpacity: { value: 0.1 }
+          iTime: { value: 0 },
+          iResolution: { value: new THREE.Vector3(window.innerWidth, window.innerHeight, 1.0) },
+          uSpeed: { value: 0.1 },
+          uScaleX: { value: 2.0 },
+          uScaleY: { value: 2.0 },
+          uColorOffset: { value: 3.0 },
+          uIterLimit: { value: 10.0 },
+          uRoundness: { value: 1.0 },
+          uColor1: { value: new THREE.Color('#004cff') },
+          uColor2: { value: new THREE.Color('#03123f') },
+          uColor3: { value: new THREE.Color('#2e89ff') },
+          uOpacity: { value: 1.0 }
         },
         vertexShader,
         fragmentShader
@@ -263,50 +172,24 @@ All parameters hardcoded to user's original aesthetic values.
       // Skip animation loop in headless/test environments (no GPU)
       function animate() {
         animationId = requestAnimationFrame(animate);
-        material.uniforms.uTime.value = clock.getElapsedTime();
+        material.uniforms.iTime.value = clock.getElapsedTime();
 
         // ── Volatility-driven uniform adjustments ──
-        // Each metric drives its own shader uniform independently (no averaging).
-        // Adjust the lerp() second arg (max value) to control intensity.
-        //
-        // uSpeed:     How fast the background pattern moves.
-        //             Driven by EWMA velocity (rate of price change).
-        //             Range: 0.02 (calm) → 0.06 (extreme).
-        //             Higher max = faster, more distracting movement.
-        //
-        // uTurbulence: How chaotic/fragmented the noise pattern becomes.
-        //              Driven by dispersion sigma (cross-currency divergence).
-        //              Range: 0.8 (calm) → 3.5 (extreme).
-        //              Higher max = more visual chaos when currencies diverge.
-        //
-        // uPulse:     Amplitude of the pulsing/breathing effect.
-        //             Driven by range (spread between strongest & weakest currency).
-        //             Range: 0.0 (calm) → 0.4 (extreme).
-        //             Higher max = more visible pulsing.
-        //
-        // uColor2:    Primary pattern color.
-        //             Driven by max zone score (single-currency extreme).
-        //             Gradient: blue → teal → magenta → orange → red.
-        //             Adjust ZONE_COLORS array to change the color stops.
-        //
-        // uAccent:    Accent/highlight color.
-        //             Also driven by max zone score.
-        //             Gradient: dark blue → purple → orange.
-        //             Adjust ACCENT_COLORS array to change the color stops.
-        //
-        // uOpacity:   Overall transparency of the entire background effect.
-        //             Range: 0.0 (invisible) → 1.0 (full opaque).
-        //             Set below 1.0 to let the CSS gradient behind show through.
-        //             Useful to dial down the effect without changing individual params.
         if (volatility.ready && volatilityEffectsEnabled) {
           const v = volatility;
-          material.uniforms.uSpeed.value = lerp(0.02, 0.06, v.smoothedVelocity / 100);
-          material.uniforms.uTurbulence.value = lerp(0.8, 3.5, v.smoothedSigma / 100);
-          material.uniforms.uPulse.value = lerp(0.0, 0.4, v.smoothedRange / 100);
-          const c2 = colorForZone(v.smoothedMaxZone);
-          material.uniforms.uColor2.value.setRGB(c2.r, c2.g, c2.b);
+          // Velocity → animation speed (0.2 calm → 1.5 extreme)
+          material.uniforms.uSpeed.value = lerp(0.2, 1.5, v.smoothedVelocity / 100);
+          // Sigma → fractal scale distortion (1.5 calm → 3.0 extreme)
+          material.uniforms.uScaleX.value = lerp(1.5, 3.0, v.smoothedSigma / 100);
+          material.uniforms.uScaleY.value = lerp(1.5, 3.0, v.smoothedSigma / 100);
+          // Range → color intensity/brightness (2.0 calm → 5.0 extreme)
+          material.uniforms.uColorOffset.value = lerp(2.0, 5.0, v.smoothedRange / 100);
+          // Max zone → color 1 (primary fractal color)
+          const c = colorForZone(v.smoothedMaxZone);
+          material.uniforms.uColor1.value.setRGB(c.r, c.g, c.b);
+          // Accent color → color 3
           const ac = accentForZone(v.smoothedMaxZone);
-          material.uniforms.uAccent.value.setRGB(ac.r, ac.g, ac.b);
+          material.uniforms.uColor3.value.setRGB(ac.r, ac.g, ac.b);
         }
 
         renderer.render(scene, camera);
@@ -315,7 +198,7 @@ All parameters hardcoded to user's original aesthetic values.
 
       const handleResize = () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
-        material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+        material.uniforms.iResolution.value.set(window.innerWidth, window.innerHeight, 1.0);
       };
       window.addEventListener('resize', handleResize);
 
