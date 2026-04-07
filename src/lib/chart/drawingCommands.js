@@ -35,10 +35,10 @@ export class DrawingCommandStack {
     const cmd = this.redoStack.pop();
     if (cmd) {
       cmd.execute();
-      if (cmd.persist) cmd.persist();
       this.undoStack.push(cmd);
       this._notify();
     }
+    return cmd;
   }
 
   clear() {
@@ -88,7 +88,7 @@ export class CreateDrawingCommand {
       };
       if (this.extendData != null) data.extendData = this.extendData;
       if (this.pinned != null) data.pinned = this.pinned;
-      this.dbId = await this.store.save(this.symbol, this.resolution, data);
+      return this.dbId = await this.store.save(this.symbol, this.resolution, data);
     }
   }
 

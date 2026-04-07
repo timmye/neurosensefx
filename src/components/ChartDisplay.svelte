@@ -195,7 +195,7 @@
       }
       if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
         e.preventDefault();
-        commandStack.redo();
+        redoCreateCommand(commandStack.redo());
       }
     },
     minimize: () => {
@@ -311,18 +311,24 @@
 
     // 6. Render pinned foreign drawings: faded, locked, with origin badge
     const visibleRange = chart.getVisibleRange();
+    const dataList = chart.getDataList();
+    const dataMinTs = dataList?.length ? dataList[0].timestamp : -Infinity;
+    const dataMaxTs = dataList?.length ? dataList[dataList.length - 1].timestamp : Infinity;
     for (const drawing of pinnedForeign) {
       const compoundId = `${drawing.overlayId}_pinned_${drawing.resolution}`;
+      const mappedPoints = drawing.points.map(p => {
+        if (isPriceOnlyOverlay(drawing.overlayType) && visibleRange) {
+          return { ...p, timestamp: visibleRange.from };
+        }
+        const clamped = Math.max(dataMinTs, Math.min(dataMaxTs, p.timestamp));
+        return clamped === p.timestamp ? p : { ...p, timestamp: clamped };
+      });
+      const fadedStyles = getFadedStyles(drawing.styles, 0.5);
       const opts = {
         id: compoundId,
         name: drawing.overlayType,
-        points: drawing.points.map(p => {
-          if (isPriceOnlyOverlay(drawing.overlayType) && visibleRange) {
-            return { ...p, timestamp: visibleRange.from };
-          }
-          return p;
-        }),
-        styles: getFadedStyles(drawing.styles, 0.5),
+        points: mappedPoints,
+        styles: fadedStyles,
         lock: true,
       };
       if (drawing.extendData != null) {
@@ -333,7 +339,22 @@
     }
   }
 
-  function handleDrawingCreated(event) {
+  function registerOverlayForInteraction(overlayId, persistPromise) {
+    overlayPinnedMap.set(overlayId, false);
+    chart.overrideOverlay({ id: overlayId, ...getOverlayCallbacks() });
+    if (persistPromise) {
+      persistPromise.then(dbId => {
+        overlayDbIdMap.set(overlayId, dbId);
+        const overlay = chart.getOverlayById(overlayId);
+        if (overlay) {
+          const existingExtData = overlay.extendData || {};
+          chart.overrideOverlay({ id: overlayId, extendData: { ...existingExtData, _dbId: dbId } });
+        }
+      });
+    }
+  }
+
+  async function handleDrawingCreated(event) {
     const { overlayId, overlayType, points, styles, extendData } = event.detail;
     const command = new CreateDrawingCommand(
       chart, drawingStore, currentSymbol, currentResolution,
@@ -341,17 +362,22 @@
     );
     command.overlayId = overlayId;
     commandStack.execute(command);
-    command.persist().then(dbId => {
-      overlayDbIdMap.set(overlayId, dbId);
-    });
-    // Attach interaction callbacks to the newly created overlay
-    chart.overrideOverlay({ id: overlayId, ...getOverlayCallbacks() });
+    registerOverlayForInteraction(overlayId, command.persist());
+  }
+
+  function redoCreateCommand(cmd) {
+    if (cmd?.overlayId && cmd.persist) {
+      registerOverlayForInteraction(cmd.overlayId, cmd.persist());
+    }
   }
 
   async function handleOverlayDelete(overlayId) {
     const overlay = chart.getOverlayById(overlayId);
     if (!overlay) return;
-    const dbId = overlayDbIdMap.get(overlayId) || null;
+    let dbId = overlayDbIdMap.get(overlayId) || null;
+    if (!dbId && overlay.extendData?._dbId) {
+      dbId = overlay.extendData._dbId;
+    }
     const serialized = {
       overlayId: overlay.id,
       overlayType: overlay.name,
@@ -362,6 +388,7 @@
     const command = new DeleteDrawingCommand(chart, drawingStore, overlayId, dbId, serialized);
     commandStack.execute(command);
     overlayDbIdMap.delete(overlayId);
+    overlayPinnedMap.delete(overlayId);
     if (selectedOverlayId === overlayId) selectedOverlayId = null;
   }
 
@@ -371,7 +398,10 @@
     const newLock = !overlay.lock;
     chart.overrideOverlay({ id: overlayId, lock: newLock });
     // Persist lock state
-    const dbId = overlayDbIdMap.get(overlayId);
+    let dbId = overlayDbIdMap.get(overlayId);
+    if (!dbId && overlay.extendData?._dbId) {
+      dbId = overlay.extendData._dbId;
+    }
     if (dbId) {
       drawingStore.update(dbId, { locked: newLock });
     }
@@ -395,12 +425,18 @@
   async function handleContextMenuTogglePin() {
     const overlayId = contextMenu.overlayId;
     if (!overlayId) return;
-    const dbId = overlayDbIdMap.get(overlayId);
-    if (dbId) {
-      const newPinned = !isOverlayPinned;
-      await drawingStore.update(dbId, { pinned: newPinned });
-      overlayPinnedMap.set(overlayId, newPinned);
+    // Try overlay map first, then fall back to overlay's extendData
+    let dbId = overlayDbIdMap.get(overlayId);
+    if (!dbId) {
+      const overlay = chart.getOverlayById(overlayId);
+      if (overlay?.extendData?._dbId) {
+        dbId = overlay.extendData._dbId;
+      }
     }
+    if (!dbId) return;
+    const newPinned = !isOverlayPinned;
+    await drawingStore.update(dbId, { pinned: newPinned });
+    overlayPinnedMap.set(overlayId, newPinned);
     contextMenu.visible = false;
   }
 
@@ -763,6 +799,7 @@
       on:resolution={e => handleResolutionChange(e.detail)}
       on:window={e => handleWindowChange(e.detail)}
       on:drawingCreated={handleDrawingCreated}
+      on:redo={e => redoCreateCommand(e.detail)}
       on:clearDrawings={handleClearDrawings} />
 
     <div style="position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column;">

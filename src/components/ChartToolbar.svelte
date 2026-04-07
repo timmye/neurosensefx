@@ -95,7 +95,8 @@
 
   function handleRedo() {
     if (commandStack) {
-      commandStack.redo();
+      const cmd = commandStack.redo();
+      if (cmd) dispatch('redo', cmd);
     }
   }
 
