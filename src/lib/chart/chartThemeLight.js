@@ -322,7 +322,7 @@ export const LIGHT_THEME = {
         style: 'dashed',
         dashedValue: [4, 2],
         size: 1,
-        color: '#999999'
+        color: '#958f00'
       },
       text: {
         show: true,
@@ -334,13 +334,13 @@ export const LIGHT_THEME = {
         borderStyle: 'solid',
         borderDashedValue: [2, 2],
         borderSize: 1,
-        borderColor: '#48752c',
+        borderColor: '#958f00',
         borderRadius: 2,
         paddingLeft: 4,
         paddingRight: 4,
         paddingTop: 4,
         paddingBottom: 4,
-        backgroundColor: '#48752c'
+        backgroundColor: '#958f00'
       },
       features: []
     },
@@ -351,7 +351,7 @@ export const LIGHT_THEME = {
         style: 'dashed',
         dashedValue: [4, 2],
         size: 1,
-        color: '#999999'
+        color: '#958f00'
       },
       text: {
         show: true,
@@ -363,13 +363,13 @@ export const LIGHT_THEME = {
         borderStyle: 'solid',
         borderDashedValue: [2, 2],
         borderSize: 1,
-        borderColor: '#48752c',
+        borderColor: '#958f00',
         borderRadius: 2,
         paddingLeft: 4,
         paddingRight: 4,
         paddingTop: 4,
         paddingBottom: 4,
-        backgroundColor: '#48752c'
+        backgroundColor: '#958f00'
       }
     }
   },
