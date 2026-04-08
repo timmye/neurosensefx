@@ -233,6 +233,16 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
         };
       });
     }
+    if (data.type === 'twapUpdate') {
+      const store = getMarketDataStore(symbol);
+      store.update(current => ({
+        ...current,
+        twap: data.data?.twapValue ?? current.twap,
+        twapContributions: data.data?.contributions ?? current.twapContributions,
+        twapUpdatedAt: data.data?.timestamp ?? current.twapUpdatedAt,
+        lastUpdate: Date.now()
+      }));
+    }
     if (data.type === 'error') {
       const store = getMarketDataStore(symbol);
       store.update(current => ({

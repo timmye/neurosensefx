@@ -45,6 +45,7 @@
   $: highPrice = lastData?.high ?? null;
   $: lowPrice = lastData?.low ?? null;
   $: openPrice = lastData?.open ?? null;
+  $: twapPrice = lastData?.twap ?? null;
   $: rangePercent = calculateDayRangePercentage(lastData);
   $: direction = lastData?.direction ?? 'neutral';
   $: pipPosition = lastData?.pipPosition ?? 4;
@@ -151,6 +152,7 @@
         pipPosition: pipPosition,
         currentPrice,
         openPrice,
+        twapPrice,
         highPrice,
         lowPrice
       });
@@ -167,6 +169,7 @@
         pipPosition: pipPosition,
         currentPrice,
         openPrice,
+        twapPrice,
         highPrice,
         lowPrice
       });

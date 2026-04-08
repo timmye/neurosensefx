@@ -70,7 +70,7 @@ export function renderMiniMarketProfile(canvas, profile, size) {
     return;
   }
 
-  const { width, height, pipPosition = 4, currentPrice, openPrice, highPrice, lowPrice } = size;
+  const { width, height, pipPosition = 4, currentPrice, openPrice, twapPrice, highPrice, lowPrice } = size;
 
   // DPR-aware canvas setup
   const ctx = setupCanvas(canvas, width, height);
@@ -159,9 +159,18 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   const openY = (openPrice != null && openPrice >= minPrice && openPrice <= maxPrice)
     ? Math.round(priceScale(openPrice))
     : Math.round(height / 2);
-  ctx.fillStyle = '#FF6600';
+  ctx.fillStyle = '#FF8800';
   ctx.beginPath();
   ctx.arc(2, openY, 2, 0, Math.PI * 2);
   ctx.fill();
+
+  // Draw TWAP price marker (green dot, same style as open)
+  if (twapPrice != null && twapPrice >= minPrice && twapPrice <= maxPrice) {
+    const twapY = Math.round(priceScale(twapPrice));
+    ctx.fillStyle = '#00FF66';
+    ctx.beginPath();
+    ctx.arc(5, twapY, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
