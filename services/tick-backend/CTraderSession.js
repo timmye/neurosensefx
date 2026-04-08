@@ -134,8 +134,6 @@ class CTraderSession extends EventEmitter {
                 if (event.trendbar && event.trendbar.length > 0) {
                     const subscribedPeriods = this.getSubscribedBarPeriods(symbolName);
                     const hasM1 = subscribedPeriods.has('M1');
-                    const hasNonM1 = [...subscribedPeriods].some(p => p !== 'M1');
-                    let nonM1Routed = false;
 
                     // Try period-field routing first.
                     // Each trendbar entry MAY carry a period field (ProtoOATrendbarPeriod numeric enum).
@@ -158,28 +156,15 @@ class CTraderSession extends EventEmitter {
                                 this.lastBarTimestamps.set(tsKey, barData.bar.timestamp);
                                 this.emit('barUpdate', barData);
                             }
-                            nonM1Routed = true;
                         }
-                        // periodStr === null → period field absent, skip here; fallback below
+                        // periodStr === null → period field absent; per-tick path handles live close for non-M1 TFs
                     }
 
-                    // Fallback: when the period field is not populated in trendbar entries
-                    // (protobufjs decode() omits absent optional fields), use subscription-based
-                    // routing on the last entry — matches the pre-period-routing behavior.
-                    if (!nonM1Routed && hasNonM1) {
-                        const lastTb = event.trendbar[event.trendbar.length - 1];
-                        const nonM1Period = [...subscribedPeriods].find(p => p !== 'M1');
-                        if (nonM1Period) {
-                            const barData = this.eventHandler.processMultiTimeframeTrendbarEntry(lastTb, symbolName, symbolInfo, nonM1Period);
-                            if (barData) {
-                                const tsKey = `${symbolName}:${nonM1Period}`;
-                                const prevTimestamp = this.lastBarTimestamps.get(tsKey);
-                                barData.isBarClose = prevTimestamp !== undefined && prevTimestamp !== barData.bar.timestamp;
-                                this.lastBarTimestamps.set(tsKey, barData.bar.timestamp);
-                                this.emit('barUpdate', barData);
-                            }
-                        }
-                    }
+                    // Non-M1 routing: cTrader spot events only carry M1 trendbar entries
+                    // (RC6 in plans/chart-data-fix.md). The period-field loop above handles
+                    // genuine non-M1 entries if they ever arrive. No fallback needed — the
+                    // per-tick spot price path in ChartDisplay handles live close updates
+                    // for non-M1 timeframes.
 
                     // Ensure M1 processing happened even if period field was absent
                     if (!m1Bar && !tickData && (hasM1 || subscribedPeriods.size === 0)) {

@@ -18,9 +18,14 @@ Volatility-driven uniforms available but disabled by default.
   let renderer, material, animationId;
 
   let volatility = { smoothedSigma: 0, smoothedMaxZone: 0, smoothedVelocity: 0, smoothedRange: 0, ready: false };
+  let debugVisible = true;
 
-  // Set to false to disable volatility-driven background effects
-  let volatilityEffectsEnabled = false;
+  // Per-metric volatility toggles — set any to true to enable that effect
+  let volatilitySpeed = false;      // velocity → animation speed
+  let volatilityRoundness = true;   // velocity → corner roundness (1=smooth, 0=sharp)
+  let volatilityScale = false;      // sigma → fractal scale distortion
+  let volatilityIntensity = false;  // range → color brightness
+  let volatilityColor = false;      // max zone → primary & accent colors
 
   function lerp(a, b, t) {
     return a + (b - a) * t;
@@ -174,22 +179,27 @@ Volatility-driven uniforms available but disabled by default.
         animationId = requestAnimationFrame(animate);
         material.uniforms.iTime.value = clock.getElapsedTime();
 
-        // ── Volatility-driven uniform adjustments ──
-        if (volatility.ready && volatilityEffectsEnabled) {
-          const v = volatility;
-          // Velocity → animation speed (0.2 calm → 1.5 extreme)
-          material.uniforms.uSpeed.value = lerp(0.2, 1.5, v.smoothedVelocity / 100);
-          // Sigma → fractal scale distortion (1.5 calm → 3.0 extreme)
-          material.uniforms.uScaleX.value = lerp(1.5, 3.0, v.smoothedSigma / 100);
-          material.uniforms.uScaleY.value = lerp(1.5, 3.0, v.smoothedSigma / 100);
-          // Range → color intensity/brightness (2.0 calm → 5.0 extreme)
-          material.uniforms.uColorOffset.value = lerp(2.0, 5.0, v.smoothedRange / 100);
-          // Max zone → color 1 (primary fractal color)
-          const c = colorForZone(v.smoothedMaxZone);
-          material.uniforms.uColor1.value.setRGB(c.r, c.g, c.b);
-          // Accent color → color 3
-          const ac = accentForZone(v.smoothedMaxZone);
-          material.uniforms.uColor3.value.setRGB(ac.r, ac.g, ac.b);
+        // ── Volatility-driven uniform adjustments (per-metric toggles) ──
+        if (volatility.ready) {
+          if (volatilitySpeed) {
+            material.uniforms.uSpeed.value = lerp(0.1, 1.5, volatility.smoothedVelocity / 100);
+          }
+          if (volatilityRoundness) {
+            material.uniforms.uRoundness.value = lerp(1.0, 0.0, volatility.smoothedVelocity / 100);
+          }
+          if (volatilityScale) {
+            material.uniforms.uScaleX.value = lerp(1.5, 3.0, volatility.smoothedSigma / 100);
+            material.uniforms.uScaleY.value = lerp(1.5, 3.0, volatility.smoothedSigma / 100);
+          }
+          if (volatilityIntensity) {
+            material.uniforms.uColorOffset.value = lerp(2.0, 5.0, volatility.smoothedRange / 100);
+          }
+          if (volatilityColor) {
+            const c = colorForZone(volatility.smoothedMaxZone);
+            material.uniforms.uColor1.value.setRGB(c.r, c.g, c.b);
+            const ac = accentForZone(volatility.smoothedMaxZone);
+            material.uniforms.uColor3.value.setRGB(ac.r, ac.g, ac.b);
+          }
         }
 
         renderer.render(scene, camera);
@@ -220,11 +230,30 @@ Volatility-driven uniforms available but disabled by default.
 
 <div class="background-shader" bind:this={container} aria-hidden="true"></div>
 
+{#if debugVisible}
+  <div class="vol-debug">
+    <div>vel: {volatility.smoothedVelocity.toFixed(1)}</div>
+    <div>rnd: {volatilityRoundness ? material?.uniforms.uRoundness.value.toFixed(3) : 'off'}</div>
+  </div>
+{/if}
+
 <style>
   .background-shader {
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
+  }
+
+  .vol-debug {
+    position: fixed;
+    bottom: 8px;
+    right: 8px;
+    font-family: monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.4;
+    pointer-events: none;
+    z-index: 0;
   }
 </style>

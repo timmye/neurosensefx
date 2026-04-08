@@ -451,12 +451,12 @@ test.describe('Chart Display - Live Data Flow', () => {
     expect(canvasInfo.nonTransparent).toBeGreaterThan(canvasInfo.total * 0.01);
 
     // Step 4: Validate subscribeCandles was sent
-    // Non-M1 charts subscribe to M1 candles for live-data aggregation
+    // Charts subscribe directly to their native cTrader period (e.g., '4h' -> 'H4')
     const subMsg = await waitForCondition(page, () => {
       return window.__wsMessages?.find(m => m.__sent && m.type === 'subscribeCandles');
     }, 15000);
     expect(subMsg.symbol).toBe('EURUSD');
-    expect(subMsg.resolution).toBe('1m');
+    expect(subMsg.resolution).toBe('4h');
 
     // Step 5: Wait for candleUpdate (may not arrive if market is quiet)
     const hasUpdate = await waitForCondition(page, () => {

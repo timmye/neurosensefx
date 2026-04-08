@@ -572,41 +572,60 @@
           tryApplyData(klineData);
           if (onDataReady) { onDataReady(); onDataReady = null; }
         } else if (initialFullReceived) {
-          // Incremental — only after first full load to avoid
-          // applying mismatched bars on stale chart data
+          // Incremental — only apply NEW bars (different timestamp from chart's
+          // last bar). Same-bar OHLC updates are handled by the rAF-batched
+          // per-tick path below, which uses the live spot price for close.
           if (chart) {
+            const chartDataList = chart.getDataList();
+            const chartLastTs = chartDataList?.length > 0
+              ? chartDataList[chartDataList.length - 1].timestamp
+              : null;
             const bar = data.bars[data.bars.length - 1];
-            chart.updateData({
-              timestamp: bar.timestamp,
-              open: bar.open,
-              high: bar.high,
-              low: bar.low,
-              close: bar.close,
-              volume: bar.volume || 0
-            });
+            if (bar.timestamp !== chartLastTs) {
+              chart.updateData({
+                timestamp: bar.timestamp,
+                open: bar.open,
+                high: bar.high,
+                low: bar.low,
+                close: bar.close,
+                volume: bar.volume || 0
+              });
+            }
           }
         }
       }
     });
 
     // Subscribe to per-tick price updates for live last-bar close.
-    // M1 trendbar data only arrives when bars close (~every 60s).
-    // Using the current market price gives real-time close updates.
+    // cTrader live trendbar subscriptions for non-M1 periods fail (RC12 in
+    // plans/chart-data-fix.md), so per-tick spot price is the primary live
+    // update source for all timeframes. rAF-batch to avoid excessive re-renders.
     tickUnsubscribe?.();
+    let pendingTick = false;
+    let pendingPrice = null;
     const marketStore = getMarketDataStore(symbol);
     tickUnsubscribe = marketStore.subscribe(mdata => {
       if (!chart || mdata.current == null) return;
-      const dataList = chart.getDataList();
-      if (!dataList || dataList.length === 0) return;
-      const lastBar = dataList[dataList.length - 1];
-      chart.updateData({
-        timestamp: lastBar.timestamp,
-        open: lastBar.open,
-        high: Math.max(lastBar.high, mdata.current),
-        low: Math.min(lastBar.low, mdata.current),
-        close: mdata.current,
-        volume: lastBar.volume || 0
-      });
+      pendingPrice = mdata.current;
+      if (!pendingTick) {
+        pendingTick = true;
+        requestAnimationFrame(() => {
+          pendingTick = false;
+          if (!chart || pendingPrice == null) return;
+          const dataList = chart.getDataList();
+          if (!dataList || dataList.length === 0) return;
+          const lastBar = dataList[dataList.length - 1];
+          chart.updateData({
+            timestamp: lastBar.timestamp,
+            open: lastBar.open,
+            high: Math.max(lastBar.high, pendingPrice),
+            low: Math.min(lastBar.low, pendingPrice),
+            close: pendingPrice,
+            volume: lastBar.volume || 0
+          });
+          pendingPrice = null;
+        });
+      }
     });
 
     // Calendar-aligned time range with scroll buffer

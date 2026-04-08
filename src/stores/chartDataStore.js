@@ -21,12 +21,14 @@ import {
   RESOLUTION_MS
 } from '../lib/chart/chartConfig.js';
 
+const CACHE_VERSION = 2;
+
 // ============================================================================
 // IndexedDB via Dexie.js
 // ============================================================================
 
 const db = new Dexie('NeuroSenseChart');
-db.version(1).stores({
+db.version(CACHE_VERSION).stores({
   bars: '[symbol+resolution+timestamp], symbol, resolution, timestamp'
 });
 
@@ -36,7 +38,6 @@ db.version(1).stores({
 
 const chartBarStores = new Map();
 const candleSubscriptions = new Map();
-const aggregationTargets = new Map(); // 'symbol:1m' -> Set<targetResolution>
 let connectionManager = null;
 let _candleHandlerSetup = false;
 
@@ -143,7 +144,6 @@ function setupCandleMessageHandler() {
 
       for (const [key] of previousSubs) {
         const [symbol, resolution] = key.split(':');
-        // The subscription key is the backend resolution (e.g., '1m' for aggregated)
         const sent = sendSubscribeCandles(symbol, resolution);
         if (sent) {
           candleSubscriptions.set(key, true);
@@ -209,7 +209,7 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
     if (cachedBars.length > 0) {
       // Reject stale cache: bars last written more than 2 bar-periods ago are too old to trust
       const barPeriodMs = RESOLUTION_MS[resolution];
-      const maxAgeMs = barPeriodMs ? Math.min(barPeriodMs * 2, 3_600_000) : 3_600_000;
+      const maxAgeMs = barPeriodMs ? barPeriodMs * 2 : 3_600_000;
       const newestBar = cachedBars[cachedBars.length - 1];
       const isStale = newestBar.updatedAt && (Date.now() - newestBar.updatedAt) > maxAgeMs;
 
@@ -248,62 +248,22 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
   }
 }
 
-function registerAggregationTarget(symbol, resolution) {
-  const m1Key = storeKey(symbol, '1m');
-  if (!aggregationTargets.has(m1Key)) aggregationTargets.set(m1Key, new Set());
-  aggregationTargets.get(m1Key).add(resolution);
-  // Do NOT subscribe to the target period directly. cTrader only sends M1
-  // trendbar data in spot events; the backend fallback path relabels that M1
-  // data as the target period, creating fake bars with M1 timestamps on H4/H1
-  // charts. M1 aggregation (in handleCandleUpdate) is the correct live-data
-  // path for non-M1 timeframes.
-}
-
 function subscribeToCandles(symbol, resolution) {
-  const needsAggregation = resolution !== '1m';
-  const key = storeKey(symbol, needsAggregation ? '1m' : resolution);
-
+  const key = storeKey(symbol, resolution);
   if (candleSubscriptions.has(key)) {
-    // Already subscribed to the base period — just register aggregation target
-    if (needsAggregation) {
-      registerAggregationTarget(symbol, resolution);
-    }
     return;
   }
-
-  const sent = sendSubscribeCandles(symbol, needsAggregation ? '1m' : resolution);
+  const sent = sendSubscribeCandles(symbol, resolution);
   if (sent) {
     candleSubscriptions.set(key, true);
-    if (needsAggregation) {
-      registerAggregationTarget(symbol, resolution);
-    }
   }
 }
 
 export function unsubscribeFromCandles(symbol, resolution) {
-  const needsAggregation = resolution !== '1m';
-  const m1Key = storeKey(symbol, '1m');
-
-  if (needsAggregation) {
-    const targets = aggregationTargets.get(m1Key);
-    if (targets) {
-      targets.delete(resolution);
-      if (targets.size === 0) {
-        aggregationTargets.delete(m1Key);
-        // No more aggregation targets — clean up M1 subscription too
-        const m1SubKey = storeKey(symbol, '1m');
-        if (candleSubscriptions.has(m1SubKey)) {
-          candleSubscriptions.delete(m1SubKey);
-          sendUnsubscribeCandles(symbol, '1m');
-        }
-      }
-    }
-  } else {
-    const key = storeKey(symbol, resolution);
-    if (!candleSubscriptions.has(key)) return;
-    candleSubscriptions.delete(key);
-    sendUnsubscribeCandles(symbol, resolution);
-  }
+  const key = storeKey(symbol, resolution);
+  if (!candleSubscriptions.has(key)) return;
+  candleSubscriptions.delete(key);
+  sendUnsubscribeCandles(symbol, resolution);
 }
 
 export async function loadMoreHistory(symbol, resolution) {
@@ -385,28 +345,6 @@ function handleCandleUpdate(message) {
       console.warn('[chartDataStore] Live bar cache write failed:', err);
     }
   });
-
-  if (timeframe === 'M1') {
-    const m1Key = storeKey(symbol, '1m');
-    const targets = aggregationTargets.get(m1Key);
-    if (targets && targets.size > 0) {
-      for (const targetResolution of targets) {
-        const targetStore = getChartBarStore(symbol, targetResolution);
-        targetStore.update(current => {
-          if (current.state === STATE.IDLE || !current.bars.length) return current;
-          const bars = [...current.bars];
-          const last = bars[bars.length - 1];
-          bars[bars.length - 1] = {
-            ...last,
-            close: bar.close,
-            high: Math.max(last.high, bar.high),
-            low: Math.min(last.low, bar.low),
-          };
-          return { ...current, bars, state: current.state === STATE.FETCHING_MORE ? STATE.FETCHING_MORE : STATE.READY, error: null, updateType: 'incremental' };
-        });
-      }
-    }
-  }
 }
 
 function handleCandleHistory(message) {
