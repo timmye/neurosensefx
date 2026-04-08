@@ -10,45 +10,52 @@
 | Source | What it provides | Timestamps |
 |--------|----------------|------------|
 | cTrader historical (`ProtoOAGetTrendbarsReq`) | Complete OHLC bars for any period | cTrader session-anchored (e.g., 21:00/01:00/05:00 UTC for H4) |
-| cTrader direct live subscription | Live OHLC bars for any subscribed period | Same as historical — cTrader session-anchored |
+| cTrader live trendbar subscription | Accepts subscriptions for all periods, but spot events only carry M1 entries (RC6) | M1-aligned when from spot events |
 | TradingView M1 candles | Live M1 bars (1500 historical on connect, then real-time) | `time * 1000` (seconds from TradingView) |
 | Per-tick spot price | Current bid/ask price | `Date.now()` in `ChartDisplay.svelte` |
 
 ### Live Subscription (All Timeframes)
 
-All non-M1 timeframes subscribe directly to their native cTrader period. The M1 aggregation layer was removed.
+All timeframes subscribe directly to their native cTrader period. The M1 aggregation layer was removed.
 
 ```
 Historical: getHistoricalCandles(AUDUSD, '4h') → cTrader → session-anchored timestamps
-Live:      subscribeCandles(AUDUSD, '4h')       → cTrader H4 live bars → session-anchored timestamps
+Live:      subscribeCandles(AUDUSD, '4h')       → cTrader subscription accepted
+           Per-tick close:  marketDataStore spot price → rAF-batched → chart.updateData()
 ```
 
-Same pattern for 1h, 4h, 12h, D, W, M — no timeframe-specific logic.
+### cTrader Limitations (RC6 + RC12 — confirmed by diagnostic)
 
-### Subscription Test Results (2026-04-08)
+**RC6 — Spot events only carry M1 trendbar entries.** cTrader `ProtoOASubscribeLiveTrendbarReq` accepts subscriptions for all periods (M1–D1), and the backend successfully registers them. However, spot events only contain M1 trendbar data. The period-field routing loop in `CTraderSession.js` never sees a non-M1 period in the trendbar entries — every entry has `period=M1`.
+
+**RC12 — Non-M1 live trendbar subscriptions produce no data.** Even though cTrader accepts the subscription, no genuine non-M1 bar data arrives in the spot event stream. The old backend fallback took the M1 entry and re-labeled it as the subscribed period, creating fabricated bars with M1 timestamps.
+
+**Consequence:** The per-tick spot price is the primary live close update source for all non-M1 timeframes.
+
+### candleUpdate Diagnostic Results (2026-04-08)
+
+Script: `scripts/diagnose-candle-updates.cjs` — subscribes to all 8 periods simultaneously for 30s.
+
+```
+Period | Subscribed | Updates/30s | Timestamp            | Period-aligned? | Genuine?
+-------|------------|-------------|----------------------|-----------------|----------
+M1     | YES        | 50          | 03:02:00 (correct)   | YES             | YES
+M5     | YES        | 48          | 03:00:00 (wrong bar) | YES             | NO — M1 data
+M15    | YES        | 47          | 03:00:00 (wrong bar) | YES             | NO — M1 data
+M30    | YES        | 46          | 03:00:00 (wrong bar) | YES             | NO — M1 data
+H1     | YES        | 45          | 03:00:00 (wrong bar) | YES             | NO — M1 data
+H4     | YES        | 44          | 01:00:00 (suspicious)| NO              | NO — M1 data
+H12    | YES        | 43          | 21:00:00 (suspicious)| NO              | NO — M1 data
+D1     | YES        | 42          | 21:00:00 (suspicious)| NO              | NO — M1 data
+```
+
+All non-M1 candleUpdate messages were produced by the **backend fallback** (now removed) taking the single M1 trendbar entry from each spot event and re-labeling it as the subscribed period. This was the root cause of the price jumping — ~8 fabricated candleUpdate messages per tick, each overwriting the chart's close.
+
+### Subscription Acceptance Test (2026-04-08)
 
 Script: `scripts/test-ctrader-subscriptions.cjs`
 
-All periods accept subscriptions and receive live candleUpdate data with session-anchored timestamps:
-
-```
-Period | Subscribed | candleUpdate received | Timestamp style
--------|------------|-----------------------|---------------
-M1     | YES        | YES (11 updates)       | minute-aligned
-M5     | YES        | YES (8 updates)        | session-anchored
-M15    | YES        | YES (10 updates)       | session-anchored
-M30    | YES        | YES (9 updates)        | session-anchored
-H1     | YES        | YES (5 updates)        | session-anchored
-H4     | YES        | YES (13 updates)       | session-anchored (01:00 UTC)
-H12    | YES        | YES (7 updates)        | session-anchored
-D1     | YES        | YES (8 updates)        | session-anchored
-```
-
-### Previous Limitation (Partially Resolved)
-
-`plans/chart-data-fix.md` (2026-04-02) documented two cTrader constraints:
-- **RC6**: Spot events only carry M1 trendbar entries — still true in production. Non-M1 bar data is not embedded in spot events.
-- **RC12**: cTrader rejects non-M1 live trendbar subscriptions — the subscription test (`scripts/test-ctrader-subscriptions.cjs`) showed all periods accept subscriptions and receive candleUpdate data. However, production behavior is inconsistent (may be account/session-specific). The per-tick spot price path remains the primary live close update source for non-M1 timeframes as a safe fallback.
+cTrader accepts `ProtoOASubscribeLiveTrendbarReq` for all periods without error. The subscription itself succeeds — but no genuine non-M1 bar data arrives in the spot event stream (RC6).
 
 ## Changes Applied (2026-04-08)
 
@@ -60,30 +67,22 @@ D1     | YES        | YES (8 updates)        | session-anchored
 | Cache freshness fix | `chartDataStore.js:212` | Removed `Math.min(..., 3_600_000)` 1-hour clamp |
 | Cache invalidation | `chartDataStore.js:24,31` | Dexie version bump to 2 clears stale M1-aggregated cache |
 | E2E test update | `chart-display.spec.js:454,459` | Updated assertion from '1m' to '4h' |
+| Removed M1-as-nonM1 fallback | `CTraderSession.js:166-170` | Eliminated fallback that fabricated non-M1 barUpdates from M1 spot data |
+| rAF batching for per-tick | `ChartDisplay.svelte:598-627` | All timeframes: multiple ticks per frame coalesced into one updateData call |
+| Incremental path same-bar guard | `ChartDisplay.svelte:574-590` | candleUpdate only applies to genuinely new bars; same-bar close handled by rAF tick path |
 
 ## Live Price Rendering Fix (2026-04-08)
 
 ### Problem
-Chart close price jumped on every tick — KLineChart re-rendered on every `updateData()` call without any frame batching.
+Chart close price jumped on every tick.
 
 ### Root Cause
-Two issues combined:
-
-1. **Backend fallback emitted incorrect data**: `CTraderSession.js:166-182` had a fallback that took the M1 trendbar entry from every spot event (per RC6, cTrader only sends M1 entries) and re-labeled it as the subscribed non-M1 period (e.g., H4). This produced `barUpdate` events with M1 timestamps labeled as H4, firing on every spot event.
-
-2. **Dual-path conflict**: The incremental candleUpdate path (`ChartDisplay:574-588`) applied these updates synchronously on every spot event, overwriting the close that the rAF-batched per-tick path had just set. Between animation frames, the close oscillated between the trendbar close (from candleUpdate) and the latest tick price (from rAF path).
+The backend fallback in `CTraderSession.js` fabricated non-M1 `barUpdate` events from M1 spot data on every tick (~8 messages per tick for 8 subscribed periods). The frontend incremental path applied these synchronously, overwriting the close that the rAF-batched per-tick path had just set. Between animation frames, the close oscillated between the fabricated trendbar close and the latest tick price.
 
 ### Fix
-Added `requestAnimationFrame` batching to the per-tick path for **all** resolutions. Multiple ticks within one animation frame are coalesced into a single `chart.updateData()` call, eliminating the per-tick re-render overhead while preserving live close updates.
-
-| Change | File | Effect |
-|--------|------|--------|
-| rAF batching for per-tick updates | `ChartDisplay.svelte:598-627` | All timeframes: multiple ticks per frame coalesced into one updateData call |
-| Removed backend M1-as-nonM1 fallback | `CTraderSession.js:166-170` | Eliminated fallback that emitted M1-timestamped bars as H4 barUpdate on every spot event |
-| Incremental path guards same-bar updates | `ChartDisplay.svelte:574-590` | candleUpdate only applies to genuinely new bars; same-bar close handled by rAF tick path |
-
-### Why per-tick is needed for non-M1
-cTrader live trendbar subscriptions for non-M1 periods fail (RC12). The per-tick spot price is the only real-time close update source for non-M1 timeframes. When/if cTrader enables non-M1 subscriptions in production, the per-tick path can be scoped to M1-only.
+1. **Backend**: Removed the fallback — no more fabricated non-M1 barUpdates.
+2. **Frontend**: rAF batching coalesces per-tick updates into one render frame. Incremental candleUpdate path skips same-bar updates (only applies genuinely new bars).
+3. **Per-tick spot price** is the sole live close update source for all timeframes.
 
 ## Key Files
 
@@ -91,9 +90,10 @@ cTrader live trendbar subscriptions for non-M1 periods fail (RC12). The per-tick
 |------|------|
 | `src/stores/chartDataStore.js` | OHLC bar management, subscriptions, IndexedDB caching |
 | `src/components/ChartDisplay.svelte` | KLineChart data feed + rAF-batched per-tick close updates (all resolutions) |
-| `services/tick-backend/CTraderSession.js` | cTrader subscription + spot event routing |
+| `services/tick-backend/CTraderSession.js` | cTrader subscription + spot event routing (fallback removed) |
 | `services/tick-backend/CTraderEventHandler.js` | Multi-TF trendbar processing |
 | `services/tick-backend/DataRouter.js` | Bar routing to WebSocket clients |
 | `services/tick-backend/TradingViewCandleHandler.js` | M1 candle handling (history batched for Market Profile, live emitted) |
 | `plans/chart-data-fix.md` | Original RCA (12 root causes, 23 fixes applied) |
-| `scripts/test-ctrader-subscriptions.cjs` | Subscription diagnostic script |
+| `scripts/test-ctrader-subscriptions.cjs` | Subscription acceptance test |
+| `scripts/diagnose-candle-updates.cjs` | candleUpdate flow diagnostic (all periods, simultaneous, with timestamp analysis) |
