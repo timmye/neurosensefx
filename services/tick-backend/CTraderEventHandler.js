@@ -28,6 +28,7 @@ class CTraderEventHandler {
                 high: this.dataProcessor.calculatePrice(Number(tb.low) + Number(tb.deltaHigh), symbolInfo.digits),
                 low: this.dataProcessor.calculatePrice(Number(tb.low), symbolInfo.digits),
                 close: price,
+                volume: tb.volume ? Number(tb.volume) : 0,
                 timestamp: timestamp
             },
             tick: {
@@ -66,7 +67,7 @@ class CTraderEventHandler {
                 high: this.dataProcessor.calculatePrice(low + deltaHigh, symbolInfo.digits),
                 low: this.dataProcessor.calculatePrice(low, symbolInfo.digits),
                 close: this.dataProcessor.calculatePrice(low + deltaClose, symbolInfo.digits),
-                volume: tb.volume || 0,
+                volume: tb.volume ? Number(tb.volume) : 0,
                 timestamp: timestamp
             }
         };

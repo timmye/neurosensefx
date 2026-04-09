@@ -125,7 +125,7 @@ class DataRouter {
                 high: m1Bar.high,
                 low: m1Bar.low,
                 close: m1Bar.close,
-                volume: 0,
+                volume: m1Bar.volume || 0,
                 timestamp: m1Bar.timestamp
             },
             isBarClose: false

@@ -119,7 +119,7 @@ class CTraderDataProcessor {
                             high: this.calculatePrice(low + Number(bar.deltaHigh), digits),
                             low: this.calculatePrice(low, digits),
                             close: this.calculatePrice(low + Number(bar.deltaClose), digits),
-                            volume: typeof bar.volume === 'object' ? (bar.volume.tick || bar.volume.real || 0) : (bar.volume || 0),
+                            volume: bar.volume ? Number(bar.volume) : 0,
                             timestamp: bar.utcTimestampInMinutes ? Number(bar.utcTimestampInMinutes) * 60 * 1000 : null
                         };
                     }).filter(bar => bar.timestamp !== null);

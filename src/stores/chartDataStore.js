@@ -21,7 +21,7 @@ import {
   RESOLUTION_MS
 } from '../lib/chart/chartConfig.js';
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 // ============================================================================
 // IndexedDB via Dexie.js
