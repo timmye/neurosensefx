@@ -57,23 +57,19 @@ class DataRouter {
         this.broadcastToClients(error_message, symbol, 'tradingview');
     }
 
-    routeTwapUpdate(symbol, data, source) {
+    routeTwapUpdate(symbol, data) {
         const message = {
             type: 'twapUpdate',
             symbol,
-            source, // Add source for frontend routing
             data
         };
-        if (DEBUG) console.log(`[DataRouter] routeTwapUpdate called for ${symbol}:${source}:`, JSON.stringify(message));
 
         try {
-            // Broadcast to both cTrader and TradingView subscribers
-            // since TWAPService doesn't track which source a symbol uses
-            if (DEBUG) console.log(`[DataRouter] About to call broadcastToClients for ${source}`);
-            this.broadcastToClients(message, symbol, source);
-            if (DEBUG) console.log(`[DataRouter] TWAP update broadcast complete for ${symbol}:${source}`);
+            // TWAP is source-agnostic: broadcast to all subscribers regardless of source
+            this.broadcastToClients(message, symbol, 'ctrader');
+            this.broadcastToClients(message, symbol, 'tradingview');
         } catch (error) {
-            console.error(`[DataRouter] Error in routeTwapUpdate for ${symbol}:${source}:`, error);
+            console.error(`[DataRouter] Error in routeTwapUpdate for ${symbol}:`, error);
         }
     }
 

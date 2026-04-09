@@ -150,7 +150,7 @@ class TradingViewCandleHandler {
         // Initialize TWAP from historical M1 candles before sending to client
         if (this.twapService && todaysM1Candles.length > 0) {
             try {
-                this.twapService.initializeFromHistory(symbol, data.m1Candles, 'tradingview');
+                this.twapService.initializeFromHistory(symbol, todaysM1Candles, 'tradingview');
             } catch (error) {
                 console.error(`[TradingViewCandleHandler] TWAP initialization failed for ${symbol}:`, error);
             }

@@ -71,7 +71,7 @@ class WebSocketServer {
             this.dataRouter.routeProfileUpdate(data.symbol, payload, data.source || 'ctrader', data.seq, isDelta);
         });
         this.marketProfileService.on('profileError', (data) => this.dataRouter.routeProfileError(data.symbol, data.error, data.message));
-        this.twapService.on('twapUpdate', (data) => this.dataRouter.routeTwapUpdate(data.symbol, data, data.source || 'ctrader'));
+        this.twapService.on('twapUpdate', (data) => this.dataRouter.routeTwapUpdate(data.symbol, data));
 
         // Per-client candle subscription tracking: 'symbol:period' -> Set<ws>
         this.candleSubscriptions = new Map();
@@ -154,7 +154,7 @@ class WebSocketServer {
         // Step 1: Reset backend state for each symbol
         // Skip symbols with in-flight initialization to avoid race with initializeFromHistory
         for (const symbol of activeSymbols) {
-            if (this.marketProfileService.isInitializing.get(symbol)) {
+            if (this.marketProfileService.isInitializing.get(symbol) || this.twapService.isInitializing.get(symbol)) {
                 console.warn(`[WebSocketServer] Skipping daily reset for ${symbol} — initialization in progress`);
                 continue;
             }

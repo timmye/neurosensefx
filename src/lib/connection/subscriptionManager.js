@@ -85,6 +85,24 @@ export class SubscriptionManager {
       });
       return;
     }
+
+    // Source-agnostic dispatch: twapUpdate has no source field, so match by symbol
+    // across all registered sources (e.g., "EURUSD:ctrader" and "EURUSD:tradingview")
+    if (message.type === 'twapUpdate' && !message.source) {
+      const delivered = new Set();
+      for (const [key, callbacks] of this.subscriptions) {
+        if (key.startsWith(`${message.symbol}:`)) {
+          callbacks.forEach((cb) => {
+            if (!delivered.has(cb)) {
+              delivered.add(cb);
+              try { cb(message); } catch (e) { console.error(`twapUpdate callback error for ${key}:`, e); }
+            }
+          });
+        }
+      }
+      return;
+    }
+
     const key = message.source ? this.makeKey(message.symbol, message.source) : message.symbol;
     const callbacks = this.subscriptions.get(key);
 
