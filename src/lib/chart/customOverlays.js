@@ -41,6 +41,33 @@ registerIndicator({
 });
 
 /**
+ * Cumulative OBV (no MA) — overrides built-in OBV which includes a 30-period MA line.
+ * ta.cum(math.sign(ta.change(close)) * volume)
+ */
+registerIndicator({
+  name: 'OBV',
+  shortName: 'OBV',
+  series: 'normal',
+  calcParams: [],
+  precision: 0,
+  shouldOhlc: false,
+  visible: true,
+  figures: [
+    { key: 'obv', title: 'OBV: ', type: 'line' }
+  ],
+  calc: function (dataList) {
+    let obv = 0;
+    return dataList.map((k, i) => {
+      const prev = dataList[i - 1];
+      if (!prev) return { obv: 0 };
+      const sign = k.close > prev.close ? 1 : k.close < prev.close ? -1 : 0;
+      obv += sign * (k.volume ?? 0);
+      return { obv };
+    });
+  }
+});
+
+/**
  * Horizontal line extending right from a single click point.
  * 1-click, right-extending, with permanent price label on Y axis.
  */

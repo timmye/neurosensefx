@@ -695,7 +695,7 @@
       chart.createIndicator('BOLL', false, { id: 'candle_pane' });
 
       // On Balance Volume in bottom pane (tick volume fed from cTrader)
-      chart.createIndicator('OBV', false, { position: 'bottom', height: 80 });
+      chart.createIndicator('OBV', false, { position: 'bottom', height: 120 });
 
       // Symbol watermark background text (stacked so it doesn't replace BOLL)
       chart.createIndicator({ name: 'symbolWatermark', extendData: getWatermarkData() }, true, { id: 'candle_pane' });
