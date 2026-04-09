@@ -9,6 +9,7 @@
     let password = '';
     let displayName = '';
     let localError = '';
+    let formEl;
 
     $: isLoading = $authStore.isLoading;
     $: serverError = $authStore.error;
@@ -28,7 +29,22 @@
     function switchTab(t) {
         tab = t;
         localError = '';
+        tick().then(() => formEl.querySelector('input')?.focus());
     }
+
+    function onTabKeydown(e) {
+        const tabs = ['login', 'register'];
+        const idx = tabs.indexOf(tab);
+        let next = idx;
+        if (e.key === 'ArrowRight') next = (idx + 1) % tabs.length;
+        else if (e.key === 'ArrowLeft') next = (idx - 1 + tabs.length) % tabs.length;
+        else return;
+        e.preventDefault();
+        switchTab(tabs[next]);
+        e.target.focus();
+    }
+
+    import { tick } from 'svelte';
 </script>
 
 <div class="login-container">
@@ -36,15 +52,17 @@
         <h1>NeuroSense FX</h1>
         <p class="subtitle">Trading Visualization Platform</p>
 
-        <div class="tabs">
-            <button class:active={tab === 'login'} on:click={() => switchTab('login')}>Login</button>
-            <button class:active={tab === 'register'} on:click={() => switchTab('register')}>Register</button>
+        <div class="tabs" role="tablist">
+            <button role="tab" aria-selected={tab === 'login'} class:active={tab === 'login'}
+                on:click={() => switchTab('login')} on:keydown={onTabKeydown}>Login</button>
+            <button role="tab" aria-selected={tab === 'register'} class:active={tab === 'register'}
+                on:click={() => switchTab('register')} on:keydown={onTabKeydown}>Register</button>
         </div>
 
-        <form on:submit|preventDefault={handleSubmit}>
+        <form bind:this={formEl} on:submit|preventDefault={handleSubmit}>
             <label>
                 Email
-                <input type="email" bind:value={email} disabled={isLoading} required />
+                <input type="email" bind:value={email} disabled={isLoading} required autofocus />
             </label>
 
             <label>
@@ -98,12 +116,14 @@
         border-bottom: 2px solid transparent;
     }
     .tabs button.active { color: #e0d0e0; border-bottom-color: #7c5caf; }
+    .tabs button:focus-visible { outline: 2px solid #7c5caf; outline-offset: -2px; border-radius: 2px; }
     form label { display: block; margin-bottom: 1rem; font-size: 0.875rem; color: #a090a0; }
     form input {
         width: 100%; padding: 0.5rem; margin-top: 0.25rem;
         background: #1a0a1a; border: 1px solid #3a2a3a; border-radius: 4px;
         color: #e0d0e0; box-sizing: border-box;
     }
+    form input:focus-visible { outline: 2px solid #7c5caf; outline-offset: -2px; }
     form input:disabled { opacity: 0.6; }
     .error { color: #e74c3c; font-size: 0.8rem; margin-bottom: 0.5rem; }
     form button[type="submit"] {
@@ -111,5 +131,6 @@
         background: #7c5caf; border: none; border-radius: 4px;
         color: white; cursor: pointer; font-size: 0.875rem;
     }
+    form button[type="submit"]:focus-visible { outline: 2px solid #e0d0e0; outline-offset: 2px; }
     form button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
