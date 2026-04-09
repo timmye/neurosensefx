@@ -2,8 +2,17 @@
 // Creates draggable/resizable configuration with snap modifiers
 import interact from 'interactjs';
 
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
 export function createInteractConfig(element, callbacks) {
   const { onDragMove, onResizeMove, onTap, resizable = true, ignoreFrom = null } = callbacks;
+
+  // On touch devices, skip interact.js entirely — don't even call interact(element)
+  // because it registers global document-level touchmove listeners with passive:false
+  // on iOS, which blocks all native scroll regardless of whether draggable is enabled.
+  if (isTouchDevice) {
+    return null;
+  }
 
   const draggableOpts = {
     modifiers: [
