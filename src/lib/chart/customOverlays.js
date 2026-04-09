@@ -68,6 +68,32 @@ registerIndicator({
 });
 
 /**
+ * Accumulation/Distribution Line — cumulative CLV × volume.
+ * ta.cum(clv * volume) where clv = ((close - low) - (high - close)) / (high - low)
+ */
+registerIndicator({
+  name: 'AD',
+  shortName: 'A/D',
+  series: 'normal',
+  calcParams: [],
+  precision: 2,
+  shouldOhlc: false,
+  visible: true,
+  figures: [
+    { key: 'ad', title: 'A/D: ', type: 'line' }
+  ],
+  calc: function (dataList) {
+    let ad = 0;
+    return dataList.map((k) => {
+      const highLow = k.high - k.low;
+      const clv = highLow === 0 ? 0 : ((k.close - k.low) - (k.high - k.close)) / highLow;
+      ad += clv * (k.volume ?? 0);
+      return { ad };
+    });
+  }
+});
+
+/**
  * Horizontal line extending right from a single click point.
  * 1-click, right-extending, with permanent price label on Y axis.
  */
