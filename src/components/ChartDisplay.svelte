@@ -166,7 +166,9 @@
 
   const handlers = {
     close: () => workspaceActions.removeDisplay(display.id),
-    focus: () => workspaceActions.bringToFront(display.id),
+    focus: () => {
+      workspaceActions.bringToFront(display.id);
+    },
     refresh: () => {
       tickUnsubscribe?.();
       tickUnsubscribe = null;

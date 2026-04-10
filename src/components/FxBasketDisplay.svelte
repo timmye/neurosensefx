@@ -154,7 +154,10 @@
   }
 
   function handleClose() { workspaceActions.removeDisplay(display.id); }
-  function handleFocus() { workspaceActions.bringToFront(display.id); }
+  function handleFocus() {
+    workspaceActions.setSelectedDisplay(display.id);
+    workspaceActions.bringToFront(display.id);
+  }
   async function handleRefresh() {
     if (connectionManager) {
       if (unsubscribe) { unsubscribe(); }

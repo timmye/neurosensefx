@@ -139,6 +139,84 @@ const actions = {
     });
   },
 
+  selectNextDisplay: (direction) => {
+    const state = workspaceStore.getState();
+    const displays = Array.from(state.displays.values()).filter(d => d.type !== 'chart');
+    if (displays.length === 0) return;
+
+    const currentId = state.selectedDisplayId;
+    const current = currentId ? displays.find(d => d.id === currentId) : null;
+
+    if (!current) {
+      // Nothing selected — pick first ticker if available, otherwise first display
+      const firstTicker = displays.find(d => d.type === 'priceTicker');
+      const target = firstTicker || displays[0];
+      workspaceActions.setSelectedDisplay(target.id);
+      workspaceActions.bringToFront(target.id);
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-ticker-id="${target.id}"], [data-display-id="${target.id}"]`);
+        el?.focus();
+      });
+      return;
+    }
+
+    // Direction vectors
+    const dirMap = {
+      ArrowUp:    { dx:  0, dy: -1 },
+      ArrowDown:  { dx:  0, dy:  1 },
+      ArrowLeft:  { dx: -1, dy:  0 },
+      ArrowRight: { dx:  1, dy:  0 }
+    };
+    const dir = dirMap[direction];
+    if (!dir) return;
+
+    const PERP_PENALTY = 2;
+
+    // Current center
+    const cx = current.position.x + (current.size?.width || 240) / 2;
+    const cy = current.position.y + (current.size?.height || 80) / 2;
+
+    let best = null;
+    let bestScore = Infinity;
+
+    for (const d of displays) {
+      if (d.id === current.id) continue;
+
+      // Candidate center
+      const dx2 = d.position.x + (d.size?.width || 240) / 2;
+      const dy2 = d.position.y + (d.size?.height || 80) / 2;
+
+      // Vector from current to candidate
+      const vx = dx2 - cx;
+      const vy = dy2 - cy;
+
+      // Project onto direction — must be positive (forward)
+      const projection = vx * dir.dx + vy * dir.dy;
+      if (projection <= 0) continue;
+
+      // Perpendicular distance
+      const perp = Math.abs(vx * (-dir.dy) + vy * dir.dx);
+
+      // Weighted score: primary distance + penalized perpendicular
+      const score = projection + perp * PERP_PENALTY;
+
+      if (score < bestScore) {
+        bestScore = score;
+        best = d;
+      }
+    }
+
+    if (best) {
+      workspaceActions.setSelectedDisplay(best.id);
+      workspaceActions.bringToFront(best.id);
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-ticker-id="${best.id}"], [data-display-id="${best.id}"]`);
+        el?.focus();
+      });
+    }
+    // No wrap-around — if nothing is in that direction, do nothing
+  },
+
   toggleMarketProfile: (id) => {
     workspaceStore.update(state => {
       const display = state.displays.get(id);

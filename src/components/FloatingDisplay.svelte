@@ -26,7 +26,10 @@
 
   const handlers = {
     close: () => workspaceActions.removeDisplay(display.id),
-    focus: () => workspaceActions.bringToFront(display.id),
+    focus: () => {
+      workspaceActions.setSelectedDisplay(display.id);
+      workspaceActions.bringToFront(display.id);
+    },
     refresh: () => {
       lastMarketProfileData = null;
       if (unsubscribeSymbol) {

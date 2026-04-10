@@ -242,6 +242,7 @@
   }
 
   function handleFocus() {
+    workspaceActions.setSelectedDisplay(ticker.id);
     workspaceActions.bringToFront(ticker.id);
   }
 
@@ -290,15 +291,11 @@
     user-select: none;
   }
 
-  .ticker-container:focus {
+  .ticker-container.selected {
     outline: 2px solid #00ff00;
     outline-offset: -2px;
-    box-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
-  }
-
-  .ticker-container.selected {
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
     border-color: #00d4ff;
-    box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
   }
 
   /* Border flash transitions.

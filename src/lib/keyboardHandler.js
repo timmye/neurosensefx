@@ -75,6 +75,15 @@ export function createKeyboardHandler(workspaceActions) {
       return;
     }
 
+    // Arrow keys: Navigate between workspace displays
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      const tag = event.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) return;
+      event.preventDefault();
+      workspaceActions.selectNextDisplay(event.key);
+      return;
+    }
+
     // ESC: Progressive escape pattern
     if (event.key === 'Escape') {
       event.preventDefault();
