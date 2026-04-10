@@ -58,6 +58,10 @@
     ? (((currentPrice - openPrice) / openPrice) * 100).toFixed(2)
     : null;
 
+  $: dailyRangePosition = currentPrice && openPrice && lastData?.adrHigh && lastData?.adrLow
+    ? (((currentPrice - openPrice) / (lastData.adrHigh - lastData.adrLow)) * 100).toFixed(1)
+    : null;
+
   $: dailyChangeClass = dailyChangePercent > 0 ? 'positive' : dailyChangePercent < 0 ? 'negative' : '';
 
   $: if (lastData?.marketProfile && lastData.marketProfile !== lastMarketProfileData) {
@@ -317,9 +321,9 @@
     transition: none;
   }
 
-  /* Column 1: Identity (135px) */
+  /* Column 1: Identity (105px) */
   .identity-column {
-    width: 115px;
+    width: 105px;
     flex-shrink: 0;
     padding: 8px;
     display: flex;
@@ -557,7 +561,7 @@
     <div class="stat-row">
       <span class="stat-value">
         {#if rangePercent !== null}
-          DR {rangePercent}%
+          {rangePercent}%{#if dailyRangePosition !== null},{dailyRangePosition}%{/if}
         {:else}
           <span class="loading">...</span>
         {/if}
