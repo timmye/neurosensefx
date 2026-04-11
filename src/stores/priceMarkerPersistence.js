@@ -15,7 +15,7 @@ export async function loadMarkers(symbol) {
     // Try server first when authenticated, fall back to localStorage (ref: DL-007)
     if (get(authStore).isAuthenticated) {
       try {
-        const resp = await fetch((import.meta.env.VITE_API_BASE_URL || '') + '/api/markers/' + symbol.toUpperCase(), { credentials: 'include' });
+        const resp = await fetch((import.meta.env.VITE_API_BASE_URL || '') + '/api/markers/' + encodeURIComponent(symbol.toUpperCase()), { credentials: 'include' });
         if (resp.ok) {
           const result = await resp.json();
           if (result && result.data) {
@@ -55,7 +55,7 @@ export function saveMarkers(symbol, markers) {
       clearTimeout(saveMarkers._debounceTimers && saveMarkers._debounceTimers[symbol]);
       if (!saveMarkers._debounceTimers) saveMarkers._debounceTimers = {};
       saveMarkers._debounceTimers[symbol] = setTimeout(() => {
-        fetch((import.meta.env.VITE_API_BASE_URL || '') + '/api/markers/' + symbol.toUpperCase(), {
+        fetch((import.meta.env.VITE_API_BASE_URL || '') + '/api/markers/' + encodeURIComponent(symbol.toUpperCase()), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',

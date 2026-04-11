@@ -43,7 +43,7 @@
 
   // Compute source and formattedSymbol first (needed for store subscription)
   $: source = display.source || 'ctrader';
-  $: formattedSymbol = formatSymbol(display.symbol);
+  $: formattedSymbol = formatSymbol(display.symbol, source);
 
   // Reactive store subscription
   $: marketData = getMarketDataStore(formattedSymbol);

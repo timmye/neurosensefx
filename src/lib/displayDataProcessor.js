@@ -24,16 +24,22 @@ export function getWebSocketUrl() {
 }
 
 /**
- * Format symbol by removing slash and converting to uppercase
- * @param {string} symbol - Symbol with slash (e.g., 'BTC/USD')
- * @returns {string} Formatted symbol (e.g., 'BTCUSD')
+ * Format symbol for subscription.
+ * cTrader requires stripped/uppercase symbols (e.g., 'BTC/USD' → 'BTCUSD').
+ * TradingView passes symbols raw to support math expressions (e.g., 'DE02Y/US02Y').
+ * @param {string} symbol - Symbol string
+ * @param {string} [source='ctrader'] - Data source ('ctrader' or 'tradingview')
+ * @returns {string} Formatted symbol
  */
-export function formatSymbol(symbol) {
+export function formatSymbol(symbol, source = 'ctrader') {
   if (!symbol || typeof symbol !== 'string') {
     if (import.meta.env.DEV) {
       console.warn('[formatSymbol] Received invalid symbol:', typeof symbol, symbol);
     }
     return '';
+  }
+  if (source === 'tradingview') {
+    return symbol.trim();
   }
   return symbol.replace('/', '').toUpperCase();
 }

@@ -1,5 +1,6 @@
 // Keyboard Handler Utilities - Single Responsibility
 // Framework-first: Direct browser keyboard event handling
+import { formatSymbol } from './displayDataProcessor.js';
 
 export function createKeyboardHandler(workspaceActions) {
   let escPressCount = 0;
@@ -8,21 +9,21 @@ export function createKeyboardHandler(workspaceActions) {
   function handleCreateDisplay(source = 'ctrader') {
     const symbol = prompt('Enter symbol:');
     if (symbol) {
-      workspaceActions.addDisplay(symbol.replace('/', '').trim().toUpperCase(), null, source);
+      workspaceActions.addDisplay(formatSymbol(symbol, source), null, source);
     }
   }
 
   function handleCreateTradingViewDisplay() {
     const symbol = prompt('Enter symbol (TradingView):');
     if (symbol) {
-      workspaceActions.addDisplay(symbol.replace('/', '').trim().toUpperCase(), null, 'tradingview');
+      workspaceActions.addDisplay(formatSymbol(symbol, 'tradingview'), null, 'tradingview');
     }
   }
 
   function handleCreatePriceTicker() {
     const symbol = prompt('Enter symbol for Price Ticker:');
     if (symbol) {
-      workspaceActions.addPriceTicker(symbol.replace('/', '').trim().toUpperCase(), null, 'tradingview');
+      workspaceActions.addPriceTicker(formatSymbol(symbol, 'tradingview'), null, 'tradingview');
     }
   }
 

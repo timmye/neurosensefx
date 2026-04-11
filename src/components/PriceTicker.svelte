@@ -145,7 +145,8 @@
   }
 
   // Reactive: formattedSymbol must update when ticker.symbol changes
-  $: formattedSymbol = formatSymbol(ticker.symbol);
+  $: tickerSource = ticker.source || 'tradingview';
+  $: formattedSymbol = formatSymbol(ticker.symbol, tickerSource);
 
   // Function to re-render market profile (called on zoom/resize)
   function renderMarketProfile() {
@@ -196,7 +197,7 @@
     }
 
     // Subscribe via centralized store
-    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, ticker.source || 'tradingview', { adr: 14 });
+    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, tickerSource, { adr: 14 });
     previousSymbol = formattedSymbol;
 
     // Setup drag interaction (no resize for ticker)
@@ -225,7 +226,7 @@
     unsubscribeSymbol?.();
 
     // Subscribe to new symbol
-    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, ticker.source || 'tradingview', { adr: 14 });
+    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, tickerSource, { adr: 14 });
 
     // Clear stale data
     lastMarketProfileData = null;
@@ -264,7 +265,7 @@
     if (unsubscribeSymbol) {
       unsubscribeSymbol();
     }
-    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, ticker.source || 'tradingview', { adr: 14 });
+    unsubscribeSymbol = subscribeToSymbol(formattedSymbol, tickerSource, { adr: 14 });
   }
 </script>
 

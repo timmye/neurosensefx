@@ -21,7 +21,7 @@
   let lastSavedMarkersLength = -1;
 
   // Compute formattedSymbol from display.symbol to avoid undefined during mount
-  $: localFormattedSymbol = display.symbol ? formatSymbol(display.symbol) : '';
+  $: localFormattedSymbol = display.symbol ? formatSymbol(display.symbol, display.source || 'ctrader') : '';
 
   // Initialize price markers when component mounts
   onMount(() => {

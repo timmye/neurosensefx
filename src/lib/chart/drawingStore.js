@@ -34,7 +34,7 @@ export const drawingStore = {
     // Try server first when authenticated; replace local IndexedDB with server data (ref: DL-007)
     if (get(authStore).isAuthenticated) {
       try {
-        const resp = await fetch(API_BASE + '/api/drawings/' + symbol + '/' + resolution, { credentials: 'include' });
+        const resp = await fetch(API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution), { credentials: 'include' });
         if (resp.ok) {
           const { data } = await resp.json();
           if (data && Array.isArray(data) && data.length > 0) {
@@ -79,7 +79,7 @@ export const drawingStore = {
     await db.drawings.where({ symbol, resolution }).delete();
     // Immediate (non-debounced) sync for clearAll — user expects instant server state (ref: DL-007)
     if (get(authStore).isAuthenticated) {
-      fetch(API_BASE + '/api/drawings/' + symbol + '/' + resolution, {
+      fetch(API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -102,7 +102,7 @@ export const drawingStore = {
       saveDebounceTimers.delete(key);
       try {
         const all = await db.drawings.where({ symbol, resolution }).toArray();
-        await fetch(API_BASE + '/api/drawings/' + symbol + '/' + resolution, {
+        await fetch(API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
