@@ -50,7 +50,11 @@ class WebSocketServer {
         // Connection handler receives the HTTP upgrade request for cookie parsing (ref: DL-005).
         this.wss.on('connection', (ws, req) => this.handleConnection(ws, req));
 
-        this.cTraderSession.on('tick', (tick) => this.dataRouter.routeFromCTrader(tick));
+        this.cTraderSession.on('tick', (tick) => {
+            const price = (tick.bid != null && tick.ask != null) ? (tick.bid + tick.ask) / 2 : tick.bid ?? tick.ask;
+            if (price != null) this.lastPrices.set(tick.symbol, { price, timestamp: Date.now() });
+            this.dataRouter.routeFromCTrader(tick);
+        });
         this.cTraderSession.on('connected', (symbols) => {
             this.statusBroadcaster.broadcastStatus('connected', null, symbols);
             if (symbols && Array.isArray(symbols)) {
@@ -76,13 +80,21 @@ class WebSocketServer {
         // Per-client candle subscription tracking: 'symbol:period' -> Set<ws>
         this.candleSubscriptions = new Map();
 
+        // Last known price per symbol — populated from tick events.
+        // Used to attach currentPrice to candleHistory responses so the
+        // frontend can render the correct close on the current bar immediately.
+        this.lastPrices = new Map(); // symbol -> { price, timestamp }
+
         // TradingView event handlers
         this.tradingViewSession.on('m1Bar', (bar) => {
             console.log(`[WebSocketServer] TradingView m1Bar received:`, JSON.stringify(bar));
             this.marketProfileService.onM1Bar(bar.symbol, bar, 'tradingview');
         });
         this.tradingViewSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'tradingview'));
-        this.tradingViewSession.on('tick', (tick) => this.dataRouter.routeFromTradingView(tick));
+        this.tradingViewSession.on('tick', (tick) => {
+            if (tick.price != null) this.lastPrices.set(tick.symbol, { price: tick.price, timestamp: Date.now() });
+            this.dataRouter.routeFromTradingView(tick);
+        });
         this.tradingViewSession.on('candle', (candle) => this.dataRouter.routeFromTradingView(candle));
         this.tradingViewSession.on('connected', () => {
             console.log('[TradingView] Backend connected');
@@ -477,7 +489,8 @@ class WebSocketServer {
                 symbol,
                 resolution,
                 period,
-                bars
+                bars,
+                currentPrice: this.lastPrices.get(symbol)?.price ?? null
             });
             console.log(`[WebSocketServer] Sent ${bars.length} ${resolution} bars for ${symbol}`);
         } catch (error) {

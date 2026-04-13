@@ -157,6 +157,7 @@
  * @property {string} symbol - Symbol identifier
  * @property {string} resolution - Timeframe/resolution
  * @property {Array<Bar>} bars - Array of OHLC bars
+ * @property {number} [currentPrice] - Last known spot price for immediate current bar close
  * @property {number} [receivedAt] - Backend receive timestamp
  * @property {number} [sentAt] - WebSocket send timestamp
  */

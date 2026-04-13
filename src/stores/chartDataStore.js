@@ -14,6 +14,7 @@ import { writable } from 'svelte/store';
 import Dexie from 'dexie';
 import { ConnectionManager } from '../lib/connectionManager.js';
 import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
+import { getMarketDataStore } from './marketDataStore.js';
 import {
   resolutionToPeriod,
   PERIOD_RANGE_LIMITS,
@@ -350,7 +351,20 @@ function handleCandleUpdate(message) {
 function handleCandleHistory(message) {
   if (!message.bars || !message.symbol || !message.resolution) return;
 
-  const { symbol, resolution, bars } = message;
+  const { symbol, resolution, bars, currentPrice } = message;
+
+  // Inject currentPrice into marketDataStore so the per-tick live close
+  // mechanism can render the correct close on the current bar immediately,
+  // instead of waiting for the separate symbolDataPackage to arrive.
+  if (currentPrice != null) {
+    const marketStore = getMarketDataStore(symbol);
+    marketStore.update(state => {
+      if (state.current == null) {
+        return { ...state, current: currentPrice };
+      }
+      return state;
+    });
+  }
 
   const store = getChartBarStore(symbol, resolution);
 

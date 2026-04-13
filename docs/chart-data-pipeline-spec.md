@@ -13,6 +13,7 @@
 | cTrader live trendbar subscription | Accepts subscriptions for all periods, but spot events only carry M1 entries (RC6) | M1-aligned when from spot events |
 | TradingView M1 candles | Live M1 bars (1500 historical on connect, then real-time) | `time * 1000` (seconds from TradingView) |
 | Per-tick spot price | Current bid/ask price | `Date.now()` in `ChartDisplay.svelte` |
+| `candleHistory.currentPrice` | Last known spot price attached to historical bar response | Set from `lastPrices` Map on tick arrival |
 
 ### Live Subscription (All Timeframes)
 
@@ -57,6 +58,20 @@ Script: `scripts/test-ctrader-subscriptions.cjs`
 
 cTrader accepts `ProtoOASubscribeLiveTrendbarReq` for all periods without error. The subscription itself succeeds — but no genuine non-M1 bar data arrives in the spot event stream (RC6).
 
+## Changes Applied (2026-04-13)
+
+| Change | File | Effect |
+|--------|------|--------|
+| `lastPrices` Map on tick events | `WebSocketServer.js:53-56,94-96` | Stores last known price per symbol from both cTrader and TradingView tick handlers |
+| `currentPrice` in candleHistory response | `WebSocketServer.js:493` | Attaches last known spot price to historical bar response |
+| Inject currentPrice into marketDataStore | `chartDataStore.js:361-367` | `handleCandleHistory()` populates `marketDataStore.current` from `currentPrice` if still null, enabling correct close on first frame |
+
+### Problem
+On chart load, the current bar rendered with the broker's stale close until a separate `symbolDataPackage` message arrived with `initialPrice`. This created a visible gap where the chart looked unreliable.
+
+### Fix
+The backend now attaches `currentPrice` (last known spot price) to the `candleHistory` response. The frontend injects it into `marketDataStore.current` immediately, so the existing per-tick rAF mechanism renders the correct close on the first frame — no separate message wait required.
+
 ## Changes Applied (2026-04-08)
 
 | Change | File | Effect |
@@ -93,6 +108,7 @@ The backend fallback in `CTraderSession.js` fabricated non-M1 `barUpdate` events
 | `services/tick-backend/CTraderSession.js` | cTrader subscription + spot event routing (fallback removed) |
 | `services/tick-backend/CTraderEventHandler.js` | Multi-TF trendbar processing |
 | `services/tick-backend/DataRouter.js` | Bar routing to WebSocket clients |
+| `services/tick-backend/WebSocketServer.js` | `lastPrices` Map + `currentPrice` in candleHistory response |
 | `services/tick-backend/TradingViewCandleHandler.js` | M1 candle handling (history batched for Market Profile, live emitted) |
 | `plans/chart-data-fix.md` | Original RCA (12 root causes, 23 fixes applied) |
 | `scripts/test-ctrader-subscriptions.cjs` | Subscription acceptance test |
