@@ -56,12 +56,14 @@ class TradingViewSession extends EventEmitter {
     // TradingView resolution format mapping
     static RESOLUTION_TO_TV = {
         '1m': '1', '5m': '5', '15m': '15', '30m': '30',
-        '1h': '60', '4h': '240', 'D': '1D'
+        '1h': '60', '4h': '240', 'D': '1D',
+        'W': '1W', 'M': '1M'
     };
 
     static RESOLUTION_MS = {
         '1m': 60000, '5m': 300000, '15m': 900000, '30m': 1800000,
-        '1h': 3600000, '4h': 14400000, 'D': 86400000
+        '1h': 3600000, '4h': 14400000, 'D': 86400000,
+        'W': 604800000, 'M': 2592000000
     };
 
     async connect(sessionId) {
@@ -227,7 +229,7 @@ class TradingViewSession extends EventEmitter {
      * Fetch historical candles for a symbol at a given resolution.
      * Creates a temporary chart session, waits for series_completed, returns bars.
      * @param {string} symbol - Symbol identifier
-     * @param {string} resolution - Chart resolution ('1m', '5m', '15m', '30m', '1h', '4h', 'D')
+     * @param {string} resolution - Chart resolution ('1m', '5m', '15m', '30m', '1h', '4h', 'D', 'W', 'M')
      * @param {number} from - Start timestamp (ms)
      * @param {number} to - End timestamp (ms)
      * @returns {Promise<Array>} Array of { timestamp, open, high, low, close, volume }
