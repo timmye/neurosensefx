@@ -48,7 +48,21 @@ class TradingViewSession extends EventEmitter {
         this.eventListenersAttached = false;
         this.isDisconnecting = false;
         this.connectedAt = null;
+
+        // Pending historical candle requests (for chart data)
+        this._pendingHistorical = new Map(); // chartSession -> { symbol, resolution, bars, resolve, reject }
     }
+
+    // TradingView resolution format mapping
+    static RESOLUTION_TO_TV = {
+        '1m': '1', '5m': '5', '15m': '15', '30m': '30',
+        '1h': '60', '4h': '240', 'D': '1D'
+    };
+
+    static RESOLUTION_MS = {
+        '1m': 60000, '5m': 300000, '15m': 900000, '30m': 1800000,
+        '1h': 3600000, '4h': 14400000, 'D': 86400000
+    };
 
     async connect(sessionId) {
         this.sessionId = sessionId;
@@ -114,6 +128,23 @@ class TradingViewSession extends EventEmitter {
         const chartSession = params[0];
         const seriesData = params[1];
 
+        // Check if this is a historical candle request
+        const pendingHist = this._pendingHistorical.get(chartSession);
+        if (pendingHist) {
+            const series = seriesData[pendingHist.seriesId]?.['s'];
+            if (series) {
+                pendingHist.bars = series.map(c => ({
+                    timestamp: c.v[0] * 1000,
+                    open: c.v[1],
+                    high: c.v[2],
+                    low: c.v[3],
+                    close: c.v[4],
+                    volume: c.v[5]
+                }));
+            }
+            return;
+        }
+
         for (const [symbol, data] of this.subscriptions.entries()) {
             if (data.d1ChartSession === chartSession) {
                 this.candleHandler.handleD1Candles(chartSession, seriesData['sds_1']?.['s'], symbol, data);
@@ -128,6 +159,17 @@ class TradingViewSession extends EventEmitter {
 
     handleSeriesCompleted(params) {
         const chartSession = params[0];
+
+        // Check pending historical requests first
+        const pendingHist = this._pendingHistorical.get(chartSession);
+        if (pendingHist) {
+            if (pendingHist.bars.length === 0) {
+                pendingHist.reject(new Error(`TradingView returned no historical bars for ${pendingHist.symbol} ${pendingHist.resolution}`));
+            } else {
+                pendingHist.resolve(pendingHist.bars);
+            }
+            return;
+        }
 
         for (const [symbol, data] of this.subscriptions.entries()) {
             if (data.d1ChartSession === chartSession && !data.initialSent) {
@@ -179,6 +221,75 @@ class TradingViewSession extends EventEmitter {
         this.subscriptionManager.setCompletionTimeout(subscription, symbol, (error) => this.emit('error', error));
 
         console.log(`[TradingView] M1 subscription active for ${symbol}`);
+    }
+
+    /**
+     * Fetch historical candles for a symbol at a given resolution.
+     * Creates a temporary chart session, waits for series_completed, returns bars.
+     * @param {string} symbol - Symbol identifier
+     * @param {string} resolution - Chart resolution ('1m', '5m', '15m', '30m', '1h', '4h', 'D')
+     * @param {number} from - Start timestamp (ms)
+     * @param {number} to - End timestamp (ms)
+     * @returns {Promise<Array>} Array of { timestamp, open, high, low, close, volume }
+     */
+    async fetchHistoricalCandles(symbol, resolution, from, to) {
+        if (!this.client) throw new Error('Not connected');
+
+        const tvResolution = TradingViewSession.RESOLUTION_TO_TV[resolution];
+        if (!tvResolution) throw new Error(`Unsupported TradingView resolution: ${resolution}`);
+
+        const resMs = TradingViewSession.RESOLUTION_MS[resolution];
+        const amount = Math.min(5000, Math.ceil((to - from) / resMs) + 100);
+
+        const chartSession = `cs_hist_${randomstring.generate(12)}`;
+        const seriesId = `sds_hist_${Date.now()}`;
+
+        console.log(`[TV-CHART] Fetching historical candles: ${symbol} ${resolution} (${tvResolution}), ${amount} bars`);
+
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                this._pendingHistorical.delete(chartSession);
+                try { this.client.send('delete_session', [chartSession]); } catch (e) { /* ignore */ }
+                reject(new Error(`TradingView historical candle timeout for ${symbol} ${resolution}`));
+            }, 30000);
+
+            this._pendingHistorical.set(chartSession, {
+                chartSession,
+                seriesId,
+                symbol,
+                resolution,
+                bars: [],
+                resolve: (bars) => {
+                    clearTimeout(timeout);
+                    this._pendingHistorical.delete(chartSession);
+                    try { this.client.send('delete_session', [chartSession]); } catch (e) { /* ignore */ }
+                    console.log(`[TV-CHART] Historical candles fetched: ${symbol} ${resolution}, ${bars.length} bars`);
+                    resolve(bars);
+                },
+                reject: (err) => {
+                    clearTimeout(timeout);
+                    this._pendingHistorical.delete(chartSession);
+                    try { this.client.send('delete_session', [chartSession]); } catch (e) { /* ignore */ }
+                    reject(err);
+                }
+            });
+
+            this.client.send('chart_create_session', [chartSession, '']);
+            this.client.send('resolve_symbol', [
+                chartSession,
+                `sds_sym_${symbol}`,
+                '=' + JSON.stringify({ symbol, adjustment: 'splits' })
+            ]);
+            this.client.send('create_series', [
+                chartSession,
+                seriesId,
+                's0',
+                `sds_sym_${symbol}`,
+                tvResolution,
+                amount,
+                ''
+            ]);
+        });
     }
 
     setupEventListeners() {
@@ -282,6 +393,7 @@ class TradingViewSession extends EventEmitter {
             this.client = null;
         }
         this.subscriptions.clear();
+        this._pendingHistorical.clear();
 
         // Reset flag after cleanup
         this.isDisconnecting = false;

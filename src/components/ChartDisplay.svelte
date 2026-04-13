@@ -32,6 +32,8 @@
   let currentSymbol = display.symbol;
   let currentResolution = display.resolution || '4h';
   let currentWindow = display.window || DEFAULT_RESOLUTION_WINDOW[currentResolution] || '3M';
+  let currentSource = display.source || 'tradingview';
+  const sourceMemory = new Map(); // per-symbol source recall
   let barStoreUnsubscribe = null;
   let tickUnsubscribe = null;
   let isMinimized = display.isMinimized ?? false;
@@ -461,7 +463,7 @@
     barStoreUnsubscribe = null;
     tickUnsubscribe?.();
     tickUnsubscribe = null;
-    unsubscribeFromCandles(currentSymbol, currentResolution);
+    unsubscribeFromCandles(currentSymbol, currentResolution, currentSource);
   }
 
   function handleSymbolChange(newSymbol) {
@@ -470,6 +472,11 @@
     teardownSubscriptions();
 
     currentSymbol = newSymbol;
+    // Restore per-symbol source preference
+    const rememberedSource = sourceMemory.get(newSymbol);
+    if (rememberedSource && rememberedSource !== currentSource) {
+      currentSource = rememberedSource;
+    }
 
     // Clear chart overlays and command stack
     if (chart) {
@@ -484,6 +491,27 @@
     overlayPinnedMap.clear();
 
     // Load new symbol data, restore drawings after data is applied
+    loadChartData(currentSymbol, currentResolution, currentWindow, () => {
+      restoreDrawings(currentSymbol, currentResolution);
+      chart.createIndicator({ name: 'symbolWatermark', extendData: getWatermarkData() }, true, { id: 'candle_pane' });
+    });
+  }
+
+  function handleSourceChange(newSource) {
+    if (newSource === currentSource) return;
+    currentSource = newSource;
+    sourceMemory.set(currentSymbol, newSource);
+
+    teardownSubscriptions();
+    if (chart) {
+      chart.removeOverlay();
+      chart.clearData();
+    }
+    commandStack.clear();
+    overlayDbIdMap.clear();
+    pinnedOverlayMap.clear();
+    overlayPinnedMap.clear();
+
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
       restoreDrawings(currentSymbol, currentResolution);
       chart.createIndicator({ name: 'symbolWatermark', extendData: getWatermarkData() }, true, { id: 'candle_pane' });
@@ -636,7 +664,7 @@
     currentRangeFrom = exact.from;
     currentFetchFrom = buffered.from;
 
-    loadHistoricalBars(symbol, resolution, buffered.from, buffered.to);
+    loadHistoricalBars(symbol, resolution, buffered.from, buffered.to, currentSource);
   }
 
   onMount(async () => {
@@ -722,7 +750,7 @@
 
         if (range.from <= edgeThreshold) {
           isLoadingMore = true;
-          loadMoreHistory(currentSymbol, currentResolution).finally(() => {
+          loadMoreHistory(currentSymbol, currentResolution, currentSource).finally(() => {
             isLoadingMore = false;
           });
         }
@@ -769,7 +797,7 @@
     tickUnsubscribe?.();
     tickUnsubscribe = null;
 
-    unsubscribeFromCandles(currentSymbol, currentResolution);
+    unsubscribeFromCandles(currentSymbol, currentResolution, currentSource);
 
     if (resizeRAF) {
       cancelAnimationFrame(resizeRAF);
@@ -818,9 +846,11 @@
 
   {#if !isMinimized}
     <ChartToolbar {currentResolution} {currentWindow} {chart} {commandStack} {canUndo} {canRedo}
+      source={currentSource}
       bind:activeDrawingTool bind:magnetMode
       on:resolution={e => handleResolutionChange(e.detail)}
       on:window={e => handleWindowChange(e.detail)}
+      on:sourceChange={e => handleSourceChange(e.detail)}
       on:drawingCreated={handleDrawingCreated}
       on:redo={e => redoCreateCommand(e.detail)}
       on:clearDrawings={handleClearDrawings} />

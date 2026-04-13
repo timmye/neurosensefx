@@ -22,7 +22,7 @@ import {
   RESOLUTION_MS
 } from '../lib/chart/chartConfig.js';
 
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 
 // ============================================================================
 // IndexedDB via Dexie.js
@@ -30,7 +30,7 @@ const CACHE_VERSION = 3;
 
 const db = new Dexie('NeuroSenseChart');
 db.version(CACHE_VERSION).stores({
-  bars: '[symbol+resolution+timestamp], symbol, resolution, timestamp'
+  bars: '[symbol+resolution+source+timestamp], symbol, resolution, source, timestamp'
 });
 
 // ============================================================================
@@ -66,24 +66,25 @@ function storeKey(symbol, resolution) {
 // IndexedDB Cache Operations
 // ============================================================================
 
-async function getCachedBars(symbol, resolution, fromTimestamp, toTimestamp) {
+async function getCachedBars(symbol, resolution, fromTimestamp, toTimestamp, source = 'ctrader') {
   return db.bars
-    .where('[symbol+resolution+timestamp]')
+    .where('[symbol+resolution+source+timestamp]')
     .between(
-      [symbol, resolution, fromTimestamp],
-      [symbol, resolution, toTimestamp],
+      [symbol, resolution, source, fromTimestamp],
+      [symbol, resolution, source, toTimestamp],
       true, true
     )
     .sortBy('timestamp');
 }
 
-async function putCachedBars(symbol, resolution, bars) {
+async function putCachedBars(symbol, resolution, bars, source = 'ctrader') {
   if (!bars || bars.length === 0) return;
 
   const now = Date.now();
   const records = bars.map(bar => ({
     symbol,
     resolution,
+    source,
     timestamp: bar.timestamp,
     open: bar.open,
     high: bar.high,
@@ -96,26 +97,34 @@ async function putCachedBars(symbol, resolution, bars) {
   await db.bars.bulkPut(records);
 }
 
-async function evictStaleCache(resolution) {
+async function evictStaleCache(symbol, resolution, source) {
   const maxBars = CACHE_MAX_BARS[resolution];
   if (!maxBars) return;
 
   const count = await db.bars
-    .where('resolution')
-    .equals(resolution)
+    .where('[symbol+resolution+source+timestamp]')
+    .between(
+      [symbol, resolution, source, 0],
+      [symbol, resolution, source, 99999999999999],
+      true, true
+    )
     .count();
 
   if (count <= maxBars) return;
 
   const oldest = await db.bars
-    .where('resolution')
-    .equals(resolution)
+    .where('[symbol+resolution+source+timestamp]')
+    .between(
+      [symbol, resolution, source, 0],
+      [symbol, resolution, source, 99999999999999],
+      true, true
+    )
     .offset(maxBars)
     .sortBy('timestamp');
 
   if (oldest.length === 0) return;
 
-  const keysToDelete = oldest.map(bar => [bar.symbol, bar.resolution, bar.timestamp]);
+  const keysToDelete = oldest.map(bar => [bar.symbol, bar.resolution, bar.source, bar.timestamp]);
   await db.bars.bulkDelete(keysToDelete);
 }
 
@@ -143,11 +152,11 @@ function setupCandleMessageHandler() {
       const previousSubs = new Map(candleSubscriptions);
       candleSubscriptions.clear();
 
-      for (const [key] of previousSubs) {
+      for (const [key, storedSource] of previousSubs) {
         const [symbol, resolution] = key.split(':');
-        const sent = sendSubscribeCandles(symbol, resolution);
+        const sent = sendSubscribeCandles(symbol, resolution, storedSource);
         if (sent) {
-          candleSubscriptions.set(key, true);
+          candleSubscriptions.set(key, storedSource);
         }
 
         // Reload history to fill any gap from disconnection
@@ -184,7 +193,7 @@ export function getChartBarStore(symbol, resolution) {
   return chartBarStores.get(key);
 }
 
-export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTimestamp) {
+export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTimestamp, source = 'ctrader') {
   const store = getChartBarStore(symbol, resolution);
   const fetchPeriod = resolutionToPeriod(resolution);
 
@@ -205,7 +214,7 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
 
   // Check IndexedDB cache first
   try {
-    const cachedBars = await getCachedBars(symbol, resolution, fromTimestamp, toTimestamp);
+    const cachedBars = await getCachedBars(symbol, resolution, fromTimestamp, toTimestamp, source);
 
     if (cachedBars.length > 0) {
       // Reject stale cache: bars last written more than 2 bar-periods ago are too old to trust
@@ -222,7 +231,7 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
         store.set({ bars: cachedBars, state: STATE.READY, error: null, updateType: 'full' });
 
         // Track subscription and send for real-time updates
-        subscribeToCandles(symbol, resolution);
+        subscribeToCandles(symbol, resolution, source);
         return;
       }
       // Stale cache — fall through to backend fetch below
@@ -234,7 +243,7 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
   }
 
   // Subscribe immediately for live updates — don't wait for history
-  subscribeToCandles(symbol, resolution);
+  subscribeToCandles(symbol, resolution, source);
 
   // Cache miss — fetch from backend
   if (!fetchPeriod) {
@@ -243,31 +252,32 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
   }
 
   // Send full range to backend — it chains requests internally per period limits
-  const sent = sendGetHistoricalCandles(symbol, resolution, fromTimestamp, toTimestamp);
+  const sent = sendGetHistoricalCandles(symbol, resolution, fromTimestamp, toTimestamp, source);
   if (!sent) {
     store.set({ bars: [], state: STATE.READY, error: 'WebSocket not connected' });
   }
 }
 
-function subscribeToCandles(symbol, resolution) {
+function subscribeToCandles(symbol, resolution, source = 'ctrader') {
   const key = storeKey(symbol, resolution);
-  if (candleSubscriptions.has(key)) {
+  const existing = candleSubscriptions.get(key);
+  if (existing) {
     return;
   }
-  const sent = sendSubscribeCandles(symbol, resolution);
+  const sent = sendSubscribeCandles(symbol, resolution, source);
   if (sent) {
-    candleSubscriptions.set(key, true);
+    candleSubscriptions.set(key, source);
   }
 }
 
-export function unsubscribeFromCandles(symbol, resolution) {
+export function unsubscribeFromCandles(symbol, resolution, source = 'ctrader') {
   const key = storeKey(symbol, resolution);
   if (!candleSubscriptions.has(key)) return;
   candleSubscriptions.delete(key);
-  sendUnsubscribeCandles(symbol, resolution);
+  sendUnsubscribeCandles(symbol, resolution, source);
 }
 
-export async function loadMoreHistory(symbol, resolution) {
+export async function loadMoreHistory(symbol, resolution, source = 'ctrader') {
   const store = getChartBarStore(symbol, resolution);
   const current = await new Promise(resolve => store.subscribe(resolve)());
 
@@ -297,7 +307,7 @@ export async function loadMoreHistory(symbol, resolution) {
   const chunkTo = oldestTimestamp;
   const chunkFrom = Math.max(oldestTimestamp - rangeLimit, 0);
 
-  const sent = sendGetHistoricalCandles(symbol, resolution, chunkFrom, chunkTo);
+  const sent = sendGetHistoricalCandles(symbol, resolution, chunkFrom, chunkTo, source);
   if (!sent) {
     store.set({ ...current, state: STATE.READY });
     clearTimeout(loadingTimers.get(timerKey));
@@ -312,7 +322,7 @@ export async function loadMoreHistory(symbol, resolution) {
 function handleCandleUpdate(message) {
   if (!message.bar || !message.symbol || !message.timeframe) return;
 
-  const { symbol, timeframe, bar, isBarClose } = message;
+  const { symbol, timeframe, bar, isBarClose, source: msgSource } = message;
 
   // Map incoming timeframe to the resolution key format
   // Backend sends cTrader period (e.g., 'H4', 'M1'), we store using resolution key (e.g., '4h', '1m')
@@ -341,7 +351,7 @@ function handleCandleUpdate(message) {
   });
 
   // Persist live bar to IndexedDB
-  putCachedBars(symbol, resolution, [bar]).catch(err => {
+  putCachedBars(symbol, resolution, [bar], msgSource || 'ctrader').catch(err => {
     if (import.meta.env.DEV) {
       console.warn('[chartDataStore] Live bar cache write failed:', err);
     }
@@ -351,7 +361,7 @@ function handleCandleUpdate(message) {
 function handleCandleHistory(message) {
   if (!message.bars || !message.symbol || !message.resolution) return;
 
-  const { symbol, resolution, bars, currentPrice } = message;
+  const { symbol, resolution, bars, currentPrice, source: msgSource } = message;
 
   // Inject currentPrice into marketDataStore so the per-tick live close
   // mechanism can render the correct close on the current bar immediately,
@@ -397,9 +407,10 @@ function handleCandleHistory(message) {
   // Subscribe to real-time candle updates after initial load
   subscribeToCandles(symbol, resolution);
 
-  // Cache bars in IndexedDB (fire-and-forget) — use original resolution for cache key
-  putCachedBars(symbol, resolution, bars)
-    .then(() => evictStaleCache(resolution))
+  // Cache bars in IndexedDB (fire-and-forget)
+  const cacheSource = msgSource || 'ctrader';
+  putCachedBars(symbol, resolution, bars, cacheSource)
+    .then(() => evictStaleCache(symbol, resolution, cacheSource))
     .catch(() => {});
 }
 
@@ -414,32 +425,35 @@ function ensureConnectionManager() {
   }
 }
 
-function sendGetHistoricalCandles(symbol, resolution, from, to) {
+function sendGetHistoricalCandles(symbol, resolution, from, to, source = 'ctrader') {
   ensureConnectionManager();
   return connectionManager.sendRaw({
     type: 'getHistoricalCandles',
     symbol,
     resolution,
     from,
-    to
+    to,
+    source
   });
 }
 
-function sendSubscribeCandles(symbol, resolution) {
+function sendSubscribeCandles(symbol, resolution, source = 'ctrader') {
   ensureConnectionManager();
   return connectionManager.sendRaw({
     type: 'subscribeCandles',
     symbol,
-    resolution
+    resolution,
+    source
   });
 }
 
-function sendUnsubscribeCandles(symbol, resolution) {
+function sendUnsubscribeCandles(symbol, resolution, source = 'ctrader') {
   ensureConnectionManager();
   connectionManager.sendRaw({
     type: 'unsubscribeCandles',
     symbol,
-    resolution
+    resolution,
+    source
   });
 }
 

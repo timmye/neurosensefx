@@ -60,7 +60,7 @@ const actions = {
     workspaceStore.update(state => ({ ...state, selectedDisplayId: null }));
   },
 
-  addDisplay: (symbol, position = null, source = 'ctrader') => {
+  addDisplay: (symbol, position = null, source = 'tradingview') => {
     workspaceStore.update(state => {
       const id = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const display = {
@@ -81,7 +81,7 @@ const actions = {
     });
   },
 
-  addPriceTicker: (symbol, position = null, source = 'ctrader') => {
+  addPriceTicker: (symbol, position = null, source = 'tradingview') => {
     workspaceStore.update(state => {
       const id = `ticker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const ticker = {
@@ -461,7 +461,7 @@ const actions = {
     }
   },
 
-  addChartDisplay: (symbol, position = null, source = 'ctrader') => {
+  addChartDisplay: (symbol, position = null, source = 'tradingview') => {
     workspaceStore.update(state => {
       const id = `chart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const ghost = state.chartGhost;

@@ -10,8 +10,16 @@
   export let canRedo = false;
   export let activeDrawingTool = null;
   export let magnetMode = false;
+  export let source = 'tradingview';
 
   const dispatch = createEventDispatcher();
+
+  const SOURCE_LABELS = { ctrader: 'cTrader', tradingview: 'TradingView' };
+
+  function handleSourceClick() {
+    const next = source === 'ctrader' ? 'tradingview' : 'ctrader';
+    dispatch('sourceChange', next);
+  }
 
   const resolutionGroups = RESOLUTION_GROUPS;
   const windowGroups = TIME_WINDOW_GROUPS;
@@ -157,6 +165,14 @@
         </button>
       {/each}
     {/each}
+    <span class="separator">|</span>
+    <button
+      class="source-btn"
+      on:click={handleSourceClick}
+      title="Data source: {SOURCE_LABELS[source]} (click to switch)"
+    >
+      {SOURCE_LABELS[source]}
+    </button>
   </div>
   <div class="toolbar-row drawing-row">
     {#each DRAWING_TOOLS as tool}
@@ -342,5 +358,25 @@
     background-color: #fce4e4;
     border-color: #bb2719;
     color: #bb2719;
+  }
+
+  .source-btn {
+    background: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    color: #555555;
+    padding: 2px 7px;
+    margin: 0 1px;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    line-height: 1.4;
+  }
+
+  .source-btn:hover {
+    background: #F0F0F0;
+    border-color: #999999;
+    color: #333333;
   }
 </style>

@@ -80,7 +80,67 @@ class DataRouter {
      */
     routeCandleUpdate(candleData) {
         const message = buildCandleUpdateMessage(candleData);
-        const key = `${candleData.symbol}:${candleData.timeframe}`;
+        const key = `${candleData.symbol}:${candleData.timeframe}:ctrader`;
+        this._routeToCandleSubscribers(key, message);
+    }
+
+    /**
+     * Route M1 bar data to chart subscribers.
+     * Adapts m1Bar format {symbol, open, high, low, close, timestamp} to candleUpdate format.
+     * @param {Object} m1Bar - M1 bar data from CTraderEventHandler.processTrendbarEvent
+     */
+    routeM1CandleUpdate(m1Bar) {
+        const key = `${m1Bar.symbol}:M1:ctrader`;
+        const message = buildCandleUpdateMessage({
+            symbol: m1Bar.symbol,
+            timeframe: 'M1',
+            bar: {
+                open: m1Bar.open,
+                high: m1Bar.high,
+                low: m1Bar.low,
+                close: m1Bar.close,
+                volume: m1Bar.volume || 0,
+                timestamp: m1Bar.timestamp
+            },
+            isBarClose: false
+        });
+        this._routeToCandleSubscribers(key, message);
+    }
+
+    /**
+     * Route TradingView M1 candle updates to chart subscribers.
+     * TradingView M1 bars come from the ticker subscription pipeline
+     * (TradingViewCandleHandler.updateM1BarFromTick). This routes them
+     * to clients that have subscribed to chart candles with source='tradingview'.
+     * @param {Object} m1Bar - M1 bar data { symbol, open, high, low, close, timestamp }
+     */
+    routeTradingViewM1CandleUpdate(m1Bar) {
+        console.log(`[TV-CHART] routeTradingViewM1CandleUpdate: ${m1Bar.symbol}`);
+        const key = `${m1Bar.symbol}:M1:tradingview`;
+        const message = {
+            type: 'candleUpdate',
+            source: 'tradingview',
+            symbol: m1Bar.symbol,
+            timeframe: 'M1',
+            bar: {
+                open: m1Bar.open,
+                high: m1Bar.high,
+                low: m1Bar.low,
+                close: m1Bar.close,
+                volume: m1Bar.volume || 0,
+                timestamp: m1Bar.timestamp
+            },
+            isBarClose: true
+        };
+        this._routeToCandleSubscribers(key, message);
+    }
+
+    /**
+     * Shared helper: send a message to all clients subscribed to a candle key.
+     * @param {string} key - Candle subscription key (symbol:period:source)
+     * @param {Object} message - Message to send
+     */
+    _routeToCandleSubscribers(key, message) {
         const clients = this.wsServer.candleSubscriptions.get(key);
         if (!clients || clients.size === 0) return;
 
@@ -99,49 +159,6 @@ class DataRouter {
                 }
             } catch (error) {
                 console.error('[DataRouter] Failed to send candle update to client:', error.message);
-            }
-        });
-    }
-
-    /**
-     * Route M1 bar data to chart subscribers.
-     * Adapts m1Bar format {symbol, open, high, low, close, timestamp} to candleUpdate format.
-     * @param {Object} m1Bar - M1 bar data from CTraderEventHandler.processTrendbarEvent
-     */
-    routeM1CandleUpdate(m1Bar) {
-        const key = `${m1Bar.symbol}:M1`;
-        const clients = this.wsServer.candleSubscriptions.get(key);
-        if (!clients || clients.size === 0) return;
-
-        const message = buildCandleUpdateMessage({
-            symbol: m1Bar.symbol,
-            timeframe: 'M1',
-            bar: {
-                open: m1Bar.open,
-                high: m1Bar.high,
-                low: m1Bar.low,
-                close: m1Bar.close,
-                volume: m1Bar.volume || 0,
-                timestamp: m1Bar.timestamp
-            },
-            isBarClose: false
-        });
-
-        let jsonMessage;
-        try {
-            jsonMessage = JSON.stringify(message);
-        } catch (error) {
-            console.error('[DataRouter] Failed to stringify M1 candle update:', error);
-            return;
-        }
-
-        clients.forEach(client => {
-            try {
-                if (client.readyState === 1) {
-                    client.send(jsonMessage);
-                }
-            } catch (error) {
-                console.error('[DataRouter] Failed to send M1 candle update to client:', error.message);
             }
         });
     }

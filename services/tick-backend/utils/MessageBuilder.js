@@ -87,7 +87,7 @@ function buildTradingViewMessage(candle) {
 function buildCandleUpdateMessage(data) {
     return {
         type: 'candleUpdate',
-        source: 'ctrader',
+        source: data.source || 'ctrader',
         symbol: data.symbol,
         timeframe: data.timeframe,
         bar: data.bar,
