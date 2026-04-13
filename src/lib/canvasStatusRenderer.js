@@ -1,7 +1,7 @@
 // Canvas Status Renderer - Crystal Clarity Compliant
 // Framework-first: Status and error message rendering
 
-export const SYSTEM_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+export const SYSTEM_FONT_FAMILY = '"Georgia Pro", Georgia, serif';
 
 export function renderStatusMessage(ctx, message, s) {
   const { width, height } = s;

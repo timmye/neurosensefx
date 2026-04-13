@@ -26,9 +26,9 @@ const defaultConfig = {
     text: '#ffffff'
   },
   fonts: {
-    basketLabel: '500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    basketValue: '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    anchorTime: '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+    basketLabel: '600 16px "Georgia Pro", Georgia, serif',
+    basketValue: '400 11px "Georgia Pro", Georgia, serif',
+    anchorTime: '400 11px "Georgia Pro", Georgia, serif'
   },
   positioning: {
     padding: 8,

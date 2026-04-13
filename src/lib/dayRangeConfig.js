@@ -22,14 +22,14 @@ export const defaultConfig = {
 
   // Typography - matching mini market profile (ticker) fonts
   fonts: {
-    currentPrice: '800 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    priceLabels: '500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    percentageLabels: '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    statusMessages: '400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    uiElements: '400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    uiSymbol: '600 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    uiVizIndicator: '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    uiButtons: '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+    currentPrice: '900 36px "Georgia Pro", Georgia, serif',
+    priceLabels: '600 16px "Georgia Pro", Georgia, serif',
+    percentageLabels: '400 11px "Georgia Pro", Georgia, serif',
+    statusMessages: '400 12px "Georgia Pro", Georgia, serif',
+    uiElements: '400 11px "Georgia Pro", Georgia, serif',
+    uiSymbol: '600 16px "Georgia Pro", Georgia, serif',
+    uiVizIndicator: '600 11px "Georgia Pro", Georgia, serif',
+    uiButtons: '600 14px "Georgia Pro", Georgia, serif'
   },
 
   // Text Emphasis

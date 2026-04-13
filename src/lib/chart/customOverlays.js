@@ -29,10 +29,10 @@ registerIndicator({
     ctx.textBaseline = 'top';
     const cx = bounding.width / 2;
     const top = bounding.top + 16;
-    ctx.font = 'bold 48px "DejaVu Serif", Georgia, serif';
+    ctx.font = 'bold 48px "Georgia Pro", Georgia, serif';
     ctx.fillText(symbol, cx, top);
     if (resolution && windowLabel) {
-      ctx.font = 'normal 24px "DejaVu Serif", Georgia, serif';
+      ctx.font = 'normal 24px "Georgia Pro", Georgia, serif';
       ctx.fillText(`${resolution} · ${windowLabel}`, cx, top + 52);
     }
     ctx.restore();
@@ -252,7 +252,7 @@ registerOverlay({
 const ANNOTATION_STYLE = {
   color: '#FFFFFF',
   size: 12,
-  family: '"DejaVu Serif", Georgia, serif',
+  family: '"Georgia Pro", Georgia, serif',
   weight: 'normal',
   backgroundColor: '#48752c',
   borderRadius: 0,
