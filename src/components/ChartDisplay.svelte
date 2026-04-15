@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
   import { init, dispose as disposeChart } from 'klinecharts';
-  import { getChartBarStore, loadHistoricalBars, loadMoreHistory, unsubscribeFromCandles } from '../stores/chartDataStore.js';
+  import { getChartBarStore, loadHistoricalBars, loadMoreHistory, unsubscribeFromCandles, clearCachedBars } from '../stores/chartDataStore.js';
   import { getMarketDataStore } from '../stores/marketDataStore.js';
   import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
@@ -315,11 +315,13 @@
 
     // 6. Render pinned foreign drawings: faded, locked, with origin badge
     const visibleRange = chart.getVisibleRange();
+    const dataList = chart.getDataList();
+    const fromTimestamp = dataList?.[visibleRange.from]?.timestamp;
     for (const drawing of pinnedForeign) {
       const compoundId = `${drawing.overlayId}_pinned_${drawing.resolution}`;
       const mappedPoints = drawing.points.map(p => {
-        if (isPriceOnlyOverlay(drawing.overlayType) && visibleRange) {
-          return { ...p, timestamp: visibleRange.from };
+        if (isPriceOnlyOverlay(drawing.overlayType) && fromTimestamp != null) {
+          return { ...p, timestamp: fromTimestamp };
         }
         return p;
       });
@@ -499,6 +501,7 @@
 
   function handleSourceChange(newSource) {
     if (newSource === currentSource) return;
+    const oldSource = currentSource;
     currentSource = newSource;
     sourceMemory.set(currentSymbol, newSource);
 
@@ -511,6 +514,11 @@
     overlayDbIdMap.clear();
     pinnedOverlayMap.clear();
     overlayPinnedMap.clear();
+
+    // Clear cached bars for old source to prevent stale cross-source data
+    clearCachedBars(currentSymbol, currentResolution, oldSource).catch(err => {
+      console.warn('[ChartDisplay] Cache eviction failed:', err);
+    });
 
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
       restoreDrawings(currentSymbol, currentResolution);
@@ -600,7 +608,37 @@
             volume: bar.volume || 0
           }));
           tryApplyData(klineData);
-          if (onDataReady) { onDataReady(); onDataReady = null; }
+          // Progressive load: re-create overlays so KLineChart re-resolves
+          // timestamp→dataIndex. updatePointPosition() skips overlays that have
+          // valid timestamps, so after prepending bars their dataIndex is stale.
+          if (!onDataReady && chart.getOverlays()?.length > 0) {
+            const overlays = chart.getOverlays();
+            const specs = overlays.map(o => ({
+              id: o.id,
+              name: o.name,
+              points: o.points.map(p => ({ timestamp: p.timestamp, value: p.value })),
+              styles: o.styles,
+              extendData: o.extendData,
+              lock: o.lock
+            }));
+            chart.removeOverlay();
+            const callbacks = getOverlayCallbacks();
+            for (const spec of specs) {
+              chart.createOverlay({ ...spec, ...callbacks });
+            }
+            // overlayDbIdMap and overlayPinnedMap survive since they use
+            // overlay IDs which are preserved in the specs above
+          }
+          if (onDataReady) {
+            const cb = onDataReady;
+            onDataReady = null;
+            // Wait for KLineChart to complete its internal render pass
+            // (resize, barSpace, scrollToRealTime all execute before onDraw fires)
+            const unsubs = chart.subscribeAction('onDraw', () => {
+              unsubs();
+              cb();
+            });
+          }
         } else if (initialFullReceived) {
           // Incremental — only apply NEW bars (different timestamp from chart's
           // last bar). Same-bar OHLC updates are handled by the rAF-batched
@@ -723,9 +761,6 @@
 
       // Add Bollinger Bands (20 period) on candle pane
       chart.createIndicator('BOLL', false, { id: 'candle_pane' });
-
-      // On Balance Volume in bottom pane (tick volume fed from cTrader)
-      chart.createIndicator('OBV', false, { position: 'bottom', height: 120 });
 
       // Accumulation/Distribution Line in bottom pane
       chart.createIndicator('AD', false, { position: 'bottom', height: 120 });

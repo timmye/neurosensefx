@@ -315,6 +315,21 @@ export async function loadMoreHistory(symbol, resolution, source = 'ctrader') {
   }
 }
 
+/**
+ * Clear all cached bars for a given symbol, resolution, and source.
+ * Used when switching data sources to prevent stale cross-source data.
+ */
+export async function clearCachedBars(symbol, resolution, source) {
+  await db.bars
+    .where('[symbol+resolution+source+timestamp]')
+    .between(
+      [symbol, resolution, source, Dexie.minKey],
+      [symbol, resolution, source, Dexie.maxKey],
+      true, true
+    )
+    .delete();
+}
+
 // ============================================================================
 // Message Handlers (called from system subscription)
 // ============================================================================
