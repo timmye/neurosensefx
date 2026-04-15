@@ -608,34 +608,13 @@
             volume: bar.volume || 0
           }));
           tryApplyData(klineData);
-          // Progressive load: re-create overlays so KLineChart re-resolves
-          // timestamp→dataIndex. updatePointPosition() skips overlays that have
-          // valid timestamps, so after prepending bars their dataIndex is stale.
-          if (!onDataReady && chart.getOverlays()?.length > 0) {
-            const overlays = chart.getOverlays();
-            const specs = overlays.map(o => ({
-              id: o.id,
-              name: o.name,
-              points: o.points.map(p => ({ timestamp: p.timestamp, value: p.value })),
-              styles: o.styles,
-              extendData: o.extendData,
-              lock: o.lock
-            }));
-            chart.removeOverlay();
-            const callbacks = getOverlayCallbacks();
-            for (const spec of specs) {
-              chart.createOverlay({ ...spec, ...callbacks });
-            }
-            // overlayDbIdMap and overlayPinnedMap survive since they use
-            // overlay IDs which are preserved in the specs above
-          }
           if (onDataReady) {
             const cb = onDataReady;
             onDataReady = null;
-            // Wait for KLineChart to complete its internal render pass
-            // (resize, barSpace, scrollToRealTime all execute before onDraw fires)
-            const unsubs = chart.subscribeAction('onDraw', () => {
-              unsubs();
+            // Wait for KLineChart to complete its internal data pipeline
+            // (indicators calculated, pane viewport adjusted) before restoring
+            // drawings that reference bar timestamps.
+            chart.subscribeAction('onDataReady', () => {
               cb();
             });
           }
