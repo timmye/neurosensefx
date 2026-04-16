@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   import { RESOLUTION_GROUPS, TIME_WINDOW_GROUPS, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
 
   export let currentResolution = '4h';
@@ -126,6 +126,13 @@
       clearHoldTimer = null;
     }
   }
+
+  onDestroy(() => {
+    if (clearHoldTimer) {
+      clearTimeout(clearHoldTimer);
+      clearHoldTimer = null;
+    }
+  });
 
   function handleClearDrawings() {
     if (!chart) return;

@@ -1,6 +1,5 @@
 import Dexie from 'dexie';
-// Drawing persistence dual-targets IndexedDB (Dexie) and server API when authenticated (ref: DL-007).
-// IndexedDB remains the local cache; server is the source of truth across logins.
+// Drawing persistence: IndexedDB (local cache) + server API when authenticated (ref: DL-007).
 import { authStore } from '../../stores/authStore.js';
 import { get } from 'svelte/store';
 
@@ -77,7 +76,7 @@ export const drawingStore = {
 
   async clearAll(symbol, resolution) {
     await db.drawings.where({ symbol, resolution }).delete();
-    // Immediate (non-debounced) sync for clearAll — user expects instant server state (ref: DL-007)
+    // Immediate sync for clearAll — user expects instant server state (ref: DL-007)
     if (get(authStore).isAuthenticated) {
       fetch(API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution), {
         method: 'PUT',
@@ -116,6 +115,6 @@ export const drawingStore = {
 };
 
 // Expose to window for E2E test access (seed/verify drawings)
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
   window.drawingStore = drawingStore;
 }

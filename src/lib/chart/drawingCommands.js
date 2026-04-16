@@ -1,4 +1,17 @@
+/**
+ * Command pattern for drawing undo/redo.
+ *
+ * DrawingCommandStack manages the undo/redo stacks.
+ * CreateDrawingCommand handles creation and persistence.
+ * DeleteDrawingCommand is extracted to DeleteDrawingCommand.js.
+ *
+ * @module drawingCommands
+ */
+
 import { writable, derived } from 'svelte/store';
+import { DeleteDrawingCommand } from './DeleteDrawingCommand.js';
+
+export { DeleteDrawingCommand };
 
 export class DrawingCommandStack {
   constructor(maxDepth = 50) {
@@ -64,8 +77,6 @@ export class CreateDrawingCommand {
   }
 
   execute() {
-    // During initial creation the overlay already exists (created by user drawing).
-    // execute() is only called by redo(), which needs to re-create it.
     if (!this.overlayId) {
       const opts = {
         name: this.overlayType,
@@ -95,39 +106,11 @@ export class CreateDrawingCommand {
   undo() {
     if (this.overlayId) {
       this.chart.removeOverlay({ id: this.overlayId });
-      this.overlayId = null; // clear so redo() knows to re-create
+      this.overlayId = null;
     }
     if (this.dbId) {
       this.store.remove(this.dbId);
       this.dbId = null;
     }
-  }
-}
-
-export class DeleteDrawingCommand {
-  constructor(chart, store, overlayId, dbId, serializedOverlay) {
-    this.chart = chart;
-    this.store = store;
-    this.overlayId = overlayId;
-    this.dbId = dbId;
-    this.serializedOverlay = serializedOverlay;
-  }
-
-  execute() {
-    this.chart.removeOverlay({ id: this.overlayId });
-    if (this.dbId) {
-      this.store.remove(this.dbId);
-    }
-  }
-
-  undo() {
-    const opts = {
-      name: this.serializedOverlay.overlayType,
-      id: this.serializedOverlay.overlayId,
-      points: this.serializedOverlay.points,
-      styles: this.serializedOverlay.styles,
-    };
-    if (this.serializedOverlay.extendData != null) opts.extendData = this.serializedOverlay.extendData;
-    this.chart.createOverlay(opts);
   }
 }

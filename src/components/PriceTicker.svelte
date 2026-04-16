@@ -353,7 +353,7 @@
 
   /* Larger value digits displayed smaller to emphasize pips */
   .price-larger-digits {
-    font-size: 0.50em; /* 75% of base size */
+    font-size: 0.66em; /* 75% of base size */
   }
 
   /* Pip digits at full normal size */
