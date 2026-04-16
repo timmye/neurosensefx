@@ -41,7 +41,7 @@ export function mergeHistoryBars(existingBars, incomingBars) {
   if (existingBars.length === 0) return incomingBars;
 
   const merged = new Map();
-  for (const b of existingBars) merged.set(b.timestamp, b);
   for (const b of incomingBars) merged.set(b.timestamp, b);
+  for (const b of existingBars) merged.set(b.timestamp, b);
   return [...merged.values()].sort((a, b) => a.timestamp - b.timestamp);
 }
