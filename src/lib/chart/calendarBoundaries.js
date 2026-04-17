@@ -4,6 +4,9 @@
  * Provides functions to align timestamps to calendar boundaries (year,
  * quarter, month, week, day, hour) and step forward to the next boundary.
  *
+ * Boundary alignment and stepping operate on UTC timestamps (unchanged).
+ * Label formatting supports timezone-aware display via Intl.DateTimeFormat.
+ *
  * @module calendarBoundaries
  */
 
@@ -55,49 +58,80 @@ export function alignToBoundary(fromTs, boundaryType) {
 
 export const RANK = { YEAR: 1, QUARTER: 2, MONTH: 3, WEEK: 4, DAY: 5, HOUR: 6 };
 
-export function formatBoundaryLabel(ts, rank, prevTs) {
+// Cache Intl.DateTimeFormat instances per timezone
+const formatterCache = new Map();
+
+function getFormatter(tz) {
+  if (formatterCache.has(tz)) return formatterCache.get(tz);
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  formatterCache.set(tz, fmt);
+  return fmt;
+}
+
+function getLocalizedParts(timestamp, tz) {
+  const parts = getFormatter(tz).formatToParts(new Date(timestamp));
+  const map = {};
+  for (const p of parts) map[p.type] = p.value;
+  return {
+    year:   map.year,
+    month:  Number(map.month),       // 1-12
+    day:    Number(map.day),         // 1-31
+    hour:   map.hour === '24' ? '00' : map.hour,
+    minute: map.minute,
+    monthPad: map.month,
+    dayPad:   map.day,
+  };
+}
+
+/**
+ * Format a boundary tick label in the given timezone.
+ * @param {number} ts - UTC epoch timestamp
+ * @param {number} rank - RANK enum value
+ * @param {number|null} prevTs - previous emitted timestamp for context
+ * @param {string} timezone - IANA timezone string (default 'UTC')
+ */
+export function formatBoundaryLabel(ts, rank, prevTs, timezone = 'UTC') {
   const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const d = new Date(ts);
-  const prev = prevTs != null ? new Date(prevTs) : null;
-  const year = d.getUTCFullYear();
-  const month = d.getUTCMonth();
-  const day = d.getUTCDate();
-  const hours = String(d.getUTCHours()).padStart(2, '0');
-  const mins = String(d.getUTCMinutes()).padStart(2, '0');
+  const p = getLocalizedParts(ts, timezone);
+  const prev = prevTs != null ? getLocalizedParts(prevTs, timezone) : null;
   const pad2 = n => String(n).padStart(2, '0');
 
   switch (rank) {
     case RANK.YEAR:
-      return String(year);
+      return p.year;
     case RANK.QUARTER: {
-      const q = Math.floor(month / 3) + 1;
+      const q = Math.floor((p.month - 1) / 3) + 1;
       const label = `Q${q}`;
-      if (!prev || prev.getUTCFullYear() !== year) return `${label} ${year}`;
+      if (!prev || prev.year !== p.year) return `${label} ${p.year}`;
       return label;
     }
     case RANK.MONTH: {
-      const label = SHORT_MONTHS[month];
-      if (!prev || prev.getUTCFullYear() !== year) return `${label} ${year}`;
+      const label = SHORT_MONTHS[p.month - 1];
+      if (!prev || prev.year !== p.year) return `${label} ${p.year}`;
       return label;
     }
     case RANK.WEEK: {
-      const dayLabel = pad2(day);
-      const monthLabel = `${dayLabel} ${SHORT_MONTHS[month]}`;
-      if (!prev || prev.getUTCFullYear() !== year) return `${monthLabel} ${year}`;
-      if (prev.getUTCMonth() !== month) return monthLabel;
+      const dayLabel = p.dayPad;
+      const monthLabel = `${dayLabel} ${SHORT_MONTHS[p.month - 1]}`;
+      if (!prev || prev.year !== p.year) return `${monthLabel} ${p.year}`;
+      if (prev.month !== p.month) return monthLabel;
       return dayLabel;
     }
     case RANK.DAY: {
-      const label = pad2(day);
-      if (!prev || prev.getUTCMonth() !== month || prev.getUTCFullYear() !== year) {
-        return `${label} ${SHORT_MONTHS[month]}`;
+      const label = p.dayPad;
+      if (!prev || prev.month !== p.month || prev.year !== p.year) {
+        return `${label} ${SHORT_MONTHS[p.month - 1]}`;
       }
       return label;
     }
     case RANK.HOUR: {
-      const timeLabel = `${hours}:${mins}`;
-      if (!prev || prev.getUTCFullYear() !== year || prev.getUTCMonth() !== month || prev.getUTCDate() !== day) {
-        return `${pad2(day)} ${timeLabel}`;
+      const timeLabel = `${p.hour}:${p.minute}`;
+      if (!prev || prev.year !== p.year || prev.month !== p.month || prev.day !== p.day) {
+        return `${p.dayPad} ${timeLabel}`;
       }
       return timeLabel;
     }

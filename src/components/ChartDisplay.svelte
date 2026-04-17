@@ -27,6 +27,8 @@
   import { createChartDataLoader } from '../lib/chart/chartDataLoader.js';
   import { createOverlayRestore } from '../lib/chart/chartOverlayRestore.js';
   import { createAxisFormatter } from '../lib/chart/chartAxisFormatter.js';
+  import { timezoneStore, resolvedTimezone } from '../stores/timezoneStore.js';
+  import { setAxisTimezone } from '../lib/chart/xAxisCustom.js';
   import { createDrawingHandlers } from '../lib/chart/chartDrawingHandlers.js';
   import {
     initChart, setupResizeObserver, setupIndicators,
@@ -68,7 +70,7 @@
   let barStoreUnsubscribe = null, tickUnsubscribe = null;
 
   // --- Axis formatter ---
-  const formatAxisLabel = createAxisFormatter(() => currentWindow);
+  const formatAxisLabel = createAxisFormatter(() => currentWindow, () => $resolvedTimezone);
 
   // --- Price precision ---
   function applyPricePrecision(symbol) {
@@ -270,6 +272,10 @@
   // --- Reactive statements ---
   $: currentDisplay = $workspaceStore.displays.get(display.id) || {};
   $: if (display.symbol && display.symbol !== currentSymbol) handleSymbolChange(display.symbol);
+  $: if (chart && $resolvedTimezone) {
+    chart.setTimezone($resolvedTimezone);
+    setAxisTimezone($resolvedTimezone, chart);
+  }
   $: if (currentDisplay.isMinimized !== undefined && currentDisplay.isMinimized !== isMinimized) {
     isMinimized = currentDisplay.isMinimized;
     if (!isMinimized) {
@@ -278,7 +284,7 @@
       } else {
         // Chart was never created (minimized on mount) — create it now
         setTimeout(() => {
-          chart = initChart(chartContainer, { init, LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow });
+          chart = initChart(chartContainer, { init, LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
           if (chart) {
             chart.setZoomEnabled(false);
             chart.setScrollEnabled(true);
@@ -310,7 +316,7 @@
     // Use setTimeout(0) instead of tick() — yields to browser layout engine
     // so clientWidth/clientHeight are correct when initChart reads them.
     const initTimer = setTimeout(() => {
-      chart = initChart(chartContainer, { init, LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow });
+      chart = initChart(chartContainer, { init, LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
       if (chart) {
         chart.setZoomEnabled(false);
         chart.setScrollEnabled(true);

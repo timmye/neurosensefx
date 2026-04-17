@@ -26,12 +26,14 @@ export { snapToBar, formatBoundaryLabel, generateTicks };
 // Per-chart state tracking
 // ---------------------------------------------------------------------------
 
-const chartRegistry = new Map(); // chart instance -> { window }
+const chartRegistry = new Map(); // chart instance -> { window, timezone }
 
-export function setAxisChart(chart) {
+export function setAxisChart(chart, timezone = 'UTC') {
   if (chart) {
     if (!chartRegistry.has(chart)) {
-      chartRegistry.set(chart, { window: '3M' });
+      chartRegistry.set(chart, { window: '3M', timezone });
+    } else {
+      chartRegistry.get(chart).timezone = timezone;
     }
     _lastChart = chart;
   }
@@ -45,6 +47,17 @@ export function setAxisWindow(window_, chart) {
     // No specific chart — update all registered charts
     for (const state of chartRegistry.values()) {
       state.window = window_;
+    }
+  }
+}
+
+/** Update timezone for a specific chart. */
+export function setAxisTimezone(timezone, chart) {
+  if (chart && chartRegistry.has(chart)) {
+    chartRegistry.get(chart).timezone = timezone;
+  } else {
+    for (const state of chartRegistry.values()) {
+      state.timezone = timezone;
     }
   }
 }
@@ -70,6 +83,7 @@ registerXAxis({
     const chart = _lastChart;
     if (!chart || !chartRegistry.has(chart)) return defaultTicks;
 
+    const state = chartRegistry.get(chart);
     const dataList = chart.getDataList();
     const { from, to } = range;
 
@@ -80,8 +94,7 @@ registerXAxis({
     const fromTs = dataList[from].timestamp;
     const toTs = dataList[to].timestamp;
 
-    const window_ = chartRegistry.get(chart).window;
-    const result = generateTicks(fromTs, toTs, dataList, chart, window_);
+    const result = generateTicks(fromTs, toTs, dataList, chart, state.window, state.timezone);
 
     if (result.length === 0) {
       console.warn('[calendarAxis] createTicks produced 0 ticks', {

@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { RESOLUTION_GROUPS, TIME_WINDOW_GROUPS, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
+  import { timezoneStore, TIMEZONE_PRESETS, resolvedTimezone } from '../stores/timezoneStore.js';
 
   export let currentResolution = '4h';
   export let currentWindow = '3M';
@@ -19,6 +20,20 @@
   function handleSourceClick() {
     const next = source === 'ctrader' ? 'tradingview' : 'ctrader';
     dispatch('sourceChange', next);
+  }
+
+  function handleTimezoneChange(e) {
+    timezoneStore.set(e.target.value);
+  }
+
+  function timezoneLabel(id) {
+    const p = TIMEZONE_PRESETS.find(t => t.id === id);
+    if (!p) return id;
+    if (id === 'LOCAL') {
+      try { return `Local (${Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' ')})`; }
+      catch { return 'Local'; }
+    }
+    return p.label;
   }
 
   const resolutionGroups = RESOLUTION_GROUPS;
@@ -180,6 +195,12 @@
     >
       {SOURCE_LABELS[source]}
     </button>
+    <span class="separator">|</span>
+    <select class="tz-select" value={$timezoneStore} on:change={handleTimezoneChange} title="Chart timezone">
+      {#each TIMEZONE_PRESETS as preset}
+        <option value={preset.id}>{timezoneLabel(preset.id)}</option>
+      {/each}
+    </select>
   </div>
   <div class="toolbar-row drawing-row">
     {#each DRAWING_TOOLS as tool}
@@ -385,5 +406,27 @@
     background: #F0F0F0;
     border-color: #999999;
     color: #333333;
+  }
+
+  .tz-select {
+    background: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    color: #555555;
+    padding: 2px 4px;
+    margin: 0 1px;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1.4;
+  }
+
+  .tz-select:hover {
+    border-color: #999999;
+  }
+
+  .tz-select:focus {
+    outline: none;
+    border-color: #48752c;
   }
 </style>

@@ -67,14 +67,14 @@ function dedupCandidates(candidates) {
   return deduped;
 }
 
-function emitLabeledTicks(deduped) {
+function emitLabeledTicks(deduped, timezone) {
   const result = [];
   let prevEmittedTs = null;
   let lastVisibleCoord = -Infinity;
   let lastVisibleRank = Infinity;
 
   for (const tick of deduped) {
-    const text = formatBoundaryLabel(tick.ts, tick.rank, prevEmittedTs);
+    const text = formatBoundaryLabel(tick.ts, tick.rank, prevEmittedTs, timezone);
     const gap = tick.coord - lastVisibleCoord;
 
     if (gap < MIN_FLOOR && result.length > 0 && tick.rank >= lastVisibleRank) {
@@ -108,11 +108,12 @@ function emitLabeledTicks(deduped) {
  * @param {Array} dataList - KLineChart data array
  * @param {object} chart - KLineChart instance for coordinate conversion
  * @param {string} window - Time window key (e.g. '3M', '1W')
+ * @param {string} timezone - IANA timezone string (default 'UTC')
  */
-export function generateTicks(fromTs, toTs, dataList, chart, window) {
+export function generateTicks(fromTs, toTs, dataList, chart, window, timezone = 'UTC') {
   if (!dataList || dataList.length === 0) return [];
   const levels = TRANSITION_MATRIX[window] || TRANSITION_MATRIX['3M'];
   const candidates = collectCandidates(levels, fromTs, toTs, dataList, chart);
   const deduped = dedupCandidates(candidates);
-  return emitLabeledTicks(deduped);
+  return emitLabeledTicks(deduped, timezone);
 }
