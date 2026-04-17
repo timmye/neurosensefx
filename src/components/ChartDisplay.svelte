@@ -10,7 +10,7 @@
   import ChartToolbar from './ChartToolbar.svelte';
   import QuickRuler from './QuickRuler.svelte';
   import { DEFAULT_RESOLUTION_WINDOW, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
-  import { setAxisChart, setAxisWindow } from '../lib/chart/xAxisCustom.js';
+  import { setAxisChart, setAxisWindow, removeAxisChart } from '../lib/chart/xAxisCustom.js';
   import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
   import '../lib/chart/overlaysIndicators.js';
   import '../lib/chart/overlaysPriceLines.js';
@@ -19,8 +19,8 @@
   import '../lib/chart/overlaysChannels.js';
   import { DrawingCommandStack } from '../lib/chart/drawingCommands.js';
   import OverlayContextMenu from './OverlayContextMenu.svelte';
-  import { unsubscribeAll as unsubscribeAllActions } from '../lib/chart/chartSubscriptions.js';
-  import { scheduleResize, cancelScheduledResize } from '../lib/chart/chartResize.js';
+  import { createChartSubscriptions } from '../lib/chart/chartSubscriptions.js';
+  import { createResizeState, scheduleResize, cancelScheduledResize } from '../lib/chart/chartResize.js';
   import { createOverlayMeta } from '../lib/chart/overlayMeta.js';
   import { createReloadChart } from '../lib/chart/reloadChart.js';
   import { createBarSpace } from '../lib/chart/chartBarSpace.js';
@@ -62,6 +62,8 @@
     set value(v) { pendingDataApply = v; },
   };
   let isLoadingMore = false;
+  const resizeState = createResizeState();
+  const chartSubs = createChartSubscriptions(() => chart);
   let currentRangeFrom = 0;
   let barStoreUnsubscribe = null, tickUnsubscribe = null;
 
@@ -126,6 +128,7 @@
     get chartContainer() { return chartContainer; },
     applyBarSpace: barSpace.applyBarSpace,
     setPending: (v) => { pendingDataApply = v; },
+    chartSubs,
   });
 
   // --- Overlay restore ---
@@ -174,6 +177,14 @@
     createWatermarkIndicator,
   });
 
+  // --- Shared deps for setupChartActions (used in onMount + un-minimize) ---
+  function getChartActionDeps() {
+    return {
+      applyBarSpace: barSpace.applyBarSpace, currentSymbol, currentResolution, currentSource,
+      get isLoadingMore() { return isLoadingMore; }, set isLoadingMore(v) { isLoadingMore = v; },
+    };
+  }
+
   // --- Context menu handlers (thin wrappers updating local state) ---
   function handleContextMenuDelete() {
     if (contextMenu.overlayId) {
@@ -215,7 +226,7 @@
     teardownSubscriptions();
     currentResolution = newResolution;
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
-    setAxisWindow(currentWindow);
+    setAxisWindow(currentWindow, chart);
     updateWatermark();
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
     if (chart) { chart.removeOverlay(); chart.clearData(); }
@@ -226,7 +237,7 @@
     if (newWindow === currentWindow) return;
     teardownSubscriptions();
     currentWindow = newWindow;
-    setAxisWindow(currentWindow);
+    setAxisWindow(currentWindow, chart);
     updateWatermark();
     loadChartData(currentSymbol, currentResolution, currentWindow);
     workspaceActions.updateDisplay(display.id, { window: newWindow });
@@ -259,47 +270,87 @@
   $: if (display.symbol && display.symbol !== currentSymbol) handleSymbolChange(display.symbol);
   $: if (currentDisplay.isMinimized !== undefined && currentDisplay.isMinimized !== isMinimized) {
     isMinimized = currentDisplay.isMinimized;
-    if (!isMinimized && chart) tick().then(() => scheduleResize(chart, barSpace.applyBarSpace, pendingDataApplyRef));
+    if (!isMinimized) {
+      if (chart) {
+        tick().then(() => scheduleResize(chart, barSpace.applyBarSpace, pendingDataApplyRef, resizeState));
+      } else {
+        // Chart was never created (minimized on mount) — create it now
+        setTimeout(() => {
+          chart = initChart(chartContainer, { init, LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow });
+          if (chart) {
+            chart.setZoomEnabled(false);
+            chart.setScrollEnabled(true);
+            requestAnimationFrame(() => {
+              if (!chart) return;
+              setupIndicators(chart, createWatermarkIndicator);
+              applyPricePrecision(currentSymbol);
+              setupChartActions(chart, chartSubs, getChartActionDeps());
+              loadChartData(currentSymbol, currentResolution, currentWindow, () => {
+                overlayRestore.restoreDrawings(currentSymbol, currentResolution);
+              });
+            });
+          }
+          if (chartContainer) resizeObserver = setupResizeObserver(chartContainer, chart, barSpace.applyBarSpace, pendingDataApplyRef, resizeState);
+        }, 0);
+      }
+    }
   }
 
   // --- Lifecycle ---
-  onMount(async () => {
-    await tick();
-    chart = initChart(chartContainer, { init, LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow });
-    if (chart) {
-      chart.setZoomEnabled(false);
-      chart.setScrollEnabled(true);
-      barSpace.applyBarSpace();
-      applyPricePrecision(currentSymbol);
-      setupIndicators(chart, createWatermarkIndicator);
-      setupChartActions(chart, {
-        applyBarSpace: barSpace.applyBarSpace, currentSymbol, currentResolution, currentSource,
-        get isLoadingMore() { return isLoadingMore; }, set isLoadingMore(v) { isLoadingMore = v; },
-      });
-      loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-        overlayRestore.restoreDrawings(currentSymbol, currentResolution);
-      });
+  onMount(() => {
+    // Guard: don't init chart if minimized (container won't exist in DOM)
+    if (isMinimized) {
+      interactable = setupInteract(element, display, workspaceActions, createInteractConfig);
+      document.addEventListener('keydown', handleDocumentKeydown);
+      return;
     }
-    if (chartContainer) resizeObserver = setupResizeObserver(chartContainer, chart, barSpace.applyBarSpace, pendingDataApplyRef);
+
+    // Use setTimeout(0) instead of tick() — yields to browser layout engine
+    // so clientWidth/clientHeight are correct when initChart reads them.
+    const initTimer = setTimeout(() => {
+      chart = initChart(chartContainer, { init, LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow });
+      if (chart) {
+        chart.setZoomEnabled(false);
+        chart.setScrollEnabled(true);
+
+        // Defer post-init layout work to after first paint.
+        // This lets klinecharts' constructor rAF (Canvas._resetPixelRatio) fire
+        // and set DPR correctly before we trigger additional Canvas.update calls
+        // that would race with the internal rAF coalescing guard.
+        requestAnimationFrame(() => {
+          if (!chart) return;
+          setupIndicators(chart, createWatermarkIndicator);
+          applyPricePrecision(currentSymbol);
+          setupChartActions(chart, chartSubs, getChartActionDeps());
+          loadChartData(currentSymbol, currentResolution, currentWindow, () => {
+            overlayRestore.restoreDrawings(currentSymbol, currentResolution);
+          });
+        });
+      }
+      if (chartContainer) resizeObserver = setupResizeObserver(chartContainer, chart, barSpace.applyBarSpace, pendingDataApplyRef, resizeState);
+    }, 0);
+
     interactable = setupInteract(element, display, workspaceActions, createInteractConfig);
     wheelHandler = setupWheelHandler(chartContainer, chart);
     mousedownHandler = () => element.focus();
     chartContainer?.addEventListener('mousedown', mousedownHandler);
     document.addEventListener('keydown', handleDocumentKeydown);
+
+    return () => clearTimeout(initTimer);
   });
 
   onDestroy(() => {
     barStoreUnsubscribe?.(); barStoreUnsubscribe = null;
     tickUnsubscribe?.(); tickUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution, currentSource);
-    unsubscribeAllActions();
+    chartSubs.unsubscribeAll();
     if (mousedownHandler && chartContainer) { chartContainer.removeEventListener('mousedown', mousedownHandler); mousedownHandler = null; }
-    cancelScheduledResize();
+    cancelScheduledResize(resizeState);
     if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
     if (wheelHandler && chartContainer) { chartContainer.removeEventListener('wheel', wheelHandler); wheelHandler = null; }
     document.removeEventListener('keydown', handleDocumentKeydown);
     pendingDataApply = null;
-    if (chart) { disposeChart(chartContainer); chart = null; }
+    if (chart) { removeAxisChart(chart); disposeChart(chartContainer); chart = null; }
     if (interactable) { interactable.unset(); interactable = null; }
     commandStack.clear(); overlayMeta.clear();
     unsubUndo(); unsubRedo();

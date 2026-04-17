@@ -2,15 +2,19 @@
  * Calendar-aware custom X-axis for KLineChart.
  *
  * Registers a 'calendar' custom axis that delegates tick generation
- * to xAxisTickGenerator.js. This module manages the chart instance
- * and window state, and calls registerXAxis with the createTicks callback.
+ * to xAxisTickGenerator.js.
+ *
+ * Multi-chart support: Since registerXAxis is a one-time global registration
+ * and KLineCharts doesn't pass the chart instance to createTicks, we use
+ * a simple last-set chart reference. This is sufficient because createTicks
+ * is called synchronously during chart render — no interleaving between
+ * chart instances within a single frame.
  *
  * @module xAxisCustom
  */
 
 import { registerXAxis } from 'klinecharts';
 import {
-  setAxisWindow as setTickWindow,
   generateTicks,
   snapToBar,
   formatBoundaryLabel,
@@ -19,29 +23,54 @@ import {
 export { snapToBar, formatBoundaryLabel, generateTicks };
 
 // ---------------------------------------------------------------------------
-// Module-level state
+// Per-chart state tracking
 // ---------------------------------------------------------------------------
 
-let _chart = null;
+const chartRegistry = new Map(); // chart instance -> { window }
 
 export function setAxisChart(chart) {
-  _chart = chart;
+  if (chart) {
+    if (!chartRegistry.has(chart)) {
+      chartRegistry.set(chart, { window: '3M' });
+    }
+    _lastChart = chart;
+  }
 }
 
-export function setAxisWindow(window_) {
-  setTickWindow(window_);
+export function setAxisWindow(window_, chart) {
+  if (chart && chartRegistry.has(chart)) {
+    chartRegistry.get(chart).window = window_;
+    _lastChart = chart;
+  } else {
+    // No specific chart — update all registered charts
+    for (const state of chartRegistry.values()) {
+      state.window = window_;
+    }
+  }
+}
+
+/** Remove a chart from the registry (call on dispose). */
+export function removeAxisChart(chart) {
+  chartRegistry.delete(chart);
+  if (_lastChart === chart) _lastChart = null;
 }
 
 // ---------------------------------------------------------------------------
 // registerXAxis — KLineChart registration
 // ---------------------------------------------------------------------------
 
+// Track which chart most recently called setAxisChart.
+// createTicks is called synchronously during chart render, so this
+// reliably identifies the calling chart without needing WeakMap iteration.
+let _lastChart = null;
+
 registerXAxis({
   name: 'calendar',
   createTicks({ range, bounding, defaultTicks }) {
-    if (!_chart) return defaultTicks;
+    const chart = _lastChart;
+    if (!chart || !chartRegistry.has(chart)) return defaultTicks;
 
-    const dataList = _chart.getDataList();
+    const dataList = chart.getDataList();
     const { from, to } = range;
 
     if (!dataList || dataList.length === 0 || from < 0 || to >= dataList.length || from > to) {
@@ -51,7 +80,8 @@ registerXAxis({
     const fromTs = dataList[from].timestamp;
     const toTs = dataList[to].timestamp;
 
-    const result = generateTicks(fromTs, toTs, dataList, _chart);
+    const window_ = chartRegistry.get(chart).window;
+    const result = generateTicks(fromTs, toTs, dataList, chart, window_);
 
     if (result.length === 0) {
       console.warn('[calendarAxis] createTicks produced 0 ticks', {

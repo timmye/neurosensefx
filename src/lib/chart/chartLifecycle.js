@@ -3,7 +3,6 @@
  * interact.js, and wheel handler setup. Used by ChartDisplay.svelte onMount.
  */
 
-import { setChart, subscribeZoom, subscribeVisibleRangeChange } from './chartSubscriptions.js';
 import { scheduleResize } from './chartResize.js';
 import { loadMoreHistory } from '../../stores/chartDataStore.js';
 
@@ -11,9 +10,9 @@ import { loadMoreHistory } from '../../stores/chartDataStore.js';
  * Create a resize observer on chartContainer that coalesces resizes.
  * Returns the ResizeObserver instance.
  */
-export function setupResizeObserver(chartContainer, chart, applyBarSpace, pendingDataApplyRef) {
+export function setupResizeObserver(chartContainer, chart, applyBarSpace, pendingDataApplyRef, resizeState) {
   const observer = new ResizeObserver(() => {
-    scheduleResize(chart, applyBarSpace, pendingDataApplyRef);
+    scheduleResize(chart, applyBarSpace, pendingDataApplyRef, resizeState);
   });
   observer.observe(chartContainer);
   return observer;
@@ -30,17 +29,17 @@ export function setupIndicators(chart, createWatermarkIndicator) {
 
 /**
  * Set up KLineChart action subscriptions: zoom re-lock, progressive loading.
- * Returns { teardown } to unsubscribe.
+ * @param {object} chartSubs - per-instance subscription manager from createChartSubscriptions()
  */
-export function setupChartActions(chart, deps) {
+export function setupChartActions(chart, chartSubs, deps) {
   const { applyBarSpace, currentSymbol, currentResolution, currentSource } = deps;
 
-  subscribeZoom(() => {
+  chartSubs.subscribeZoom(() => {
     applyBarSpace();
     chart.scrollToRealTime();
   });
 
-  subscribeVisibleRangeChange(() => {
+  chartSubs.subscribeVisibleRangeChange(() => {
     if (deps.isLoadingMore) return;
     const dataList = chart.getDataList();
     if (!dataList || dataList.length === 0) return;
@@ -88,21 +87,18 @@ export function setupWheelHandler(chartContainer, chart) {
 
 /**
  * Initialize KLineChart: create instance, wire subscriptions, set axis,
- * apply theme, and run initial resize. Returns the chart instance.
+ * and apply theme. Returns the chart instance.
  */
 export function initChart(chartContainer, deps) {
   const { LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow } = deps;
   const chart = deps.init(chartContainer, { styles: LIGHT_THEME });
 
-  setChart(chart);
   chart.setCustomApi({ formatDate: formatAxisLabel });
   chart.setTimezone('UTC');
 
   setAxisChart(chart);
-  setAxisWindow(currentWindow);
+  setAxisWindow(currentWindow, chart);
   chart.setPaneOptions({ id: 'x_axis_pane', axisOptions: { name: 'calendar' } });
-
-  requestAnimationFrame(() => { if (chart) chart.resize(); });
 
   return chart;
 }

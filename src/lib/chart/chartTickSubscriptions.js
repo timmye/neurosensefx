@@ -3,13 +3,9 @@
  * These are stateless functions that create store subscriptions.
  */
 
-import { getMarketDataStore } from '../../stores/marketDataStore.js';
 import {
   getCalendarAlignedRange,
 } from './chartConfig.js';
-import {
-  subscribeOnDataReady,
-} from './chartSubscriptions.js';
 
 /** Map a bar object to KLineChart data shape. */
 export function mapBarToKline(bar) {
@@ -23,13 +19,12 @@ export function mapBarToKline(bar) {
   };
 }
 
-/** Apply new data to chart, then resize + scroll in next rAF. */
+/** Apply new data to chart, then barSpace + scroll in next rAF. */
 export function applyDataToChart(chart, klineData, applyBarSpace) {
   if (!chart) return;
   chart.applyNewData(klineData);
   requestAnimationFrame(() => {
     if (chart) {
-      chart.resize();
       applyBarSpace();
       chart.scrollToRealTime();
     }
@@ -55,7 +50,7 @@ export function computeFetchRange(window) {
 
 /** Subscribe to bar store: full replaces + incremental new-bar updates. */
 export function subscribeToBarStore(store, chart, deps) {
-  const { applyBarSpace, chartContainer, setPending, onDataReady } = deps;
+  const { applyBarSpace, chartContainer, setPending, onDataReady, chartSubs } = deps;
   let initialFullReceived = false;
   let dataReadyCb = onDataReady;
 
@@ -69,7 +64,7 @@ export function subscribeToBarStore(store, chart, deps) {
       if (dataReadyCb) {
         const cb = dataReadyCb;
         dataReadyCb = null;
-        subscribeOnDataReady(() => cb());
+        chartSubs.subscribeOnDataReady(() => cb());
       }
       return;
     }

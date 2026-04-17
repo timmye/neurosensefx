@@ -1,60 +1,70 @@
 /**
  * Lifecycle-managed KLineChart action subscriptions.
- * Stores handler refs so they can be unsubscribed on teardown.
+ * Factory pattern: each chart gets its own subscription state
+ * so multiple charts don't clobber each other.
  */
 
-let _chart = null;
-const handlers = {
-  onZoom: null,
-  onVisibleRangeChange: null,
-  onDataReady: null,
-};
+/**
+ * Create a subscription manager for a single chart instance.
+ * @param {() => object|null} getChart - getter returning the KLineChart instance
+ * @returns {{ subscribeZoom, unsubscribeZoom, subscribeVisibleRangeChange, unsubscribeVisibleRangeChange, subscribeOnDataReady, unsubscribeOnDataReady, unsubscribeAll }}
+ */
+export function createChartSubscriptions(getChart) {
+  const handlers = {
+    onZoom: null,
+    onVisibleRangeChange: null,
+    onDataReady: null,
+  };
 
-export function setChart(chart) {
-  _chart = chart;
-}
-
-export function subscribeZoom(handler) {
-  unsubscribeZoom();
-  handlers.onZoom = handler;
-  _chart?.subscribeAction('onZoom', handler);
-}
-
-export function unsubscribeZoom() {
-  if (handlers.onZoom && _chart) {
-    _chart.unsubscribeAction('onZoom', handlers.onZoom);
-    handlers.onZoom = null;
+  function subscribeZoom(handler) {
+    unsubscribeZoom();
+    handlers.onZoom = handler;
+    getChart()?.subscribeAction('onZoom', handler);
   }
-}
 
-export function subscribeVisibleRangeChange(handler) {
-  unsubscribeVisibleRangeChange();
-  handlers.onVisibleRangeChange = handler;
-  _chart?.subscribeAction('onVisibleRangeChange', handler);
-}
-
-export function unsubscribeVisibleRangeChange() {
-  if (handlers.onVisibleRangeChange && _chart) {
-    _chart.unsubscribeAction('onVisibleRangeChange', handlers.onVisibleRangeChange);
-    handlers.onVisibleRangeChange = null;
+  function unsubscribeZoom() {
+    if (handlers.onZoom && getChart()) {
+      getChart().unsubscribeAction('onZoom', handlers.onZoom);
+      handlers.onZoom = null;
+    }
   }
-}
 
-export function subscribeOnDataReady(handler) {
-  unsubscribeOnDataReady();
-  handlers.onDataReady = handler;
-  _chart?.subscribeAction('onDataReady', handler);
-}
-
-export function unsubscribeOnDataReady() {
-  if (handlers.onDataReady && _chart) {
-    _chart.unsubscribeAction('onDataReady', handlers.onDataReady);
-    handlers.onDataReady = null;
+  function subscribeVisibleRangeChange(handler) {
+    unsubscribeVisibleRangeChange();
+    handlers.onVisibleRangeChange = handler;
+    getChart()?.subscribeAction('onVisibleRangeChange', handler);
   }
-}
 
-export function unsubscribeAll() {
-  unsubscribeZoom();
-  unsubscribeVisibleRangeChange();
-  unsubscribeOnDataReady();
+  function unsubscribeVisibleRangeChange() {
+    if (handlers.onVisibleRangeChange && getChart()) {
+      getChart().unsubscribeAction('onVisibleRangeChange', handlers.onVisibleRangeChange);
+      handlers.onVisibleRangeChange = null;
+    }
+  }
+
+  function subscribeOnDataReady(handler) {
+    unsubscribeOnDataReady();
+    handlers.onDataReady = handler;
+    getChart()?.subscribeAction('onDataReady', handler);
+  }
+
+  function unsubscribeOnDataReady() {
+    if (handlers.onDataReady && getChart()) {
+      getChart().unsubscribeAction('onDataReady', handlers.onDataReady);
+      handlers.onDataReady = null;
+    }
+  }
+
+  function unsubscribeAll() {
+    unsubscribeZoom();
+    unsubscribeVisibleRangeChange();
+    unsubscribeOnDataReady();
+  }
+
+  return {
+    subscribeZoom, unsubscribeZoom,
+    subscribeVisibleRangeChange, unsubscribeVisibleRangeChange,
+    subscribeOnDataReady, unsubscribeOnDataReady,
+    unsubscribeAll,
+  };
 }

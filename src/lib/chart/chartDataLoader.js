@@ -19,6 +19,7 @@ import {
  * @param {HTMLElement} deps.chartContainer - chart container DOM element
  * @param {function} deps.applyBarSpace - bar space applier
  * @param {function} deps.setPending - set pendingDataApply ref
+ * @param {object} deps.chartSubs - per-instance subscription manager
  */
 export function createChartDataLoader(deps) {
   function loadChartData(symbol, resolution, window, source, onDataReady) {
@@ -30,6 +31,7 @@ export function createChartDataLoader(deps) {
       chartContainer: deps.chartContainer,
       setPending: deps.setPending,
       onDataReady,
+      chartSubs: deps.chartSubs,
     });
 
     const marketStore = getMarketDataStore(symbol);

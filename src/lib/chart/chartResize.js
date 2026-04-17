@@ -2,14 +2,19 @@
  * Chart resize coalescing — debounces resize/applyBarSpace/scrollToRealTime
  * into a single rAF to prevent double-rendering when data apply coincides
  * with ResizeObserver fire.
+ *
+ * Per-instance: each chart gets its own resizeState ref, so multiple charts
+ * don't clobber each other's rAF guards.
  */
 
-let _resizeRAF = null;
+export function createResizeState() {
+  return { rafId: null };
+}
 
-export function scheduleResize(chart, applyBarSpace, pendingDataApplyRef) {
-  if (_resizeRAF) return;
-  _resizeRAF = requestAnimationFrame(() => {
-    _resizeRAF = null;
+export function scheduleResize(chart, applyBarSpace, pendingDataApplyRef, resizeState) {
+  if (resizeState.rafId) return;
+  resizeState.rafId = requestAnimationFrame(() => {
+    resizeState.rafId = null;
     if (!chart) return;
     chart.resize();
     applyBarSpace();
@@ -29,9 +34,9 @@ export function scheduleResize(chart, applyBarSpace, pendingDataApplyRef) {
   });
 }
 
-export function cancelScheduledResize() {
-  if (_resizeRAF) {
-    cancelAnimationFrame(_resizeRAF);
-    _resizeRAF = null;
+export function cancelScheduledResize(resizeState) {
+  if (resizeState.rafId) {
+    cancelAnimationFrame(resizeState.rafId);
+    resizeState.rafId = null;
   }
 }

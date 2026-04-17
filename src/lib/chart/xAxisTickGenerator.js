@@ -3,7 +3,6 @@
  *
  * Generates ticks from a transition matrix. Uses calendarBoundaries.js
  * for boundary alignment and stepping, dataSearch.js for bar snapping.
- * Module-level `_window` state is managed by xAxisCustom.js via setAxisWindow.
  *
  * @module xAxisTickGenerator
  */
@@ -14,12 +13,6 @@ import {
   alignToBoundary, formatBoundaryLabel,
 } from './calendarBoundaries.js';
 import { snapToBar, dataIndexOf } from './dataSearch.js';
-
-let _window = '3M';
-
-export function setAxisWindow(window_) {
-  _window = window_;
-}
 
 export { snapToBar, formatBoundaryLabel };
 
@@ -108,9 +101,17 @@ function emitLabeledTicks(deduped) {
   return result;
 }
 
-export function generateTicks(fromTs, toTs, dataList, chart) {
+/**
+ * Generate calendar-aligned ticks for a data range.
+ * @param {number} fromTs - Start timestamp
+ * @param {number} toTs - End timestamp
+ * @param {Array} dataList - KLineChart data array
+ * @param {object} chart - KLineChart instance for coordinate conversion
+ * @param {string} window - Time window key (e.g. '3M', '1W')
+ */
+export function generateTicks(fromTs, toTs, dataList, chart, window) {
   if (!dataList || dataList.length === 0) return [];
-  const levels = TRANSITION_MATRIX[_window] || TRANSITION_MATRIX['3M'];
+  const levels = TRANSITION_MATRIX[window] || TRANSITION_MATRIX['3M'];
   const candidates = collectCandidates(levels, fromTs, toTs, dataList, chart);
   const deduped = dedupCandidates(candidates);
   return emitLabeledTicks(deduped);
