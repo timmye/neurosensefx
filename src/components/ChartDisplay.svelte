@@ -239,7 +239,9 @@
     currentWindow = newWindow;
     setAxisWindow(currentWindow, chart);
     updateWatermark();
-    loadChartData(currentSymbol, currentResolution, currentWindow);
+    if (chart) { chart.removeOverlay(); chart.clearData(); }
+    overlayMeta.clear(); commandStack.clear();
+    loadChartData(currentSymbol, currentResolution, currentWindow, () => overlayRestore.restoreDrawings(currentSymbol, currentResolution));
     workspaceActions.updateDisplay(display.id, { window: newWindow });
   }
 
