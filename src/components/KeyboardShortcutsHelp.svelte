@@ -45,6 +45,10 @@
           <span>Toggle Market Profile</span>
         </div>
         <div class="shortcut-item">
+          <span class="keys"><kbd>H</kbd></span>
+          <span>Headlines</span>
+        </div>
+        <div class="shortcut-item">
           <span class="keys"><kbd>Esc</kbd></span>
           <span>Close / Clear Focus</span>
         </div>

@@ -7,6 +7,7 @@
   import BackgroundShader from './BackgroundShader.svelte';
   import WorkspaceModal from './WorkspaceModal.svelte';
   import KeyboardShortcutsHelp from './KeyboardShortcutsHelp.svelte';
+  import HeadlinesWidget from './HeadlinesWidget.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { keyManager } from '../lib/keyManager.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
@@ -171,7 +172,7 @@
 
     // c: toggle chart (only without ctrl/alt)
     unsubs.push(keyManager.register(
-      { key: 'c', ctrl: false, alt: false }, () => { toggleChart(); return true; }, { priority: 10 }
+      { key: 'c', ctrl: false, alt: false, meta: false }, () => { toggleChart(); return true; }, { priority: 10 }
     ));
 
     // Alt+A: create cTrader display
@@ -221,6 +222,14 @@
     ));
     unsubs.push(keyManager.register(
       { key: 'ArrowRight' }, (e) => { e.preventDefault(); workspaceActions.selectNextDisplay('ArrowRight'); return true; }, { priority: 0 }
+    ));
+
+    // h: toggle headlines widget (no modifier keys)
+    unsubs.push(keyManager.register(
+      { key: 'h', ctrl: false, alt: false, meta: false }, () => {
+        workspaceActions.toggleHeadlines();
+        return true;
+      }, { priority: 10 }
     ));
 
     // Keyup for ? / / to hide help
@@ -283,6 +292,9 @@
         <FloatingDisplay {display} />
       {/if}
     {/each}
+    {#if $workspaceStore.headlinesVisible}
+      <HeadlinesWidget />
+    {/if}
   </div>
 </div>
 

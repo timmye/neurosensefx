@@ -20,6 +20,9 @@ const initialState = {
   nextZIndex: 1,
   selectedDisplayId: null,
   chartGhost: null,
+  headlinesVisible: false,
+  headlinesPosition: { x: 20, y: 20 },
+  headlinesSize: { width: 500, height: 600 },
   config: {
     defaultSize: { width: 2000, height: 680 },
     defaultPosition: { x: 100, y: 100 }
@@ -491,6 +494,21 @@ const actions = {
 
   updateChartDisplay: (id, updates) => actions.updateDisplay(id, updates),
 
+  toggleHeadlines: () => {
+    workspaceStore.update(state => ({
+      ...state,
+      headlinesVisible: !state.headlinesVisible
+    }));
+  },
+
+  updateHeadlinesPosition: (position) => {
+    workspaceStore.update(state => ({ ...state, headlinesPosition: position }));
+  },
+
+  updateHeadlinesSize: (size) => {
+    workspaceStore.update(state => ({ ...state, headlinesSize: size }));
+  },
+
   getChartDisplay: () => {
     const state = workspaceStore.getState();
     for (const display of state.displays.values()) {
@@ -521,7 +539,10 @@ const persistence = {
                 ...state,
                 displays: new Map(layout.displays || []),
                 nextZIndex: layout.nextZIndex || 1,
-                chartGhost: layout.chartGhost || null
+                chartGhost: layout.chartGhost || null,
+                headlinesVisible: 'headlinesVisible' in layout ? layout.headlinesVisible : state.headlinesVisible,
+                headlinesPosition: layout.headlinesPosition || state.headlinesPosition,
+                headlinesSize: layout.headlinesSize || state.headlinesSize
               }));
               // Cache server data in localStorage for offline fallback
               localStorage.setItem('workspace-state', JSON.stringify(layout));
@@ -547,7 +568,10 @@ const persistence = {
       const data = {
         displays: Array.from(state.displays.entries()),
         nextZIndex: state.nextZIndex,
-        chartGhost: state.chartGhost || null
+        chartGhost: state.chartGhost || null,
+        headlinesVisible: state.headlinesVisible,
+        headlinesPosition: state.headlinesPosition,
+        headlinesSize: state.headlinesSize
       };
       try {
         localStorage.setItem('workspace-state', JSON.stringify(data));
@@ -583,7 +607,10 @@ function loadFromLocalStorage() {
         ...state,
         displays: new Map(data.displays || []),
         nextZIndex: data.nextZIndex || 1,
-        chartGhost: data.chartGhost || null
+        chartGhost: data.chartGhost || null,
+        headlinesVisible: 'headlinesVisible' in data ? data.headlinesVisible : state.headlinesVisible,
+        headlinesPosition: data.headlinesPosition || state.headlinesPosition,
+        headlinesSize: data.headlinesSize || state.headlinesSize
       }));
   } catch (error) {
     console.warn('Failed to load workspace from localStorage:', error);
