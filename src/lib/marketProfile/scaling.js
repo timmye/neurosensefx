@@ -31,6 +31,14 @@ export function calculateAdaptiveScale(profile, marketData, width, height) {
   };
 }
 
+export function createMiniPriceScale(minPrice, maxPrice, height) {
+  const priceRange = maxPrice - minPrice || 1;
+  return (price) => {
+    const normalized = (maxPrice - price) / priceRange;
+    return Math.round(normalized * (height - 1));
+  };
+}
+
 export function calculateDimensions(width) {
   const marketProfileStartX = width * ADR_AXIS_RATIO;
   const marketProfileWidth = width - marketProfileStartX;

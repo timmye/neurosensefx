@@ -71,6 +71,9 @@ export function createBarSpace(deps) {
     if (!chart) return;
     const bs = getBarSpace();
     chart.setBarSpace(bs);
+    // UNSAFE: second param `isUpdate` not in klinecharts public types (v9.8.12);
+    // prevents redundant TimeScaleStore recalculation during barSpace apply.
+    // Remove if klinecharts drops or documents this parameter.
     chart.setOffsetRightDistance(deps.rightOffsetPx, true);
     if (import.meta.env.DEV) {
       console.log('[applyBarSpace]',

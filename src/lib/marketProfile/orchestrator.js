@@ -4,9 +4,12 @@
 
 import { renderStatusMessage, renderErrorMessage } from '../canvasStatusRenderer.js';
 import { validateMarketData, createPriceScale } from '../dayRangeRenderingUtils.js';
-import { calculateAdaptiveScale, calculateDimensions } from './scaling.js';
+import { calculateAdaptiveScale, calculateDimensions, createMiniPriceScale } from './scaling.js';
 import { calculateMaxTpo, calculateTpoScale, computePOC, calculateValueArea } from './calculations.js';
-import { drawValueArea, drawBars, drawPOC } from './rendering.js';
+import {
+  drawValueArea, drawBars, drawPOC,
+  drawMiniBars, drawMiniCurrentPrice, drawMiniOpenPrice, drawMiniTwapPrice,
+} from './rendering.js';
 import { createDayRangeConfig } from '../dayRangeRenderingUtils.js';
 import { getConfig } from '../dayRangeConfig.js';
 import { setupCanvas, renderPixelPerfectLine } from '../dayRangeCore.js';
@@ -57,120 +60,39 @@ export function renderMarketProfile(ctx, data, config) {
  * @param {Object} size - {width, height, pipPosition, currentPrice, openPrice, highPrice, lowPrice}
  */
 export function renderMiniMarketProfile(canvas, profile, size) {
-  if (!canvas) {
-    console.warn('[renderMiniMarketProfile] No canvas element provided');
-    return;
-  }
-  if (!profile) {
-    console.warn('[renderMiniMarketProfile] No profile data provided');
-    return;
-  }
-  if (profile.length === 0) {
-    console.warn('[renderMiniMarketProfile] Profile has 0 levels');
-    return;
-  }
+  if (!canvas || !profile || profile.length === 0) return;
 
-  const { width, height, pipPosition = 4, currentPrice, openPrice, twapPrice, highPrice, lowPrice } = size;
+  const { width, height, currentPrice, openPrice, twapPrice, highPrice, lowPrice } = size;
 
-  // DPR-aware canvas setup
   const ctx = setupCanvas(canvas, width, height);
   const dpr = window.devicePixelRatio || 1;
 
-  // Calculate price range using tick data as source of truth, profile as fallback
+  // Price range: tick data as source of truth, profile as fallback
   const prices = profile.map(l => l.price);
   const profileMin = prices.reduce((min, p) => p < min ? p : min, Infinity);
   const profileMax = prices.reduce((max, p) => p > max ? p : max, -Infinity);
   const minPrice = lowPrice != null ? lowPrice : profileMin;
   const maxPrice = highPrice != null ? highPrice : profileMax;
-  const priceRange = maxPrice - minPrice || 1;
 
-  // Create adaptive scale for proper price-to-Y mapping
-  const adaptiveScale = {
-    min: minPrice,
-    max: maxPrice,
-    range: priceRange,
-    isProgressive: false
-  };
+  const priceScale = createMiniPriceScale(minPrice, maxPrice, height);
 
-  // Custom price scale for mini profile - NO padding, bars extend to edges
-  // Maps maxPrice → 0 (top), minPrice → height-1 (just above bottom border)
-  const priceScale = (price) => {
-    const normalized = (maxPrice - price) / priceRange;
-    return Math.round(normalized * (height - 1));
-  };
-
-  // Calculate TPO range
-  const maxTpo = profile.reduce((max, l) => l.tpo > max ? l.tpo : max, 0);
-
-  // Background (Chart BG)
-  ctx.fillStyle = '#111111'; //1a1a1a
+  // Background
+  ctx.fillStyle = '#111111';
   ctx.fillRect(0, 0, width, height);
 
-  // Top and bottom border lines (match ticker border style)
+  // Borders
   ctx.save();
   ctx.strokeStyle = '#333';
   ctx.lineWidth = 1;
-  renderPixelPerfectLine(ctx, 0, 0, width, 0);           // Top border
-  renderPixelPerfectLine(ctx, 0, height - 1, width, height - 1);  // Bottom border
+  renderPixelPerfectLine(ctx, 0, 0, width, 0);
+  renderPixelPerfectLine(ctx, 0, height - 1, width, height - 1);
   ctx.restore();
 
-  // Draw profile bars using proper price scale
-  const padding = 2;
-  const gap = 1 / dpr; // DPR-aware gap
-
-  profile.forEach((level) => {
-    // Use price scale for proper Y coordinate
-    const y = Math.round(priceScale(level.price));
-    const barWidth = (level.tpo / maxTpo) * (width - 2); // -2 for right padding
-
-    // Standard Bar color from spec: #00D2FF
-    // Use opacity to indicate intensity
-    const intensity = level.tpo / maxTpo;
-    ctx.fillStyle = `rgba(0, 210, 255, ${0.2 + (intensity * 0.4)})`;
-
-    // Calculate bar height based on price scale
-    const nextPriceY = Math.round(priceScale(level.price + (adaptiveScale.range / profile.length)));
-    const barHeight = Math.max(1, Math.abs(nextPriceY - y) - gap);
-
-    ctx.fillRect(0, y, barWidth, barHeight);
-  });
-
-  // Draw current price marker (clamp to visible range if price exceeds profile bounds)
-  if (currentPrice != null) {
-    // Clamp price to visible range for rendering
-    const clampedPrice = Math.max(minPrice, Math.min(maxPrice, currentPrice));
-    const currentY = Math.round(priceScale(clampedPrice));
-
-    // Neon orange line for current price (most visible)
-    ctx.save();
-    ctx.strokeStyle = '#FF6600';
-    ctx.lineWidth = 1.5;
-    renderPixelPerfectLine(ctx, 0, currentY, width - 4, currentY);
-    ctx.restore();
-
-    // Accent dot on right edge (pixel-aligned, offset for visibility)
-    ctx.fillStyle = '#FF6600';
-    ctx.beginPath();
-    ctx.arc(Math.round(width - 4), currentY, 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Draw open price marker (separate from current price to always render)
-  const openY = (openPrice != null && openPrice >= minPrice && openPrice <= maxPrice)
-    ? Math.round(priceScale(openPrice))
-    : Math.round(height / 2);
-  ctx.fillStyle = '#FF8800';
-  ctx.beginPath();
-  ctx.arc(2, openY, 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Draw TWAP price marker (green dot, same style as open)
-  if (twapPrice != null && twapPrice >= minPrice && twapPrice <= maxPrice) {
-    const twapY = Math.round(priceScale(twapPrice));
-    ctx.fillStyle = '#00FF66';
-    ctx.beginPath();
-    ctx.arc(5, twapY, 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // Profile bars, price markers
+  const maxTpo = profile.reduce((max, l) => l.tpo > max ? l.tpo : max, 0);
+  drawMiniBars(ctx, profile, priceScale, maxTpo, width, height, dpr);
+  drawMiniCurrentPrice(ctx, priceScale, currentPrice, minPrice, maxPrice, width);
+  drawMiniOpenPrice(ctx, priceScale, openPrice, minPrice, maxPrice, height);
+  drawMiniTwapPrice(ctx, priceScale, twapPrice, minPrice, maxPrice);
 }
 

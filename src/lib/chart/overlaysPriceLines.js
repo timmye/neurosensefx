@@ -33,7 +33,7 @@ registerOverlay({
     const align = isFromZero ? 'left' : 'right';
     const value = overlay.points?.[0]?.value;
     const text = value != null ? value.toFixed(precision.price) : '';
-    return { type: 'text', attrs: { x, y: coordinates[0].y, text, align, baseline: 'middle' }, ignoreEvent: true };
+    return { type: 'text', attrs: { x, y: coordinates[0].y, text, align, baseline: 'middle' }, styles: { backgroundColor: getThemeColor('#958f00', '#d4c44f') }, ignoreEvent: true };
   }
 });
 

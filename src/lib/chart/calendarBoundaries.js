@@ -10,6 +10,8 @@
  * @module calendarBoundaries
  */
 
+import { getLocalizedParts } from './dateFormatter.js';
+
 const MS_PER_HOUR = 3_600_000;
 const MS_PER_DAY = 86_400_000;
 const MS_PER_WEEK = 7 * MS_PER_DAY;
@@ -57,35 +59,6 @@ export function alignToBoundary(fromTs, boundaryType) {
 }
 
 export const RANK = { YEAR: 1, QUARTER: 2, MONTH: 3, WEEK: 4, DAY: 5, HOUR: 6 };
-
-// Cache Intl.DateTimeFormat instances per timezone
-const formatterCache = new Map();
-
-function getFormatter(tz) {
-  if (formatterCache.has(tz)) return formatterCache.get(tz);
-  const fmt = new Intl.DateTimeFormat('en-GB', {
-    timeZone: tz,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  });
-  formatterCache.set(tz, fmt);
-  return fmt;
-}
-
-function getLocalizedParts(timestamp, tz) {
-  const parts = getFormatter(tz).formatToParts(new Date(timestamp));
-  const map = {};
-  for (const p of parts) map[p.type] = p.value;
-  return {
-    year:   map.year,
-    month:  Number(map.month),       // 1-12
-    day:    Number(map.day),         // 1-31
-    hour:   map.hour === '24' ? '00' : map.hour,
-    minute: map.minute,
-    monthPad: map.month,
-    dayPad:   map.day,
-  };
-}
 
 /**
  * Format a boundary tick label in the given timezone.

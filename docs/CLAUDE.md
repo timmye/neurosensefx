@@ -33,4 +33,4 @@ Architecture, design, and implementation documentation.
 | `fx_basket/` | FX Basket design documentation and methodology | Understanding FX basket design alternatives and implementation |
 | `chart/` | Chart x-axis design, KLineChart knowledge base, time window logic, drawing persistence scope | Understanding chart architecture, modifying x-axis behavior |
 | `debug/` | Debug investigation notes and root cause analyses | Reading past debug investigations, understanding known issues |
-| `klinecharts/` | KLineChart library API reference (registerXAxis, registerYAxis, visible range, barSpace, formatter, migration guide) | Debugging KLineChart integration, referencing library API |
+| `klinecharts/` | KLineChart API reference, upstream PR strategy, custom feature inventory | Debugging KLineChart integration, assessing upstream contributions |

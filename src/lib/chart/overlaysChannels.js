@@ -1,18 +1,27 @@
 /**
  * Channel overlay registrations for KLineChart.
  *
- * Parallel lines and fibonacci retracement overlays.
+ * Parallel lines and fibonacci retracement overlays that replace built-in
+ * versions (klinecharts v9.8.x): parallelStraightLine renders full-width rays,
+ * fibonacciLine draws from x=0.
  * Side-effect module — imported once in ChartDisplay.svelte.
  */
 
-import { registerOverlay } from 'klinecharts';
+import { registerOverlay, getSupportedOverlays } from 'klinecharts';
+
+// Warn if built-in overlay name changed
+if (!getSupportedOverlays().includes('parallelStraightLine')) {
+  console.warn(
+    '[overlay] parallelStraightLine not found in klinecharts built-ins; ' +
+    'registration may be redundant or target a renamed overlay. ' +
+    'Remove if upstream klinecharts v9.8.x full-width ray issue is fixed.'
+  );
+}
 
 /**
- * Custom parallelStraightLine overlay — overrides built-in.
- * Built-in renders two parallel rays (x=0 to x=bounding.width).
- * This version draws fixed-length lines bounded by the control points:
- * line 1 from point 1 to point 2, line 2 same slope with intercept
- * derived from point 3, spanning the same x-range.
+ * Parallel lines bounded by control points — replaces built-in
+ * parallelStraightLine (v9.8.x) which renders two parallel rays spanning
+ * the full chart width (x=0 to x=bounding.width).
  */
 registerOverlay({
   name: 'parallelStraightLine',
@@ -52,11 +61,20 @@ registerOverlay({
   }
 });
 
+// Warn if built-in overlay name changed
+if (!getSupportedOverlays().includes('fibonacciLine')) {
+  console.warn(
+    '[overlay] fibonacciLine not found in klinecharts built-ins; ' +
+    'registration may be redundant or target a renamed overlay. ' +
+    'Remove if upstream klinecharts v9.8.x x=0 origin issue is fixed.'
+  );
+}
+
 /**
- * Custom fibonacciLine overlay — overrides built-in.
- * Built-in draws fib level lines as rays from x=0 (left chart edge).
- * This version draws lines as segments starting at the leftmost click point,
- * extending right to the chart edge. Y-axis price labels are preserved.
+ * Fibonacci retracement — replaces built-in fibonacciLine (v9.8.x) which
+ * draws fib level lines as rays from x=0 (left chart edge). This version
+ * draws lines as segments starting at the leftmost click point, extending
+ * right to the chart edge. Y-axis price labels are preserved.
  */
 registerOverlay({
   name: 'fibonacciLine',

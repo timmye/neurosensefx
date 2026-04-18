@@ -1,12 +1,12 @@
 /**
  * Annotation overlay registrations for KLineChart.
  *
- * Interactive annotation and tag overlays (replacing built-in versions
- * that set ignoreEvent:true, preventing selection).
+ * Interactive annotation and tag overlays that replace built-in versions
+ * (klinecharts v9.8.x) which set ignoreEvent:true, preventing selection.
  * Side-effect module — imported once in ChartDisplay.svelte.
  */
 
-import { registerOverlay } from 'klinecharts';
+import { registerOverlay, getSupportedOverlays } from 'klinecharts';
 
 const ANNOTATION_STYLE = {
   color: '#FFFFFF',
@@ -21,10 +21,19 @@ const ANNOTATION_STYLE = {
   paddingBottom: 3,
 };
 
+// Warn if built-in overlay name changed (klinecharts update may have renamed it)
+if (!getSupportedOverlays().includes('simpleAnnotation')) {
+  console.warn(
+    '[overlay] simpleAnnotation not found in klinecharts built-ins; ' +
+    'registration may be redundant or target a renamed overlay. ' +
+    'Remove if upstream klinecharts v9.8.x ignoreEvent:true issue is fixed.'
+  );
+}
+
 /**
- * Interactive annotation — replaces built-in simpleAnnotation.
- * Built-in version sets ignoreEvent:true on all figures, making overlays
- * non-selectable. This version removes that flag so click/select/right-click work.
+ * Interactive annotation — replaces built-in simpleAnnotation (v9.8.x).
+ * Selection and right-click enabled on annotation figures; built-in sets
+ * ignoreEvent:true, preventing interaction.
  */
 registerOverlay({
   name: 'simpleAnnotation',
@@ -60,9 +69,18 @@ registerOverlay({
   }
 });
 
+// Warn if built-in overlay name changed
+if (!getSupportedOverlays().includes('simpleTag')) {
+  console.warn(
+    '[overlay] simpleTag not found in klinecharts built-ins; ' +
+    'registration may be redundant or target a renamed overlay. ' +
+    'Remove if upstream klinecharts v9.8.x ignoreEvent:true issue is fixed.'
+  );
+}
+
 /**
- * Interactive tag — replaces built-in simpleTag.
- * Built-in version sets ignoreEvent:true, preventing selection.
+ * Interactive tag — replaces built-in simpleTag (v9.8.x).
+ * Selectable via right-click; built-in sets ignoreEvent:true.
  */
 registerOverlay({
   name: 'simpleTag',

@@ -54,15 +54,16 @@ function collectCandidates(levels, fromTs, toTs, dataList, chart) {
 
 function dedupCandidates(candidates) {
   candidates.sort((a, b) => a.coord - b.coord);
-  const deduped = [];
+  const map = new Map();
   for (const c of candidates) {
-    const existing = deduped.find(d => d.snappedTs === c.snappedTs);
+    const existing = map.get(c.snappedTs);
     if (existing) {
       if (c.rank < existing.rank) { existing.ts = c.ts; existing.rank = c.rank; }
     } else {
-      deduped.push({ ts: c.ts, snappedTs: c.snappedTs, coord: c.coord, rank: c.rank });
+      map.set(c.snappedTs, { ts: c.ts, snappedTs: c.snappedTs, coord: c.coord, rank: c.rank });
     }
   }
+  const deduped = [...map.values()];
   deduped.sort((a, b) => a.coord - b.coord);
   return deduped;
 }

@@ -5,37 +5,9 @@
  */
 
 import { getWindowTier } from './chartConfig.js';
+import { getLocalizedParts } from './dateFormatter.js';
 
 const shortMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-// Cache Intl.DateTimeFormat instances per timezone to avoid GC pressure on hot paths
-const formatterCache = new Map();
-
-function getFormatter(tz) {
-  if (formatterCache.has(tz)) return formatterCache.get(tz);
-  const fmt = new Intl.DateTimeFormat('en-GB', {
-    timeZone: tz,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  });
-  formatterCache.set(tz, fmt);
-  return fmt;
-}
-
-function getLocalizedParts(timestamp, tz) {
-  const parts = getFormatter(tz).formatToParts(new Date(timestamp));
-  const map = {};
-  for (const p of parts) map[p.type] = p.value;
-  return {
-    year:   map.year,
-    month:  String(Number(map.month)),   // strip leading zero for Number comparison
-    day:    String(Number(map.day)),
-    hour:   map.hour === '24' ? '00' : map.hour,  // midnight edge case
-    minute: map.minute,
-    monthPad: map.month,                 // zero-padded for display
-    dayPad:   map.day,
-  };
-}
 
 /**
  * Create a KLineChart formatDate override for tier-based time axis labels.
