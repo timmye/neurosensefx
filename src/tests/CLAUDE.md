@@ -32,6 +32,8 @@ End-to-end and unit tests for the frontend application.
 | `previous-day-ohlc.spec.js` | Previous day OHLC data validation | Testing OHLC data accuracy |
 | `prevDay-ohlc-simple.spec.js` | Simplified previous day OHLC tests | Quick OHLC verification |
 | `chart-display.spec.js` | Chart display "c" key workflow (10 tests) | Testing chart creation, toolbar, resolution switching |
+| `headlines-workflow.spec.js` | Full workflow E2E test for headlines (login, H-key toggle, close, rapid stress, console audit) | Testing headlines widget end-to-end workflow |
+| `headlines-widget.spec.js` | Debug/unit tests for headlines (store state, key binding, FJ script, DOM visibility) | Debugging headlines widget issues |
 
 ## Test
 

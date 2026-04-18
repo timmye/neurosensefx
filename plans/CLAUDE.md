@@ -19,4 +19,5 @@ Implementation plans for features, refactors, and operational tasks.
 | `charting-system.md` | KLineChart + cTrader API charting system plan (library selection, data pipeline, drawing tools) | Planning candlestick charting with drawing tools and persistence |
 | `calendar-xaxis-plan.json` | Machine-readable plan for custom calendar x-axis — decisions, constraints, risks, invisible knowledge | Understanding x-axis design decisions and implementation rationale |
 | `x-axis-transition-matrix.md` | Current x-axis implementation plan — window-keyed transition matrix replacing dynamic span classification | Understanding current x-axis algorithm, modifying tick behavior |
+| `headlines-widget.md` | FinancialJuice news widget implementation (floating panel, H key, workspace persistence) | Understanding headlines widget architecture, FinancialJuice integration |
 | `custom-x-axis.md` | Executed plan for anchor+fill x-axis (retired — see x-axis-transition-matrix.md) | Historical reference only |
