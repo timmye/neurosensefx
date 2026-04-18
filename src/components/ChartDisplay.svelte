@@ -234,7 +234,7 @@
     setAxisWindow(currentWindow, chart);
     updateWatermark();
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
-    if (chart) { chart.removeOverlay(); chart.clearData(); }
+    if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
     overlayMeta.clear(); commandStack.clear();
     loadChartData(currentSymbol, currentResolution, currentWindow, () => overlayRestore.restoreDrawings(currentSymbol, currentResolution));
   }
@@ -244,7 +244,7 @@
     currentWindow = newWindow;
     setAxisWindow(currentWindow, chart);
     updateWatermark();
-    if (chart) { chart.removeOverlay(); chart.clearData(); }
+    if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
     overlayMeta.clear(); commandStack.clear();
     loadChartData(currentSymbol, currentResolution, currentWindow, () => overlayRestore.restoreDrawings(currentSymbol, currentResolution));
     workspaceActions.updateDisplay(display.id, { window: newWindow });

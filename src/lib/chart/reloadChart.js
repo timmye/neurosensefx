@@ -11,6 +11,7 @@ export function createReloadChart(deps) {
     if (deps.chart) {
       deps.chart.removeOverlay();
       deps.chart.clearData();
+      deps.chart.resize();
     }
     deps.commandStack.clear();
     deps.overlayMeta.clear();
