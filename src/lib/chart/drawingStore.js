@@ -34,19 +34,27 @@ export const drawingStore = {
   },
 
   async load(symbol, resolution) {
-    // Try server first when authenticated; replace local IndexedDB with server data (ref: DL-007)
+    // When authenticated, merge server and local IndexedDB data by updatedAt
+    // to preserve local changes that haven't synced yet (ref: DL-007).
     if (get(authStore).isAuthenticated) {
       try {
         const resp = await fetch(API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution), { credentials: 'include' });
         if (resp.ok) {
           const { data } = await resp.json();
           if (data && Array.isArray(data) && data.length > 0) {
-            // Replace local IndexedDB data with server data to keep cache in sync
+            const local = await db.drawings.where({ symbol, resolution }).toArray();
+            // Merge: keep the newest version of each drawing by updatedAt
+            const merged = this._mergeByTimestamp(data, local);
+            // Reconcile IndexedDB with merged result
             await db.drawings.where({ symbol, resolution }).delete();
-            for (const d of data) {
+            for (const d of merged) {
               await db.drawings.add({ ...d, symbol, resolution });
             }
-            return data;
+            // Sync merged result back to server if local had newer data
+            if (merged.length !== data.length) {
+              this._debouncedServerSync(symbol, resolution);
+            }
+            return merged;
           }
         }
       } catch (err) {
@@ -90,6 +98,36 @@ export const drawingStore = {
         body: JSON.stringify([])
       }).catch(err => console.warn('[DrawingStore] Failed to clear drawings on server:', err));
     }
+  },
+
+  /**
+   * Merge server and local drawing arrays. The server stores the entire
+   * array as a single JSONB blob (no per-drawing IDs), so we match by
+   * overlayId (client-generated UUID). For each drawing, keep the version
+   * with the newest updatedAt. Drawings unique to either source are included.
+   */
+  _mergeByTimestamp(serverData, localData) {
+    // Index local drawings by overlayId for O(1) lookup
+    const localById = new Map();
+    for (const d of localData) {
+      if (d.overlayId) localById.set(d.overlayId, d);
+    }
+    const result = [...serverData];
+    for (const local of localData) {
+      if (!local.overlayId) { result.push(local); continue; }
+      const serverIdx = result.findIndex(d => d.overlayId === local.overlayId);
+      if (serverIdx === -1) {
+        // Local-only drawing (not yet synced to server)
+        result.push(local);
+      } else {
+        // Both exist — keep whichever is newer
+        const server = result[serverIdx];
+        if (local.updatedAt > (server.updatedAt || 0)) {
+          result[serverIdx] = local;
+        }
+      }
+    }
+    return result;
   },
 
   /**
