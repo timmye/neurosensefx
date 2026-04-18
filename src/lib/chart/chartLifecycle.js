@@ -90,8 +90,8 @@ export function setupWheelHandler(chartContainer, chart) {
  * and apply theme. Returns the chart instance.
  */
 export function initChart(chartContainer, deps) {
-  const { LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone = 'UTC' } = deps;
-  const chart = deps.init(chartContainer, { styles: LIGHT_THEME });
+  const { theme, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone = 'UTC' } = deps;
+  const chart = deps.init(chartContainer, { styles: theme });
 
   chart.setCustomApi({ formatDate: formatAxisLabel });
   chart.setTimezone(timezone);

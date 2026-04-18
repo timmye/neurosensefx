@@ -22,9 +22,10 @@ export function getPixelOffset(container, e) {
  * @param {HTMLElement|null} container
  * @param {{ x: number, y: number }} cursor
  * @param {string} bgColor
+ * @param {string} textColor
  * @returns {string}
  */
-export function computeDataWindowStyle(active, container, cursor, bgColor) {
+export function computeDataWindowStyle(active, container, cursor, bgColor, textColor) {
   if (!active) return 'display: none;';
   const rect = container?.getBoundingClientRect();
   if (!rect) return 'display: none.';
@@ -34,5 +35,5 @@ export function computeDataWindowStyle(active, container, cursor, bgColor) {
   if (left + 160 > rect.width) left = cursor.x - 160;
   if (top + 120 > rect.height) top = cursor.y - 120;
 
-  return `position: absolute; left: ${left}px; top: ${top}px; background: ${bgColor}; color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 3px; pointer-events: none; white-space: nowrap; opacity: 0.92; z-index: 5;`;
+  return `position: absolute; left: ${left}px; top: ${top}px; background: ${bgColor}; color: ${textColor}; font-size: 12px; padding: 4px 8px; border-radius: 3px; pointer-events: none; white-space: nowrap; opacity: 0.92; z-index: 5;`;
 }

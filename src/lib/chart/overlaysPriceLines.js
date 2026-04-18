@@ -6,6 +6,7 @@
  */
 
 import { registerOverlay } from 'klinecharts';
+import { getThemeColor } from './themeColors.js';
 
 /**
  * Horizontal line extending right from a single click point.
@@ -68,7 +69,7 @@ registerOverlay({
     return {
       type: 'text',
       attrs: { x, y: coordinates[0].y, text, align, baseline: 'middle' },
-      styles: { backgroundColor: '#958f00' },
+      styles: { backgroundColor: getThemeColor('#958f00', '#d4c44f') },
       ignoreEvent: true
     };
   }

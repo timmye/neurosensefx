@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { themeStore } from '../stores/themeStore.js';
 
   export let visible = false;
   export let x = 0;
@@ -49,7 +50,7 @@
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="context-menu-backdrop" on:click|self={handleClickOutside}>
-    <div class="context-menu" style="left: {x}px; top: {y}px;">
+    <div class="context-menu" class:dark={$themeStore === 'dark'} style="left: {x}px; top: {y}px;">
       <button class="menu-item delete" on:click={handleDelete}>Delete</button>
       <button class="menu-item" on:click={handleToggleLock}>{isLocked ? 'Unlock' : 'Lock'}</button>
       <button class="menu-item" on:click={handleTogglePin}>{isPinned ? 'Unpin' : 'Pin as Key Level'}</button>
@@ -105,4 +106,10 @@
   .menu-item.delete:hover {
     background: #fce4e4;
   }
+
+  .context-menu.dark { background: rgba(30, 41, 59, 0.6); border-color: rgba(51, 65, 85, 0.5); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
+  .context-menu.dark .menu-item { color: #e2e8f0; }
+  .context-menu.dark .menu-item:hover { background: rgba(51, 65, 85, 0.5); }
+  .context-menu.dark .menu-item.delete { color: #ef5350; }
+  .context-menu.dark .menu-item.delete:hover { background: rgba(239, 83, 80, 0.15); }
 </style>

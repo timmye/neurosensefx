@@ -12,6 +12,8 @@
   import { DEFAULT_RESOLUTION_WINDOW, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
   import { setAxisChart, setAxisWindow, removeAxisChart } from '../lib/chart/xAxisCustom.js';
   import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
+  import { DARK_THEME } from '../lib/chart/chartThemeDark.js';
+  import { themeStore } from '../stores/themeStore.js';
   import '../lib/chart/overlaysIndicators.js';
   import '../lib/chart/overlaysPriceLines.js';
   import '../lib/chart/overlaysShapes.js';
@@ -276,6 +278,11 @@
     chart.setTimezone($resolvedTimezone);
     setAxisTimezone($resolvedTimezone, chart);
   }
+  function applyTheme() {
+    if (!chart) return;
+    chart.setStyles($themeStore === 'dark' ? DARK_THEME : LIGHT_THEME);
+  }
+  $: if (chart) applyTheme(), $themeStore;
   $: if (currentDisplay.isMinimized !== undefined && currentDisplay.isMinimized !== isMinimized) {
     isMinimized = currentDisplay.isMinimized;
     if (!isMinimized) {
@@ -284,7 +291,7 @@
       } else {
         // Chart was never created (minimized on mount) — create it now
         setTimeout(() => {
-          chart = initChart(chartContainer, { init, LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
+          chart = initChart(chartContainer, { init, theme: $themeStore === 'dark' ? DARK_THEME : LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
           if (chart) {
             chart.setZoomEnabled(false);
             chart.setScrollEnabled(true);
@@ -316,7 +323,7 @@
     // Use setTimeout(0) instead of tick() — yields to browser layout engine
     // so clientWidth/clientHeight are correct when initChart reads them.
     const initTimer = setTimeout(() => {
-      chart = initChart(chartContainer, { init, LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
+      chart = initChart(chartContainer, { init, theme: $themeStore === 'dark' ? DARK_THEME : LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
       if (chart) {
         chart.setZoomEnabled(false);
         chart.setScrollEnabled(true);
@@ -367,6 +374,7 @@
 
 <div class="chart-window" bind:this={element} data-display-id={display.id}
      class:minimized={isMinimized}
+     class:dark={$themeStore === 'dark'}
      tabindex="0" role="region" aria-label="{display.symbol} chart"
      on:focus={handlers?.focus} on:keydown={handlers?.keydown}
      style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};
@@ -461,4 +469,10 @@
   .chart-window.minimized .resize-handle {
     display: none;
   }
+
+  .chart-window.dark { background: #0b0e14; border-color: rgba(51, 65, 85, 0.5); }
+  .chart-window.dark:focus { border-color: #34d399; box-shadow: 0 0 8px rgba(0, 0, 0, 0.5); }
+  .chart-window.dark:focus-visible { border-color: #34d399; box-shadow: 0 0 12px rgba(0, 0, 0, 0.5); outline: 2px solid rgba(0, 0, 0, 0.5); outline-offset: 2px; }
+  .chart-window.dark .chart-canvas-container { background: #131722; }
+  .chart-window.dark .resize-handle { background: linear-gradient(135deg, transparent 50%, #64748b 50%); }
 </style>

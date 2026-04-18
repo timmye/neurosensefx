@@ -2,6 +2,7 @@
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { RESOLUTION_GROUPS, TIME_WINDOW_GROUPS, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
   import { timezoneStore, TIMEZONE_PRESETS, resolvedTimezone } from '../stores/timezoneStore.js';
+  import { themeStore, toggleTheme } from '../stores/themeStore.js';
 
   export let currentResolution = '4h';
   export let currentWindow = '3M';
@@ -159,7 +160,7 @@
   }
 </script>
 
-<div class="chart-toolbar" style="position: relative; z-index: 15;">
+<div class="chart-toolbar" class:dark={$themeStore === 'dark'} style="position: relative; z-index: 15;">
   <div class="toolbar-row">
     {#each resolutionGroups as group, gi}
       {#if gi > 0}<span class="separator">|</span>{/if}
@@ -201,6 +202,13 @@
         <option value={preset.id}>{timezoneLabel(preset.id)}</option>
       {/each}
     </select>
+    <button
+      class="action-btn theme-toggle-btn"
+      on:click={toggleTheme}
+      title="Toggle dark mode"
+    >
+      {#if $themeStore === 'dark'}☾{:else}☀{/if}
+    </button>
   </div>
   <div class="toolbar-row drawing-row">
     {#each DRAWING_TOOLS as tool}
@@ -428,5 +436,30 @@
   .tz-select:focus {
     outline: none;
     border-color: #48752c;
+  }
+
+  .chart-toolbar.dark { background: rgba(30, 41, 59, 0.3); border-bottom-color: rgba(51, 65, 85, 0.5); }
+  .chart-toolbar.dark .separator { background: rgba(51, 65, 85, 0.5); }
+  .chart-toolbar.dark .resolution-btn,
+  .chart-toolbar.dark .window-btn,
+  .chart-toolbar.dark .drawing-btn,
+  .chart-toolbar.dark .action-btn,
+  .chart-toolbar.dark .source-btn { background: rgba(30, 41, 59, 0.3); border-color: rgba(51, 65, 85, 0.5); color: #94a3b8; }
+  .chart-toolbar.dark .resolution-btn:hover,
+  .chart-toolbar.dark .window-btn:hover,
+  .chart-toolbar.dark .drawing-btn:hover,
+  .chart-toolbar.dark .action-btn:hover:not(:disabled),
+  .chart-toolbar.dark .source-btn:hover { background: rgba(51, 65, 85, 0.5); border-color: rgba(71, 85, 105, 0.6); color: #cbd5e1; }
+  .chart-toolbar.dark .resolution-btn.active,
+  .chart-toolbar.dark .window-btn.active,
+  .chart-toolbar.dark .drawing-btn.active,
+  .chart-toolbar.dark .action-btn.active { background: #475569; border-color: #475569; color: #e2e8f0; }
+  .chart-toolbar.dark .tz-select { background: rgba(30, 41, 59, 0.3); border-color: rgba(51, 65, 85, 0.5); color: #94a3b8; }
+  .chart-toolbar.dark .tz-select:focus { border-color: #34d399; }
+  .chart-toolbar.dark .tz-select option { background: #131722; color: #e2e8f0; }
+  .chart-toolbar.dark .clear-btn:hover:not(:disabled):not(.clear-holding) {
+    background-color: rgba(239, 83, 80, 0.15);
+    border-color: #ef5350;
+    color: #ef5350;
   }
 </style>

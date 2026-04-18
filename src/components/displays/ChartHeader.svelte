@@ -1,4 +1,5 @@
 <script>
+  import { themeStore } from '../../stores/themeStore.js';
   export let symbol, connectionStatus, isMinimized, onClose, onFocus, onRefresh, onMinimize;
 
   let showHeader = true;
@@ -35,12 +36,13 @@
 <div class="trigger-zone" role="presentation" on:mouseenter={handleTriggerEnter} on:mouseleave={handleTriggerLeave}></div>
 
 <!-- Always-visible close button -->
-<button class="close-always-visible" on:click={onClose} aria-label="Close chart" title="Close chart">×</button>
+<button class="close-always-visible" class:dark={$themeStore === 'dark'} on:click={onClose} aria-label="Close chart" title="Close chart">×</button>
 
 <!-- 40px visible header display -->
 {#if showHeader || isMinimized}
   <div
     class="header"
+    class:dark={$themeStore === 'dark'}
     style="pointer-events: none"
     role="button"
     tabindex="0"
@@ -215,4 +217,19 @@
   .close-always-visible:focus {
     outline: 1px solid #48752c;
   }
+
+  .header.dark { background: rgba(30, 41, 59, 0.2); }
+  .header.dark .symbol { color: #e2e8f0; }
+  .header.dark .refresh,
+  .header.dark .minimize { color: #94a3b8; }
+  .header.dark .refresh:hover,
+  .header.dark .refresh:focus,
+  .header.dark .minimize:hover,
+  .header.dark .minimize:focus { background: rgba(51, 65, 85, 0.5); color: #34d399; }
+  .header.dark .refresh:focus,
+  .header.dark .minimize:focus { outline: 1px solid #34d399; }
+  .close-always-visible.dark { background: rgba(30, 41, 59, 0.3); color: #94a3b8; }
+  .close-always-visible.dark:hover,
+  .close-always-visible.dark:focus { background: rgba(51, 65, 85, 0.5); color: #cbd5e1; }
+  .close-always-visible.dark:focus { outline: 1px solid #34d399; }
 </style>

@@ -5,45 +5,50 @@
  * so the overlay renders at full opacity using chart defaults.
  * These faded defaults ensure ALL color properties have a faded value.
  *
- * Based on chartThemeLight.js overlay defaults:
- *   line/arc: color #48752c
- *   rect/polygon/circle: color rgba(72,117,44,0.12), borderColor #48752c
- *   point: color #48752c, borderColor rgba(72,117,44,0.35)
- *   text: color #FFFFFF, backgroundColor #48752c, borderColor #48752c
+ * Colors are computed at call-time from the current theme to ensure
+ * overlays match the active light/dark palette.
  *
  * @module fadedStyleDefaults
  */
 
 import { fadeStyles } from './styleUtils.js';
+import { get } from 'svelte/store';
+import { themeStore } from '../../stores/themeStore.js';
 
-const FADED_LINE = { color: 'rgba(72, 117, 44, 0.5)' };
-
-const FADED_TEXT = {
-  color: 'rgba(255, 255, 255, 0.5)',
-  backgroundColor: 'rgba(72, 117, 44, 0.5)',
-  borderColor: 'rgba(72, 117, 44, 0.5)',
-};
-
-const FADED_POINT = {
-  color: 'rgba(72, 117, 44, 0.5)',
-  borderColor: 'rgba(72, 117, 44, 0.175)',
-};
-
-const FADED_SHAPE = {
-  color: 'rgba(72, 117, 44, 0.06)',
-  borderColor: 'rgba(72, 117, 44, 0.5)',
-};
-
-const FADED_DEFAULTS = {
-  line: FADED_LINE,
-  text: FADED_TEXT,
-  rectText: FADED_TEXT,
-  rect: FADED_SHAPE,
-  polygon: FADED_SHAPE,
-  circle: FADED_SHAPE,
-  arc: FADED_LINE,
-  point: FADED_POINT,
-};
+function makeFadedDefaults() {
+  const isDark = get(themeStore) === 'dark';
+  const base = isDark ? '38, 166, 154' : '72, 117, 44';
+  return {
+    line: { color: `rgba(${base}, 0.5)` },
+    text: {
+      color: 'rgba(255, 255, 255, 0.5)',
+      backgroundColor: `rgba(${base}, 0.5)`,
+      borderColor: `rgba(${base}, 0.5)`,
+    },
+    rectText: {
+      color: 'rgba(255, 255, 255, 0.5)',
+      backgroundColor: `rgba(${base}, 0.5)`,
+      borderColor: `rgba(${base}, 0.5)`,
+    },
+    rect: {
+      color: `rgba(${base}, 0.05)`,
+      borderColor: `rgba(${base}, 0.5)`,
+    },
+    polygon: {
+      color: `rgba(${base}, 0.05)`,
+      borderColor: `rgba(${base}, 0.5)`,
+    },
+    circle: {
+      color: `rgba(${base}, 0.05)`,
+      borderColor: `rgba(${base}, 0.5)`,
+    },
+    arc: { color: `rgba(${base}, 0.5)` },
+    point: {
+      color: `rgba(${base}, 0.5)`,
+      borderColor: `rgba(${base}, 0.175)`,
+    },
+  };
+}
 
 /**
  * Return a styles object with faded colors, ensuring all nested style keys
@@ -54,9 +59,10 @@ const FADED_DEFAULTS = {
  */
 export function getFadedStyles(styles, factor) {
   const faded = styles ? fadeStyles(styles, factor) : {};
+  const defaults = makeFadedDefaults();
   const result = {};
-  for (const key of Object.keys(FADED_DEFAULTS)) {
-    result[key] = { ...FADED_DEFAULTS[key], ...(faded[key] || {}) };
+  for (const key of Object.keys(defaults)) {
+    result[key] = { ...defaults[key], ...(faded[key] || {}) };
   }
   for (const key of Object.keys(faded)) {
     if (!(key in result)) result[key] = faded[key];

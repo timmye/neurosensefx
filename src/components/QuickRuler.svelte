@@ -2,8 +2,9 @@
   import { onDestroy } from 'svelte';
   import { recalcRulerData } from '../lib/chart/rulerData.js';
   import { getPixelOffset, computeDataWindowStyle } from '../lib/chart/rulerPosition.js';
+  import { getThemeColor } from '../lib/chart/themeColors.js';
   import {
-    LINE_COLOR,
+    getLineColor,
     createRulerOverlays,
     updateCursorOverlay,
     removeRulerOverlays,
@@ -24,7 +25,7 @@
 
   $: showDataWindow = active && rulerData !== null;
 
-  $: dataWindowStyle = computeDataWindowStyle(active, chartContainer, cursor, LINE_COLOR);
+  $: dataWindowStyle = computeDataWindowStyle(active, chartContainer, cursor, getLineColor(), getThemeColor('#ffffff', '#131722'));
 
   function onContextmenu(e) { e.preventDefault(); }
 
@@ -99,12 +100,12 @@
   <svg
     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;"
   >
-    <line x1={origin.x} y1={origin.y} x2={cursor.x} y2={cursor.y} stroke={LINE_COLOR} stroke-width="1" />
-    <line x1={origin.x} y1={origin.y} x2={cursor.x} y2={origin.y} stroke={LINE_COLOR} stroke-width="1" />
-    <line x1={cursor.x} y1={origin.y} x2={cursor.x} y2={cursor.y} stroke={LINE_COLOR} stroke-width="1" />
-    <line x1={origin.x} y1={cursor.y} x2={cursor.x} y2={cursor.y} stroke={LINE_COLOR} stroke-width="1" />
-    <line x1={origin.x} y1={origin.y} x2={origin.x} y2={cursor.y} stroke={LINE_COLOR} stroke-width="1" />
-    <circle cx={origin.x} cy={origin.y} r="2" fill={LINE_COLOR} />
+    <line x1={origin.x} y1={origin.y} x2={cursor.x} y2={cursor.y} stroke={getLineColor()} stroke-width="1" />
+    <line x1={origin.x} y1={origin.y} x2={cursor.x} y2={origin.y} stroke={getLineColor()} stroke-width="1" />
+    <line x1={cursor.x} y1={origin.y} x2={cursor.x} y2={cursor.y} stroke={getLineColor()} stroke-width="1" />
+    <line x1={origin.x} y1={cursor.y} x2={cursor.x} y2={cursor.y} stroke={getLineColor()} stroke-width="1" />
+    <line x1={origin.x} y1={origin.y} x2={origin.x} y2={cursor.y} stroke={getLineColor()} stroke-width="1" />
+    <circle cx={origin.x} cy={origin.y} r="2" fill={getLineColor()} />
   </svg>
 
   {#if showDataWindow}
