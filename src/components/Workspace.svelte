@@ -8,16 +8,16 @@
   import WorkspaceModal from './WorkspaceModal.svelte';
   import KeyboardShortcutsHelp from './KeyboardShortcutsHelp.svelte';
   import { onMount, onDestroy } from 'svelte';
-  import { createKeyboardHandler } from '../lib/keyboardHandler.js';
+  import { keyManager } from '../lib/keyManager.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
-  import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
+  import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
   import './Workspace.css';
 
-  let keyboardHandler;
   let fileInput;
   let connectionManager;
   let systemUnsub;
   let unsubscribePersistence;
+  let keyboardCleanup;
 
   $: selectedTicker = (() => {
     if (!$workspaceStore.selectedDisplayId) return null;
@@ -99,50 +99,6 @@
     }
   }
 
-  function handleKeydown(event) {
-    // Hold ? to show keyboard shortcuts
-    if (event.key === '?' || event.key === '/') {
-      showKeyboardHelp = true;
-      return;
-    }
-    if (event.altKey && event.key.toLowerCase() === 'w') {
-      event.preventDefault();
-      showWorkspaceDialog();
-      return;
-    }
-    if (event.altKey && event.key.toLowerCase() === 'r') {
-      event.preventDefault();
-      reinitAll();
-      return;
-    }
-
-    // 'c' key to toggle chart for selected symbol
-    if (event.key === 'c' && !event.ctrlKey && !event.altKey) {
-      event.preventDefault();
-      toggleChart();
-      return;
-    }
-
-    // Chart-specific shortcuts when chart is focused
-    if (event.ctrlKey && event.key.toLowerCase() === 'z') {
-      // Chart undo - could be implemented later
-      return;
-    }
-    if (event.ctrlKey && (event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z'))) {
-      // Chart redo - could be implemented later
-      return;
-    }
-
-    keyboardHandler?.handleKeydown(event);
-  }
-
-  function handleKeyup(event) {
-    // Release ? to hide keyboard shortcuts
-    if (event.key === '?' || event.key === '/') {
-      showKeyboardHelp = false;
-    }
-  }
-
   function toggleChart() {
     // Find chart display (should be single instance)
     const chartDisplay = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
@@ -189,12 +145,96 @@
     await workspacePersistence.loadFromStorage();
     unsubscribePersistence = workspacePersistence.initPersistence();
 
-    // Initialize keyboard handler
-    keyboardHandler = createKeyboardHandler({
-      ...workspaceActions,
-      toggleChart,
-      createChartDisplay
-    });
+    // Initialize KeyManager
+    keyManager.init();
+
+    // Register global shortcuts
+    const unsubs = [];
+
+    // ? / / : hold to show keyboard shortcuts help
+    unsubs.push(keyManager.register(
+      { key: '?' }, () => { showKeyboardHelp = true; return true; }, { priority: 0 }
+    ));
+    unsubs.push(keyManager.register(
+      { key: '/' }, () => { showKeyboardHelp = true; return true; }, { priority: 0 }
+    ));
+
+    // Alt+W: workspace modal
+    unsubs.push(keyManager.register(
+      { key: 'w', alt: true }, () => { showWorkspaceDialog(); return true; }, { priority: 0 }
+    ));
+
+    // Alt+R: reinit all connections
+    unsubs.push(keyManager.register(
+      { key: 'r', alt: true }, () => { reinitAll(); return true; }, { priority: 0 }
+    ));
+
+    // c: toggle chart (only without ctrl/alt)
+    unsubs.push(keyManager.register(
+      { key: 'c', ctrl: false, alt: false }, () => { toggleChart(); return true; }, { priority: 10 }
+    ));
+
+    // Alt+A: create cTrader display
+    unsubs.push(keyManager.register(
+      { key: 'a', alt: true }, () => {
+        const symbol = prompt('Enter symbol:');
+        if (symbol) workspaceActions.addDisplay(formatSymbol(symbol, 'ctrader'), null, 'ctrader');
+        return true;
+      }, { priority: 0 }
+    ));
+
+    // Alt+B: create FX Basket display
+    unsubs.push(keyManager.register(
+      { key: 'b', alt: true }, () => {
+        workspaceActions.addDisplay('FX_BASKET', null, 'ctrader');
+        return true;
+      }, { priority: 0 }
+    ));
+
+    // Alt+T: create TradingView display
+    unsubs.push(keyManager.register(
+      { key: 't', alt: true }, () => {
+        const symbol = prompt('Enter symbol (TradingView):');
+        if (symbol) workspaceActions.addDisplay(formatSymbol(symbol, 'tradingview'), null, 'tradingview');
+        return true;
+      }, { priority: 0 }
+    ));
+
+    // Alt+I: create Price Ticker
+    unsubs.push(keyManager.register(
+      { key: 'i', alt: true }, () => {
+        const symbol = prompt('Enter symbol for Price Ticker:');
+        if (symbol) workspaceActions.addPriceTicker(formatSymbol(symbol, 'tradingview'), null, 'tradingview');
+        return true;
+      }, { priority: 0 }
+    ));
+
+    // Arrow keys: navigate between displays
+    unsubs.push(keyManager.register(
+      { key: 'ArrowUp' }, (e) => { e.preventDefault(); workspaceActions.selectNextDisplay('ArrowUp'); return true; }, { priority: 0 }
+    ));
+    unsubs.push(keyManager.register(
+      { key: 'ArrowDown' }, (e) => { e.preventDefault(); workspaceActions.selectNextDisplay('ArrowDown'); return true; }, { priority: 0 }
+    ));
+    unsubs.push(keyManager.register(
+      { key: 'ArrowLeft' }, (e) => { e.preventDefault(); workspaceActions.selectNextDisplay('ArrowLeft'); return true; }, { priority: 0 }
+    ));
+    unsubs.push(keyManager.register(
+      { key: 'ArrowRight' }, (e) => { e.preventDefault(); workspaceActions.selectNextDisplay('ArrowRight'); return true; }, { priority: 0 }
+    ));
+
+    // Keyup for ? / / to hide help
+    const handleHelpKeyup = (e) => {
+      if (e.key === '?' || e.key === '/') showKeyboardHelp = false;
+    };
+    document.addEventListener('keyup', handleHelpKeyup);
+    unsubs.push(() => document.removeEventListener('keyup', handleHelpKeyup));
+
+    // Store cleanup function
+    keyboardCleanup = () => {
+      unsubs.forEach(fn => fn());
+      keyManager.destroy();
+    };
 
     // Setup connection
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
@@ -216,7 +256,7 @@
 
   onDestroy(() => {
     systemUnsub?.();
-    keyboardHandler?.cleanup();
+    keyboardCleanup?.();
     unsubscribePersistence?.();
   });
 </script>
@@ -231,7 +271,7 @@
 
 <div class="workspace-container" role="application" on:contextmenu|preventDefault>
   <BackgroundShader />
-  <div class="workspace" role="region" tabindex="0" aria-label="Workspace" on:keydown={handleKeydown} on:keyup={handleKeyup}>
+  <div class="workspace" role="region" tabindex="0" aria-label="Workspace">
     {#each Array.from($workspaceStore.displays.values()) as display (display.id)}
       {#if display.type === 'priceTicker'}
         <PriceTicker ticker={display} rapidFlashEnabled={true} />

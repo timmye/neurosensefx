@@ -29,6 +29,7 @@
   import { createChartDataLoader } from '../lib/chart/chartDataLoader.js';
   import { createOverlayRestore } from '../lib/chart/chartOverlayRestore.js';
   import { createAxisFormatter } from '../lib/chart/chartAxisFormatter.js';
+  import { keyManager } from '../lib/keyManager.js';
   import { timezoneStore, resolvedTimezone } from '../stores/timezoneStore.js';
   import { setAxisTimezone } from '../lib/chart/xAxisCustom.js';
   import { createDrawingHandlers } from '../lib/chart/chartDrawingHandlers.js';
@@ -254,21 +255,95 @@
     close: () => workspaceActions.removeDisplay(display.id),
     focus: () => workspaceActions.bringToFront(display.id),
     refresh: () => reload(currentSymbol, currentResolution, currentWindow),
-    keydown: (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); handlers.close(); }
-      if (!chart || document.hidden) return;
-      if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); commandStack.undo(); }
-      if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); drawingHandlers.redoCreateCommand(commandStack.redo()); }
-    },
     minimize: () => { isMinimized = !isMinimized; workspaceActions.updateDisplay(display.id, { isMinimized }); },
   };
 
-  function handleDocumentKeydown(e) {
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedOverlayId && chart) {
-      e.preventDefault(); e.stopPropagation();
-      drawingHandlers.handleOverlayDelete(selectedOverlayId);
-      selectedOverlayId = null;
-    }
+  // KeyManager registrations — set up in onMount, torn down in onDestroy
+  let keyUnsubs = [];
+
+  function registerChartKeys() {
+    const chartEl = element;
+
+    // Escape: deselect overlay first, then close chart
+    keyUnsubs.push(keyManager.register(
+      { key: 'Escape' },
+      (e) => {
+        // Only act when this chart element has focus or contains focus
+        if (!chartEl || !chartEl.contains(document.activeElement)) return false;
+        e.preventDefault();
+        if (selectedOverlayId) {
+          selectedOverlayId = null;
+          return true;
+        }
+        handlers.close();
+        return true;
+      },
+      { priority: 40 }
+    ));
+
+    // Ctrl+Z: undo
+    keyUnsubs.push(keyManager.register(
+      { key: 'z', ctrl: true, shift: false },
+      (e) => {
+        if (!chart || document.hidden) return false;
+        if (!chartEl || !chartEl.contains(document.activeElement)) return false;
+        e.preventDefault();
+        commandStack.undo();
+        return true;
+      },
+      { priority: 40, allowInput: true }
+    ));
+
+    // Ctrl+Y: redo
+    keyUnsubs.push(keyManager.register(
+      { key: 'y', ctrl: true },
+      (e) => {
+        if (!chart || document.hidden) return false;
+        if (!chartEl || !chartEl.contains(document.activeElement)) return false;
+        e.preventDefault();
+        drawingHandlers.redoCreateCommand(commandStack.redo());
+        return true;
+      },
+      { priority: 40, allowInput: true }
+    ));
+
+    // Ctrl+Shift+Z: redo
+    keyUnsubs.push(keyManager.register(
+      { key: 'z', ctrl: true, shift: true },
+      (e) => {
+        if (!chart || document.hidden) return false;
+        if (!chartEl || !chartEl.contains(document.activeElement)) return false;
+        e.preventDefault();
+        drawingHandlers.redoCreateCommand(commandStack.redo());
+        return true;
+      },
+      { priority: 40, allowInput: true }
+    ));
+
+    // Delete/Backspace: delete selected overlay (input-safe via KeyManager)
+    keyUnsubs.push(keyManager.register(
+      { key: 'Delete' },
+      (e) => {
+        if (!selectedOverlayId || !chart) return false;
+        e.preventDefault();
+        drawingHandlers.handleOverlayDelete(selectedOverlayId);
+        selectedOverlayId = null;
+        return true;
+      },
+      { priority: 40 }
+    ));
+
+    keyUnsubs.push(keyManager.register(
+      { key: 'Backspace' },
+      (e) => {
+        if (!selectedOverlayId || !chart) return false;
+        e.preventDefault();
+        drawingHandlers.handleOverlayDelete(selectedOverlayId);
+        selectedOverlayId = null;
+        return true;
+      },
+      { priority: 40 }
+    ));
   }
 
   // --- Reactive statements ---
@@ -313,10 +388,11 @@
 
   // --- Lifecycle ---
   onMount(() => {
+    registerChartKeys();
+
     // Guard: don't init chart if minimized (container won't exist in DOM)
     if (isMinimized) {
       interactable = setupInteract(element, display, workspaceActions, createInteractConfig);
-      document.addEventListener('keydown', handleDocumentKeydown);
       return;
     }
 
@@ -349,12 +425,12 @@
     wheelHandler = setupWheelHandler(chartContainer, chart);
     mousedownHandler = () => element.focus();
     chartContainer?.addEventListener('mousedown', mousedownHandler);
-    document.addEventListener('keydown', handleDocumentKeydown);
 
     return () => clearTimeout(initTimer);
   });
 
   onDestroy(() => {
+    keyUnsubs.forEach(fn => fn()); keyUnsubs = [];
     barStoreUnsubscribe?.(); barStoreUnsubscribe = null;
     tickUnsubscribe?.(); tickUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution, currentSource);
@@ -363,7 +439,6 @@
     cancelScheduledResize(resizeState);
     if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
     if (wheelHandler && chartContainer) { chartContainer.removeEventListener('wheel', wheelHandler); wheelHandler = null; }
-    document.removeEventListener('keydown', handleDocumentKeydown);
     pendingDataApply = null;
     if (chart) { removeAxisChart(chart); disposeChart(chartContainer); chart = null; }
     if (interactable) { interactable.unset(); interactable = null; }
@@ -376,7 +451,7 @@
      class:minimized={isMinimized}
      class:dark={$themeStore === 'dark'}
      tabindex="0" role="region" aria-label="{display.symbol} chart"
-     on:focus={handlers?.focus} on:keydown={handlers?.keydown}
+     on:focus={handlers?.focus}
      style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};
             width: {display.size.width}px; height: {display.size.height}px;">
 

@@ -8,6 +8,7 @@ import { createPriceScale } from './dayRangeRenderingUtils.js';
 import { showDropdown } from './priceMarkerDropdown.js';
 import { formatPriceToPipLevel } from './priceFormat.js';
 import { calculateAdaptiveScale } from './dayRangeCalculations.js';
+import { keyManager } from './keyManager.js';
 
 export class PriceMarkerInteraction {
   constructor(canvas, displayId, data, scale) {
@@ -32,13 +33,12 @@ export class PriceMarkerInteraction {
     this._handleMouseMove = e => this.handleMouseMove(e);
     this._handleMouseUp = e => this.handleMouseUp(e);
     this._handleContextMenu = e => this.handleContextMenu(e);
-    this._escapeHandler = e => e.key === 'Escape' && this.hideDropdown();
+    this._escapePop = keyManager.pushEscape(() => this.hideDropdown());
 
     this.canvas.addEventListener('mousedown', this._handleMouseDown);
     this.canvas.addEventListener('mousemove', this._handleMouseMove);
     this.canvas.addEventListener('mouseup', this._handleMouseUp);
     this.canvas.addEventListener('contextmenu', this._handleContextMenu);
-    document.addEventListener('keydown', this._escapeHandler);
   }
 
   handleMouseDown(e) {
@@ -171,13 +171,13 @@ export class PriceMarkerInteraction {
 
   
   destroy() {
+    this._escapePop?.();
     this.hideDropdown();
     this.endDeltaMode(); // Clean up any active delta mode
     this.canvas.removeEventListener('mousedown', this._handleMouseDown);
     this.canvas.removeEventListener('mousemove', this._handleMouseMove);
     this.canvas.removeEventListener('mouseup', this._handleMouseUp);
     this.canvas.removeEventListener('contextmenu', this._handleContextMenu);
-    document.removeEventListener('keydown', this._escapeHandler);
 
     // Clear memory references
     this.deltaMode = null;

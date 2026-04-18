@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { keyManager } from '../lib/keyManager.js';
   import { themeStore } from '../stores/themeStore.js';
 
   export let visible = false;
@@ -29,20 +30,16 @@
     dispatch('close');
   }
 
-  function handleKeydown(e) {
-    if (e.key === 'Escape') {
-      dispatch('close');
-    }
-  }
+  let escapePop;
 
   onMount(() => {
     document.addEventListener('click', handleClickOutside);
-    document.addEventListener('keydown', handleKeydown);
+    escapePop = keyManager.pushEscape(() => dispatch('close'));
   });
 
   onDestroy(() => {
     document.removeEventListener('click', handleClickOutside);
-    document.removeEventListener('keydown', handleKeydown);
+    escapePop?.();
   });
 </script>
 

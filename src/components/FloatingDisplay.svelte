@@ -4,6 +4,7 @@
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
+  import { keyManager } from '../lib/keyManager.js';
   import { getMarketDataStore, subscribeToSymbol, getConnectionStatus } from '../stores/marketDataStore.js';
   import DisplayHeader from './displays/DisplayHeader.svelte';
   import DisplayCanvas from './displays/DisplayCanvas.svelte';
@@ -38,7 +39,6 @@
       }
       canvasRef?.refreshCanvas?.();
     },
-    keydown: (e) => e.altKey && e.key.toLowerCase() === 'm' && (e.preventDefault(), workspaceActions.toggleMarketProfile(display.id))
   };
 
   // Compute source and formattedSymbol first (needed for store subscription)
@@ -97,8 +97,22 @@
     previousSymbol = formattedSymbol;
   }
 
+  let keyUnsubs = [];
+
   onMount(() => {
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
+
+    // Alt+M: toggle market profile (only when this display is focused)
+    keyUnsubs.push(keyManager.register(
+      { key: 'm', alt: true },
+      (e) => {
+        if (!element || !element.contains(document.activeElement)) return false;
+        e.preventDefault();
+        workspaceActions.toggleMarketProfile(display.id);
+        return true;
+      },
+      { priority: 10 }
+    ));
 
     // Initial subscription via store
     unsubscribeSymbol = subscribeToSymbol(formattedSymbol, source, { adr: 14 });
@@ -118,6 +132,7 @@
   });
 
   onDestroy(() => {
+    keyUnsubs.forEach(fn => fn()); keyUnsubs = [];
     if (flashTimeout) clearTimeout(flashTimeout);
     interactable?.unset();
   });
@@ -127,7 +142,7 @@
      class:flash-up={borderFlashClass === 'flash-up'}
      class:flash-down={borderFlashClass === 'flash-down'}
      tabindex="0" role="region" aria-label="{display.symbol} display"
-     on:focus={handlers?.focus} on:keydown={handlers?.keydown}
+     on:focus={handlers?.focus}
      style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};
             width: {display.size.width}px; height: {display.size.height}px; --flash-duration: {flashDuration}ms;">
   <DisplayHeader symbol={display.symbol} {source} {connectionStatus} {showMarketProfile}

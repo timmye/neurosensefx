@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher, tick } from 'svelte';
+  import { keyManager } from '../lib/keyManager.js';
   export let show = false;
   const dispatch = createEventDispatcher();
 
@@ -20,41 +21,58 @@
     if (buttons[index]) buttons[index].focus();
   }
 
-  function handleKeydown(e) {
-    if (e.key === 'Escape') {
-      handleCancel();
-      return;
-    }
+  let escapePop;
+  let modalKeyUnsubs = [];
 
-    const buttons = getFocusableElements();
-    if (buttons.length === 0) return;
-    const currentIndex = buttons.indexOf(document.activeElement);
-
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      e.preventDefault();
-      focusElement((currentIndex + 1) % buttons.length);
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      focusElement((currentIndex - 1 + buttons.length) % buttons.length);
-    } else if (e.key === 'Tab') {
-      e.preventDefault();
-      if (e.shiftKey) {
-        focusElement((currentIndex - 1 + buttons.length) % buttons.length);
-      } else {
-        focusElement((currentIndex + 1) % buttons.length);
-      }
-    }
-  }
-
-  // Reactive: focus first button whenever modal opens
+  // Reactive: push escape handler and register modal navigation when shown
   $: if (show) {
+    escapePop = keyManager.pushEscape(handleCancel);
+
+    // Modal navigation (priority 20, only active while modal is open)
+    const navHandler = (e) => {
+      const buttons = getFocusableElements();
+      if (buttons.length === 0) return false;
+      const currentIndex = buttons.indexOf(document.activeElement);
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        focusElement((currentIndex + 1) % buttons.length);
+        return true;
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        focusElement((currentIndex - 1 + buttons.length) % buttons.length);
+        return true;
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          focusElement((currentIndex - 1 + buttons.length) % buttons.length);
+        } else {
+          focusElement((currentIndex + 1) % buttons.length);
+        }
+        return true;
+      }
+      return false;
+    };
+
+    modalKeyUnsubs.push(keyManager.register({ key: 'ArrowRight' }, navHandler, { priority: 20, allowInput: true }));
+    modalKeyUnsubs.push(keyManager.register({ key: 'ArrowDown' }, navHandler, { priority: 20, allowInput: true }));
+    modalKeyUnsubs.push(keyManager.register({ key: 'ArrowLeft' }, navHandler, { priority: 20, allowInput: true }));
+    modalKeyUnsubs.push(keyManager.register({ key: 'ArrowUp' }, navHandler, { priority: 20, allowInput: true }));
+    modalKeyUnsubs.push(keyManager.register({ key: 'Tab' }, navHandler, { priority: 20, allowInput: true }));
+    modalKeyUnsubs.push(keyManager.register({ key: 'Tab', shift: true }, navHandler, { priority: 20, allowInput: true }));
+
     tick().then(() => focusElement(0));
+  } else {
+    escapePop?.();
+    escapePop = null;
+    modalKeyUnsubs.forEach(fn => fn());
+    modalKeyUnsubs = [];
   }
 </script>
 
 {#if show}
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" on:click={handleOverlayClick} on:keydown={handleKeydown}>
+<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" on:click={handleOverlayClick}>
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <div class="workspace-modal" role="document" on:click={handleModalClick}>
     <h2 id="modal-title">Workspace Controls</h2>

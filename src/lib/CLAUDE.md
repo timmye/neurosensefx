@@ -60,7 +60,7 @@
 | File | What | When to read |
 | ---- | ---- | ------------ |
 | `colors.js` | Color constants and utilities | Changing color schemes |
-| `keyboardHandler.js` | Keyboard event handling | Adding keyboard shortcuts |
+| `keyManager.js` | Centralized keyboard event handling with priority resolution and escape stack | Adding keyboard shortcuts, fixing key handling bugs |
 | `interactSetup.js` | interact.js configuration factory for FloatingDisplay | Customizing drag/resize/snap behavior |
 | `adrBoundaryRenderer.js` | ADR boundary line rendering | Customizing ADR display |
 | `adrBoundaryCalculations.js` | ADR value calculation logic | Fixing ADR formulas |
