@@ -67,8 +67,13 @@ describe('DrawingCommandStack', () => {
   it('redo() does NOT move command to undoStack when redo throws', async () => {
     const stack = new DrawingCommandStack();
     const throwingCmd = {
-      execute() { throw new Error('redo execute failed'); },
+      execute() {
+        throwingCmd.execute.count++;
+        if (throwingCmd.execute.count > 1) throw new Error('redo execute failed');
+      },
+      undo() {},
     };
+    throwingCmd.execute.count = 0;
     stack.execute(throwingCmd);
     await stack.undo();
 

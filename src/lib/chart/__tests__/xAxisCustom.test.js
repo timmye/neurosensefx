@@ -328,7 +328,7 @@ describe('1W window', () => {
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15));
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15), '1W');
 
     const dayLabels = result.filter(t => /^\d{2}$/.test(t.text));
     expect(dayLabels.length).toBeGreaterThanOrEqual(2);
@@ -339,7 +339,7 @@ describe('1W window', () => {
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 2));
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 2), '1W');
 
     // 1W finest = DAY, so no HOUR labels
     expect(result.filter(t => /^\d{2}:\d{2}$/.test(t.text)).length).toBe(0);
@@ -370,7 +370,7 @@ describe('1d window', () => {
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15));
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 15), '1d');
 
     expect(result.filter(t => t.text.includes(':')).length).toBeGreaterThanOrEqual(1);
   });
@@ -474,7 +474,7 @@ describe('2W window', () => {
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 10));
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 10), '2W');
 
     const dayLabels = result.filter(t => /^\d{2}$/.test(t.text));
     expect(dayLabels.length).toBeGreaterThanOrEqual(3);
@@ -679,7 +679,7 @@ describe('high-density bars', () => {
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 0.5));
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 0.5), '1d');
 
     expect(result.filter(t => /\d{2}:\d{2}/.test(t.text)).length).toBeGreaterThanOrEqual(1);
   });
@@ -690,7 +690,7 @@ describe('high-density bars', () => {
     const fromTs = dataList[0].timestamp;
     const toTs = dataList[dataList.length - 1].timestamp;
 
-    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 0.5));
+    const result = generateTicks(fromTs, toTs, dataList, mockChart(dataList, 0.5), '1W');
 
     // 1W finest = DAY, no HOUR labels
     expect(result.filter(t => /^\d{2}:\d{2}$/.test(t.text)).length).toBe(0);
@@ -707,11 +707,11 @@ describe('setAxisWindow', () => {
 
     // 1Y window: months, quarters, years
     setAxisWindow('1Y');
-    const result1Y = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 3));
+    const result1Y = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 3), '1Y');
 
     // 5Y window: only years and quarters
     setAxisWindow('5Y');
-    const result5Y = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 3));
+    const result5Y = generateTicks(dataList[0].timestamp, dataList[dataList.length - 1].timestamp, dataList, mockChart(dataList, 3), '5Y');
 
     // 5Y should have fewer month-only labels
     const monthOnly1Y = result1Y.filter(t => /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/.test(t.text));
