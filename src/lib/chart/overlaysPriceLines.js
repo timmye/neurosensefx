@@ -33,7 +33,8 @@ registerOverlay({
     const align = isFromZero ? 'left' : 'right';
     const value = overlay.points?.[0]?.value;
     const text = value != null ? value.toFixed(precision.price) : '';
-    return { type: 'text', attrs: { x, y: coordinates[0].y, text, align, baseline: 'middle' }, styles: { backgroundColor: getThemeColor('#958f00', '#d4c44f') }, ignoreEvent: true };
+    const lineColor = overlay.styles?.line?.color ?? getThemeColor('#48752c', '#6ee7b7');
+    return { type: 'text', attrs: { x, y: coordinates[0].y, text, align, baseline: 'middle' }, styles: { backgroundColor: lineColor }, ignoreEvent: true };
   }
 });
 
@@ -69,7 +70,7 @@ registerOverlay({
     return {
       type: 'text',
       attrs: { x, y: coordinates[0].y, text, align, baseline: 'middle' },
-      styles: { backgroundColor: getThemeColor('#958f00', '#d4c44f') },
+      styles: { backgroundColor: overlay.styles?.line?.color ?? getThemeColor('#48752c', '#6ee7b7') },
       ignoreEvent: true
     };
   }
