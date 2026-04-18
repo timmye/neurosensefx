@@ -6,7 +6,7 @@
   import { get } from 'svelte/store';
   import { workspaceActions, workspaceStore } from '../stores/workspace.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
-  import ChartHeader from './displays/ChartHeader.svelte';
+
   import ChartToolbar from './ChartToolbar.svelte';
   import QuickRuler from './QuickRuler.svelte';
   import { DEFAULT_RESOLUTION_WINDOW, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
@@ -452,10 +452,6 @@
      on:focus={handlers?.focus}
      style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};
             width: {display.size.width}px; height: {display.size.height}px;">
-
-  <ChartHeader symbol={display.symbol} isMinimized={isMinimized}
-    onClose={handlers?.close} onFocus={handlers?.focus} onRefresh={handlers?.refresh}
-    onMinimize={handlers?.minimize} />
 
   {#if !isMinimized}
     <ChartToolbar {currentResolution} {currentWindow} {chart} {commandStack} {canUndo} {canRedo}
