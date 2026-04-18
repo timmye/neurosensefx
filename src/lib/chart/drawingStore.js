@@ -14,6 +14,10 @@ db.version(2).stores({
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 const saveDebounceTimers = new Map();
 
+// Synchronous snapshot of the last synced data per symbol/resolution.
+// Updated on every save/update/remove so flushPending can read it without async IndexedDB.
+const _lastSyncData = new Map();
+
 export const drawingStore = {
   async save(symbol, resolution, drawing) {
     const stored = await db.drawings.add({
@@ -76,6 +80,7 @@ export const drawingStore = {
 
   async clearAll(symbol, resolution) {
     await db.drawings.where({ symbol, resolution }).delete();
+    _lastSyncData.set(symbol + '/' + resolution, []);
     // Immediate sync for clearAll — user expects instant server state (ref: DL-007)
     if (get(authStore).isAuthenticated) {
       fetch(API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution), {
@@ -101,6 +106,7 @@ export const drawingStore = {
       saveDebounceTimers.delete(key);
       try {
         const all = await db.drawings.where({ symbol, resolution }).toArray();
+        _lastSyncData.set(key, all);
         await fetch(API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -111,10 +117,39 @@ export const drawingStore = {
         console.warn('[DrawingStore] Server sync failed for ' + key + ':', err);
       }
     }, 500));
+  },
+
+  /**
+   * Flush all pending debounced server syncs synchronously.
+   * Called on beforeunload — must not use async operations since the browser
+   * will terminate the page before any promise resolves.
+   */
+  flushPending() {
+    if (!get(authStore).isAuthenticated) return;
+    for (const [key, timer] of saveDebounceTimers) {
+      clearTimeout(timer);
+      saveDebounceTimers.delete(key);
+      const data = _lastSyncData.get(key);
+      // data may be undefined if the 500ms debounce hasn't fired yet —
+      // drawing is safe in IndexedDB and will sync on next load.
+      if (data) {
+        const [symbol, resolution] = key.split('/');
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        navigator.sendBeacon(
+          API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution),
+          blob
+        );
+      }
+    }
   }
 };
 
 // Expose to window for E2E test access (seed/verify drawings)
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
   window.drawingStore = drawingStore;
+}
+
+// Flush pending drawing syncs before the tab closes to prevent data loss
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => drawingStore.flushPending());
 }

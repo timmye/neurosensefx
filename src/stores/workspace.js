@@ -521,6 +521,9 @@ const actions = {
 
 };
 
+// Tracks last workspace data for beforeunload flush (module-scoped)
+let _lastWorkspaceData = null;
+
 const persistence = {
   loadFromStorage: async () => {
     try {
@@ -573,6 +576,7 @@ const persistence = {
         headlinesPosition: state.headlinesPosition,
         headlinesSize: state.headlinesSize
       };
+      _lastWorkspaceData = data;
       try {
         localStorage.setItem('workspace-state', JSON.stringify(data));
       } catch (error) {
@@ -582,6 +586,7 @@ const persistence = {
       if (get(authStore).isAuthenticated) {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
+          debounceTimer = null;
           fetch((import.meta.env.VITE_API_BASE_URL || '') + '/api/workspace', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -591,6 +596,20 @@ const persistence = {
         }, 2000);
       }
     });
+  },
+
+  /**
+   * Flush pending workspace server sync immediately.
+   * Called on beforeunload to prevent workspace state loss when the tab closes.
+   */
+  flushPending: () => {
+    if (_lastWorkspaceData && get(authStore).isAuthenticated) {
+      const blob = new Blob([JSON.stringify(_lastWorkspaceData)], { type: 'application/json' });
+      navigator.sendBeacon(
+        (import.meta.env.VITE_API_BASE_URL || '') + '/api/workspace',
+        blob
+      );
+    }
   }
 };
 
@@ -619,6 +638,11 @@ function loadFromLocalStorage() {
 
 export const workspaceActions = actions;
 export const workspacePersistence = persistence;
+
+// Flush pending workspace sync before tab closes to prevent state loss
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => persistence.flushPending());
+}
 
 // Expose to window for testing purposes
 if (typeof window !== 'undefined') {
