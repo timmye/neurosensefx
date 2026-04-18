@@ -98,9 +98,7 @@
 
   // --- Overlay helpers ---
   function getDbIdForOverlay(overlayId) {
-    const dbId = overlayMeta.getDbId(overlayId);
-    if (dbId != null) return dbId;
-    return chart?.getOverlayById(overlayId)?.extendData?._dbId ?? null;
+    return overlayMeta.getDbId(overlayId);
   }
 
   function getOverlayCallbacks() {
@@ -288,7 +286,7 @@
         if (!chart || document.hidden) return false;
         if (!chartEl || !chartEl.contains(document.activeElement)) return false;
         e.preventDefault();
-        commandStack.undo();
+        commandStack.undo().catch(() => {});
         return true;
       },
       { priority: 40, allowInput: true }
@@ -301,7 +299,7 @@
         if (!chart || document.hidden) return false;
         if (!chartEl || !chartEl.contains(document.activeElement)) return false;
         e.preventDefault();
-        drawingHandlers.redoCreateCommand(commandStack.redo());
+        commandStack.redo().then(cmd => drawingHandlers.redoCreateCommand(cmd)).catch(() => {});
         return true;
       },
       { priority: 40, allowInput: true }
@@ -314,7 +312,7 @@
         if (!chart || document.hidden) return false;
         if (!chartEl || !chartEl.contains(document.activeElement)) return false;
         e.preventDefault();
-        drawingHandlers.redoCreateCommand(commandStack.redo());
+        commandStack.redo().then(cmd => drawingHandlers.redoCreateCommand(cmd)).catch(() => {});
         return true;
       },
       { priority: 40, allowInput: true }

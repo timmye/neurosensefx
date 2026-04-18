@@ -113,14 +113,15 @@
 
   function handleUndo() {
     if (commandStack) {
-      commandStack.undo();
+      commandStack.undo().catch(() => {});
     }
   }
 
   function handleRedo() {
     if (commandStack) {
-      const cmd = commandStack.redo();
-      if (cmd) dispatch('redo', cmd);
+      commandStack.redo().then(cmd => {
+        if (cmd) dispatch('redo', cmd);
+      }).catch(() => {});
     }
   }
 

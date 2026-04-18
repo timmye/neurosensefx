@@ -106,12 +106,12 @@ registerOverlay({
     const px = -uy, py = ux;
     const depth = 30, hw = 5;
     return [
-      { type: 'line', attrs: { coordinates: [tail, head] }, styles: { color: '#333333' } },
+      { type: 'line', attrs: { coordinates: [tail, head] } },
       { type: 'polygon', attrs: { coordinates: [
         head,
         { x: head.x - depth * ux + hw * px, y: head.y - depth * uy + hw * py },
         { x: head.x - depth * ux - hw * px, y: head.y - depth * uy - hw * py },
-      ] }, styles: { style: 'fill', color: '#333333' } }
+      ] } }
     ];
   }
 });

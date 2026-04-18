@@ -35,20 +35,30 @@ export class DrawingCommandStack {
     this._notify();
   }
 
-  undo() {
+  async undo() {
     const cmd = this.undoStack.pop();
     if (cmd) {
-      cmd.undo();
-      this.redoStack.push(cmd);
+      try {
+        await cmd.undo();
+        this.redoStack.push(cmd);
+      } catch (e) {
+        this.undoStack.push(cmd);
+        throw e;
+      }
       this._notify();
     }
   }
 
-  redo() {
+  async redo() {
     const cmd = this.redoStack.pop();
     if (cmd) {
-      cmd.execute();
-      this.undoStack.push(cmd);
+      try {
+        await cmd.execute();
+        this.undoStack.push(cmd);
+      } catch (e) {
+        this.redoStack.push(cmd);
+        throw e;
+      }
       this._notify();
     }
     return cmd;

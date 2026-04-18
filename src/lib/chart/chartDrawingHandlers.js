@@ -30,8 +30,8 @@ export function createDrawingHandlers(deps) {
         deps.overlayMeta.setDbId(overlayId, dbId);
         const overlay = deps.chart.getOverlayById(overlayId);
         if (overlay) {
-          const ext = overlay.extendData || {};
-          deps.chart.overrideOverlay({ id: overlayId, extendData: { ...ext, _dbId: dbId } });
+          const ext = overlay.extendData;
+          deps.chart.overrideOverlay({ id: overlayId, extendData: ext });
         }
       });
     }
