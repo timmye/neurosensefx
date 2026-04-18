@@ -112,6 +112,28 @@
         contextMenu = { visible: true, x: e.pageX || e.x, y: e.pageY || e.y, overlayId: o.id };
         return true;
       },
+      onMouseEnter: (e) => {
+        const o = e.overlay;
+        if (o.name !== 'simpleAnnotation') return false;
+        let data = o.extendData;
+        if (typeof data === 'string' || data == null) {
+          data = { text: data || '', hovered: false };
+        }
+        if (!data.hovered) {
+          chart.overrideOverlay({ id: o.id, extendData: { ...data, hovered: true } });
+        }
+        return false;
+      },
+      onMouseLeave: (e) => {
+        const o = e.overlay;
+        if (o.name !== 'simpleAnnotation') return false;
+        let data = o.extendData;
+        if (typeof data === 'string' || data == null) return false;
+        if (data.hovered) {
+          chart.overrideOverlay({ id: o.id, extendData: { ...data, hovered: false } });
+        }
+        return false;
+      },
     };
   }
 
