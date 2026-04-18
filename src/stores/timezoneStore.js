@@ -33,7 +33,7 @@ function loadSaved() {
       if (preset) return preset.id;
     }
   } catch { /* ignore */ }
-  return 'UTC';
+  return 'LOCAL';
 }
 
 export const timezoneStore = writable(loadSaved());
