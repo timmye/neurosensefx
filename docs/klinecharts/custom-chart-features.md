@@ -100,9 +100,9 @@ Overrides built-in `parallelStraightLine` to render bounded segments between cha
 
 ### Interactive Annotations Override
 
-Overrides built-in `simpleAnnotation` and `simpleTag` by removing `ignoreEvent: true`, making them selectable, draggable, and right-clickable.
+Overrides built-in `simpleAnnotation` and `simpleTag` by removing `ignoreEvent: true`, making them selectable, draggable, and right-clickable. Annotation text labels auto-hide by default and only appear on hover to reduce chart clutter — a vertical dashed line extends from the anchor point to the top of the pane with an invisible wide hit area for easy hover detection. `extendData` uses a `{ text, hovered }` object (backward-compatible with legacy plain-string format). Hover state toggles via `onMouseEnter`/`onMouseLeave` callbacks set per-instance in `ChartDisplay.svelte` (`getOverlayCallbacks`), since `registerOverlay` callbacks don't receive a chart reference.
 
-**Files:** `src/lib/chart/overlaysAnnotations.js`
+**Files:** `src/lib/chart/overlaysAnnotations.js`, `src/components/ChartDisplay.svelte` (hover callbacks)
 
 ### Horizontal Ray Line Override
 

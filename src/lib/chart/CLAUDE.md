@@ -23,6 +23,9 @@ KLineChart integration: configuration constants, custom calendar x-axis, drawing
 | `chartResize.js` | rAF-coalesced resize scheduling | Debugging resize timing, adding resize-triggered logic |
 | `chartSubscriptions.js` | Lifecycle-managed KLineChart action subscribe/unsubscribe (zoom, visibleRange, dataReady) | Debugging action handler leaks, adding new action subscriptions |
 | `chartThemeLight.js` | Light theme styles for KLineChart (colors, fonts, grid, crosshair) | Changing chart appearance, modifying font metrics |
+| `chartThemeDark.js` | Dark theme styles for KLineChart (slate/green-accent palette) | Changing dark mode appearance, modifying dark theme |
+| `dateFormatter.js` | Date formatting utilities for chart labels | Modifying date display format |
+| `themeColors.js` | Shared theme color constants and lookups | Accessing theme colors programmatically |
 | `chartTickSubscriptions.js` | Pure subscription helpers: mapBarToKline, applyDataToChart, subscribeToBarStore, subscribeToLiveTicks | Debugging data-to-chart pipeline, modifying bar store subscription |
 | `chartTimeWindows.js` | Calendar-aligned time range computation, barSpace calculation | Modifying time window logic, changing calendar alignment |
 | `dataSearch.js` | Binary search utilities: dataIndexOf, snapToBar | Debugging x-axis coordinate mapping |

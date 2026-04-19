@@ -20,6 +20,12 @@
 | `TradingViewSubscriptionManager.js` | Manages TradingView symbol subscriptions | Adding subscription types, debugging symbol subscription flow |
 | `TwapService.js` | TWAP (Time-Weighted Average Price) service | Implementing TWAP calculations, debugging time-weighted pricing |
 | `WebSocketServer.js` | WebSocket server for frontend connections | Debugging WebSocket connections, modifying server configuration |
+| `httpServer.js` | Express HTTP server alongside WebSocket server | Adding HTTP endpoints, modifying auth/persistence routes |
+| `authRoutes.js` | Register, login, logout endpoints | Modifying authentication flow, adding auth endpoints |
+| `persistenceRoutes.js` | CRUD routes for workspaces, drawings, price markers | Adding persistence endpoints, modifying data sync |
+| `middleware.js` | Auth middleware (session validation) | Adding protected routes, modifying auth checks |
+| `sessionManager.js` | Redis-backed session create/validate/destroy | Debugging session issues, modifying session TTL or storage |
+| `db.js` | PostgreSQL connection and query helpers | Adding database queries, debugging persistence |
 | `server.js` | WebSocket server entry point | Starting backend, debugging server startup |
 | `stream-real.cjs` | Real-time streaming data test utility | Testing live data streaming |
 | `test-timeframe.js` | Timeframe calculation test utility | Debugging timeframe logic |

@@ -9,6 +9,7 @@ KLineChart library API reference, upstream PR analysis, and custom feature inven
 | `custom-chart-features.md` | Inventory of custom chart extensions beyond KLineChart built-ins | Assessing upstream contribution candidates, onboarding new developers |
 | `styles.md` | KLineChart style system reference | Customizing chart appearance, debugging style overrides |
 | `upstream-pr-calendar-axis.md` | v9 vs v10 API analysis and PR strategy for calendar X-axis | Preparing upstream contribution, understanding axis module changes |
+| `rendering-chain-analysis.md` | KLineChart rendering pipeline analysis | Debugging render performance, understanding draw cycle |
 
 ## Subdirectories
 
