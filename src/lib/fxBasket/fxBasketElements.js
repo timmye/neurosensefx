@@ -113,7 +113,6 @@ export function renderErrorState(ctx, missingPairs, failedPairs, totalPairs, con
   renderErrorIcon(ctx, centerX, centerY);
   renderErrorHeader(ctx, centerX, centerY, missingPairs.length, totalPairs);
   renderPairList(ctx, centerX, centerY + 75, missingPairs, failedPairs);
-  renderRetryButton(ctx, centerX, centerY + 120);
 }
 
 function renderErrorIcon(ctx, centerX, centerY) {
@@ -166,15 +165,6 @@ function renderMissingLines(ctx, centerX, y, missingPairs) {
     ctx.fillText(`...and ${missingPairs.length - 8} more`, centerX, y);
   }
   return y;
-}
-
-function renderRetryButton(ctx, centerX, centerY) {
-  ctx.fillStyle = '#3B82F6';
-  ctx.fillRect(centerX - 50, centerY, 100, 30);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `600 14px ${SYSTEM_FONT_FAMILY}`;
-  ctx.textAlign = 'center';
-  ctx.fillText('Retry', centerX, centerY + 15);
 }
 
 export function detectClusters(basketPositions, textHeight) {

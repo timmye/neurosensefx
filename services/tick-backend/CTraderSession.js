@@ -19,6 +19,7 @@ class CTraderSession extends EventEmitter {
         this.heartbeatInterval = null;
         this.ctidTraderAccountId = Number(process.env.CTRADER_ACCOUNT_ID);
         this.accessToken = process.env.CTRADER_ACCESS_TOKEN;
+        this.refreshToken = process.env.CTRADER_REFRESH_TOKEN;
         this.clientId = process.env.CTRADER_CLIENT_ID;
         this.clientSecret = process.env.CTRADER_CLIENT_SECRET;
 
@@ -249,10 +250,51 @@ class CTraderSession extends EventEmitter {
             clientId: this.clientId,
             clientSecret: this.clientSecret
         });
-        await this.connection.sendCommand('ProtoOAAccountAuthReq', {
-            ctidTraderAccountId: this.ctidTraderAccountId,
-            accessToken: this.accessToken
-        });
+
+        try {
+            await this.connection.sendCommand('ProtoOAAccountAuthReq', {
+                ctidTraderAccountId: this.ctidTraderAccountId,
+                accessToken: this.accessToken
+            });
+        } catch (authError) {
+            if (authError.errorCode === 'CH_ACCESS_TOKEN_INVALID' && this.refreshToken) {
+                console.log('[CTraderSession] Access token expired, refreshing...');
+                const refreshRes = await this.connection.sendCommand('ProtoOARefreshTokenReq', {
+                    refreshToken: this.refreshToken
+                });
+                this.accessToken = refreshRes.accessToken;
+                this.refreshToken = refreshRes.refreshToken;
+                console.log('[CTraderSession] Token refreshed, persisting to .env');
+                this.persistTokens(this.accessToken, this.refreshToken);
+
+                await this.connection.sendCommand('ProtoOAAccountAuthReq', {
+                    ctidTraderAccountId: this.ctidTraderAccountId,
+                    accessToken: this.accessToken
+                });
+            } else {
+                throw authError;
+            }
+        }
+    }
+
+    persistTokens(accessToken, refreshToken) {
+        const fs = require('fs');
+        const envPath = path.resolve(__dirname, '../../.env');
+        try {
+            let envContent = fs.readFileSync(envPath, 'utf8');
+            envContent = envContent.replace(
+                /^CTRADER_ACCESS_TOKEN=.*$/m,
+                `CTRADER_ACCESS_TOKEN=${accessToken}`
+            );
+            envContent = envContent.replace(
+                /^CTRADER_REFRESH_TOKEN=.*$/m,
+                `CTRADER_REFRESH_TOKEN=${refreshToken}`
+            );
+            fs.writeFileSync(envPath, envContent);
+            console.log('[CTraderSession] Tokens persisted to .env');
+        } catch (err) {
+            console.warn('[CTraderSession] Failed to persist tokens to .env:', err.message);
+        }
     }
 
     handleDisconnect(error = null, shouldScheduleReconnect = true) {
