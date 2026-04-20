@@ -6,6 +6,8 @@
  * as getters so they resolve the current value at call time, not creation time.
  */
 
+import { forceCanvasDPRRefresh } from './chartResize.js';
+
 export function createReloadChart(deps) {
   function clearChartState() {
     if (deps.chart) {
@@ -27,10 +29,18 @@ export function createReloadChart(deps) {
       deps.chart.removeIndicator('candle_pane', 'symbolWatermark');
     }
     deps.loadChartData(symbol, resolution, window, () => {
-      deps.restoreDrawings(symbol, resolution);
-      if (deps.createWatermarkIndicator) {
-        deps.createWatermarkIndicator();
-      }
+      deps.restoreDrawings(symbol, resolution).then(() => {
+        if (deps.createWatermarkIndicator) {
+          deps.createWatermarkIndicator();
+        }
+        // Wait for klinecharts' pending rAFs to settle, then directly fix any
+        // canvas buffer/CSS dimension mismatches. KLineCharts' rAF coalescing guard
+        // drops buffer updates during rapid layout changes, leaving canvas.width
+        // stale. We bypass KLineCharts and set buffers + transform directly.
+        requestAnimationFrame(() => {
+          forceCanvasDPRRefresh(deps.chartContainer);
+        });
+      });
     });
   }
 

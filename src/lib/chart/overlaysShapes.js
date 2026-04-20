@@ -97,13 +97,14 @@ registerOverlay({
     const ux = dx / len, uy = dy / len;
     const px = -uy, py = ux;
     const depth = 30, hw = 5;
+    const BLACK = 'rgba(0, 0, 0, 1)';
     return [
-      { type: 'line', attrs: { coordinates: [tail, head] } },
+      { type: 'line', attrs: { coordinates: [tail, head] }, styles: { color: BLACK } },
       { type: 'polygon', attrs: { coordinates: [
         head,
         { x: head.x - depth * ux + hw * px, y: head.y - depth * uy + hw * py },
         { x: head.x - depth * ux - hw * px, y: head.y - depth * uy - hw * py },
-      ] } }
+      ] }, styles: { color: BLACK, borderColor: BLACK } }
     ];
   }
 });

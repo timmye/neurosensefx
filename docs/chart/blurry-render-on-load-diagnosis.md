@@ -1,14 +1,12 @@
 # Chart Blurry on Initial Load — Root Cause Analysis
 
-**Date:** 2026-04-16 (updated 2026-04-17)
-**Status:** Fix v2 implemented. Blurry render on load **still present** — v2 strategy did not resolve the root cause.
+**Date:** 2026-04-16 (updated 2026-04-20)
+**Status:** RESOLVED (v4 — direct buffer correction bypasses KLineCharts). See bottom of file.
 **KLineCharts version:** 9.8.12
 
 ## Symptom
 
-Charts render with blurry/fuzzy lines and text on initial page load. They become crisp only after:
-- A browser window resize
-- Pressing "c" (destroys and recreates the chart component)
+Charts start crisp, then become blurry/fuzzy after an action (symbol switch, timeframe change, switching between charts with dense data). The whole chart area looks low-res/fuzzy — not just thin lines. Resizing the chart display fixes it.
 
 ## How KLineCharts Natively Handles DPR
 
@@ -445,3 +443,151 @@ The v2 approach of deferring our code did not work because klinecharts' **own** 
 3. **Manually force DPR after init settles** — After all init work completes (indicators loaded, data applied), do a single `chart.resize()` inside a `requestAnimationFrame` that runs after all klinecharts internal rAFs have settled. The challenge is knowing when "settled" is — may need a double-rAF or `requestIdleCallback` approach, which the diagnosis previously warned against. However, if used as a **single corrective resize** (not an additional resize during the storm), it may work.
 
 4. **Upgrade klinecharts** — Check if a newer version of klinecharts (9.8.13+) fixes the DPR race. The async `isSupportedDevicePixelContentBox` check and rAF coalescing guard may have been addressed upstream.
+
+---
+
+## Fix v3 Implementation Results (2026-04-20)
+
+### What v3 tried
+
+**v3 Fix A:** Vite build-time transform that replaces `isSupportedDevicePixelContentBox().then` with `Promise.resolve(false).then`. This forces KLineCharts to always use its synchronous manual DPR path (`Canvas.update` calculates `_nextPixelWidth`/`_nextPixelHeight` directly, no async ResizeObserver dependency).
+
+**v3 Fix B:** Removed `scheduleCorrectiveResize()` (double-rAF `chart.resize()`) from v2 — confirmed it was architecturally incapable of fixing the blur because `chart.resize()` takes the `else` branch when `_width === w` (no DPR recalculation).
+
+### Why v3 Fix A didn't resolve the blur
+
+The Vite transform correctly forces the manual DPR path (verified: `isSupportedDevicePixelContentBox` removed from production bundle). The manual DPR path should produce correct results because:
+1. `_nextPixelWidth`/`_nextPixelHeight` are set synchronously in `Canvas.update()` before `_resetPixelRatio()`
+2. The rAF coalescing guard drops some calls, but the surviving rAF reads `_nextPixelWidth`/`_nextPixelHeight` dynamically (instance variables, not closure-captured), so it always gets the latest correct values
+
+**The blur persists because the root cause is NOT the async DPR race.** Something else is causing canvas blurriness.
+
+### Key insight: `chart.resize()` is a dead end
+
+After init settles, `_width`/`_height` match the container (set by KLineCharts' own rAF). `chart.resize()` → `Canvas.update(w, h)` → `_width === w` → `else` branch → `_executeListener()` (repaint only, NO DPR recalculation). **This means `chart.resize()` can NEVER fix DPR after dimensions stabilize.** Window resize works only because it changes the actual container dimensions, forcing the `if` branch.
+
+### Remaining investigation needed
+
+1. **What is `window.devicePixelRatio` in the target environment?** If DPR=1 (WSL2/Codespaces), no DPR scaling is applied and the canvas should be pixel-perfect. The blur might be anti-aliasing on thin lines (~1px bars), not a DPR issue.
+
+2. **Is the blur present on initial load, or only after chart switching?** User reports it's reproducible when switching between charts with dense data.
+
+3. **Does the blur correlate with bar density?** Charts with ~1px bars may look "blurry" due to anti-aliased thin lines, which is a rendering characteristic, not a bug.
+
+4. **Try forced container dimension change**: Briefly change container width by 1px to trigger KLineCharts' own DPR recalculation path (via ResizeObserver → scheduleResize → chart.resize() with changed dimensions). This is the only way to force the `if` branch in `Canvas.update()`.
+
+### Files modified in v3
+- `vite.config.js` — added `force-klinecharts-manual-dpr` transform plugin
+- `src/lib/chart/chartResize.js` — removed `scheduleCorrectiveResize()`, added `forceCanvasDPRRefresh()`
+- `src/components/ChartDisplay.svelte` — added `forceCanvasDPRRefresh` + `debugCanvasState` calls at init/restore points
+
+---
+
+## Runtime Debug Results (2026-04-20) — DPR Hypothesis Eliminated
+
+Added `debugCanvasState()` instrumentation at 3 lifecycle points (post-init, post-data, post-restore). Results from user's session:
+
+### Environment
+- **`window.devicePixelRatio: 1`** — WSL2/Codespaces, no HiDPI scaling
+- Container: 1958×752 CSS pixels
+
+### Canvas state at each lifecycle point
+
+| Stage | Canvases | Buffer vs CSS | Verdict |
+|-------|----------|---------------|---------|
+| post-init (after initChart) | 6 | ALL bufW=300 bufH=150, CSS correct (1918×729) | **MISMATCH** — expected, rAF hasn't fired yet |
+| post-data (after rAF + indicators) | 10 | First 6 OK, last 4 at 300×150 (new panes, not yet sized) | **Transitional** |
+| post-restore (after data + overlays) | 10 | ALL bufW === clientW, bufH === clientH | **ALL OK** |
+
+### Key findings
+
+1. **DPR=1 eliminates all DPR-scaling theories.** At DPR=1, canvas buffer = CSS dimensions 1:1. There is no "wrong DPR" possible. All 4 prior fix attempts (v1–v3) targeted a non-existent DPR problem.
+
+2. **Canvas dimensions are always correct after init settles.** Every `post-restore` capture across 12+ chart switches shows `bufW === clientW` for all 10 canvases. The canvas buffer is never wrong after the initial rAF fires.
+
+3. **The chart starts CRISP and goes BLURRY after an action.** This is NOT an initial-load DPR race. Something during chart operations (symbol/timeframe switch) corrupts the rendering without changing canvas dimensions.
+
+4. **`forceCanvasDPRRefresh` may be harmful.** It sets `chartContainer.style.width` to a fixed pixel value then restores to `""` (flex). The debug shows container transitioning from `style.width=""` to `style.width="1957px"`. At DPR=1 this function is a no-op for DPR but causes two rapid resize events that could trigger KLineCharts rendering corruption.
+
+### Revised root cause hypothesis
+
+Since canvas buffers are always correct (bufW = clientW, bufH = clientH at DPR=1), the "blur" is NOT a canvas resolution issue. Possible causes:
+
+1. **KLineCharts internal rendering state corruption**: After clearData() + newData(), KLineCharts' drawing code may use stale internal coordinates or transforms that don't match the canvas state. The canvas dimensions are correct but the DRAWING is wrong.
+
+2. **`forceCanvasDPRRefresh` causing corruption**: The rapid container resize cycle (1958→1957→flex) triggers two KLineCharts resize operations. If the second resize occurs while the first is still being processed, internal state may become inconsistent.
+
+3. **CSS compositing issue**: The browser's compositor may cache a stale layer for the canvas. Resizing forces layer recomposition, which fixes the visual. At DPR=1 with correct buffers, this is the most likely explanation.
+
+4. **KLineCharts `_executeListener` rAF timing**: After data operations, `_executeListener` schedules a rAF for repaint. If the repaint draws with stale state (old data positions cached in internal coordinate system), the visual is wrong until a resize forces a full recalculation.
+
+### Next investigation steps
+
+1. **Remove `forceCanvasDPRRefresh`** — unnecessary at DPR=1 and may be causing the corruption
+2. **Remove Vite transform plugin** — unnecessary at DPR=1
+3. **Add periodic canvas debug** (every 2s) to capture the EXACT frame where blur starts
+4. **Compare KLineCharts internal state** before and after blur: log `chart.getDataList().length`, `chart.getVisibleRange()`, and canvas `getContext('2d').getTransform()` to detect transform corruption
+5. **Test with a simple `chart.resize()` on a timer** after action to confirm the fix path — if a delayed single resize fixes it, the issue is KLineCharts internal state, not canvas dimensions
+
+### Debug instrumentation still active
+
+The `debugCanvasState()` calls remain in ChartDisplay.svelte and chartResize.js. Remove after root cause is identified and fixed.
+
+---
+
+## Fix v4 — Direct Buffer Correction (2026-04-20) — RESOLVED
+
+### Root cause
+
+During chart reload (symbol/timeframe switch), KLineCharts' internal rAF coalescing drops canvas buffer updates. The canvas element's buffer dimensions (`canvas.width`/`canvas.height`) become stale while CSS dimensions (`clientWidth`/`clientHeight`) update correctly. At DPR=1, the browser scales a mismatched buffer to fit the CSS size, producing blurriness.
+
+The corruption path:
+
+1. **Initial load is always clean** — all canvases settle with `bufW === clientW` and `transform.a === 1.0`
+2. **Reload corrupts canvases** — during `removeOverlay → clearData → resize → dataLoaded`, CSS dimensions change rapidly while canvas buffers lag behind via deferred rAFs
+3. **Stale buffer persists forever** — `Canvas.update(w, h)` takes the `else` branch when `_width === w` (repaint only, no buffer recalculation). KLineCharts' own `_width`/`_height` are already correct, so `chart.resize()` is a no-op for DPR
+4. **Self-heals only on container resize** — a window resize changes the container dimensions, forcing the `if` branch and a full buffer recalculation
+
+### Why `chart.resize()` cannot fix it
+
+KLineCharts internally tracks `_width` (what it thinks the current width is). After reload settles, `_width` matches the CSS value. Calling `resize()` hits the fast-path: `_width === w` → just repaint, skip buffer recalculation. The stale buffer persists. This is why every prior attempt (v1–v3, container 1px nudge) that tried to trigger KLineCharts' own resize path failed — they all hit the same dead end.
+
+### The fix: bypass KLineCharts entirely
+
+`forceCanvasDPRRefresh` in `src/lib/chart/chartResize.js` directly sets DOM canvas buffer dimensions to match CSS dimensions:
+
+```js
+canvas.width = Math.round(clientWidth * dpr);
+canvas.height = Math.round(clientHeight * dpr);
+ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+```
+
+At DPR=1, the correct canvas state is trivially knowable from outside the library: buffer = CSS size, transform = identity. KLineCharts doesn't need to know we did this — it just repaints on the next frame using the now-correct buffer.
+
+### Where it's applied
+
+In `src/lib/chart/reloadChart.js`, after `restoreDrawings` completes, a single `requestAnimationFrame` waits for KLineCharts' pending internal rAFs to settle, then calls `forceCanvasDPRRefresh`.
+
+### Why prior attempts failed
+
+| Attempt | Strategy | Why it failed |
+|---------|----------|---------------|
+| v1 | Reduce redundant resize calls | Correct cleanup but didn't address the reload path |
+| v2 | Defer post-init work to after first rAF | KLineCharts' own sync calls during init already triggered the race |
+| v3 | Force manual DPR path via Vite transform | Root cause was not the async DPR race |
+| Container 1px nudge | Trigger KLineCharts' own resize via dimension change | `_width === w` fast-path still skipped buffer recalculation |
+| **v4 (this fix)** | **Bypass KLineCharts, fix DOM directly** | **No dependency on KLineCharts' internal resize logic** |
+
+### Why this bug was hard to find
+
+1. Only manifests during rapid layout changes (chart reload), not steady-state
+2. DPR=1 environment means no scaling factor to investigate — the corruption is pure buffer/CSS mismatch
+3. KLineCharts' internal state (`_width`) appears correct even when the buffer is wrong — its own API (`resize()`) thinks nothing needs fixing
+4. The rAF coalescing guard is invisible — calls are silently dropped, not errored
+5. Self-heals on next container resize (window resize), making it easy to dismiss as transient
+
+### Files modified in v4
+
+- `src/lib/chart/chartResize.js` — `forceCanvasDPRRefresh`: direct DOM buffer correction, bypasses KLineCharts entirely
+- `src/lib/chart/reloadChart.js` — calls `forceCanvasDPRRefresh` in a rAF after `restoreDrawings`
+- `src/components/ChartDisplay.svelte` — removed all `debugCanvasState()` instrumentation

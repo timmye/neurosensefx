@@ -22,7 +22,7 @@
   import { DrawingCommandStack } from '../lib/chart/drawingCommands.js';
   import OverlayContextMenu from './OverlayContextMenu.svelte';
   import { createChartSubscriptions } from '../lib/chart/chartSubscriptions.js';
-  import { createResizeState, scheduleResize, cancelScheduledResize } from '../lib/chart/chartResize.js';
+  import { createResizeState, scheduleResize, cancelScheduledResize, forceCanvasDPRRefresh } from '../lib/chart/chartResize.js';
   import { createOverlayMeta } from '../lib/chart/overlayMeta.js';
   import { createReloadChart } from '../lib/chart/reloadChart.js';
   import { createBarSpace } from '../lib/chart/chartBarSpace.js';
@@ -192,6 +192,7 @@
   // --- Reload helper ---
   const { reload } = createReloadChart({
     get chart() { return chart; },
+    get chartContainer() { return chartContainer; },
     teardownSubscriptions,
     get loadChartData() { return loadChartData; },
     get restoreDrawings() { return overlayRestore.restoreDrawings; },
@@ -256,7 +257,9 @@
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
     if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
     overlayMeta.clear(); commandStack.clear();
-    loadChartData(currentSymbol, currentResolution, currentWindow, () => overlayRestore.restoreDrawings(currentSymbol, currentResolution));
+    loadChartData(currentSymbol, currentResolution, currentWindow, () => {
+      overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer));
+    });
   }
   function handleWindowChange(newWindow) {
     if (newWindow === currentWindow) return;
@@ -266,7 +269,9 @@
     updateWatermark();
     if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
     overlayMeta.clear(); commandStack.clear();
-    loadChartData(currentSymbol, currentResolution, currentWindow, () => overlayRestore.restoreDrawings(currentSymbol, currentResolution));
+    loadChartData(currentSymbol, currentResolution, currentWindow, () => {
+      overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer));
+    });
     workspaceActions.updateDisplay(display.id, { window: newWindow });
   }
 
@@ -396,7 +401,9 @@
               applyPricePrecision(currentSymbol);
               setupChartActions(chart, chartSubs, getChartActionDeps());
               loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-                overlayRestore.restoreDrawings(currentSymbol, currentResolution);
+                overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => {
+                  forceCanvasDPRRefresh(chartContainer);
+                });
               });
             });
           }
@@ -434,7 +441,9 @@
           applyPricePrecision(currentSymbol);
           setupChartActions(chart, chartSubs, getChartActionDeps());
           loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-            overlayRestore.restoreDrawings(currentSymbol, currentResolution);
+            overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => {
+              forceCanvasDPRRefresh(chartContainer);
+            });
           });
         });
       }
