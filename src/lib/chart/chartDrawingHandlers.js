@@ -60,9 +60,13 @@ export function createDrawingHandlers(deps) {
       overlayId: overlay.id, overlayType: overlay.name,
       points: overlay.points, styles: overlay.styles, extendData: overlay.extendData,
     };
+    const callbacks = {
+      ...deps.getOverlayCallbacks(),
+      _setDbId: (id, dbId) => deps.overlayMeta.setDbId(id, dbId),
+    };
     const command = new DeleteDrawingCommand(
       deps.chart, drawingStore, deps.currentSymbol, deps.currentResolution,
-      overlayId, dbId, serialized
+      overlayId, dbId, serialized, callbacks
     );
     deps.commandStack.execute(command);
     deps.overlayMeta.delete(overlayId);
@@ -91,7 +95,11 @@ export function createDrawingHandlers(deps) {
     if (deps.chart) deps.chart.removeOverlay();
     await drawingStore.clearAll(deps.currentSymbol, deps.currentResolution);
     deps.commandStack.clear();
-    deps.overlayMeta.clear();
+    for (const [id] of deps.overlayMeta.entries()) {
+      if (!id.includes('_pinned_')) {
+        deps.overlayMeta.delete(id);
+      }
+    }
   }
 
   return {

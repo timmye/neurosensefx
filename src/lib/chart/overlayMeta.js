@@ -20,5 +20,6 @@ export function createOverlayMeta() {
     getPinned(overlayId) { return meta.get(overlayId)?.pinned ?? false; },
     delete(overlayId) { meta.delete(overlayId); },
     clear() { meta.clear(); },
+    entries() { return meta.entries(); },
   };
 }

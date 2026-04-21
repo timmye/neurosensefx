@@ -50,10 +50,8 @@ export const drawingStore = {
             for (const d of merged) {
               await db.drawings.add({ ...d, symbol, resolution });
             }
-            // Sync merged result back to server if local had newer data
-            if (merged.length !== data.length) {
-              this._debouncedServerSync(symbol, resolution);
-            }
+            // Always re-sync merged result to server (idempotent PUT guarantees convergence)
+            this._debouncedServerSync(symbol, resolution);
             return merged;
           }
         }
@@ -162,6 +160,15 @@ export const drawingStore = {
    * Called on beforeunload — must not use async operations since the browser
    * will terminate the page before any promise resolves.
    */
+  cancelPendingSync(symbol, resolution) {
+    const key = symbol + '/' + resolution;
+    const existing = saveDebounceTimers.get(key);
+    if (existing) {
+      clearTimeout(existing);
+      saveDebounceTimers.delete(key);
+    }
+  },
+
   flushPending() {
     if (!get(authStore).isAuthenticated) return;
     for (const [key, timer] of saveDebounceTimers) {
@@ -171,7 +178,9 @@ export const drawingStore = {
       // data may be undefined if the 500ms debounce hasn't fired yet —
       // drawing is safe in IndexedDB and will sync on next load.
       if (data) {
-        const [symbol, resolution] = key.split('/');
+        const lastSlash = key.lastIndexOf('/');
+        const symbol = key.slice(0, lastSlash);
+        const resolution = key.slice(lastSlash + 1);
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
         navigator.sendBeacon(
           API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution),

@@ -33,6 +33,7 @@
   import { timezoneStore, resolvedTimezone } from '../stores/timezoneStore.js';
   import { setAxisTimezone } from '../lib/chart/xAxisCustom.js';
   import { createDrawingHandlers } from '../lib/chart/chartDrawingHandlers.js';
+  import { drawingStore } from '../lib/chart/drawingStore.js';
   import {
     initChart, setupResizeObserver, setupIndicators,
     setupChartActions, setupInteract, setupWheelHandler,
@@ -105,6 +106,11 @@
     return {
       onSelected: (e) => { selectedOverlayId = e.overlay.id; },
       onDeselected: () => { selectedOverlayId = null; },
+      onPressedMoveEnd: (e) => {
+        const o = e.overlay;
+        const dbId = getDbIdForOverlay(o.id);
+        if (dbId) drawingStore.update(dbId, { points: o.points });
+      },
       onRightClick: (e) => {
         const o = e.overlay;
         isOverlayLocked = o.lock;
@@ -236,6 +242,7 @@
   // --- Display change handlers ---
   function handleSymbolChange(newSymbol) {
     if (newSymbol === currentSymbol) return;
+    drawingStore.cancelPendingSync(currentSymbol, currentResolution);
     const remembered = sourceMemory.get(newSymbol);
     if (remembered && remembered !== currentSource) currentSource = remembered;
     currentSymbol = newSymbol;
@@ -249,6 +256,7 @@
   }
   function handleResolutionChange(newResolution) {
     if (newResolution === currentResolution) return;
+    drawingStore.cancelPendingSync(currentSymbol, currentResolution);
     teardownSubscriptions();
     currentResolution = newResolution;
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
@@ -263,6 +271,7 @@
   }
   function handleWindowChange(newWindow) {
     if (newWindow === currentWindow) return;
+    drawingStore.cancelPendingSync(currentSymbol, currentResolution);
     teardownSubscriptions();
     currentWindow = newWindow;
     setAxisWindow(currentWindow, chart);

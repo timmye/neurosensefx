@@ -8,7 +8,7 @@
  */
 
 export class DeleteDrawingCommand {
-  constructor(chart, store, symbol, resolution, overlayId, dbId, serializedOverlay) {
+  constructor(chart, store, symbol, resolution, overlayId, dbId, serializedOverlay, callbacks) {
     this.chart = chart;
     this.store = store;
     this.symbol = symbol;
@@ -16,6 +16,7 @@ export class DeleteDrawingCommand {
     this.overlayId = overlayId;
     this.dbId = dbId;
     this.serializedOverlay = serializedOverlay;
+    this.callbacks = callbacks;
   }
 
   execute() {
@@ -35,6 +36,14 @@ export class DeleteDrawingCommand {
     if (this.serializedOverlay.extendData != null) opts.extendData = this.serializedOverlay.extendData;
     this.chart.createOverlay(opts);
 
+    // Attach interaction callbacks (includes onPressedMoveEnd)
+    if (this.callbacks) {
+      this.chart.overrideOverlay({
+        id: this.serializedOverlay.overlayId,
+        ...this.callbacks,
+      });
+    }
+
     // Re-persist to IndexedDB so overlay has backing data after undo
     if (this.symbol && this.resolution) {
       const newDbId = await this.store.save(
@@ -51,6 +60,10 @@ export class DeleteDrawingCommand {
         }
       );
       this.dbId = newDbId;
+      // Re-register in overlayMeta so future operations (move, pin, delete) work
+      if (this.callbacks?._setDbId) {
+        this.callbacks._setDbId(this.serializedOverlay.overlayId, newDbId);
+      }
     }
   }
 }
