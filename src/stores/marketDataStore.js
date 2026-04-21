@@ -93,8 +93,12 @@ function normalizeData(data, currentState) {
       if (import.meta.env.DEV) console.warn('[marketDataStore] Legacy field "todaysOpen" used — backend should send "open"');
     }
 
+    const midPrice = (data.bid != null && data.ask != null && data.bid !== data.ask)
+      ? (data.bid + data.ask) / 2
+      : null;
+
     return {
-      current: data.current ?? data.price ?? data.initialPrice ?? data.bid ?? data.ask ?? null,
+      current: data.current ?? data.price ?? data.initialPrice ?? midPrice ?? data.bid ?? data.ask ?? null,
       high: data.high ?? data.todaysHigh ?? null,
       low: data.low ?? data.todaysLow ?? null,
       open: data.open ?? data.todaysOpen ?? null,
@@ -110,14 +114,17 @@ function normalizeData(data, currentState) {
       digits: data.digits ?? currentState.digits,
       source: data.source ?? currentState.source,
       marketProfile: currentState.marketProfile,
-      previousPrice: data.current ?? data.price ?? data.bid ?? data.ask ?? currentState.current ?? null,
+      previousPrice: data.current ?? data.price ?? midPrice ?? data.bid ?? data.ask ?? currentState.current ?? null,
       direction: 'neutral',
       receivedAt: data.receivedAt ?? null,
       sentAt: data.sentAt ?? null
     };
   }
   if (data.type === 'tick') {
-    const newPrice = data.price ?? data.bid ?? data.ask ?? currentState.current;
+    const midPrice = (data.bid != null && data.ask != null && data.bid !== data.ask)
+      ? (data.bid + data.ask) / 2
+      : null;
+    const newPrice = data.price ?? midPrice ?? data.bid ?? data.ask ?? currentState.current;
     const prevPrice = currentState.current ?? currentState.previousPrice;
     let direction = 'neutral';
     if (newPrice !== null && prevPrice !== null) {

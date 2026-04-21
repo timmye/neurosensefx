@@ -33,8 +33,7 @@ class CTraderEventHandler {
             },
             tick: {
                 symbol: symbolName,
-                bid: price,
-                ask: price,
+                price: price,
                 timestamp: timestamp,
                 pipPosition: symbolInfo.pipPosition,
                 pipSize: symbolInfo.pipSize,
@@ -98,6 +97,7 @@ class CTraderEventHandler {
             symbol: symbolName,
             bid: bidPrice,
             ask: askPrice,
+            price: (bidPrice + askPrice) / 2,
             timestamp: timestamp,
             pipPosition: symbolInfo.pipPosition,
             pipSize: symbolInfo.pipSize,

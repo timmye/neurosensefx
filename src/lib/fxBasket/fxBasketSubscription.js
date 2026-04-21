@@ -80,7 +80,9 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
         }
       }
     } else if (data.type === 'tick' && (data.bid || data.ask)) {
-      const currentPrice = data.bid || data.ask;
+      const currentPrice = (data.bid != null && data.ask != null && data.bid !== data.ask)
+        ? (data.bid + data.ask) / 2
+        : (data.bid || data.ask);
       store.current.set(pair, currentPrice);
 
       const dailyOpen = store.baseline.get(pair);

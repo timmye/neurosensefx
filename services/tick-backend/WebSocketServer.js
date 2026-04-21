@@ -51,7 +51,7 @@ class WebSocketServer {
         this.wss.on('connection', (ws, req) => this.handleConnection(ws, req));
 
         this.cTraderSession.on('tick', (tick) => {
-            const price = (tick.bid != null && tick.ask != null) ? (tick.bid + tick.ask) / 2 : tick.bid ?? tick.ask;
+            const price = tick.price ?? ((tick.bid != null && tick.ask != null) ? (tick.bid + tick.ask) / 2 : tick.bid ?? tick.ask);
             if (price != null) this.lastPrices.set(tick.symbol, { price, timestamp: Date.now() });
             this.dataRouter.routeFromCTrader(tick);
         });
