@@ -181,10 +181,11 @@ export const drawingStore = {
         const lastSlash = key.lastIndexOf('/');
         const symbol = key.slice(0, lastSlash);
         const resolution = key.slice(lastSlash + 1);
-        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-        navigator.sendBeacon(
+        // Use fetch+keepalive instead of sendBeacon: sendBeacon always sends POST
+        // but the server only handles PUT for this endpoint.
+        fetch(
           API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution),
-          blob
+          { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(data), keepalive: true }
         );
       }
     }

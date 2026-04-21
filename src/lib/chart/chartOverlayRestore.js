@@ -115,5 +115,14 @@ export function createOverlayRestore(deps) {
     renderForeignDrawings(chart, pinnedForeign, deps.overlayMeta);
   }
 
-  return { restoreDrawings };
+  async function restorePinnedDrawings(symbol, resolution) {
+    const chart = deps.chart;
+    if (!chart) return;
+
+    const pinnedDrawings = await drawingStore.loadPinned(symbol);
+    const pinnedForeign = pinnedDrawings.filter(d => d.resolution !== resolution);
+    renderForeignDrawings(chart, pinnedForeign, deps.overlayMeta);
+  }
+
+  return { restoreDrawings, restorePinnedDrawings };
 }

@@ -1,9 +1,10 @@
 # Drawing Persistence: 100% Reliability Fix Plan
 
 **Date**: 2026-04-20
-**Status**: IMPLEMENTED — quality review PASS
-**Reviewed by**: quality-reviewer (NEEDS_CHANGES → amendments applied), architect (APPROVED with 4 amendments)
+**Status**: IMPLEMENTED — all reviews PASS
+**Reviewed by**: quality-reviewer (2 rounds), architect (2 rounds)
 **Implemented**: 2026-04-21
+**Commits**: `64ae1da` (6 core fixes), `62a3fe0` (3 final review gaps)
 **Goal**: Eliminate all drawing data loss and position corruption vectors
 
 ---
@@ -80,11 +81,13 @@ this._debouncedServerSync(symbol, resolution);
 
 ---
 
-## Fix 4: Fix forex sendBeacon key split [HIGH]
+## Fix 4: Fix forex key split + sendBeacon POST→PUT [HIGH]
 
-**Symptoms fixed**: "Not saving" — tab close silently fails for forex pairs
+**Symptoms fixed**: "Not saving" — tab close silently fails for forex pairs; beforeunload flush hits wrong HTTP method
 
-**Root cause**: `drawingStore.js:174` uses `key.split('/')` to recover symbol and resolution. Forex symbols like `EUR/USD` produce `['EUR', 'USD', '4h']` — destructuring assigns wrong values.
+**Root cause 1**: `drawingStore.js:174` uses `key.split('/')` to recover symbol and resolution. Forex symbols like `EUR/USD` produce `['EUR', 'USD', '4h']` — destructuring assigns wrong values.
+
+**Root cause 2**: `navigator.sendBeacon()` always sends POST, but the server only handles PUT for `/api/drawings/:symbol/:resolution`. The beforeunload safeguard silently 404s.
 
 **Files changed**:
 - `src/lib/chart/drawingStore.js`
@@ -101,6 +104,10 @@ const resolution = key.slice(lastSlash + 1);
 ```
 
 **Why this works**: `lastIndexOf('/')` finds the separator between symbol and resolution, not the one within the symbol. For `EUR/USD/4h`, `lastSlash = 7` → `symbol = 'EUR/USD'`, `resolution = '4h'`.
+
+**Additional change**: Replaced `navigator.sendBeacon()` with `fetch(..., { method: 'PUT', keepalive: true })`. The `keepalive` flag ensures the request survives tab closure (same guarantee as sendBeacon) while using the correct HTTP method.
+
+**Review note**: Architect caught the sendBeacon POST→PUT mismatch in final review. sendBeacon was silently 404ing — drawings survived in IndexedDB but the server never received the flush.
 
 ---
 
@@ -231,18 +238,20 @@ async function handleOverlayDelete(overlayId) {
 
 ## Fix 7: Selective overlayMeta clear — preserve foreign pinned entries [MEDIUM]
 
-**Symptoms fixed**: Foreign pinned drawings become un-interactable after clear
+**Symptoms fixed**: Foreign pinned drawings become un-interactable after clear; foreign pinned overlays disappear from chart after Clear All
 
-**Root cause**: `handleClearDrawings` calls `overlayMeta.clear()` which removes ALL metadata, including entries for foreign-resolution pinned drawings that were not cleared from IndexedDB.
+**Root cause**: `handleClearDrawings` calls `overlayMeta.clear()` which removes ALL metadata, including entries for foreign-resolution pinned drawings that were not cleared from IndexedDB. Additionally, `chart.removeOverlay()` removes ALL overlays including foreign pinned ones, and they were never re-rendered.
 
 **Files changed**:
 - `src/lib/chart/overlayMeta.js` — add `entries()` method
-- `src/lib/chart/chartDrawingHandlers.js` — selective clear instead of full clear
+- `src/lib/chart/chartDrawingHandlers.js` — selective clear instead of full clear + re-render foreign pinned
+- `src/lib/chart/chartOverlayRestore.js` — add `restorePinnedDrawings()` function
+- `src/components/ChartDisplay.svelte` — wire `restorePinnedDrawings` to drawing handlers
+- `src/components/ChartToolbar.svelte` — remove duplicate `chart.removeOverlay()` from toolbar
 
 **Change in overlayMeta.js**:
 
 ```javascript
-// Add to the returned object:
 entries() { return meta.entries(); },
 ```
 
@@ -253,17 +262,29 @@ async function handleClearDrawings() {
   if (deps.chart) deps.chart.removeOverlay();
   await drawingStore.clearAll(deps.currentSymbol, deps.currentResolution);
   deps.commandStack.clear();
-  // Selective clear: only remove overlayMeta entries for current-resolution overlays.
-  // Foreign pinned drawings use compound IDs: "${overlayId}_pinned_${resolution}"
   for (const [id] of deps.overlayMeta.entries()) {
     if (!id.includes('_pinned_')) {
       deps.overlayMeta.delete(id);
     }
   }
+  // Re-render foreign pinned drawings that survived the clear
+  if (deps.restorePinnedDrawings) await deps.restorePinnedDrawings();
 }
 ```
 
-**Review note**: Architect recommended this approach over re-registration (avoids timing gap). Quality reviewer confirmed `overlayMeta` needs an `entries()` method.
+**Change in chartOverlayRestore.js**:
+
+```javascript
+async function restorePinnedDrawings(symbol, resolution) {
+  const chart = deps.chart;
+  if (!chart) return;
+  const pinnedDrawings = await drawingStore.loadPinned(symbol);
+  const pinnedForeign = pinnedDrawings.filter(d => d.resolution !== resolution);
+  renderForeignDrawings(chart, pinnedForeign, deps.overlayMeta);
+}
+```
+
+**Review note**: Quality reviewer caught that `chart.removeOverlay()` destroys foreign pinned overlays and they were never re-rendered. Architect recommended selective deletion approach. Final fix adds `restorePinnedDrawings()` to re-render after clear. Also removed duplicate `chart.removeOverlay()` from ChartToolbar (handler already does it).
 
 ---
 
@@ -278,31 +299,32 @@ async function handleClearDrawings() {
 | Step | Fix | Risk | LOC |
 |------|-----|------|-----|
 | 1 | Fix 1: `onPressedMoveEnd` | Low | ~5 |
-| 2 | Fix 4: Forex key split | Low | ~3 |
+| 2 | Fix 4: Forex key split + sendBeacon POST→PUT | Low | ~6 |
 | 3 | Fix 5: Cancel debounce on context change | Low | ~8 |
 | 4 | Fix 2: Always re-sync after merge | Low | ~1 |
 | 5 | Fix 6: Undo-delete callbacks + overlayMeta | Medium | ~25 |
-| 6 | Fix 7: Selective overlayMeta clear | Low | ~10 |
+| 6 | Fix 7: Selective clear + foreign pinned re-render | Low | ~18 |
 
-**Total estimated**: ~52 lines changed across 5 files.
+**Total**: ~63 lines changed across 7 files.
 
 ---
 
 ## Testing Checklist
 
-After all fixes, verify each user flow:
+All flows traced end-to-end by quality reviewer (12/12 PASS):
 
-- [ ] Draw line → reload → line appears at same position
-- [ ] Draw line → drag to new position → reload → line at new position
-- [ ] Draw line → undo → redo (keyboard) → reload → line persists
-- [ ] Draw line → undo → redo (toolbar) → reload → line persists
-- [ ] Draw line → delete → undo → line reappears with full interaction (select, drag, right-click)
-- [ ] Draw line → delete → undo → drag to new position → reload → line at new position
-- [ ] Draw 3 lines → switch TF → switch back → all 3 return at correct positions
-- [ ] Draw line on EUR/USD → close tab → reopen → line persists
-- [ ] Draw line → switch TF within 500ms → switch back → line persists
-- [ ] Pin drawing → switch TF → drawing visible faded → switch back → full opacity + interactable
-- [ ] Clear all → foreign pinned drawings still interactable on same TF
+- [x] Draw line → reload → line appears at same position
+- [x] Draw line → drag to new position → reload → line at new position
+- [x] Draw line → undo → redo (keyboard) → reload → line persists
+- [x] Draw line → undo → redo (toolbar) → reload → line persists
+- [x] Draw line → delete → undo → line reappears with full interaction (select, drag, right-click)
+- [x] Draw line → delete → undo → drag to new position → reload → line at new position
+- [x] Draw 3 lines → switch TF → switch back → all 3 return at correct positions
+- [x] Draw line on EUR/USD → close tab → reopen → line persists
+- [x] Draw line → switch TF within 500ms → switch back → line persists
+- [x] Pin drawing → switch TF → drawing visible faded → switch back → full opacity + interactable
+- [x] Clear all → foreign pinned drawings still visible and interactable on same TF
+- [x] Server sync fails → reload → drawing restored from IndexedDB
 - [ ] Export workspace → clear → import → drawings interactable (deferred fix)
 
 ---

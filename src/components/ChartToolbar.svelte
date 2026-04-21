@@ -153,7 +153,6 @@
 
   function handleClearDrawings() {
     if (!chart) return;
-    chart.removeOverlay();
     if (commandStack) {
       commandStack.clear();
     }

@@ -20,6 +20,7 @@ import {
  * @param {object} deps.overlayMeta - overlayMeta instance
  * @param {function} deps.getDbIdForOverlay - (overlayId) => dbId|null
  * @param {function} deps.getOverlayCallbacks - () => { onSelected, onDeselected, onRightClick }
+ * @param {function} deps.restorePinnedDrawings - () => Promise<void> re-renders foreign pinned overlays
  */
 export function createDrawingHandlers(deps) {
   function registerOverlayForInteraction(overlayId, persistPromise) {
@@ -100,6 +101,8 @@ export function createDrawingHandlers(deps) {
         deps.overlayMeta.delete(id);
       }
     }
+    // Re-render foreign pinned drawings that survived the clear
+    if (deps.restorePinnedDrawings) await deps.restorePinnedDrawings();
   }
 
   return {

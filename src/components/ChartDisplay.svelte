@@ -178,6 +178,9 @@
     overlayMeta,
     getDbIdForOverlay,
     getOverlayCallbacks,
+    get restorePinnedDrawings() {
+      return () => overlayRestore.restorePinnedDrawings(currentSymbol, currentResolution);
+    },
   });
 
   // --- Data loading wrapper (manages unsubscribe refs) ---
