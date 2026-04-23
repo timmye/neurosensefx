@@ -13,6 +13,7 @@
   export let activeDrawingTool = null;
   export let magnetMode = false;
   export let source = 'tradingview';
+  export let windowMode = 'developing';
 
   const dispatch = createEventDispatcher();
 
@@ -69,6 +70,11 @@
 
   function handleWindowClick(window) {
     dispatch('window', window);
+  }
+
+  function handleWindowModeClick() {
+    const next = windowMode === 'developing' ? 'rolling' : 'developing';
+    dispatch('windowModeChange', next);
   }
 
   function handleDrawingToolClick(tool) {
@@ -188,6 +194,15 @@
         </button>
       {/each}
     {/each}
+    <span class="separator">|</span>
+    <button
+      class="action-btn"
+      class:active={windowMode === 'rolling'}
+      on:click={handleWindowModeClick}
+      title="Window mode: {windowMode === 'developing' ? 'Developing (calendar-aligned)' : 'Rolling (fixed lookback)'}"
+    >
+      {windowMode === 'developing' ? 'Dev' : 'Roll'}
+    </button>
     <span class="separator">|</span>
     <button
       class="source-btn"

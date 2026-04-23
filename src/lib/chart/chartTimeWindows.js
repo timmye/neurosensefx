@@ -70,19 +70,15 @@ function alignYearRange(now, count) {
  *   from = start of the (count + extraPeriods)th historical period
  *         before the current period's snap boundary
  *
- * Day windows ('1d', '2d') remain rolling.
  * Week windows snap to Monday UTC.
  * Month windows snap to 1st of month UTC.
  * Year windows: 1Y snaps to quarter starts, multi-year to Jan 1 UTC.
+ * Day windows (e.g., '1d', '2d') use simple millisecond lookback
+ * without calendar alignment; extraPeriods extends the range for
+ * pre-fetch buffering.
  */
 export function getCalendarAlignedRange(windowStr, extraPeriods = 1) {
   const to = Date.now();
-
-  if (windowStr === '1d' || windowStr === '2d') {
-    const windowMs = WINDOW_MS[windowStr] ?? WINDOW_MS['1d'];
-    return { from: to - windowMs * 2, to };
-  }
-
   const now = new Date(to);
   const { count, unit } = parseWindowString(windowStr);
 
@@ -96,10 +92,26 @@ export function getCalendarAlignedRange(windowStr, extraPeriods = 1) {
     if (extraPeriods > 0) from = alignYearRange(new Date(from), 1);
   } else {
     const windowMs = WINDOW_MS[windowStr] ?? WINDOW_MS['3M'];
-    from = to - windowMs * 2;
+    from = to - windowMs * (2 + extraPeriods);
   }
 
   return { from, to };
+}
+
+/**
+ * Compute a rolling (non-calendar-aligned) time range.
+ *
+ * Returns { from, to } where:
+ *   to   = Date.now()
+ *   from = to - windowMs * (1 + extraPeriods)
+ *
+ * Used when the user selects "Rolling" mode — a fixed lookback
+ * from today with no calendar boundary snapping.
+ */
+export function getRollingRange(windowStr, extraPeriods = 1) {
+  const to = Date.now();
+  const windowMs = WINDOW_MS[windowStr] ?? WINDOW_MS['3M'];
+  return { from: to - windowMs * (1 + extraPeriods), to };
 }
 
 /**

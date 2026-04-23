@@ -5,6 +5,7 @@
 
 import {
   getCalendarAlignedRange,
+  getRollingRange,
 } from './chartConfig.js';
 
 /** Map a bar object to KLineChart data shape. */
@@ -40,11 +41,12 @@ export function tryApplyData(chart, chartContainer, klineData, applyBarSpace, se
   }
 }
 
-/** Compute calendar-aligned fetch range and return { exact, buffered }. */
-export function computeFetchRange(window) {
+/** Compute fetch range and return { exact, buffered }. Mode: 'developing' (calendar-aligned) or 'rolling'. */
+export function computeFetchRange(window, mode = 'developing') {
+  const rangeFn = mode === 'rolling' ? getRollingRange : getCalendarAlignedRange;
   return {
-    exact: getCalendarAlignedRange(window, 0),
-    buffered: getCalendarAlignedRange(window, 1),
+    exact: rangeFn(window, 0),
+    buffered: rangeFn(window, 1),
   };
 }
 

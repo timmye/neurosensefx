@@ -49,6 +49,7 @@
   let currentResolution = display.resolution || '4h';
   let currentWindow = display.window || DEFAULT_RESOLUTION_WINDOW[currentResolution] || '3M';
   let currentSource = display.source || 'tradingview';
+  let currentWindowMode = display.windowMode || 'developing';
   const sourceMemory = new Map();
   let isMinimized = display.isMinimized ?? false;
 
@@ -186,7 +187,7 @@
   // --- Data loading wrapper (manages unsubscribe refs) ---
   function loadChartData(symbol, resolution, window, onDataReady) {
     barStoreUnsubscribe?.(); tickUnsubscribe?.();
-    const result = dataLoader.loadChartData(symbol, resolution, window, currentSource, onDataReady);
+    const result = dataLoader.loadChartData(symbol, resolution, window, currentSource, onDataReady, currentWindowMode);
     barStoreUnsubscribe = result.barUnsub;
     tickUnsubscribe = result.tickUnsub;
     currentRangeFrom = result.rangeFrom;
@@ -272,11 +273,10 @@
       overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer));
     });
   }
-  function handleWindowChange(newWindow) {
-    if (newWindow === currentWindow) return;
+  function reloadChartSetting(updateFn, persistProps) {
     drawingStore.cancelPendingSync(currentSymbol, currentResolution);
     teardownSubscriptions();
-    currentWindow = newWindow;
+    updateFn();
     setAxisWindow(currentWindow, chart);
     updateWatermark();
     if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
@@ -284,7 +284,15 @@
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
       overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer));
     });
-    workspaceActions.updateDisplay(display.id, { window: newWindow });
+    workspaceActions.updateDisplay(display.id, persistProps);
+  }
+  function handleWindowChange(newWindow) {
+    if (newWindow === currentWindow) return;
+    reloadChartSetting(() => { currentWindow = newWindow; }, { window: newWindow });
+  }
+  function handleWindowModeChange(newMode) {
+    if (newMode === currentWindowMode) return;
+    reloadChartSetting(() => { currentWindowMode = newMode; }, { windowMode: newMode });
   }
 
   // --- Window-level handlers ---
@@ -498,10 +506,11 @@
 
   {#if !isMinimized}
     <ChartToolbar {currentResolution} {currentWindow} {chart} {commandStack} {canUndo} {canRedo}
-      source={currentSource}
+      source={currentSource} windowMode={currentWindowMode}
       bind:activeDrawingTool bind:magnetMode
       on:resolution={e => handleResolutionChange(e.detail)}
       on:window={e => handleWindowChange(e.detail)}
+      on:windowModeChange={e => handleWindowModeChange(e.detail)}
       on:sourceChange={e => handleSourceChange(e.detail)}
       on:drawingCreated={drawingHandlers.handleDrawingCreated}
       on:redo={e => drawingHandlers.redoCreateCommand(e.detail)}

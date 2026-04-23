@@ -22,7 +22,7 @@ import {
  * @param {object} deps.chartSubs - per-instance subscription manager
  */
 export function createChartDataLoader(deps) {
-  function loadChartData(symbol, resolution, window, source, onDataReady) {
+  function loadChartData(symbol, resolution, window, source, onDataReady, windowMode = 'developing') {
     const store = getChartBarStore(symbol, resolution);
     store.set({ bars: [], state: 'loading', error: null });
 
@@ -37,7 +37,7 @@ export function createChartDataLoader(deps) {
     const marketStore = getMarketDataStore(symbol);
     const tickUnsub = subscribeToLiveTicks(marketStore, deps.chart);
 
-    const { exact, buffered } = computeFetchRange(window);
+    const { exact, buffered } = computeFetchRange(window, windowMode);
     loadHistoricalBars(symbol, resolution, buffered.from, buffered.to, source);
 
     return { barUnsub, tickUnsub, rangeFrom: exact.from, fetchFrom: buffered.from };

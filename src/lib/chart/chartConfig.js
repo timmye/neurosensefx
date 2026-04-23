@@ -26,5 +26,6 @@ export {
 export {
   windowToMs,
   getCalendarAlignedRange,
+  getRollingRange,
   calcBarSpace,
 } from './chartTimeWindows.js';

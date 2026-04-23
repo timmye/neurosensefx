@@ -117,7 +117,8 @@ const actions = {
             position: display.position,
             size: display.size,
             resolution: display.resolution,
-            window: display.window
+            window: display.window,
+            windowMode: display.windowMode
           }
         };
       }
@@ -479,6 +480,7 @@ const actions = {
         zIndex: state.nextZIndex,
         resolution: ghost?.resolution || '4h',
         window: ghost?.window || '3M',
+        windowMode: ghost?.windowMode || 'developing',
         isMinimized: false,
         showHeader: true
       };
