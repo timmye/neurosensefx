@@ -108,12 +108,12 @@ class WebSocketServer {
         this.tradingViewSession.on('error', (error) => console.error('[TradingView] Backend error:', error));
 
         // Start heartbeat to keep frontend connections alive
-        // Frontend expects messages within 10 seconds, we send every 5 seconds
-        console.log('[WebSocketServer] Starting heartbeat interval (5s - aggressive for trading)');
+        // Frontend expects messages within 30 seconds, we send every 15 seconds
+        console.log('[WebSocketServer] Starting heartbeat interval (15s)');
         this.heartbeatInterval = setInterval(() => {
             console.log('[WebSocketServer] Heartbeat interval triggered');
             this.sendHeartbeat();
-        }, 5000);
+        }, 15000);
 
         // Schedule daily reset at 0000hrs UTC
         console.log('[WebSocketServer] Scheduling daily reset at 0000hrs UTC');

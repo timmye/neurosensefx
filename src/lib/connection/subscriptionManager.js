@@ -61,7 +61,10 @@ export class SubscriptionManager {
         break;
       }
       this.sendSubscription(ws, pending[i]);
-      if (i < pending.length - 1) await new Promise(r => setTimeout(r, 400));
+      // Batch in groups of 10 with a short pause between batches
+      if ((i + 1) % 10 === 0 && i < pending.length - 1) {
+        await new Promise(r => setTimeout(r, 200));
+      }
     }
   }
 
@@ -124,11 +127,22 @@ export class SubscriptionManager {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const keys = Array.from(this.subscriptions.keys());
     for (let i = 0; i < keys.length; i++) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) break;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        // Re-queue remaining subscriptions so they aren't lost on reconnect
+        for (let j = i; j < keys.length; j++) {
+          const [symbol, source] = keys[j].split(':');
+          const adr = this.subscriptionAdr.get(keys[j]) || 14;
+          this.pendingSubscriptions.push({ symbol, adr, source });
+        }
+        break;
+      }
       const [symbol, source] = keys[i].split(':');
       const adr = this.subscriptionAdr.get(keys[i]) || 14;
       this.sendSubscription(ws, { symbol, adr, source });
-      if (i < keys.length - 1) await new Promise(r => setTimeout(r, 400));
+      // Batch in groups of 10 with a short pause between batches
+      if ((i + 1) % 10 === 0 && i < keys.length - 1) {
+        await new Promise(r => setTimeout(r, 200));
+      }
     }
   }
 

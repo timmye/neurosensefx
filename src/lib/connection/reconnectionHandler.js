@@ -14,8 +14,8 @@ export class ReconnectionHandler {
     this.attempts = 0;
     this.maxAttempts = this.getMaxAttemptsFromEnv();
     this.originalMaxAttempts = this.maxAttempts;
-    this.baseDelay = 500; // Fast initial reconnect
-    this.maxDelayMs = 10000; // Cap at 10s for trading
+    this.baseDelay = 1000; // 1s initial reconnect avoids thundering herd
+    this.maxDelayMs = 15000; // Cap at 15s balances recovery with server load
     this.lastFailureTime = null;
     this.resetWindowMs = 60000;
   }

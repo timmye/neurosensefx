@@ -20,7 +20,7 @@ export class ConnectionHandler {
     // Heartbeat/timeout mechanism to detect stale connections
     this.lastMessageTime = null;
     this.heartbeatCheckInterval = null;
-    this.heartbeatTimeoutMs = 10000; // 10 seconds - allows for backend 5s heartbeat + jitter
+    this.heartbeatTimeoutMs = 30000; // 30 seconds - allows for backend 15s heartbeat + tunnel jitter
   }
 
   connect() {
