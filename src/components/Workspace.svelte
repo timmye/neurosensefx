@@ -179,7 +179,7 @@
     unsubs.push(keyManager.register(
       { key: 'a', alt: true }, () => {
         const symbol = prompt('Enter symbol:');
-        if (symbol) workspaceActions.addDisplay(formatSymbol(symbol, 'ctrader'), null, 'ctrader');
+        if (symbol) workspaceActions.addDisplay(formatSymbol(symbol, 'ctrader'), null, 'ctrader', { width: 220, height: 360 });
         return true;
       }, { priority: 0 }
     ));
@@ -196,7 +196,7 @@
     unsubs.push(keyManager.register(
       { key: 't', alt: true }, () => {
         const symbol = prompt('Enter symbol (TradingView):');
-        if (symbol) workspaceActions.addDisplay(formatSymbol(symbol, 'tradingview'), null, 'tradingview');
+        if (symbol) workspaceActions.addDisplay(formatSymbol(symbol, 'tradingview'), null, 'tradingview', { width: 220, height: 360 });
         return true;
       }, { priority: 0 }
     ));

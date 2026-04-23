@@ -2,15 +2,18 @@
 // Creates draggable/resizable configuration with snap modifiers
 import interact from 'interactjs';
 
-const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+// Only detect iOS as a touch-primary device that needs interact.js disabled.
+// Desktop touchpads and Windows touchscreens should still get drag/resize.
+// navigator.maxTouchPoints > 0 is true on many laptops, so we can't use that.
+const isIOSTouch = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 export function createInteractConfig(element, callbacks) {
   const { onDragMove, onResizeMove, onTap, resizable = true, ignoreFrom = null } = callbacks;
 
-  // On touch devices, skip interact.js entirely — don't even call interact(element)
-  // because it registers global document-level touchmove listeners with passive:false
-  // on iOS, which blocks all native scroll regardless of whether draggable is enabled.
-  if (isTouchDevice) {
+  // On iOS, skip interact.js entirely — it registers global document-level
+  // touchmove listeners with passive:false which blocks all native scroll.
+  if (isIOSTouch) {
     return null;
   }
 

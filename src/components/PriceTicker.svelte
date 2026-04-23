@@ -392,7 +392,7 @@
   .stats-column {
     flex: 1;
     min-width: 0;
-    padding: 8px;
+    padding: 4px 8px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -432,7 +432,7 @@
   }
 
   .daily-change {
-    font-size: 15px;
+    font-size: 20px;
     font-weight: 600;
   }
 

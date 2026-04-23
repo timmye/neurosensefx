@@ -5,7 +5,7 @@ import { calculateAdaptiveScale } from './dayRangeCalculations.js';
 
 // Convert Y coordinate to price using day range coordinate system
 export function toPrice(canvas, scale, data, y) {
-  const h = canvas.height;
+  const h = canvas.getBoundingClientRect().height;
   const padding = 5; // CRITICAL: Use 5px padding to match day range meter exactly
 
   // If we have current market data, use the adaptive scale from day range

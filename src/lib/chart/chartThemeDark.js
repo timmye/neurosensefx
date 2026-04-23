@@ -2,7 +2,7 @@
  * NeuroSense FX — Dark Theme (Slate + Green Accent)
  *
  * Palette:
- *   Body up:    #26a69a (teal)      Body down:  #ef5350 (red)
+ *   Body up:    #66bb6a (green)     Body down:  #ef5350 (red)
  *   Border up:  #d1d4dc (light)     Border dn:  #d1d4dc (light)
  *   Accent:     #34d399 (green)     Bollinger:  upper=red, MA=light, lower=teal
  */
@@ -29,7 +29,7 @@ export const DARK_THEME = {
     type: 'candle_solid',
     bar: {
       compareRule: 'current_open',
-      upColor: '#26a69a',
+      upColor: '#66bb6a',
       downColor: '#ef5350',
       noChangeColor: '#787b86',
       upBorderColor: '#a3a6ad',

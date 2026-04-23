@@ -114,7 +114,7 @@ registerOverlay({
 
     return [
       { type: 'line', attrs: lines },
-      { type: 'text', attrs: texts }
+      { type: 'text', attrs: texts, styles: { style: 'fill', color: '#ef5350', size: 11, family: '"Georgia Pro", Georgia, serif', weight: 'normal', borderStyle: 'solid', borderSize: 0, borderColor: 'transparent', borderRadius: 0, backgroundColor: 'transparent' } }
     ];
   }
 });
