@@ -72,17 +72,29 @@
   const resizeState = createResizeState();
   const chartSubs = createChartSubscriptions(() => chart);
   let currentRangeFrom = 0;
-  let barStoreUnsubscribe = null, tickUnsubscribe = null;
+  let barStoreUnsubscribe = null;
 
   // --- Axis formatter ---
   const formatAxisLabel = createAxisFormatter(() => currentWindow, () => $resolvedTimezone);
 
   // --- Price precision ---
+  let precisionUnsubscribe = null;
   function applyPricePrecision(symbol) {
     if (!chart) return;
+    precisionUnsubscribe?.();
     const store = getMarketDataStore(symbol);
     const data = get(store);
     chart.setPriceVolumePrecision(data.digits ?? (data.pipPosition ?? 4) + 1, 0);
+    // If digits not yet loaded, self-unsubscribe once real data arrives
+    if (data.digits == null) {
+      precisionUnsubscribe = store.subscribe(value => {
+        if (!chart) return;
+        if (value.digits != null) {
+          precisionUnsubscribe?.(); precisionUnsubscribe = null;
+        }
+        chart.setPriceVolumePrecision(value.digits ?? (value.pipPosition ?? 4) + 1, 0);
+      });
+    }
   }
 
   // --- Watermark ---
@@ -186,16 +198,15 @@
 
   // --- Data loading wrapper (manages unsubscribe refs) ---
   function loadChartData(symbol, resolution, window, onDataReady) {
-    barStoreUnsubscribe?.(); tickUnsubscribe?.();
+    barStoreUnsubscribe?.();
     const result = dataLoader.loadChartData(symbol, resolution, window, currentSource, onDataReady, currentWindowMode);
     barStoreUnsubscribe = result.barUnsub;
-    tickUnsubscribe = result.tickUnsub;
     currentRangeFrom = result.rangeFrom;
   }
 
   function teardownSubscriptions() {
     barStoreUnsubscribe?.(); barStoreUnsubscribe = null;
-    tickUnsubscribe?.(); tickUnsubscribe = null;
+    precisionUnsubscribe?.(); precisionUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution, currentSource);
   }
 
@@ -481,7 +492,7 @@
   onDestroy(() => {
     keyUnsubs.forEach(fn => fn()); keyUnsubs = [];
     barStoreUnsubscribe?.(); barStoreUnsubscribe = null;
-    tickUnsubscribe?.(); tickUnsubscribe = null;
+    precisionUnsubscribe?.(); precisionUnsubscribe = null;
     unsubscribeFromCandles(currentSymbol, currentResolution, currentSource);
     chartSubs.unsubscribeAll();
     if (mousedownHandler && chartContainer) { chartContainer.removeEventListener('mousedown', mousedownHandler); mousedownHandler = null; }

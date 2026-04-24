@@ -1,13 +1,13 @@
 /**
- * Chart data loader factory: resets bar store, subscribes to bars + ticks,
- * triggers historical load. Returns unsubscribe handles.
+ * Chart data loader factory: resets bar store, subscribes to bars + ticks
+ * via single-writer reconciliation, triggers historical load.
+ * Returns unsubscribe handle.
  */
 
 import { getChartBarStore, loadHistoricalBars } from '../../stores/chartDataStore.js';
 import { getMarketDataStore } from '../../stores/marketDataStore.js';
 import {
-  subscribeToBarStore,
-  subscribeToLiveTicks,
+  createReconcile,
   computeFetchRange,
 } from './chartTickSubscriptions.js';
 
@@ -26,21 +26,23 @@ export function createChartDataLoader(deps) {
     const store = getChartBarStore(symbol, resolution);
     store.set({ bars: [], state: 'loading', error: null });
 
-    const barUnsub = subscribeToBarStore(store, deps.chart, {
-      applyBarSpace: deps.applyBarSpace,
-      chartContainer: deps.chartContainer,
-      setPending: deps.setPending,
-      onDataReady,
-      chartSubs: deps.chartSubs,
-    });
-
     const marketStore = getMarketDataStore(symbol);
-    const tickUnsub = subscribeToLiveTicks(marketStore, deps.chart);
+
+    const { unsubscribe: reconcileUnsub } = createReconcile(
+      deps.chart, store, marketStore,
+      {
+        applyBarSpace: deps.applyBarSpace,
+        chartContainer: deps.chartContainer,
+        setPending: deps.setPending,
+        onDataReady,
+        chartSubs: deps.chartSubs,
+      },
+    );
 
     const { exact, buffered } = computeFetchRange(window, windowMode);
     loadHistoricalBars(symbol, resolution, buffered.from, buffered.to, source);
 
-    return { barUnsub, tickUnsub, rangeFrom: exact.from, fetchFrom: buffered.from };
+    return { barUnsub: reconcileUnsub, rangeFrom: exact.from, fetchFrom: buffered.from };
   }
 
   return { loadChartData };

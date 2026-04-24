@@ -10,6 +10,7 @@ Unit tests for chart modules — runs via `npm run test:unit`, no DOM or canvas 
 | `drawingCommands.test.js` | 6 tests — undo/redo stack ops, async error recovery, maxDepth eviction, clear | Debugging undo/redo, adding command tests |
 | `overlayMeta.test.js` | 6 tests — dbId/pinned CRUD, delete, clear | Debugging overlay metadata, adding meta tests |
 | `styleUtils.test.js` | 6 tests — fadeColor for rgb, rgba, hex formats | Debugging color fading, adding style tests |
+| `reconcile.test.js` | 15 tests — createReconcile single-writer: full replace, new-bar append, tick merge, same-timestamp skip, rAF coalescing, unsubscribe; mapBarToKline | Debugging reconciliation logic, adding reconcile tests |
 
 ## Subdirectories
 
