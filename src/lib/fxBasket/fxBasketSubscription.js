@@ -51,7 +51,7 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
       store.baseline.set(pair, dailyOpen);
       store.pairs.add(pair);
 
-      const currentPrice = data.current || data.bid || data.ask || dailyOpen;
+      const currentPrice = data.current || data.bid || data.ask || data.initialPrice || dailyOpen;
       store.current.set(pair, currentPrice);
 
       const wasReady = trackPair(stateMachine, pair, dailyOpen, currentPrice);
