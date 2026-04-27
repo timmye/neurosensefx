@@ -28,7 +28,7 @@ export class ConnectionManager {
     return sharedInstance;
   }
 
-  connect(fromReconnect = false) {
+  async connect(fromReconnect = false) {
     // Only clear the reconnect timeout if this is NOT called from the scheduled reconnect itself
     // This prevents visibility changes from canceling exponential backoff
     if (!fromReconnect && this.reconnectTimeout) {

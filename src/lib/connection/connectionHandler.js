@@ -23,7 +23,7 @@ export class ConnectionHandler {
     this.heartbeatTimeoutMs = 30000; // 30 seconds - allows for backend 15s heartbeat + tunnel jitter
   }
 
-  connect() {
+  async connect() {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     // Clean up old WebSocket if it exists and is not OPEN
@@ -41,6 +41,16 @@ export class ConnectionHandler {
 
     this.connecting = true;
     this.status = 'connecting';
+
+    // Pre-warm the connection path with a lightweight HTTP probe.
+    // This ensures the backend (or tunnel/proxy) is reachable before
+    // attempting the WebSocket upgrade, avoiding silent hangs on cold starts.
+    try {
+      await fetch(this.url.replace(/^ws/, 'http'), { method: 'HEAD', mode: 'no-cors' });
+    } catch {
+      // Proceed regardless — probe failure doesn't mean WS will fail
+    }
+
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
