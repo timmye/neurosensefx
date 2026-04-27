@@ -125,7 +125,7 @@ export class SubscriptionManager {
 
   async resubscribeAll(ws) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const keys = Array.from(this.subscriptions.keys());
+    const keys = Array.from(this.subscriptions.keys()).filter(k => k !== '__SYSTEM__');
     for (let i = 0; i < keys.length; i++) {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         // Re-queue remaining subscriptions so they aren't lost on reconnect

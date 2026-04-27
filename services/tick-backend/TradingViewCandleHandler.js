@@ -237,9 +237,15 @@ class TradingViewCandleHandler {
 /**
  * Estimate pip data from price magnitude.
  * TradingView doesn't provide pipPosition, so estimate from price.
+ *
+ * Thresholds tuned to real instrument ranges:
+ *   > 10000  indices/crypto (US30 ~39850, BTC ~67500) → pipPosition=1
+ *   > 1000   gold (XAUUSD ~2340) → pipPosition=1
+ *   > 10     silver (XAGUSD ~29), JPY pairs (USDJPY ~149) → pipPosition=2
+ *   ≤ 10     major FX (EURUSD ~1.08, GBPUSD ~1.27) → pipPosition=4
  */
 function estimatePipData(price) {
-    if (price > 10000) return { pipPosition: 0, pipSize: 1, pipetteSize: 0.1 };
+    if (price > 10000) return { pipPosition: 1, pipSize: 0.1, pipetteSize: 0.01 };
     if (price > 1000) return { pipPosition: 1, pipSize: 0.1, pipetteSize: 0.01 };
     if (price > 10) return { pipPosition: 2, pipSize: 0.01, pipetteSize: 0.001 };
     return { pipPosition: 4, pipSize: 0.0001, pipetteSize: 0.00001 };

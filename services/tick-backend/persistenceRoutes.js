@@ -41,33 +41,50 @@ router.get('/api/workspace', async (req, res) => {
     }
 });
 
-/** PUT /api/drawings/:symbol/:resolution — save drawings for a symbol/resolution pair (upsert). */
+/** PUT /api/drawings/:symbol/:resolution — save drawings with optimistic locking. */
 router.put('/api/drawings/:symbol/:resolution', async (req, res) => {
     const { symbol, resolution } = req.params;
+    const clientVersion = parseInt(req.headers['x-drawings-version'], 10) || 0;
     try {
-        await query(
-            'INSERT INTO drawings (user_id, symbol, resolution, data, updated_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) ON CONFLICT (user_id, symbol, resolution) DO UPDATE SET data = $4, updated_at = CURRENT_TIMESTAMP',
-            [req.userId, symbol.toUpperCase(), resolution, JSON.stringify(req.body)]
+        const result = await query(
+            `INSERT INTO drawings (user_id, symbol, resolution, data, updated_at, version)
+             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, 1)
+             ON CONFLICT (user_id, symbol, resolution)
+             DO UPDATE SET data = $4, updated_at = CURRENT_TIMESTAMP, version = drawings.version + 1
+             WHERE drawings.version = $5
+             RETURNING version`,
+            [req.userId, symbol.toUpperCase(), resolution, JSON.stringify(req.body), clientVersion]
         );
-        res.json({ success: true });
+        if (result.rows.length === 0) {
+            const current = await query(
+                'SELECT data, version FROM drawings WHERE user_id = $1 AND symbol = $2 AND resolution = $3',
+                [req.userId, symbol.toUpperCase(), resolution]
+            );
+            return res.status(409).json({
+                error: 'VERSION_CONFLICT',
+                data: current.rows[0]?.data || [],
+                version: current.rows[0]?.version || 1,
+            });
+        }
+        res.json({ success: true, version: result.rows[0].version });
     } catch (err) {
         console.error('[Persistence] PUT /api/drawings error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Failed to save drawings');
     }
 });
 
-/** GET /api/drawings/:symbol/:resolution — load drawings for a symbol/resolution pair. */
+/** GET /api/drawings/:symbol/:resolution — load drawings with version. */
 router.get('/api/drawings/:symbol/:resolution', async (req, res) => {
     const { symbol, resolution } = req.params;
     try {
         const result = await query(
-            'SELECT data FROM drawings WHERE user_id = $1 AND symbol = $2 AND resolution = $3',
+            'SELECT data, version FROM drawings WHERE user_id = $1 AND symbol = $2 AND resolution = $3',
             [req.userId, symbol.toUpperCase(), resolution]
         );
         if (result.rows.length === 0) {
-            return res.json({ data: null });
+            return res.json({ data: null, version: 0 });
         }
-        res.json({ data: result.rows[0].data });
+        res.json({ data: result.rows[0].data, version: result.rows[0].version });
     } catch (err) {
         console.error('[Persistence] GET /api/drawings error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Failed to load drawings');
@@ -130,7 +147,7 @@ router.post('/api/migrate', async (req, res) => {
         if (drawings && Array.isArray(drawings)) {
             for (const d of drawings) {
                 await client.query(
-                    'INSERT INTO drawings (user_id, symbol, resolution, data, updated_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) ON CONFLICT (user_id, symbol, resolution) DO UPDATE SET data = $4, updated_at = CURRENT_TIMESTAMP',
+                    'INSERT INTO drawings (user_id, symbol, resolution, data, updated_at, version) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, 1) ON CONFLICT (user_id, symbol, resolution) DO UPDATE SET data = $4, updated_at = CURRENT_TIMESTAMP',
                     [req.userId, d.symbol.toUpperCase(), d.resolution, JSON.stringify(d.data)]
                 );
             }

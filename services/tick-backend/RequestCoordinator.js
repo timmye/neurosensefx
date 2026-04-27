@@ -15,6 +15,10 @@ class RequestCoordinator {
         this._queue = [];
         this._processing = false;
         this._MIN_REQUEST_INTERVAL_MS = 300;
+        // TradingView subscription queue — prevents IP ban from burst subscriptions
+        this._tvQueue = [];
+        this._tvProcessing = false;
+        this._TV_MIN_INTERVAL_MS = 500; // 500ms between TradingView subscriptions (safe per community evidence)
     }
 
     /**
@@ -292,6 +296,7 @@ class RequestCoordinator {
 
     /**
      * Handle TradingView subscription request
+     * Queues the subscription to avoid IP ban from TradingView burst subscriptions.
      * @param {string} symbol - Symbol to fetch
      * @param {number} adrLookbackDays - ADR lookback period
      * @param {WebSocket} client - Client making the request
@@ -331,20 +336,55 @@ class RequestCoordinator {
 
         this.wsServer.tradingViewSession.once('candle', onDataPackage);
 
-        try {
-            await this.wsServer.tradingViewSession.subscribeToSymbol(symbol, adrLookbackDays);
-        } catch (error) {
-            console.error(`Failed to get TradingView data for ${symbol}:`, error);
-            this.pendingTradingViewRequests.get(symbol)?.delete(client);
-            this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
-            this.wsServer.sendToClient(client, {
-                type: 'error',
-                message: `Failed to get TradingView data for ${symbol}: ${error.message}`,
-                symbol: symbol,
-                source: 'tradingview'
-            });
-            throw error;
+        // Queue the TradingView subscription to avoid IP ban
+        return this._enqueueTradingView(async () => {
+            try {
+                await this.wsServer.tradingViewSession.subscribeToSymbol(symbol, adrLookbackDays);
+            } catch (error) {
+                console.error(`Failed to get TradingView data for ${symbol}:`, error);
+                this.pendingTradingViewRequests.get(symbol)?.delete(client);
+                this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
+                this.wsServer.sendToClient(client, {
+                    type: 'error',
+                    message: `Failed to get TradingView data for ${symbol}: ${error.message}`,
+                    symbol: symbol,
+                    source: 'tradingview'
+                });
+                throw error;
+            }
+        });
+    }
+
+    /**
+     * Enqueue a TradingView subscription with rate limiting.
+     * TradingView bans IPs that send too many subscriptions in rapid succession,
+     * so we serialize them with a 2s interval between each.
+     */
+    _enqueueTradingView(fn) {
+        return new Promise((resolve, reject) => {
+            this._tvQueue.push({ fn, resolve, reject });
+            this._processTradingViewQueue();
+        });
+    }
+
+    /**
+     * Process TradingView subscription queue with minimum interval between starts.
+     */
+    async _processTradingViewQueue() {
+        if (this._tvProcessing) return;
+        this._tvProcessing = true;
+        while (this._tvQueue.length > 0) {
+            const { fn, resolve, reject } = this._tvQueue.shift();
+            try {
+                resolve(await fn());
+            } catch (error) {
+                reject(error);
+            }
+            if (this._tvQueue.length > 0) {
+                await new Promise(r => setTimeout(r, this._TV_MIN_INTERVAL_MS));
+            }
         }
+        this._tvProcessing = false;
     }
 
     /**

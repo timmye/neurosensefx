@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS drawings (
     UNIQUE(user_id, symbol, resolution)
 );
 
+-- Optimistic locking: version column for concurrent drawing sync (ref: drawing-persistence-reliability)
+ALTER TABLE drawings ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
+
 CREATE TABLE IF NOT EXISTS price_markers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
