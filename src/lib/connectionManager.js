@@ -10,6 +10,8 @@ export class ConnectionManager {
     this.connectionHandler = new ConnectionHandler(url);
     this.subscriptionManager = new SubscriptionManager();
     this.reconnectionHandler = new ReconnectionHandler();
+    this.pendingMessages = [];
+    this._pendingFlushed = false;
     this.statusCallbacks = new Set();
     this.reconnectTimeout = null;
     this.reconnectScheduled = false;
@@ -34,12 +36,14 @@ export class ConnectionManager {
       this.reconnectTimeout = null;
     }
     this.reconnectScheduled = false;
+    this._pendingFlushed = false;
     const h = this.connectionHandler;
     h.onOpen = () => {
       this.reconnectionHandler.resetAttempts();
       // Track if flushPending will handle initial subscriptions
       this._skipResubscribe = this.subscriptionManager.hasPending();
       this.subscriptionManager.flushPending(h.getWebSocket());
+      this.flushPendingMessages();
       this.notifyStatusChange();
     };
     h.onClose = () => {
@@ -88,7 +92,7 @@ export class ConnectionManager {
     this.reconnectScheduled = true;
     if (!this.isTabVisible) {
         // Use longer delay when tab is hidden instead of pausing completely
-        const hiddenDelay = Math.min(delay * 3, 60000); // Cap at 60s
+        const hiddenDelay = Math.min(delay * 2, 30000); // Cap at 30s
         this.reconnectTimeout = setTimeout(() => {
           this.reconnectScheduled = false;
           this.connect(true);
@@ -140,12 +144,58 @@ export class ConnectionManager {
     const ws = this.connectionHandler.getWebSocket();
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       if (import.meta.env.DEV) {
-        console.warn('[ConnectionManager] sendRaw() called with non-OPEN WebSocket');
+        console.warn('[ConnectionManager] sendRaw() queued (WebSocket not open):', message.type);
       }
+      // Dedup getHistoricalCandles — only keep latest per symbol+resolution
+      if (message.type === 'getHistoricalCandles') {
+        const idx = this.pendingMessages.findIndex(
+          m => m.type === message.type && m.symbol === message.symbol && m.resolution === message.resolution
+        );
+        if (idx !== -1) this.pendingMessages.splice(idx, 1);
+      }
+      // Cap queue to prevent unbounded growth during extended disconnection
+      if (this.pendingMessages.length >= 50) {
+        this.pendingMessages.shift();
+      }
+      this.pendingMessages.push(message);
       return false;
     }
     ws.send(JSON.stringify(message));
     return true;
+  }
+
+  flushPendingMessages() {
+    if (this.pendingMessages.length === 0) return;
+    const pending = this.pendingMessages;
+    this.pendingMessages = [];
+    const ws = this.connectionHandler.getWebSocket();
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      // Re-queue: connection closed between swap and check
+      this.pendingMessages = pending;
+      return;
+    }
+    if (import.meta.env.DEV) {
+      console.log(`[ConnectionManager] Flushing ${pending.length} pending messages`);
+    }
+    const remaining = [...pending];
+    for (const msg of pending) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        // Re-queue remaining messages (match SubscriptionManager pattern)
+        this.pendingMessages.unshift(...remaining);
+        return;
+      }
+      try {
+        ws.send(JSON.stringify(msg));
+        remaining.shift();
+      } catch (e) {
+        if (import.meta.env.DEV) {
+          console.warn('[ConnectionManager] Failed to flush pending message, re-queuing remaining:', e);
+        }
+        this.pendingMessages.unshift(...remaining);
+        return;
+      }
+    }
+    this._pendingFlushed = true;
   }
 
   addSystemSubscription(callback) {
@@ -188,4 +238,6 @@ export class ConnectionManager {
     if (s === 'disconnected') return n > 0 ? 'Disconnected' : 'Idle';
     return 'Unknown';
   }
+
+  get hasFlushedPendingMessages() { return this._pendingFlushed; }
 }

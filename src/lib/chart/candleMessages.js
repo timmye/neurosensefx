@@ -97,8 +97,19 @@ export function registerCandleHandlers(connectionManager, deps) {
       const previousSubs = new Map(deps.candleSubscriptions);
       deps.candleSubscriptions.clear();
 
+      // If pending messages were flushed on open, chart subscriptions were already sent.
+      // Restore candleSubscriptions without re-sending to avoid duplicates.
+      const cm = deps.getConnectionManager?.();
+      const alreadyFlushed = cm && cm.hasFlushedPendingMessages;
+
       for (const [key, storedSource] of previousSubs) {
         const [symbol, resolution] = key.split(':');
+
+        if (alreadyFlushed) {
+          deps.candleSubscriptions.set(key, storedSource);
+          continue;
+        }
+
         const sent = deps.sendSubscribeCandles(symbol, resolution, storedSource);
         if (sent) {
           deps.candleSubscriptions.set(key, storedSource);
@@ -113,7 +124,6 @@ export function registerCandleHandlers(connectionManager, deps) {
           const from = current.bars[current.bars.length - 1].timestamp;
           deps.sendGetHistoricalCandles(symbol, resolution, from, to, storedSource);
         } else if (deps.loadHistoricalBars) {
-          // Initial load failed (WS wasn't open) — retry full load
           deps.loadHistoricalBars(symbol, resolution, 0, Date.now(), storedSource);
         }
       }

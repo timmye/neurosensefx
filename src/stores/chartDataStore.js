@@ -23,7 +23,7 @@ const loadingTimers = new Map();
 const storeKey = (symbol, resolution) => `${symbol}:${resolution}`;
 
 function buildCandleDeps() {
-  return { getChartBarStore, getMarketDataStore, storeKey, subscribeToCandles, putCachedBars, evictStaleCache, sendSubscribeCandles, sendGetHistoricalCandles, loadHistoricalBars, loadingTimers, candleSubscriptions, STATE };
+  return { getChartBarStore, getMarketDataStore, storeKey, subscribeToCandles, putCachedBars, evictStaleCache, sendSubscribeCandles, sendGetHistoricalCandles, loadHistoricalBars, loadingTimers, candleSubscriptions, STATE, getConnectionManager: ensureConnectionManager };
 }
 
 function setupCandleMessageHandler() {
@@ -90,9 +90,7 @@ export async function loadHistoricalBars(symbol, resolution, fromTimestamp, toTi
     store.set({ bars: [], state: STATE.READY, error: `Unknown resolution: ${resolution}` });
     return;
   }
-  if (!sendGetHistoricalCandles(symbol, resolution, fromTimestamp, toTimestamp, source)) {
-    store.set({ bars: [], state: STATE.READY, error: 'WebSocket not connected' });
-  }
+  sendGetHistoricalCandles(symbol, resolution, fromTimestamp, toTimestamp, source);
 }
 
 export async function loadMoreHistory(symbol, resolution, source = 'ctrader') {
@@ -113,9 +111,5 @@ export async function loadMoreHistory(symbol, resolution, source = 'ctrader') {
 
   const rangeLimit = PERIOD_RANGE_LIMITS[fetchPeriod];
   const oldest = current.bars[0].timestamp;
-  if (!sendGetHistoricalCandles(symbol, resolution, Math.max(oldest - rangeLimit, 0), oldest, source)) {
-    store.set({ ...current, state: STATE.READY });
-    clearTimeout(loadingTimers.get(timerKey));
-    loadingTimers.delete(timerKey);
-  }
+  sendGetHistoricalCandles(symbol, resolution, Math.max(oldest - rangeLimit, 0), oldest, source);
 }

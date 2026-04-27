@@ -7,6 +7,7 @@
  */
 
 import { forceCanvasDPRRefresh } from './chartResize.js';
+import { ConnectionManager } from '../connectionManager.js';
 
 export function createReloadChart(deps) {
   function clearChartState() {
@@ -21,6 +22,13 @@ export function createReloadChart(deps) {
 
   function reload(symbol, resolution, window, opts = {}) {
     deps.teardownSubscriptions();
+    // Clear stale pending chart messages from previous symbol
+    const cm = ConnectionManager.getInstance();
+    if (cm) {
+      cm.pendingMessages = cm.pendingMessages.filter(
+        m => m.type !== 'getHistoricalCandles' && m.type !== 'subscribeCandles' && m.type !== 'unsubscribeCandles'
+      );
+    }
     clearChartState();
     if (opts.applyPrecision) {
       deps.applyPricePrecision(symbol);
@@ -40,7 +48,7 @@ export function createReloadChart(deps) {
         requestAnimationFrame(() => {
           forceCanvasDPRRefresh(deps.chartContainer);
         });
-      });
+      }).catch(err => console.error('[reloadChart] restoreDrawings failed:', err));
     });
   }
 
