@@ -358,7 +358,7 @@ const actions = {
 
               for (const drawing of drawings) {
                 try {
-                  // Omit id/createdAt/updatedAt so Dexie auto-generates fresh values
+                  if (!drawing.overlayId) continue; // Skip pre-migration drawings without overlayId
                   const { id, createdAt, updatedAt, ...rest } = drawing;
                   await drawingStore.save(symbol, resolution, rest);
                 } catch (saveErr) {

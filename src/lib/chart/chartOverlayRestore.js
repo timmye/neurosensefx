@@ -11,14 +11,14 @@ import {
 } from './styleUtils.js';
 
 /**
- * Merge local drawings with same-resolution pinned drawings (dedup by dbId).
+ * Merge local drawings with same-resolution pinned drawings (dedup by overlayId).
  * Returns { mergedLocal, pinnedForeign }.
  */
 function mergeDrawings(localDrawings, pinnedDrawings, resolution) {
   const pinnedLocal = new Map();
   const pinnedForeign = [];
   for (const d of pinnedDrawings) {
-    if (d.resolution === resolution) pinnedLocal.set(d.id, d);
+    if (d.resolution === resolution) pinnedLocal.set(d.overlayId, d);
     else pinnedForeign.push(d);
   }
 
@@ -26,12 +26,12 @@ function mergeDrawings(localDrawings, pinnedDrawings, resolution) {
   const seenIds = new Set();
   for (const d of localDrawings) {
     mergedLocal.push(d);
-    seenIds.add(d.id);
+    seenIds.add(d.overlayId);
   }
   for (const [, d] of pinnedLocal) {
-    if (!seenIds.has(d.id)) {
+    if (!seenIds.has(d.overlayId)) {
       mergedLocal.push(d);
-      seenIds.add(d.id);
+      seenIds.add(d.overlayId);
     }
   }
 
@@ -43,6 +43,7 @@ function mergeDrawings(localDrawings, pinnedDrawings, resolution) {
  */
 function renderLocalDrawings(chart, drawings, callbacks, overlayMeta) {
   for (const drawing of drawings) {
+    if (!drawing.overlayId) continue;
     const opts = {
       id: drawing.overlayId,
       name: drawing.overlayType,
@@ -52,7 +53,6 @@ function renderLocalDrawings(chart, drawings, callbacks, overlayMeta) {
     };
     if (drawing.extendData != null) opts.extendData = drawing.extendData;
     chart.createOverlay(opts);
-    overlayMeta.setDbId(drawing.overlayId, drawing.id);
     overlayMeta.setPinned(drawing.overlayId, drawing.pinned || false);
     if (drawing.locked) {
       chart.overrideOverlay({ id: drawing.overlayId, lock: true });
@@ -89,7 +89,6 @@ function renderForeignDrawings(chart, drawings, overlayMeta) {
       opts.extendData = withOriginBadge(drawing.extendData, drawing.resolution);
     }
     chart.createOverlay(opts);
-    overlayMeta.setDbId(compoundId, drawing.id);
   }
 }
 

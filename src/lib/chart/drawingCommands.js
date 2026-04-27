@@ -83,7 +83,6 @@ export class CreateDrawingCommand {
     this.extendData = extendData;
     this.pinned = pinned;
     this.overlayId = null;
-    this.dbId = null;
   }
 
   execute() {
@@ -109,18 +108,15 @@ export class CreateDrawingCommand {
       };
       if (this.extendData != null) data.extendData = this.extendData;
       if (this.pinned != null) data.pinned = this.pinned;
-      return this.dbId = await this.store.save(this.symbol, this.resolution, data);
+      await this.store.save(this.symbol, this.resolution, data);
     }
   }
 
   undo() {
     if (this.overlayId) {
       this.chart.removeOverlay({ id: this.overlayId });
+      this.store.remove(this.overlayId);
       this.overlayId = null;
-    }
-    if (this.dbId) {
-      this.store.remove(this.dbId);
-      this.dbId = null;
     }
   }
 }

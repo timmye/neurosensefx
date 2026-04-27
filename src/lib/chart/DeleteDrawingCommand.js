@@ -8,22 +8,19 @@
  */
 
 export class DeleteDrawingCommand {
-  constructor(chart, store, symbol, resolution, overlayId, dbId, serializedOverlay, callbacks) {
+  constructor(chart, store, symbol, resolution, overlayId, serializedOverlay, callbacks) {
     this.chart = chart;
     this.store = store;
     this.symbol = symbol;
     this.resolution = resolution;
     this.overlayId = overlayId;
-    this.dbId = dbId;
     this.serializedOverlay = serializedOverlay;
     this.callbacks = callbacks;
   }
 
   execute() {
     this.chart.removeOverlay({ id: this.overlayId });
-    if (this.dbId) {
-      this.store.remove(this.dbId);
-    }
+    this.store.remove(this.overlayId);
   }
 
   async undo() {
@@ -46,7 +43,7 @@ export class DeleteDrawingCommand {
 
     // Re-persist to IndexedDB so overlay has backing data after undo
     if (this.symbol && this.resolution) {
-      const newDbId = await this.store.save(
+      await this.store.save(
         this.symbol,
         this.resolution,
         {
@@ -59,11 +56,6 @@ export class DeleteDrawingCommand {
           locked: this.serializedOverlay.locked,
         }
       );
-      this.dbId = newDbId;
-      // Re-register in overlayMeta so future operations (move, pin, delete) work
-      if (this.callbacks?._setDbId) {
-        this.callbacks._setDbId(this.serializedOverlay.overlayId, newDbId);
-      }
     }
   }
 }

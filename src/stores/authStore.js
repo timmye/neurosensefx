@@ -54,6 +54,7 @@ async function collectLocalData() {
         const db = new Dexie('NeuroSenseDrawings');
         db.version(1).stores({ drawings: '++id, [symbol+resolution], overlayType, createdAt' });
         db.version(2).stores({ drawings: '++id, [symbol+resolution], symbol, overlayType, createdAt' });
+        db.version(3).stores({ drawings: 'overlayId, [symbol+resolution], symbol, overlayType, createdAt' });
         const allDrawings = await db.drawings.toArray();
         const byKey = new Map();
         for (const d of allDrawings) {
@@ -62,7 +63,9 @@ async function collectLocalData() {
             byKey.get(k).push(d);
         }
         for (const [key, items] of byKey) {
-            const [symbol, resolution] = key.split('/');
+            const lastSlash = key.lastIndexOf('/');
+            const symbol = key.slice(0, lastSlash);
+            const resolution = key.slice(lastSlash + 1);
             data.drawings.push({ symbol, resolution, data: items });
         }
         await db.close();

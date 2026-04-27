@@ -18,7 +18,6 @@ import {
  * @param {string} deps.currentSymbol - current symbol
  * @param {string} deps.currentResolution - current resolution
  * @param {object} deps.overlayMeta - overlayMeta instance
- * @param {function} deps.getDbIdForOverlay - (overlayId) => dbId|null
  * @param {function} deps.getOverlayCallbacks - () => { onSelected, onDeselected, onRightClick }
  * @param {function} deps.restorePinnedDrawings - () => Promise<void> re-renders foreign pinned overlays
  */
@@ -27,8 +26,7 @@ export function createDrawingHandlers(deps) {
     deps.overlayMeta.setPinned(overlayId, false);
     deps.chart.overrideOverlay({ id: overlayId, ...deps.getOverlayCallbacks() });
     if (persistPromise) {
-      persistPromise.then(dbId => {
-        deps.overlayMeta.setDbId(overlayId, dbId);
+      persistPromise.then(() => {
         const overlay = deps.chart.getOverlayById(overlayId);
         if (overlay) {
           const ext = overlay.extendData;
@@ -56,18 +54,16 @@ export function createDrawingHandlers(deps) {
   async function handleOverlayDelete(overlayId) {
     const overlay = deps.chart.getOverlayById(overlayId);
     if (!overlay) return;
-    const dbId = deps.getDbIdForOverlay(overlayId);
     const serialized = {
       overlayId: overlay.id, overlayType: overlay.name,
       points: overlay.points, styles: overlay.styles, extendData: overlay.extendData,
     };
     const callbacks = {
       ...deps.getOverlayCallbacks(),
-      _setDbId: (id, dbId) => deps.overlayMeta.setDbId(id, dbId),
     };
     const command = new DeleteDrawingCommand(
       deps.chart, drawingStore, deps.currentSymbol, deps.currentResolution,
-      overlayId, dbId, serialized, callbacks
+      overlayId, serialized, callbacks
     );
     deps.commandStack.execute(command);
     deps.overlayMeta.delete(overlayId);
@@ -78,16 +74,13 @@ export function createDrawingHandlers(deps) {
     if (!overlay) return;
     const newLock = !overlay.lock;
     deps.chart.overrideOverlay({ id: overlayId, lock: newLock });
-    const dbId = deps.getDbIdForOverlay(overlayId);
-    if (dbId) await drawingStore.update(dbId, { locked: newLock });
+    await drawingStore.update(overlayId, { locked: newLock });
     return newLock;
   }
 
   async function handleContextMenuTogglePin(overlayId, isPinned) {
-    const dbId = deps.getDbIdForOverlay(overlayId);
-    if (!dbId) return;
     const newPinned = !isPinned;
-    await drawingStore.update(dbId, { pinned: newPinned });
+    await drawingStore.update(overlayId, { pinned: newPinned });
     deps.overlayMeta.setPinned(overlayId, newPinned);
     return newPinned;
   }

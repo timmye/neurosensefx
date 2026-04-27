@@ -111,18 +111,13 @@
   }
 
   // --- Overlay helpers ---
-  function getDbIdForOverlay(overlayId) {
-    return overlayMeta.getDbId(overlayId);
-  }
-
   function getOverlayCallbacks() {
     return {
       onSelected: (e) => { selectedOverlayId = e.overlay.id; },
       onDeselected: () => { selectedOverlayId = null; },
       onPressedMoveEnd: (e) => {
         const o = e.overlay;
-        const dbId = getDbIdForOverlay(o.id);
-        if (dbId) drawingStore.update(dbId, { points: o.points });
+        drawingStore.update(o.id, { points: o.points });
       },
       onRightClick: (e) => {
         const o = e.overlay;
@@ -189,7 +184,6 @@
     get currentSymbol() { return currentSymbol; },
     get currentResolution() { return currentResolution; },
     overlayMeta,
-    getDbIdForOverlay,
     getOverlayCallbacks,
     get restorePinnedDrawings() {
       return () => overlayRestore.restorePinnedDrawings(currentSymbol, currentResolution);
@@ -281,7 +275,7 @@
     if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
     overlayMeta.clear(); commandStack.clear();
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-      overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer));
+      overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer)).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
     });
   }
   function reloadChartSetting(updateFn, persistProps) {
@@ -293,7 +287,7 @@
     if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
     overlayMeta.clear(); commandStack.clear();
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-      overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer));
+      overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer)).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
     });
     workspaceActions.updateDisplay(display.id, persistProps);
   }
@@ -434,7 +428,7 @@
               loadChartData(currentSymbol, currentResolution, currentWindow, () => {
                 overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => {
                   forceCanvasDPRRefresh(chartContainer);
-                });
+                }).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
               });
             });
           }
@@ -474,7 +468,7 @@
           loadChartData(currentSymbol, currentResolution, currentWindow, () => {
             overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => {
               forceCanvasDPRRefresh(chartContainer);
-            });
+            }).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
           });
         });
       }

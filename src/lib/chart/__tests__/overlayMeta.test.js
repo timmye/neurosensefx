@@ -2,18 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createOverlayMeta } from '../overlayMeta.js';
 
 describe('createOverlayMeta', () => {
-  it('setDbId + getDbId round-trip', () => {
-    const meta = createOverlayMeta();
-    meta.setDbId('overlay-1', 'db-42');
-    expect(meta.getDbId('overlay-1')).toBe('db-42');
-  });
-
-  it('getDbId returns null for unknown overlay', () => {
-    const meta = createOverlayMeta();
-    expect(meta.getDbId('nonexistent')).toBeNull();
-  });
-
-  it('setPinned + getPinned + isPinned round-trip', () => {
+  it('setPinned + getPinned round-trip', () => {
     const meta = createOverlayMeta();
     meta.setPinned('overlay-2', true);
     expect(meta.getPinned('overlay-2')).toBe(true);
@@ -24,30 +13,43 @@ describe('createOverlayMeta', () => {
     expect(meta.getPinned('overlay-3')).toBe(false);
   });
 
-  it('delete() clears both dbId and pinned for an overlay', () => {
+  it('delete() clears pinned for an overlay', () => {
     const meta = createOverlayMeta();
-    meta.setDbId('overlay-4', 'db-99');
     meta.setPinned('overlay-4', true);
 
-    expect(meta.getDbId('overlay-4')).toBe('db-99');
     expect(meta.getPinned('overlay-4')).toBe(true);
 
     meta.delete('overlay-4');
 
-    expect(meta.getDbId('overlay-4')).toBeNull();
     expect(meta.getPinned('overlay-4')).toBe(false);
   });
 
   it('clear() removes all entries', () => {
     const meta = createOverlayMeta();
-    meta.setDbId('a', '1');
-    meta.setDbId('b', '2');
     meta.setPinned('a', true);
+    meta.setPinned('b', true);
 
     meta.clear();
 
-    expect(meta.getDbId('a')).toBeNull();
-    expect(meta.getDbId('b')).toBeNull();
     expect(meta.getPinned('a')).toBe(false);
+    expect(meta.getPinned('b')).toBe(false);
+  });
+
+  it('entries() returns all tracked overlays', () => {
+    const meta = createOverlayMeta();
+    meta.setPinned('a', true);
+    meta.setPinned('b', false);
+
+    const entries = [...meta.entries()];
+    expect(entries).toHaveLength(2);
+    expect(entries.map(e => e[0]).sort()).toEqual(['a', 'b']);
+  });
+
+  it('get() returns entry or undefined', () => {
+    const meta = createOverlayMeta();
+    meta.setPinned('x', true);
+
+    expect(meta.get('x')).toEqual({ pinned: true });
+    expect(meta.get('unknown')).toBeUndefined();
   });
 });
