@@ -6,4 +6,5 @@ Root-level E2E test suite (separate from src/tests/e2e/).
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
+| `reconnect-reliability.spec.js` | Reconnection reliability tests (__SYSTEM__ filter, subscription restore, batch-of-10) | Testing WebSocket reconnection behavior, subscription restoration, batch timing |
 | `workspace_import_test_file.json` | Test fixture for workspace import E2E tests | Debugging workspace import, adding import test cases |
