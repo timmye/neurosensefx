@@ -106,6 +106,23 @@ export class SubscriptionManager {
       return;
     }
 
+    // Profile updates are also source-agnostic: deliver to all symbol subscribers
+    // regardless of which source they subscribed to (profile data is shared)
+    if (message.type === 'profileUpdate' && !message.source) {
+      const delivered = new Set();
+      for (const [key, callbacks] of this.subscriptions) {
+        if (key.startsWith(`${message.symbol}:`)) {
+          callbacks.forEach((cb) => {
+            if (!delivered.has(cb)) {
+              delivered.add(cb);
+              try { cb(message); } catch (e) { console.error(`profileUpdate callback error for ${key}:`, e); }
+            }
+          });
+        }
+      }
+      return;
+    }
+
     const key = message.source ? this.makeKey(message.symbol, message.source) : message.symbol;
     const callbacks = this.subscriptions.get(key);
 

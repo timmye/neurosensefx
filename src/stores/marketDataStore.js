@@ -205,6 +205,12 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
     if (data.type === 'profileUpdate') {
       const store = getMarketDataStore(symbol);
       store.update(current => {
+        // TradingView-primary: if we already have TV profile data,
+        // skip cTrader updates to avoid stale/overlapping data
+        if (data.feedSource === 'ctrader' && current._profileSource === 'tradingview') {
+          return current;
+        }
+
         let levels;
         if (data.profile?.levels) {
           levels = data.profile.levels;
@@ -236,6 +242,7 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
           low: profileLow !== null
             ? Math.min(current.low ?? profileLow, profileLow)
             : current.low,
+          _profileSource: data.feedSource,
           lastUpdate: Date.now()
         };
       });

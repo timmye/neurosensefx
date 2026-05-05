@@ -36,12 +36,14 @@ class DataRouter {
         const message = {
             type: 'profileUpdate',
             symbol,
-            source,
+            feedSource: source,
             seq,
             ...(isDelta ? { delta: profileOrDelta } : { profile: profileOrDelta })
         };
         if (DEBUG) console.log(`[DataRouter] About to call broadcastToClients for ${source}`);
-        this.broadcastToClients(message, symbol, source);
+        // Broadcast to ALL sources — profile data is shared regardless of originating feed
+        this.broadcastToClients(message, symbol, 'ctrader');
+        this.broadcastToClients(message, symbol, 'tradingview');
         if (DEBUG) console.log(`[DataRouter] Profile update broadcast complete for ${symbol}:${source}`);
     }
 
