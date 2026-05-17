@@ -7,7 +7,7 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const { CTraderSession } = require('./CTraderSession');
 const { TradingViewSession } = require('./TradingViewSession');
 const { WebSocketServer } = require('./WebSocketServer');
-const { listen: listenHttp, server: httpServer } = require('./httpServer');
+const { listen: listenHttp, server: httpServer, addCandleApiRoutes } = require('./httpServer');
 const { verifySchema } = require('./db');
 
 // Create services first (needed by WebSocketServer and TradingViewSession)
@@ -31,6 +31,9 @@ console.log(`📊 TradingView Session: ${tradingViewSessionId ? 'authenticated' 
 
 const session = new CTraderSession();
 const tradingViewSession = new TradingViewSession(twapService, marketProfileService);
+
+// Register HTTP API routes that depend on the cTrader session
+addCandleApiRoutes(session);
 // WebSocketServer receives the shared http.Server instead of a port (ref: DL-002).
 // Express and ws share the same HTTP server; cookies are sent on WS upgrade.
 const wsServer = new WebSocketServer(httpServer, session, tradingViewSession, twapService, marketProfileService);

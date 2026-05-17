@@ -10,11 +10,8 @@ const { requireAuth, errorResponse } = require('./middleware');
 
 const router = express.Router();
 
-// All persistence endpoints require authentication
-router.use(requireAuth);
-
 /** PUT /api/workspace — save workspace layout (upsert). */
-router.put('/api/workspace', async (req, res) => {
+router.put('/api/workspace', requireAuth, async (req, res) => {
     try {
         await query(
             'INSERT INTO workspaces (user_id, layout, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (user_id) DO UPDATE SET layout = $2, updated_at = CURRENT_TIMESTAMP',
@@ -28,7 +25,7 @@ router.put('/api/workspace', async (req, res) => {
 });
 
 /** GET /api/workspace — load workspace layout. Returns {layout: null} if none exists. */
-router.get('/api/workspace', async (req, res) => {
+router.get('/api/workspace', requireAuth, async (req, res) => {
     try {
         const result = await query('SELECT layout FROM workspaces WHERE user_id = $1', [req.userId]);
         if (result.rows.length === 0) {
@@ -42,7 +39,7 @@ router.get('/api/workspace', async (req, res) => {
 });
 
 /** PUT /api/drawings/:symbol/:resolution — save drawings with optimistic locking. */
-router.put('/api/drawings/:symbol/:resolution', async (req, res) => {
+router.put('/api/drawings/:symbol/:resolution', requireAuth, async (req, res) => {
     const { symbol, resolution } = req.params;
     const clientVersion = parseInt(req.headers['x-drawings-version'], 10) || 0;
     try {
@@ -74,7 +71,7 @@ router.put('/api/drawings/:symbol/:resolution', async (req, res) => {
 });
 
 /** GET /api/drawings/:symbol/:resolution — load drawings with version. */
-router.get('/api/drawings/:symbol/:resolution', async (req, res) => {
+router.get('/api/drawings/:symbol/:resolution', requireAuth, async (req, res) => {
     const { symbol, resolution } = req.params;
     try {
         const result = await query(
@@ -92,7 +89,7 @@ router.get('/api/drawings/:symbol/:resolution', async (req, res) => {
 });
 
 /** PUT /api/markers/:symbol — save price markers for a symbol (upsert). */
-router.put('/api/markers/:symbol', async (req, res) => {
+router.put('/api/markers/:symbol', requireAuth, async (req, res) => {
     const { symbol } = req.params;
     try {
         await query(
@@ -107,7 +104,7 @@ router.put('/api/markers/:symbol', async (req, res) => {
 });
 
 /** GET /api/markers/:symbol — load price markers for a symbol. */
-router.get('/api/markers/:symbol', async (req, res) => {
+router.get('/api/markers/:symbol', requireAuth, async (req, res) => {
     const { symbol } = req.params;
     try {
         const result = await query(
@@ -130,7 +127,7 @@ router.get('/api/markers/:symbol', async (req, res) => {
  * the entire migration rolls back and local data is preserved (ref: DL-007, DL-022).
  * Body: {workspace?, drawings?: [{symbol, resolution, data}], markers?: [{symbol, data}]}
  */
-router.post('/api/migrate', async (req, res) => {
+router.post('/api/migrate', requireAuth, async (req, res) => {
     const { workspace, drawings, markers } = req.body;
     // Raw pool.connect for transaction control (ref: DL-022)
     const client = await pool.connect();
