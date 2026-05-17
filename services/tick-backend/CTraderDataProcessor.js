@@ -138,7 +138,7 @@ class CTraderDataProcessor {
                     // No progress — avoid infinite loop by advancing past chunkEnd
                     currentFrom = chunkEnd;
                 } else {
-                    currentFrom = lastBarTs + 1;
+                    currentFrom = chunkEnd;
                 }
             } catch (error) {
                 const errMsg = error.errorCode ?? error.message ?? error;

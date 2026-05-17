@@ -32,7 +32,7 @@ export function createDrawingHandlers(deps) {
           const ext = overlay.extendData;
           deps.chart.overrideOverlay({ id: overlayId, extendData: ext });
         }
-      });
+      }).catch(err => console.warn('[DrawingHandlers] persistPromise failed for ' + overlayId + ':', err));
     }
   }
 

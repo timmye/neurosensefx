@@ -87,9 +87,30 @@ export class CreateDrawingCommand {
 
   execute() {
     if (!this.overlayId) {
+      // Validate drawing points: convertFromPixel can return points with
+      // null/undefined dataIndex when the pixel falls outside visible data.
+      // Also clamp dataIndex to valid bounds to prevent chart crashes.
+      const dataList = this.chart.getDataList?.();
+      const maxIdx = dataList ? dataList.length - 1 : -1;
+      const validated = (this.points || []).map(pt => {
+        if (!pt) return pt;
+        const out = { ...pt };
+        // Ensure at least one valid coordinate; dataIndex >= 0 or timestamp > 0.
+        if ((out.dataIndex ?? -1) < 0 && (!out.timestamp || out.timestamp <= 0)) {
+          return null; // drop invalid points
+        }
+        // Clamp dataIndex to valid range
+        if (out.dataIndex != null && maxIdx >= 0) {
+          out.dataIndex = Math.min(out.dataIndex, maxIdx);
+          out.dataIndex = Math.max(out.dataIndex, 0);
+        }
+        return out;
+      }).filter(p => p != null);
+
+      // If all points are invalid, create with empty points — chart still accepts it.
       const opts = {
         name: this.overlayType,
-        points: this.points,
+        points: validated,
         styles: this.styles,
         onDrawEnd: null,
       };

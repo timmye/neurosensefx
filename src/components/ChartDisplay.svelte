@@ -117,12 +117,16 @@
       onDeselected: () => { selectedOverlayId = null; },
       onPressedMoveEnd: (e) => {
         const o = e.overlay;
-        drawingStore.update(o.id, { points: o.points });
+        // Strip _pinned_ suffix before lookup — IndexedDB stores under the base UUID.
+        const baseId = o.id.replace(/_pinned_.+$/, '');
+        drawingStore.update(baseId, { points: o.points });
       },
       onRightClick: (e) => {
         const o = e.overlay;
+        // Strip _pinned_ suffix before lookup — pinned overlays use compound IDs.
+        const baseId = o.id.replace(/_pinned_.+$/, '');
         isOverlayLocked = o.lock;
-        isOverlayPinned = overlayMeta.getPinned(o.id);
+        isOverlayPinned = overlayMeta.getPinned(baseId);
         contextMenu = { visible: true, x: e.pageX || e.x, y: e.pageY || e.y, overlayId: o.id };
         return true;
       },
