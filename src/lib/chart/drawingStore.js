@@ -83,7 +83,7 @@ export const drawingStore = {
         console.warn('[DrawingStore] Server load failed for ' + symbol + '/' + resolution + ':', err);
       }
     }
-    return db.drawings.where({ symbol, resolution }).toArray().filter(d => !d.deletedAt);
+    return (await db.drawings.where({ symbol, resolution }).toArray()).filter(d => !d.deletedAt);
   },
 
   async loadPinned(symbol) {
@@ -91,12 +91,16 @@ export const drawingStore = {
   },
 
   async update(overlayId, changes) {
-    const drawing = await db.drawings.get(overlayId);
+    // Strip compound suffix from cross-resolution pinned drawings
+    const baseOverlayId = overlayId.includes('_pinned_')
+      ? overlayId.split('_pinned_')[0]
+      : overlayId;
+    const drawing = await db.drawings.get(baseOverlayId);
     if (!drawing || drawing.deletedAt) {
       console.warn('[DrawingStore] update() called with non-existent or deleted overlayId:', overlayId);
       return;
     }
-    await db.drawings.update(overlayId, { ...changes, updatedAt: Date.now() });
+    await db.drawings.update(baseOverlayId, { ...changes, updatedAt: Date.now() });
     await this._updateSyncCache(drawing.symbol, drawing.resolution);
     // Sync updated drawing to server after local IndexedDB write
     this._debouncedServerSync(drawing.symbol, drawing.resolution);

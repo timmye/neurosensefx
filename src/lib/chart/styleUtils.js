@@ -108,10 +108,11 @@ export function withOriginBadge(extendData, resolution) {
  * @returns {boolean}
  */
 export function isPriceOnlyOverlay(overlayType) {
+  // Only horizontal price lines that render independently of bar position.
+  // fibonacciLine requires two timestamped anchors; simpleTag is a bar-tied annotation —
+  // neither is price-only and both would degenerate if timestamp-replaced on cross-resolution pin.
   return (
     overlayType === 'horizontalRayLine' ||
-    overlayType === 'simpleTag' ||
-    overlayType === 'rulerPriceLine' ||
-    overlayType === 'fibonacciLine'
+    overlayType === 'rulerPriceLine'
   );
 }
