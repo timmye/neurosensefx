@@ -1,0 +1,31 @@
+# Forex ADR: Single Table (Pips + %)
+
+| Pair | ADR (Pips) | ADR (%) |
+|------|-----------|---------|
+| EUR/USD | 70 | 0.63% |
+| GBP/USD | 85 | 0.68% |
+| USD/JPY | 145 | 0.97% |
+| USD/CHF | 60 | 0.67% |
+| AUD/USD | 56 | 0.84% |
+| NZD/USD | 53 | 0.82% |
+| USD/CAD | 67 | 0.50% |
+| EUR/GBP | 39 | 0.46% |
+| EUR/JPY | 143 | 0.86% |
+| GBP/JPY | 180 | 0.96% |
+| AUD/JPY | 106 | 0.68% |
+| CAD/JPY | 105 | 0.69% |
+| CHF/JPY | 132 | 0.83% |
+| NZD/JPY | 91 | 0.63% |
+| EUR/AUD | 112 | 0.73% |
+| EUR/CAD | 82 | 0.57% |
+| EUR/NZD | 122 | 0.74% |
+| GBP/AUD | 130 | 0.78% |
+| GBP/CAD | 101 | 0.69% |
+| GBP/NZD | 141 | 0.91% |
+| AUD/CAD | 56 | 0.41% |
+| AUD/NZD | 51 | 0.75% |
+| CAD/CHF | 44 | 0.53% |
+| NZD/CAD | 55 | 0.41% |
+| NZD/CHF | 43 | 0.54% |
+
+> *Data source: Myfxbook Volatility Table + historical ADR averages (14-day). Values represent full daily high-low range. Percentages calculated using approximate mid-2026 prices. For live values, check your broker or Myfxbook directly.*
