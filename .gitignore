@@ -236,3 +236,9 @@ __pycache__/
 .hypothesis/
 .coverage
 htmlcov/
+
+# Strategy simulation results (regenerated)
+cumulative_pips_*.png
+summary_chart_SL*.png
+simulation_results_SL*_*.csv
+master_results_SL*_*.csv
