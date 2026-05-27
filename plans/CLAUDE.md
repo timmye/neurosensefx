@@ -30,7 +30,12 @@ Implementation plans for features, refactors, and operational tasks.
 | `cross-timeframe-drawing-visibility.md` | Cross-timeframe drawing visibility plan | Understanding pinned drawing display |
 | `daily-reset-at-midnight-utc.md` | Daily reset at midnight UTC plan | Understanding daily data reset behavior |
 | `data-pipeline-fixes.md` | Data pipeline fix plan | Debugging data pipeline issues |
+| `drawing-persistence-100-reliable.md` | Drawing persistence 100% reliability fix plan (implemented, reviewed) | Reviewing drawing persistence implementation history |
+| `drawing-persistence-reliability.md` | Drawing persistence reliability analysis: 6 sync boundary bugs (IndexedDB to PostgreSQL) and migration fix | Debugging drawing sync issues, understanding persistence architecture |
 | `event-markers-design.md` | Event markers feature design (vertical line markers for custom events) | Planning event marker implementation |
+| `price-flicker-fix.md` | Current price line flicker fix: 4 causes identified across 3 audit rounds | Debugging price display flicker |
+| `price-flicker-reconcile.md` | Single-writer reconciliation architecture to eliminate developing bar flicker | Understanding tick-to-bar reconciliation, preventing flicker regression |
+| `rolling-time-window-toggle.md` | Developing/rolling time window toggle vs calendar-aligned windows | Implementing rolling window mode |
 | `persistence-phase1.md` | Persistence phase 1 implementation plan | Understanding initial persistence design |
 | `phase4-auth-and-persistence.md` | Phase 4 auth and persistence plan | Understanding auth+persistence integration |
 | `refactor-evaluation-report.md` | Refactor evaluation report | Assessing refactor quality |

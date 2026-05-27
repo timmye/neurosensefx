@@ -6,4 +6,4 @@ Architecture Decision Records.
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
-| `001-fx-basket-connection-refactoring.md` | FX Basket connection layer refactoring decision | Understanding connection architecture decisions |
+| `001-fx-basket-connection-refactoring.md` | FX Basket connection layer refactoring decision | Reviewing past design decisions before making similar architectural changes |

@@ -1,5 +1,7 @@
 # src/stores/
 
+Svelte state management stores for frontend application.
+
 ## Files
 
 | File | What | When to read |

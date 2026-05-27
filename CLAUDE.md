@@ -37,10 +37,12 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | File | What | When to read |
 | ---- | ---- | ------------ |
 | `README.md` | Project overview, quick start, technology stack | Onboarding to project |
-| `package.json` | Dependencies and npm scripts | Adding packages, running builds |
 | `.env.example` | Environment variable template | Setting up development environment |
+| `.gitignore` | Git ignore rules | Adding new file types, debugging tracked files |
+| `package.json` | Dependencies and npm scripts | Adding packages, running builds |
 | `run.sh` | Service management script (start, stop, dev, status, logs, snapshots) | Managing services, starting dev/prod environments |
 | `playwright.config.cjs` | Playwright E2E test configuration | Setting up E2E tests, debugging test runner |
+| `vitest.config.js` | Vitest unit test configuration | Running unit tests, configuring test runner |
 | `vite.config.js` | Vite build configuration with Svelte plugin | Modifying build settings, adding Vite plugins |
 | `index.html` | Vite SPA entry point | Modifying HTML shell, adding global scripts |
 | `Dockerfile` | Production Docker build | Building production Docker image |
@@ -52,37 +54,25 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `docker-healthcheck.sh` | Docker health check script | Debugging container health checks |
 | `setup-dev-workaround.sh` | Dev setup workaround | Bootstrapping dev environment on Codespaces |
 | `setup_project.sh` | Project setup script | Initial project setup, onboarding to new machine |
-| `services/tick-backend/httpServer.js` | Express HTTP server alongside WebSocket server | Adding HTTP endpoints, modifying auth/persistence routes |
-| `services/tick-backend/authRoutes.js` | Register, login, logout endpoints | Modifying authentication flow, adding auth endpoints |
-| `services/tick-backend/persistenceRoutes.js` | CRUD routes for workspaces, drawings, price markers | Adding persistence endpoints, modifying data sync |
-| `services/tick-backend/middleware.js` | Auth middleware (session validation) | Adding protected routes, modifying auth checks |
-| `services/tick-backend/sessionManager.js` | Redis-backed session create/validate/destroy | Debugging session issues, modifying session TTL or storage |
-| `services/tick-backend/db.js` | PostgreSQL connection and query helpers | Adding database queries, debugging persistence |
-| `src/stores/authStore.js` | Svelte store for authentication state | Modifying login/logout UI behavior, checking auth state |
-| `src/components/LoginForm.svelte` | Login and registration form component | Modifying login UI, auth form behavior |
-| `docker/postgres/init/02-auth-tables.sql` | Auth tables DDL (users, sessions, workspaces, drawings, price_markers) | Modifying database schema, adding tables |
-| `docs/local-dev-setup.md` | Step-by-step local dev setup with auth, PostgreSQL, Redis | Setting up development environment, onboarding |
-| `scripts/backup.sh` | Database backup script | Running backups, scheduling backup jobs |
-| `backtester/sl_tp_analyzer.py` | SL/TP walk-forward backtester (Python CLI) | Running strategy analysis, debugging simulation results |
-| `backtester/debug_trade35_trace.py` | Step-by-step trace of simulate_trades() logic for trade #35 | Root-causing timezone and OHLC alignment bugs |
+| `test-candles-v2.mjs` | Candle data format test script | Debugging candle data pipelines |
+| `test-math-expression-candles.cjs` | Math expression candle parser test | Testing symbol math expression parsing |
 
 ## Subdirectories
 
 | Directory | What | When to read |
 | --------- | ---- | ------------ |
-| `src/` | Frontend Svelte application | Developing UI, adding visualizations |
-| `services/` | Backend WebSocket and API services | Working on backend, data streaming |
 | `backtester/` | SL/TP walk-forward backtester (Python: analyzer, debug scripts, input data, docs) | Running strategy analysis, debugging simulation results |
 | `data/` | Runtime data files (historical analysis JSON) | Working with historical basket data |
-| `libs/` | External library integrations | Integrating with cTrader API |
-| `docker/` | Container configurations | Deploying, containerizing services |
-| `scripts/` | Utility and setup scripts | Setting up development environment |
+| `docker/` | Container configurations (nginx, postgres, performance monitoring) | Deploying, containerizing services |
 | `docs/` | Architecture and design documentation | Understanding system design decisions |
-| `skills/` | Solatis claude-config skills for structured LLM workflows | Using development skills |
+| `libs/` | External library integrations | Integrating with cTrader API |
 | `plans/` | Implementation plans for features and refactors | Executing planned work, reviewing feature scope |
-| `tests/` | Additional E2E test suites (Market Profile, auth flow, server persistence) | Running E2E tests |
-| `public/` | Static assets | Adding static assets, modifying favicon |
-| `secrets/` | Secrets template | Setting up API credentials, configuring secrets |
+| `scripts/` | Utility and setup scripts | Setting up development environment, running diagnostics |
+| `services/` | Backend WebSocket and API services | Working on backend, data streaming |
+| `src/` | Frontend Svelte application | Developing UI, adding visualizations |
+| `tests/` | Additional E2E test suites (connection stress, reconnect reliability, subscription queue) | Running E2E tests |
+| `.devcontainer/` | VS Code Dev Container configuration | Setting up Codespace or containerized dev environment |
+| `.vscode/` | VS Code workspace settings and AI rules | Configuring editor behavior |
 
 ## Development
 

@@ -1,6 +1,6 @@
 # services/tick-backend/specs/
 
-cTrader API specifications, architecture decisions, and reference documentation.
+cTrader API specifications, protocol schemas, and architectural decision records.
 
 ## Files
 

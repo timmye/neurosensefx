@@ -1,5 +1,7 @@
 # services/
 
+Backend services for WebSocket data streaming and HTTP API.
+
 ## Files
 
 | File | What | When to read |

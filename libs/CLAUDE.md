@@ -1,5 +1,7 @@
 # libs/
 
+External library wrappers and integrations.
+
 ## Files
 
 | File | What | When to read |

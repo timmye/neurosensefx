@@ -1,4 +1,4 @@
-# crystal-clarity/
+# docs/crystal-clarity/
 
 Crystal-clarity design documentation.
 

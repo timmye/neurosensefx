@@ -1,13 +1,9 @@
 # src/composables/
 
-## Deprecated
+Deprecated — all composables migrated to `src/stores/marketDataStore.js`. See `README.md` for migration details.
 
-All composables have been replaced by `src/stores/marketDataStore.js` which provides centralized data management. The composables directory is now empty.
+## Files
 
-| Former Composable | Replacement |
-| ----------------- | ----------- |
-| `useWebSocketSub.js` | `subscribeToSymbol()` in marketDataStore |
-| `useDisplayState.js` | `getConnectionStatus()` in marketDataStore |
-| `useDataCallback.js` | `handleStoreUpdate()` in marketDataStore |
-| `useSymbolData.js` | `normalizeData()` in marketDataStore |
-| `useDisplayHandlers.js` | Inline handlers in components |
+| File | What | When to read |
+| ---- | ---- | ------------ |
+| `README.md` | Deprecation notice and migration guide | Understanding composable replacements |

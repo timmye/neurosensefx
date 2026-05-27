@@ -1,5 +1,7 @@
 # services/tick-backend/
 
+WebSocket data streaming and HTTP API backend service.
+
 ## Files
 
 | File | What | When to read |
@@ -42,5 +44,5 @@
 | `utils/` | Shared utility modules (ReconnectionManager, MessageBuilder) | Understanding reconnection logic, using message building utilities, adding shared utilities |
 | `specs/` | cTrader API specifications and OpenAPI definitions | Looking up cTrader API message schemas, debugging protobuf definitions |
 | `docs/` | Backend design documentation | Adding API endpoints, debugging WebSocket protocol, reviewing service design |
-| `UI/` | Backend UI components | Reviewing ADR visualization mockups, iterating on ticker bar design concepts |
-| `test-results/` | Test run artifacts | Reviewing test run output |
+| `UI/` | Backend UI design mockups and concept HTML files | Reviewing ADR visualization mockups, iterating on ticker bar design concepts |
+| `__tests__/` | Backend unit tests | Running backend tests, adding test coverage |

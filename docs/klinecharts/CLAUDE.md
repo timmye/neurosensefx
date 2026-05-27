@@ -17,4 +17,3 @@ KLineChart library API reference, upstream PR analysis, and custom feature inven
 | --------- | ---- | ------------ |
 | `api/` | KLineChart API reference notes (registerXAxis, registerYAxis, registerOverlay, visible range, barSpace, formatter) | Looking up KLineChart API behavior, verifying extension points |
 | `guide/` | KLineChart migration guide and library documentation | Upgrading KLineChart versions, understanding library behavior |
-| `samples/` | KLineChart sample code | Reference implementation patterns |

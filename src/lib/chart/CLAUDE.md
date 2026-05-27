@@ -48,15 +48,10 @@ KLineChart integration: configuration constants, custom calendar x-axis, drawing
 | `styleUtils.js` | Color fade utilities + re-export getFadedStyles | Modifying overlay color fading |
 | `xAxisCustom.js` | Re-export barrel for xAxisTickGenerator + calendarBoundaries + dataSearch | Modifying x-axis — prefer importing from specific modules |
 | `xAxisTickGenerator.js` | Tick generation pipeline: collect candidates, dedup, emit labeled ticks | Debugging tick density, modifying tick generation |
+| `BAR_SPACE_RENDERING.md` | How barSpace controls candle width, viewport positioning, and the time window logic chain | Debugging candle rendering, understanding bar spacing |
 
 ## Subdirectories
 
 | Directory | What | When to read |
 | --------- | ---- | ------------ |
 | `__tests__/` | Unit tests for chart modules | Running chart tests, adding test coverage |
-
-## Documentation
-
-| File | What | When to read |
-| ---- | ---- | ------------ |
-| `BAR_SPACE_RENDERING.md` | How barSpace controls candle width, viewport positioning, and the time window logic chain | Debugging candle rendering, understanding bar spacing |

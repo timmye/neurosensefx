@@ -1,10 +1,13 @@
 # libs/cTrader-Layer/
 
+cTrader Open API TypeScript integration library — protobuf messaging, socket connections, and command encoding.
+
 ## Files
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
 | `README.md` | cTrader-Layer documentation | Onboarding to cTrader API wrapper, checking supported features |
+| `LICENSE` | Library license terms | Checking usage permissions |
 | `package.json` | Library dependencies | Updating cTrader dependencies |
 | `CHANGELOG.md` | Version history | Checking release history, version compatibility |
 | `tsconfig.json` | TypeScript compiler config | Modifying TypeScript settings, debugging compilation errors |
