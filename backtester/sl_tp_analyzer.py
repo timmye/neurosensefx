@@ -4,12 +4,10 @@ SL/TP Walk-Forward Analyzer
 ============================
 Tests alternative SL/TP parameters against REAL historical OHLC data from cTrader.
 
-Usage:
-    python sl_tp_analyzer.py trades.xlsx --sl 25 --tp 40 --timeframe 15m --backend http://localhost:8080
-    python sl_tp_analyzer.py trades.csv  --sl 30 --tp 50 --mode neutral --backend http://localhost:8080
+Usage (from project root):
+    python backtester/sl_tp_analyzer.py backtester/data/20260430_full_history.csv --sl 25 --tp 40 --timeframe 15m --backend http://localhost:8080
 
-Input:  XLSX / CSV / TSV trade log with columns: Open Time, Symbol, Type/Direction, Open Price, Close Time, Close Price
-Output: Metrics + per-trade results table + cumulative P/L chart saved as PNG
+Output: Metrics + per-trade results table + cumulative P/L chart saved to backtester/results/
 
 Requirements:
     pip install pandas matplotlib openpyxl requests
@@ -1015,7 +1013,8 @@ Examples:
                         help="Ambiguity handling when both SL & TP in same bar (default: conservative)")
     parser.add_argument("--no-chart", action="store_true", help="Skip generating chart PNG")
     parser.add_argument("--no-csv", action="store_true", help="Skip saving results CSV")
-    parser.add_argument("--output", default=".", help="Output directory for chart/CSV (default: .)")
+    parser.add_argument("--output", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"),
+                        help="Output directory for chart/CSV (default: backtester/results/)")
     parser.add_argument("--fx-only", action="store_true", help="Only process FX pairs (skip metals, oil, indices, crypto)")
     parser.add_argument("--backend", default="http://localhost:8080",
                         help="cTrader backend URL (default: http://localhost:8080)")

@@ -76,6 +76,24 @@ Use the provided scripts for service management:
 ./run.sh logs       # View service logs
 ```
 
+## Strategy Backtesting
+
+The `backtester/` directory contains a Python-based walk-forward analyzer that tests alternative SL/TP parameters against real historical OHLC data from the cTrader backend.
+
+```bash
+pip install -r backtester/requirements.txt
+
+# Single SL/TP test (requires running backend)
+python backtester/sl_tp_analyzer.py backtester/data/20260430_full_history.csv \
+    --sl 25 --tp 60 --timeframe 15m --backend http://localhost:8080
+
+# Grid sweep (tests all SL×TP combinations)
+python backtester/sl_tp_analyzer.py backtester/data/20260430_full_history.csv \
+    --sl-range 20,25,30,40 --tp-range 40,60,90,120 --timeframe 15m
+```
+
+Results (cumulative P/L charts, per-trade CSVs) are saved to `backtester/results/`. See [backtester/README.md](backtester/README.md) for full documentation.
+
 ## Technology Stack
 
 - **Frontend**: Svelte 4.x with Vite build system
@@ -100,8 +118,12 @@ services/              # Backend services
 ├── tick-backend/      # WebSocket backend, Express HTTP server, auth, persistence
 └── ...
 
-libs/                  # External libraries
-└── cTrader-Layer/     # cTrader API integration
+backtester/            # SL/TP walk-forward backtester (Python)
+├── sl_tp_analyzer.py  # Simulation engine, OHLC fetcher, charting, CSV output
+├── debug_*.py         # Debug scripts for trade verification
+├── data/              # Input trade logs, ADR reference data, SL overrides
+├── docs/              # Bug analysis, implementation plans
+└── results/           # Generated output (gitignored)
 
 skills/                # Solatis claude-config skills
 ├── deepthink/         # Structured reasoning for questions with unknown answer structure

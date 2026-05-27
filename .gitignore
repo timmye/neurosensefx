@@ -237,7 +237,8 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Strategy simulation results (regenerated)
+# Strategy simulation results (contained in backtester/)
+backtester/results/
 cumulative_pips_*.png
 summary_chart_SL*.png
 simulation_results_SL*_*.csv

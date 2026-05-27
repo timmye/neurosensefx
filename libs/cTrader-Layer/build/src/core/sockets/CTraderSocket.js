@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (receiver, state, value, kind, f) {
     if (kind === "m") throw new TypeError("Private method is not writable");
     if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
@@ -14,6 +23,9 @@ var _CTraderSocket_host, _CTraderSocket_port, _CTraderSocket_socket;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CTraderSocket = void 0;
 const tls = require("tls");
+const dns = require("dns");
+const util_1 = require("util");
+const lookupAsync = (0, util_1.promisify)(dns.lookup);
 class CTraderSocket {
     constructor({ host, port, }) {
         _CTraderSocket_host.set(this, void 0);
@@ -30,21 +42,47 @@ class CTraderSocket {
         return __classPrivateFieldGet(this, _CTraderSocket_port, "f");
     }
     connect() {
-        const socket = tls.connect({
-            host: __classPrivateFieldGet(this, _CTraderSocket_host, "f"),
-            port: __classPrivateFieldGet(this, _CTraderSocket_port, "f"),
-            servername: __classPrivateFieldGet(this, _CTraderSocket_host, "f"),
-            timeout: 10000
-        });
-        socket.on("secureConnect", () => {
-            if (this.onOpen && typeof this.onOpen === 'function') {
-                this.onOpen();
+        const resolveAndConnect = () => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resolved = yield lookupAsync(__classPrivateFieldGet(this, _CTraderSocket_host, "f"), { family: 4 });
+                const socket = tls.connect({
+                    host: resolved.address,
+                    port: __classPrivateFieldGet(this, _CTraderSocket_port, "f"),
+                    servername: __classPrivateFieldGet(this, _CTraderSocket_host, "f"),
+                    timeout: 10000
+                });
+                socket.on("secureConnect", () => {
+                    if (this.onOpen && typeof this.onOpen === 'function') {
+                        this.onOpen();
+                    }
+                });
+                socket.on("data", this.onData);
+                socket.on("end", this.onClose);
+                socket.on("error", this.onError);
+                __classPrivateFieldSet(this, _CTraderSocket_socket, socket, "f");
+                return;
             }
+            catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                console.warn(`[CTraderSocket] DNS resolution failed (${__classPrivateFieldGet(this, _CTraderSocket_host, "f")}), falling back to direct connect: ${msg}`);
+            }
+            const socket = tls.connect({
+                host: __classPrivateFieldGet(this, _CTraderSocket_host, "f"),
+                port: __classPrivateFieldGet(this, _CTraderSocket_port, "f"),
+                servername: __classPrivateFieldGet(this, _CTraderSocket_host, "f"),
+                timeout: 10000
+            });
+            socket.on("secureConnect", () => {
+                if (this.onOpen && typeof this.onOpen === 'function') {
+                    this.onOpen();
+                }
+            });
+            socket.on("data", this.onData);
+            socket.on("end", this.onClose);
+            socket.on("error", this.onError);
+            __classPrivateFieldSet(this, _CTraderSocket_socket, socket, "f");
         });
-        socket.on("data", this.onData);
-        socket.on("end", this.onClose);
-        socket.on("error", this.onError);
-        __classPrivateFieldSet(this, _CTraderSocket_socket, socket, "f");
+        resolveAndConnect();
     }
     send(buffer) {
         var _a;

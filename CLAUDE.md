@@ -63,6 +63,8 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `docker/postgres/init/02-auth-tables.sql` | Auth tables DDL (users, sessions, workspaces, drawings, price_markers) | Modifying database schema, adding tables |
 | `docs/local-dev-setup.md` | Step-by-step local dev setup with auth, PostgreSQL, Redis | Setting up development environment, onboarding |
 | `scripts/backup.sh` | Database backup script | Running backups, scheduling backup jobs |
+| `backtester/sl_tp_analyzer.py` | SL/TP walk-forward backtester (Python CLI) | Running strategy analysis, debugging simulation results |
+| `backtester/debug_trade35_trace.py` | Step-by-step trace of simulate_trades() logic for trade #35 | Root-causing timezone and OHLC alignment bugs |
 
 ## Subdirectories
 
@@ -70,6 +72,7 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | --------- | ---- | ------------ |
 | `src/` | Frontend Svelte application | Developing UI, adding visualizations |
 | `services/` | Backend WebSocket and API services | Working on backend, data streaming |
+| `backtester/` | SL/TP walk-forward backtester (Python: analyzer, debug scripts, input data, docs) | Running strategy analysis, debugging simulation results |
 | `data/` | Runtime data files (historical analysis JSON) | Working with historical basket data |
 | `libs/` | External library integrations | Integrating with cTrader API |
 | `docker/` | Container configurations | Deploying, containerizing services |
