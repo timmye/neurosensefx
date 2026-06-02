@@ -33,6 +33,31 @@ const _lastSyncData = new Map();
 const _versionCache = new Map();
 
 export const drawingStore = {
+  _onLog: null,
+
+  setOnLog(fn) {
+    this._onLog = fn;
+  },
+
+  /**
+   * Evict stale per-symbol entries from debounce timers, sync cache, and version cache.
+   * Called when switching symbols to prevent stale data from being synced.
+   */
+  evictStaleEntries(symbol) {
+    for (const [key, timer] of saveDebounceTimers) {
+      if (key.startsWith(symbol + '/')) {
+        clearTimeout(timer);
+        saveDebounceTimers.delete(key);
+      }
+    }
+    for (const key of _lastSyncData.keys()) {
+      if (key.startsWith(symbol + '/')) _lastSyncData.delete(key);
+    }
+    for (const key of _versionCache.keys()) {
+      if (key.startsWith(symbol + '/')) _versionCache.delete(key);
+    }
+  },
+
   async save(symbol, resolution, drawing) {
     const now = Date.now();
     const record = {
@@ -80,7 +105,7 @@ export const drawingStore = {
           }
         }
       } catch (err) {
-        console.warn('[DrawingStore] Server load failed for ' + symbol + '/' + resolution + ':', err);
+        this._onLog?.('warn', 'Server load failed for ' + symbol + '/' + resolution + ':', err);
       }
     }
     return (await db.drawings.where({ symbol, resolution }).toArray()).filter(d => !d.deletedAt);
@@ -97,7 +122,7 @@ export const drawingStore = {
       : overlayId;
     const drawing = await db.drawings.get(baseOverlayId);
     if (!drawing || drawing.deletedAt) {
-      console.warn('[DrawingStore] update() called with non-existent or deleted overlayId:', overlayId);
+      this._onLog?.('warn', 'update() called with non-existent or deleted overlayId:', overlayId);
       return;
     }
     await db.drawings.update(baseOverlayId, { ...changes, updatedAt: Date.now() });
@@ -115,7 +140,7 @@ export const drawingStore = {
   async remove(overlayId) {
     const drawing = await db.drawings.get(overlayId);
     if (!drawing) {
-      console.warn('[DrawingStore] remove() called with non-existent overlayId:', overlayId);
+      this._onLog?.('warn', 'remove() called with non-existent overlayId:', overlayId);
       return;
     }
     await db.drawings.update(overlayId, { deletedAt: Date.now() });
@@ -125,7 +150,12 @@ export const drawingStore = {
   },
 
   async clearAll(symbol, resolution) {
-    await db.drawings.where({ symbol, resolution }).delete();
+    // Tombstone instead of hard-delete for consistency with remove()
+    // Prevents server merge from restoring drawings that were intentionally cleared
+    const records = await db.drawings.where({ symbol, resolution }).toArray();
+    for (const record of records) {
+      await db.drawings.update(record.overlayId, { deletedAt: Date.now() });
+    }
     this.cancelPendingSync(symbol, resolution);
     const key = symbol + '/' + resolution;
     _lastSyncData.set(key, []);
@@ -141,7 +171,7 @@ export const drawingStore = {
         if (resp.ok) {
           _versionCache.delete(key);
         }
-      }).catch(err => console.warn('[DrawingStore] Failed to clear drawings on server:', err));
+      }).catch(err => this._onLog?.('warn', 'Failed to clear drawings on server:', err));
     }
   },
 
@@ -248,7 +278,7 @@ export const drawingStore = {
           _lastSyncData.set(key, freshData);
           _versionCache.set(key, serverVersion);
           if (_retryCount >= 3) {
-            console.warn('[DrawingStore] Max version conflict retries reached for ' + key);
+            this._onLog?.('warn', 'Max version conflict retries reached for ' + key);
             return;
           }
           this._debouncedServerSync(symbol, resolution, _retryCount + 1);
@@ -261,7 +291,7 @@ export const drawingStore = {
         // Purge tombstones after successful sync
         await this._purgeTombstones(symbol, resolution);
       } catch (err) {
-        console.warn('[DrawingStore] Server sync failed for ' + key + ':', err);
+        this._onLog?.('warn', 'Server sync failed for ' + key + ':', err);
       }
     }, 500));
   },
@@ -303,7 +333,7 @@ export const drawingStore = {
         fetch(
           API_BASE + '/api/drawings/' + encodeURIComponent(symbol) + '/' + encodeURIComponent(resolution),
           { method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-drawings-version': String(_versionCache.get(key) || 0) }, credentials: 'include', body: JSON.stringify(this._buildSyncBody(data)), keepalive: true }
-        ).catch(err => console.warn('[DrawingStore] flushPending failed for ' + key + ':', err));
+        ).catch(err => this._onLog?.('warn', 'flushPending failed for ' + key + ':', err));
       }
     }
   }

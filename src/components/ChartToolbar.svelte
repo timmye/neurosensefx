@@ -7,7 +7,6 @@
   export let currentResolution = '4h';
   export let currentWindow = '3M';
   export let chart = null;
-  export let commandStack = null;
   export let canUndo = false;
   export let canRedo = false;
   export let activeDrawingTool = null;
@@ -118,17 +117,11 @@
   }
 
   function handleUndo() {
-    if (commandStack) {
-      commandStack.undo().catch(() => {});
-    }
+    dispatch('undo', {});
   }
 
   function handleRedo() {
-    if (commandStack) {
-      commandStack.redo().then(cmd => {
-        if (cmd) dispatch('redo', cmd);
-      }).catch(() => {});
-    }
+    dispatch('redo', {});
   }
 
   let clearHoldTimer = null;
@@ -159,9 +152,6 @@
 
   function handleClearDrawings() {
     if (!chart) return;
-    if (commandStack) {
-      commandStack.clear();
-    }
     dispatch('clearDrawings', {});
   }
 </script>

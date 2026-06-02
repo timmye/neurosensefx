@@ -16,8 +16,7 @@ export function createReloadChart(deps) {
       deps.chart.clearData();
       deps.chart.resize();
     }
-    deps.commandStack.clear();
-    deps.overlayMeta.clear();
+    deps.resetDrawings?.();
   }
 
   function reload(symbol, resolution, window, opts = {}) {

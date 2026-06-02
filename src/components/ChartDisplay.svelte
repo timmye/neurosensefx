@@ -19,20 +19,17 @@
   import '../lib/chart/overlaysShapes.js';
   import '../lib/chart/overlaysAnnotations.js';
   import '../lib/chart/overlaysChannels.js';
-  import { DrawingCommandStack } from '../lib/chart/drawingCommands.js';
+  import { createDrawingCoordinator } from '../lib/chart/drawingCoordinator.js';
   import OverlayContextMenu from './OverlayContextMenu.svelte';
   import { createChartSubscriptions } from '../lib/chart/chartSubscriptions.js';
   import { createResizeState, scheduleResize, cancelScheduledResize, forceCanvasDPRRefresh } from '../lib/chart/chartResize.js';
-  import { createOverlayMeta } from '../lib/chart/overlayMeta.js';
   import { createReloadChart } from '../lib/chart/reloadChart.js';
   import { createBarSpace } from '../lib/chart/chartBarSpace.js';
   import { createChartDataLoader } from '../lib/chart/chartDataLoader.js';
-  import { createOverlayRestore } from '../lib/chart/chartOverlayRestore.js';
   import { createAxisFormatter } from '../lib/chart/chartAxisFormatter.js';
   import { keyManager } from '../lib/keyManager.js';
   import { timezoneStore, resolvedTimezone } from '../stores/timezoneStore.js';
   import { setAxisTimezone } from '../lib/chart/xAxisCustom.js';
-  import { createDrawingHandlers } from '../lib/chart/chartDrawingHandlers.js';
   import { drawingStore } from '../lib/chart/drawingStore.js';
   import {
     initChart, setupResizeObserver, setupIndicators,
@@ -53,14 +50,29 @@
   const sourceMemory = new Map();
   let isMinimized = display.isMinimized ?? false;
 
-  let commandStack = new DrawingCommandStack();
+  let coordinator;
   let canUndo = false, canRedo = false;
-  const unsubUndo = commandStack.canUndo.subscribe(v => canUndo = v);
-  const unsubRedo = commandStack.canRedo.subscribe(v => canRedo = v);
   let selectedOverlayId = null;
-  let overlayMeta = createOverlayMeta();
   let contextMenu = { visible: false, x: 0, y: 0, overlayId: null };
   let isOverlayLocked = false, isOverlayPinned = false;
+  let _unsubCoordinationStores = null;
+
+  function setupCoordinationStores() {
+    unsubCoordinationStores();
+    _unsubCoordinationStores = [
+      coordinator.canUndo.subscribe(v => canUndo = v),
+      coordinator.canRedo.subscribe(v => canRedo = v),
+      coordinator.selectedOverlayId.subscribe(v => selectedOverlayId = v),
+      coordinator.contextMenuState.subscribe(v => contextMenu = v),
+      coordinator.contextState.subscribe(v => { isOverlayLocked = v.locked; isOverlayPinned = v.pinned; }),
+    ];
+  }
+  function unsubCoordinationStores() {
+    if (_unsubCoordinationStores) {
+      _unsubCoordinationStores.forEach(fn => fn());
+      _unsubCoordinationStores = null;
+    }
+  }
   let activeDrawingTool = null, magnetMode = true;
   let resizeObserver = null, wheelHandler = null, mousedownHandler = null;
   let pendingDataApply = null;
@@ -110,51 +122,6 @@
     chart.overrideIndicator({ name: 'symbolWatermark', extendData: getWatermarkData() }, 'candle_pane');
   }
 
-  // --- Overlay helpers ---
-  function getOverlayCallbacks() {
-    return {
-      onSelected: (e) => { selectedOverlayId = e.overlay.id; },
-      onDeselected: () => { selectedOverlayId = null; },
-      onPressedMoveEnd: (e) => {
-        const o = e.overlay;
-        // Strip _pinned_ suffix before lookup — IndexedDB stores under the base UUID.
-        const baseId = o.id.replace(/_pinned_.+$/, '');
-        drawingStore.update(baseId, { points: o.points });
-      },
-      onRightClick: (e) => {
-        const o = e.overlay;
-        // Strip _pinned_ suffix before lookup — pinned overlays use compound IDs.
-        const baseId = o.id.replace(/_pinned_.+$/, '');
-        isOverlayLocked = o.lock;
-        isOverlayPinned = overlayMeta.getPinned(baseId);
-        contextMenu = { visible: true, x: e.pageX || e.x, y: e.pageY || e.y, overlayId: o.id };
-        return true;
-      },
-      onMouseEnter: (e) => {
-        const o = e.overlay;
-        if (o.name !== 'simpleAnnotation') return false;
-        let data = o.extendData;
-        if (typeof data === 'string' || data == null) {
-          data = { text: data || '', hovered: false };
-        }
-        if (!data.hovered) {
-          chart.overrideOverlay({ id: o.id, extendData: { ...data, hovered: true } });
-        }
-        return false;
-      },
-      onMouseLeave: (e) => {
-        const o = e.overlay;
-        if (o.name !== 'simpleAnnotation') return false;
-        let data = o.extendData;
-        if (typeof data === 'string' || data == null) return false;
-        if (data.hovered) {
-          chart.overrideOverlay({ id: o.id, extendData: { ...data, hovered: false } });
-        }
-        return false;
-      },
-    };
-  }
-
   // --- Bar space ---
   const barSpace = createBarSpace({
     get chart() { return chart; },
@@ -172,26 +139,6 @@
     applyBarSpace: barSpace.applyBarSpace,
     setPending: (v) => { pendingDataApply = v; },
     chartSubs,
-  });
-
-  // --- Overlay restore ---
-  const overlayRestore = createOverlayRestore({
-    get chart() { return chart; },
-    overlayMeta,
-    getOverlayCallbacks,
-  });
-
-  // --- Drawing handlers ---
-  const drawingHandlers = createDrawingHandlers({
-    get chart() { return chart; },
-    commandStack,
-    get currentSymbol() { return currentSymbol; },
-    get currentResolution() { return currentResolution; },
-    overlayMeta,
-    getOverlayCallbacks,
-    get restorePinnedDrawings() {
-      return () => overlayRestore.restorePinnedDrawings(currentSymbol, currentResolution);
-    },
   });
 
   // --- Data loading wrapper (manages unsubscribe refs) ---
@@ -214,9 +161,8 @@
     get chartContainer() { return chartContainer; },
     teardownSubscriptions,
     get loadChartData() { return loadChartData; },
-    get restoreDrawings() { return overlayRestore.restoreDrawings; },
-    overlayMeta,
-    commandStack,
+    get restoreDrawings() { return () => coordinator?.restoreDrawings(currentSymbol, currentResolution); },
+    get resetDrawings() { return () => coordinator?.resetForNewSymbol(); },
     applyPricePrecision,
     getWatermarkData,
     createWatermarkIndicator,
@@ -233,20 +179,20 @@
   // --- Context menu handlers (thin wrappers updating local state) ---
   function handleContextMenuDelete() {
     if (contextMenu.overlayId) {
-      drawingHandlers.handleOverlayDelete(contextMenu.overlayId);
+      coordinator.handleOverlayDelete(contextMenu.overlayId);
       if (selectedOverlayId === contextMenu.overlayId) selectedOverlayId = null;
     }
     contextMenu.visible = false;
   }
   function handleContextMenuToggleLock() {
     if (contextMenu.overlayId) {
-      drawingHandlers.handleOverlayToggleLock(contextMenu.overlayId).then(newLock => { isOverlayLocked = newLock; });
+      coordinator.toggleLock(contextMenu.overlayId).then(newLock => { isOverlayLocked = newLock; });
     }
     contextMenu.visible = false;
   }
   async function handleContextMenuTogglePin() {
     if (!contextMenu.overlayId) return;
-    const newPinned = await drawingHandlers.handleContextMenuTogglePin(contextMenu.overlayId, isOverlayPinned);
+    const newPinned = await coordinator.togglePin(contextMenu.overlayId);
     isOverlayPinned = newPinned;
     contextMenu.visible = false;
   }
@@ -277,9 +223,9 @@
     updateWatermark();
     workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
     if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
-    overlayMeta.clear(); commandStack.clear();
+    coordinator?.resetForNewSymbol();
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-      overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer)).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
+      coordinator?.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer)).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
     });
   }
   function reloadChartSetting(updateFn, persistProps) {
@@ -289,9 +235,9 @@
     setAxisWindow(currentWindow, chart);
     updateWatermark();
     if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
-    overlayMeta.clear(); commandStack.clear();
+    coordinator?.resetForNewSymbol();
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-      overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer)).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
+      coordinator?.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer)).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
     });
     workspaceActions.updateDisplay(display.id, persistProps);
   }
@@ -342,7 +288,7 @@
         if (!chart || document.hidden) return false;
         if (!chartEl || !chartEl.contains(document.activeElement)) return false;
         e.preventDefault();
-        commandStack.undo().catch(() => {});
+        coordinator?.undo().catch(() => {});
         return true;
       },
       { priority: 40, allowInput: true }
@@ -355,7 +301,7 @@
         if (!chart || document.hidden) return false;
         if (!chartEl || !chartEl.contains(document.activeElement)) return false;
         e.preventDefault();
-        commandStack.redo().then(cmd => drawingHandlers.redoCreateCommand(cmd)).catch(() => {});
+        coordinator?.redo().catch(() => {});
         return true;
       },
       { priority: 40, allowInput: true }
@@ -368,7 +314,7 @@
         if (!chart || document.hidden) return false;
         if (!chartEl || !chartEl.contains(document.activeElement)) return false;
         e.preventDefault();
-        commandStack.redo().then(cmd => drawingHandlers.redoCreateCommand(cmd)).catch(() => {});
+        coordinator?.redo().catch(() => {});
         return true;
       },
       { priority: 40, allowInput: true }
@@ -380,7 +326,7 @@
       (e) => {
         if (!selectedOverlayId || !chart) return false;
         e.preventDefault();
-        drawingHandlers.handleOverlayDelete(selectedOverlayId);
+        coordinator?.handleOverlayDelete(selectedOverlayId);
         selectedOverlayId = null;
         return true;
       },
@@ -392,7 +338,7 @@
       (e) => {
         if (!selectedOverlayId || !chart) return false;
         e.preventDefault();
-        drawingHandlers.handleOverlayDelete(selectedOverlayId);
+        coordinator?.handleOverlayDelete(selectedOverlayId);
         selectedOverlayId = null;
         return true;
       },
@@ -420,17 +366,22 @@
       } else {
         // Chart was never created (minimized on mount) — create it now
         setTimeout(() => {
+          if (!coordinator) {
+            coordinator = createDrawingCoordinator({ drawingStore, onLog: (level, ...args) => console.warn('[DrawingCoordinator]', level, ...args) });
+          }
           chart = initChart(chartContainer, { init, theme: $themeStore === 'dark' ? DARK_THEME : LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
           if (chart) {
             chart.setZoomEnabled(false);
             chart.setScrollEnabled(true);
+            coordinator.setChart(chart);
+            setupCoordinationStores();
             requestAnimationFrame(() => {
               if (!chart) return;
               setupIndicators(chart, createWatermarkIndicator);
               applyPricePrecision(currentSymbol);
               setupChartActions(chart, chartSubs, getChartActionDeps());
               loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-                overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => {
+                coordinator.restoreDrawings(currentSymbol, currentResolution).then(() => {
                   forceCanvasDPRRefresh(chartContainer);
                 }).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
               });
@@ -455,10 +406,13 @@
     // Use setTimeout(0) instead of tick() — yields to browser layout engine
     // so clientWidth/clientHeight are correct when initChart reads them.
     const initTimer = setTimeout(() => {
+      coordinator = createDrawingCoordinator({ drawingStore, onLog: (level, ...args) => console.warn('[DrawingCoordinator]', level, ...args) });
       chart = initChart(chartContainer, { init, theme: $themeStore === 'dark' ? DARK_THEME : LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
       if (chart) {
         chart.setZoomEnabled(false);
         chart.setScrollEnabled(true);
+        coordinator.setChart(chart);
+        setupCoordinationStores();
 
         // Defer post-init layout work to after first paint.
         // This lets klinecharts' constructor rAF (Canvas._resetPixelRatio) fire
@@ -470,7 +424,7 @@
           applyPricePrecision(currentSymbol);
           setupChartActions(chart, chartSubs, getChartActionDeps());
           loadChartData(currentSymbol, currentResolution, currentWindow, () => {
-            overlayRestore.restoreDrawings(currentSymbol, currentResolution).then(() => {
+            coordinator.restoreDrawings(currentSymbol, currentResolution).then(() => {
               forceCanvasDPRRefresh(chartContainer);
             }).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
           });
@@ -500,8 +454,8 @@
     pendingDataApply = null;
     if (chart) { removeAxisChart(chart); disposeChart(chartContainer); chart = null; }
     if (interactable) { interactable.unset(); interactable = null; }
-    commandStack.clear(); overlayMeta.clear();
-    unsubUndo(); unsubRedo();
+    coordinator?.destroy();
+    unsubCoordinationStores();
   });
 </script>
 
@@ -514,16 +468,17 @@
             width: {display.size.width}px; height: {display.size.height}px;">
 
   {#if !isMinimized}
-    <ChartToolbar {currentResolution} {currentWindow} {chart} {commandStack} {canUndo} {canRedo}
+    <ChartToolbar {currentResolution} {currentWindow} {chart} {canUndo} {canRedo}
       source={currentSource} windowMode={currentWindowMode}
       bind:activeDrawingTool bind:magnetMode
       on:resolution={e => handleResolutionChange(e.detail)}
       on:window={e => handleWindowChange(e.detail)}
       on:windowModeChange={e => handleWindowModeChange(e.detail)}
       on:sourceChange={e => handleSourceChange(e.detail)}
-      on:drawingCreated={drawingHandlers.handleDrawingCreated}
-      on:redo={e => drawingHandlers.redoCreateCommand(e.detail)}
-      on:clearDrawings={drawingHandlers.handleClearDrawings} />
+      on:drawingCreated={(e) => coordinator?.handleDrawingCreated(e)}
+      on:undo={() => coordinator?.undo()}
+      on:redo={() => coordinator?.redo()}
+      on:clearDrawings={() => coordinator?.clearDrawings(currentSymbol, currentResolution)} />
 
     <div style="position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column;">
       <div class="chart-canvas-container" bind:this={chartContainer}></div>

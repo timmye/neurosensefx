@@ -16,6 +16,8 @@ export class DeleteDrawingCommand {
     this.overlayId = overlayId;
     this.serializedOverlay = serializedOverlay;
     this.callbacks = callbacks;
+    this.pinned = serializedOverlay.pinned ?? false;
+    this.locked = serializedOverlay.locked ?? false;
   }
 
   execute() {
@@ -24,21 +26,34 @@ export class DeleteDrawingCommand {
   }
 
   async undo() {
+    const s = this.serializedOverlay;
+    // Validate required fields before re-creating overlay
+    if (!s.overlayType || !s.overlayId || !s.points || !Array.isArray(s.points)) {
+      const msg = '[DeleteDrawingCommand.undo] Invalid serializedOverlay — missing required fields: ' +
+        JSON.stringify({ overlayType: s.overlayType, overlayId: s.overlayId, hasPoints: !!s.points });
+      console.warn(msg);
+      return;
+    }
     const opts = {
-      name: this.serializedOverlay.overlayType,
-      id: this.serializedOverlay.overlayId,
-      points: this.serializedOverlay.points,
-      styles: this.serializedOverlay.styles,
+      name: s.overlayType,
+      id: s.overlayId,
+      points: s.points,
+      styles: s.styles,
     };
-    if (this.serializedOverlay.extendData != null) opts.extendData = this.serializedOverlay.extendData;
+    if (s.extendData != null) opts.extendData = s.extendData;
     this.chart.createOverlay(opts);
 
     // Attach interaction callbacks (includes onPressedMoveEnd)
     if (this.callbacks) {
       this.chart.overrideOverlay({
-        id: this.serializedOverlay.overlayId,
+        id: s.overlayId,
         ...this.callbacks,
       });
+    }
+
+    // Restore pinned/locked state
+    if (this.locked) {
+      this.chart.overrideOverlay({ id: s.overlayId, lock: true });
     }
 
     // Re-persist to IndexedDB so overlay has backing data after undo
@@ -47,13 +62,13 @@ export class DeleteDrawingCommand {
         this.symbol,
         this.resolution,
         {
-          overlayId: this.serializedOverlay.overlayId,
-          overlayType: this.serializedOverlay.overlayType,
-          points: this.serializedOverlay.points,
-          styles: this.serializedOverlay.styles,
-          extendData: this.serializedOverlay.extendData,
-          pinned: this.serializedOverlay.pinned,
-          locked: this.serializedOverlay.locked,
+          overlayId: s.overlayId,
+          overlayType: s.overlayType,
+          points: s.points,
+          styles: s.styles,
+          extendData: s.extendData,
+          pinned: s.pinned,
+          locked: s.locked,
         }
       );
     }

@@ -16,9 +16,7 @@ KLineChart integration: configuration constants, custom calendar x-axis, drawing
 | `chartConfig.js` | Re-export barrel for chartConstants + chartTimeWindows | Adding chart config imports — prefer importing from specific modules |
 | `chartConstants.js` | Resolution/window/display constants, TRANSITION_MATRIX, period range limits, cache caps | Adding resolutions, modifying bar spacing, changing fetch limits |
 | `chartDataLoader.js` | Chart data loader factory: resets bar store, subscribes bars+ticks, triggers historical load | Debugging data loading pipeline, modifying subscription flow |
-| `chartDrawingHandlers.js` | Drawing event handler factory: create/delete/lock/pin/clear + undo/redo integration | Adding drawing interactions, modifying context menu behavior |
 | `chartLifecycle.js` | Chart init + lifecycle setup: initChart, resize observer, indicators, actions, interact, wheel | Debugging chart initialization, modifying mount behavior |
-| `chartOverlayRestore.js` | Drawing restore factory: merge local+pinned drawings, render with overlayMeta tracking | Debugging drawing persistence, modifying restore behavior |
 | `chartRequests.js` | WebSocket request helpers: candle subscribe/unsubscribe/history via ConnectionManager singleton | Debugging WS message flow, modifying candle request format |
 | `chartResize.js` | rAF-coalesced resize scheduling | Debugging resize timing, adding resize-triggered logic |
 | `chartSubscriptions.js` | Lifecycle-managed KLineChart action subscribe/unsubscribe (zoom, visibleRange, dataReady) | Debugging action handler leaks, adding new action subscriptions |
@@ -30,10 +28,10 @@ KLineChart integration: configuration constants, custom calendar x-axis, drawing
 | `chartTimeWindows.js` | Calendar-aligned time range computation, barSpace calculation | Modifying time window logic, changing calendar alignment |
 | `dataSearch.js` | Binary search utilities: dataIndexOf, snapToBar | Debugging x-axis coordinate mapping |
 | `DeleteDrawingCommand.js` | Delete drawing command with async undo re-persist to IndexedDB | Debugging delete undo behavior |
+| `drawingCoordinator.js` | Single coordinator factory: owns all drawing state, restore/merge/render, interaction registration, undo/redo | Adding drawing features, modifying coordinator behavior |
 | `drawingCommands.js` | Command pattern: DrawingCommandStack + CreateDrawingCommand + re-export DeleteDrawingCommand | Adding new command types, modifying undo behavior |
 | `drawingStore.js` | Drawing persistence via IndexedDB (Dexie.js) scoped by symbol+resolution, debounced server sync | Adding drawing storage, debugging persistence |
 | `fadedStyleDefaults.js` | FADED_LINE/TEXT/POINT/SHAPE constants and getFadedStyles() lookup | Modifying faded overlay styles |
-| `overlayMeta.js` | Unified overlay metadata map (dbId + pinned tracking) | Debugging overlay-to-dbId mapping, adding overlay metadata |
 | `overlaysAnnotations.js` | simpleAnnotation + simpleTag overlay registrations | Adding annotation overlay types |
 | `overlaysChannels.js` | parallelStraightLine + fibonacciLine overlay registrations | Adding channel overlay types |
 | `overlaysIndicators.js` | symbolWatermark + AD indicator registrations | Adding indicator types |

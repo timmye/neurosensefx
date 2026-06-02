@@ -1006,7 +1006,7 @@ Examples:
                         help="Stop loss in pips, comma-separated list (default: [25.0])")
     parser.add_argument("--tp", type=parse_value_list, default=[40.0],
                         help="Take profit in pips, comma-separated list (default: [40.0])")
-    parser.add_argument("--timeframe", choices=["15m", "1h", "1d"], default="1h",
+    parser.add_argument("--timeframe", choices=["5m", "15m", "30m", "1h", "1d"], default="1h",
                         help="OHLC candle interval (default: 1h)")
     parser.add_argument("--mode", choices=["conservative", "optimistic", "neutral"],
                         default="conservative",
@@ -1161,7 +1161,7 @@ Examples:
         csv_path = os.path.join(args.output, f"simulation_results_{cfg}_{ts}.csv")
         save_csv(results, metrics, csv_path)
 
-        if is_range:
+        if is_range and not args.no_csv:
             master_path = os.path.join(args.output, f"master_results_{cfg}_{ts}.csv")
             save_master_csv(all_combination_results, trades, master_path)
 
