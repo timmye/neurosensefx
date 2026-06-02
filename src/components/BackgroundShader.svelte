@@ -173,9 +173,11 @@ Volatility-driven uniforms available but disabled by default.
       scene.add(mesh);
 
       const clock = new THREE.Clock();
+      let tabVisible = !document.hidden;
 
       // Skip animation loop in headless/test environments (no GPU)
       function animate() {
+        if (!tabVisible) return;
         animationId = requestAnimationFrame(animate);
         material.uniforms.iTime.value = clock.getElapsedTime();
 
@@ -206,14 +208,22 @@ Volatility-driven uniforms available but disabled by default.
       }
       animate();
 
+      function handleVisibility() {
+        const wasHidden = !tabVisible;
+        tabVisible = !document.hidden;
+        if (wasHidden && tabVisible) animate();
+      }
+
       const handleResize = () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
         material.uniforms.iResolution.value.set(window.innerWidth, window.innerHeight, 1.0);
       };
       window.addEventListener('resize', handleResize);
+      document.addEventListener('visibilitychange', handleVisibility);
 
       return () => {
         window.removeEventListener('resize', handleResize);
+        document.removeEventListener('visibilitychange', handleVisibility);
         cancelAnimationFrame(animationId);
         unsubVolatility();
         geometry.dispose();

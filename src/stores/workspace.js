@@ -419,7 +419,9 @@ const actions = {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key.startsWith('price-markers-')) {
-          priceMarkers[key] = JSON.parse(localStorage.getItem(key));
+          let markers = null;
+          try { const raw = localStorage.getItem(key); markers = raw ? JSON.parse(raw) : null; } catch { /* corrupt entry — treat as missing */ }
+          if (markers) priceMarkers[key] = markers;
         }
       }
 

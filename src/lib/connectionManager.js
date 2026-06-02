@@ -15,6 +15,9 @@ export class ConnectionManager {
     this.statusCallbacks = new Set();
     this.reconnectTimeout = null;
     this.reconnectScheduled = false;
+    // Timeout for backend 'ready' message after WebSocket connects
+    this._readyTimeout = null;
+    this._readyTimeoutMs = 15000;
     if (typeof document !== 'undefined') {
         this.isTabVisible = !document.hidden;
         document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
@@ -40,22 +43,28 @@ export class ConnectionManager {
     const h = this.connectionHandler;
     h.onOpen = () => {
       this.reconnectionHandler.resetAttempts();
-      // Track if flushPending will handle initial subscriptions
+      // Track if SubscriptionManager has pending subscriptions to flush after ready.
+      // Both subscriptionManager.flushPending() and flushPendingMessages() are
+      // deferred to the 'ready' handler — the backend drops subscription / candle
+      // requests received before its upstream data sources are connected.
       this._skipResubscribe = this.subscriptionManager.hasPending();
-      this.subscriptionManager.flushPending(h.getWebSocket());
-      this.flushPendingMessages();
       this.notifyStatusChange();
+      // Start timeout waiting for backend 'ready' message
+      this._startReadyTimeout();
     };
     h.onClose = () => {
+      this._clearReadyTimeout();
       this.tryScheduleReconnect();
       this.notifyStatusChange();
     };
     h.onError = (e) => {
       console.error('[ConnectionManager] WebSocket error:', e);
+      this._clearReadyTimeout();
       this.tryScheduleReconnect();
       this.notifyStatusChange();
     };
     h.onStale = () => {
+      this._clearReadyTimeout();
       this.tryScheduleReconnect();
       this.notifyStatusChange();
     };
@@ -64,8 +73,15 @@ export class ConnectionManager {
         this.notifyStatusChange();
       }
       // Resubscribe when backend is ready (after cTrader/TradingView reconnection)
-      // Skip if flushPending already sent subscriptions on this connection
+      // Skip if flushPending already sent subscriptions on this connection.
+      // sendRaw-queued messages always flush here (after ready) — they cannot
+      // be safely delivered before the backend's upstream sources are live.
       if (d.type === 'ready') {
+        this._clearReadyTimeout();
+        // Flush both queues NOW — backend is ready to receive. Pre-ready flushes
+        // are dropped silently because upstream data sources aren't connected yet.
+        this.subscriptionManager.flushPending(h.getWebSocket());
+        this.flushPendingMessages();
         if (this._skipResubscribe) {
           this._skipResubscribe = false;
           console.log('[ConnectionManager] Skipping resubscribeAll - flushPending already sent subscriptions');
@@ -77,6 +93,22 @@ export class ConnectionManager {
       this.subscriptionManager.dispatch(d);
     };
     h.connect();
+  }
+
+  _startReadyTimeout() {
+    this._clearReadyTimeout();
+    this._readyTimeout = setTimeout(() => {
+      this._readyTimeout = null;
+      console.warn('[ConnectionManager] Backend ready timeout - no ready message after ' + (this._readyTimeoutMs / 1000) + 's, triggering reconnect');
+      this.tryScheduleReconnect();
+    }, this._readyTimeoutMs);
+  }
+
+  _clearReadyTimeout() {
+    if (this._readyTimeout) {
+      clearTimeout(this._readyTimeout);
+      this._readyTimeout = null;
+    }
   }
 
   tryScheduleReconnect() {
@@ -132,6 +164,7 @@ export class ConnectionManager {
   }
 
   disconnect() {
+    this._clearReadyTimeout();
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;

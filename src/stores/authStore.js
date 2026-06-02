@@ -38,15 +38,21 @@ async function collectLocalData() {
     if (typeof localStorage === 'undefined') return data;
 
     const ws = localStorage.getItem('workspace-state');
-    if (ws) data.workspace = JSON.parse(ws);
+    if (ws) {
+      try { data.workspace = JSON.parse(ws); } catch { /* corrupt entry — treat as missing */ }
+    }
 
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key.startsWith('price-markers-')) {
-            data.markers.push({
+            let markers = null;
+            try { const raw = localStorage.getItem(key); markers = raw ? JSON.parse(raw) : null; } catch { /* corrupt entry — treat as missing */ }
+            if (markers) {
+              data.markers.push({
                 symbol: key.replace('price-markers-', ''),
-                data: JSON.parse(localStorage.getItem(key))
-            });
+                data: markers
+              });
+            }
         }
     }
 
