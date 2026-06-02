@@ -237,6 +237,13 @@ __pycache__/
 .coverage
 htmlcov/
 
+# Claude Code local settings (may contain credentials)
+.claude/-settings.json
+.claude/settings.local.json
+
+# Runtime env status
+.env_status
+
 # Strategy simulation results (contained in backtester/)
 backtester/results/
 cumulative_pips_*.png
