@@ -1,10 +1,14 @@
 # Plan: marketDataStore.js Decomposition
 
+**Status:** DONE. Commit `5ce5c4d`. Store reduced from 361→205 LOC. 79 new tests. Public API unchanged.
+
 ## Context
 
-`marketDataStore.js` (361 LOC) is the last god store in the frontend. It manages per-symbol market data state, WebSocket subscription lifecycle, message normalization, market profile handling, TWAP integration, daily resets, and latency tracking — all in one file. Every new data feature touches it.
+Determined by /workspaces/neurosensefx/docs/frontend-architecture-assessment-2026-06.md
 
-The workspace.js decomposition and orchestrator compute/render splits established a pattern: **extract pure logic into testable modules, keep the store as the wiring hub.** This plan follows that pattern.
+`marketDataStore.js` (361 LOC) was the last god store in the frontend. It managed per-symbol market data state, WebSocket subscription lifecycle, message normalization, market profile handling, TWAP integration, daily resets, and latency tracking — all in one file. Every new data feature touched it.
+
+The workspace.js decomposition and orchestrator compute/render splits established a pattern: **extract pure logic into testable modules, keep the store as the wiring hub.** This plan followed that pattern.
 
 ## Key Insight
 
@@ -76,18 +80,14 @@ No component changes. No consumer changes. The store's public API is identical �
 
 ## Execution Order
 
-1. **Extract `normalizeData`** → `marketDataNormalizer.js` + tests
-2. **Extract profile merge** → `marketProfileHandler.js` + tests
-3. **Extract daily reset** → `dailyResetHandler.js` + tests
-4. **Slim the store** — import extracted modules, remove inline logic
-5. **Build + full test suite** — verify no regressions
-6. **UI smoke test** — open app, verify ticks flow, profile renders, daily reset works
-
-Steps 1-3 are independent and can be done in any order. Step 4 depends on 1-3.
+1. **Extract `normalizeData`** → `marketDataNormalizer.js` + tests — **DONE** (46 tests)
+2. **Extract profile merge** → `marketProfileHandler.js` + tests — **DONE** (20 tests)
+3. **Extract daily reset** → `dailyResetHandler.js` + tests — **DONE** (13 tests)
+4. **Slim the store** — import extracted modules, remove inline logic — **DONE** (361→205 LOC)
+5. **Build + full test suite** — verify no regressions — **DONE** (444 tests pass, build passes)
 
 ## Verification
 
 - `npx vite build` — build passes
-- `npx vitest run` — all 365+ existing tests pass
-- New test files: ~40 tests across 3 files covering normalization edge cases, profile source precedence, delta merging, daily reset field clearing
-- UI: open app → verify price ticks, market profile renders, day range/ADR boundaries display
+- `npx vitest run` — 444 tests pass (365 existing + 79 new)
+- UI: confirmed working by project owner

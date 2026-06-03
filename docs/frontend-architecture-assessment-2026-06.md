@@ -65,17 +65,17 @@ This assessment was produced from **file reads and grep**, not from running the 
 | Charting (`src/lib/chart/`) | ~50 files, largest domain | Modular but sprawling — 8 config/theme files, 5 overlay modules, 3 drawing files mid-refactor | Configuration sprawl + drawing-system polling + unbounded `overlayMeta` Map |
 | Feature domains (fxBasket, marketProfile, dayRange/ADR, priceMarkers) | ~25 files scattered | Three orchestrators — all pure render functions receiving `(ctx, data, config)` | Files in `lib/` root instead of subfolders, module-level mutable state in FX Basket. **Compute/render split done (§12.8)** |
 | Workspace & UI shell | ~12 components + 4 lib files | Single shell with floating displays; one 309-LOC `Workspace.svelte` onMount | `Workspace.svelte` overloaded; BackgroundShader GPU cost; multiple modal patterns |
-| Connection & data layer | ~13 files | Modular WS layer + decomposed stores | `workspace.js` (389 LOC after P1 #6 split); localStorage parsing fixed (P0) |
+| Connection & data layer | ~16 files | Modular WS layer + fully decomposed stores | `workspace.js` (389 LOC after P1 #6 split); `marketDataStore.js` (205 LOC after §13 decomposition); localStorage parsing fixed (P0) |
 | Cross-cutting infra | Build config + utils + deps | Vite/Svelte 4/klinecharts/three/dexie/interact | `ws` dep required by cTrader layer; three.js caret-pinned; composables dir removed (P0); 365 unit tests across 15 files |
 
 ### 4.2 Cross-cutting themes
 
 These repeat across multiple domains and are the actual leverage points:
 
-- **God stores** — `workspace.js` (654 LOC → 389 LOC after P1 #6 split), `marketDataStore.js` (361 LOC)
+- **God stores** — ~~`workspace.js` (654 LOC → 389 LOC after P1 #6 split), `marketDataStore.js` (361 LOC)~~ **Both resolved.** `workspace.js` split (§11), `marketDataStore.js` decomposed (§13).
 - **Module-level mutable state** — `fxBasketSubscription`, `drawingCoordinator.overlayMeta`
 - **Leaked intervals / listeners / animations** — `FxBasketDisplay`, `BackgroundShader`, `keyManager` escape stack
-- **Unbounded in-memory growth** — `barCache`, `marketDataStore` running H/L, `overlayMeta` Map, subscription queue
+- **Unbounded in-memory growth** — `barCache` (auto-evicting), ~~`marketDataStore` running H/L~~ (bounded + daily reset, §9.1 #2), `overlayMeta` Map, subscription queue
 - **Duplicated patterns** — ~~price-scale calc repeated in 3 features~~ (unified P1 #8), ~~3 orchestrator variants~~ (compute/render split done, §12.8), 5 overlay modules, 8 chart config/theme files
 - **No code splitting** — three.js + klinecharts + vendored cTrader layer all loaded eagerly
 - **Unsafe localStorage parsing** — ~~3 stores, no try/catch~~ **Fixed (P0)**
@@ -181,7 +181,7 @@ Adding tests for the above is a few hours' work and protects the parts most like
 4. ~~**P1 #8 (price-scale unification)**~~ — Done. See `docs/price-scale-unification-report.md` §6.
 5. **Leave P2 alone** unless and until a concrete trigger appears (team growth, user growth, performance incident, regression incident).
 
-**All P0 and P1 items are complete.** The assessment is resolved. P2 items remain deferred per §5.4.
+**All P0, P1, and god-store items are complete.** The assessment is resolved. P2 items remain deferred per §5.4.
 
 ---
 
@@ -451,7 +451,7 @@ Manual verification completed: display CRUD, arrow-key navigation, chart ghost s
 
 ### 11.6 Recommended next steps
 
-**All P0 and P1 items are complete.** No further assessment-driven work is pending. P2 items remain deferred per §5.4 unless a concrete trigger appears. P2 #13 (orchestrator pattern) has been reassessed — see §12.
+**All P0 and P1 items are complete.** The remaining god store (`marketDataStore.js`) has been decomposed — see §13. P2 items remain deferred per §5.4 unless a concrete trigger appears.
 
 ---
 
@@ -522,3 +522,34 @@ The compute/render split was implemented across all three orchestrators followin
 | **Total** | **4 new functions + 2 newly exported** | **51** |
 
 All 365 unit tests pass. Zero component changes required. P2 #13 is now resolved.
+
+---
+
+## 13. marketDataStore.js Decomposition (2026-06-03)
+
+The last god store was decomposed following the same pattern as the workspace.js split (§11) and orchestrator compute/render splits (§12): extract pure logic into testable modules, keep the store as the wiring hub.
+
+### 13.1 Outcome
+
+`marketDataStore.js` (361 LOC) split into four modules:
+
+| Module | LOC | Contents |
+|---|---|---|
+| `marketDataNormalizer.js` | 69 | `normalizeSymbolDataPackage()` + `normalizeTick()` — field fallback chains, mid-price calc, direction inference, running H/L |
+| `marketProfileHandler.js` | 40 | `mergeProfileUpdate()` — source precedence (TV > cTrader), delta merging, profile-derived H/L |
+| `dailyResetHandler.js` | 33 | `createResetFields()` + `setupDailyResetHandler()` — session field reset, daily system message subscription |
+| `marketDataStore.js` (slimmed) | 205 | Store Map, subscription lifecycle, `handleStoreUpdate()` wiring, connection status, devtools exposure |
+
+### 13.2 Key decisions
+
+1. **Store remains the sole subscriber.** Extracted modules are pure functions — no store imports, no side effects. The store calls them and merges results.
+2. **Public API unchanged.** Same 6 exports, same signatures. No consumer or component changes required.
+3. **Profile handler returns null for no-ops.** Caller checks `if (result === null) return current;` — avoids unnecessary store updates when cTrader updates are rejected by TV precedence.
+4. **Daily reset decoupled via callback.** `setupDailyResetHandler` takes a `resetCallback` instead of importing the store Map, keeping the module pure-testable.
+
+### 13.3 Verification
+
+- Build passes
+- 444 tests pass (365 existing + 79 new across 3 test files)
+- UI verified working by project owner
+- Commit: `5ce5c4d`
