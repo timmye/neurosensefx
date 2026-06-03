@@ -19,7 +19,7 @@ Svelte 4 SPA. Single WebSocket to backend. Workspace of floating chart displays 
 
 ### Test infrastructure
 
-444 unit tests across 18 files. All test pure-logic modules with synthetic inputs — no DOM/WebSocket mocks. Vitest for unit tests, Playwright for E2E (requires running backend + PG + Redis).
+476 unit tests across 19 files. All test pure-logic modules with synthetic inputs — no DOM/WebSocket mocks. Vitest for unit tests, Playwright for E2E (requires running backend + PG + Redis).
 
 ### Bundle
 
@@ -52,7 +52,7 @@ All three main feature domains have clean compute/render splits with tests. Pric
 | Day Range / ADR | `src/lib/dayRange/` | `computeDayRange()` | 22 | Well-organized subfolder |
 | Market Profile | `src/lib/marketProfile/` | `computeMarketProfile()` + `computeMiniMarketProfile()` | 14 | Well-organized subfolder |
 | FX Basket | `src/lib/fxBasket/` | `computeFxBasketLayout()` | 15 | Module-level Maps (`basketStateMachines`, `basketStores`) in `fxBasketSubscription.js` — manual cleanup |
-| Price Markers | `src/lib/priceMarkers/` | **None** | **0** | No compute/render split. `priceMarkerRenderer.js` mixes computation with rendering. |
+| Price Markers | `src/lib/priceMarkers/` | `computeCurrentPrice` + 6 others | 32 | Compute/render split done. All 4 feature domains now follow the pattern. |
 
 ### 2.3 Workspace & UI Shell
 
@@ -126,7 +126,7 @@ All five items executed. Build clean, 365/365 tests passing, UI verified.
 | # | What | Why | Effort | Status |
 |---|------|-----|--------|--------|
 | 6 | **`marketDataStore.js` decomposition** — extract subscription management, message normalization, market profile logic, TWAP, daily reset into focused modules | 361 LOC god store. Blocks future feature work. Every new data feature touches it. | **Done** — commit `5ce5c4d`. 361→205 LOC, 79 new tests. |
-| 7 | **Price marker compute/render split** — extract computation from `priceMarkerRenderer.js`, add tests | Only feature domain without the split. No tests. Pattern proven in 3 other domains. | 4-6 hr | Pending |
+| 7 | **Price marker compute/render split** — extract computation from `priceMarkerRenderer.js`, add tests | Only feature domain without the split. No tests. Pattern proven in 3 other domains. | **Done** — 7 compute functions extracted, 32 tests. Renderer reduced to thin draw calls. |
 | 8 | **Extract keyboard service** from `Workspace.svelte` onMount | 15+ shortcut registrations in one onMount. Extracting reduces complexity. Clean deps (only `displayStore`). | **Done** — `workspaceKeyboardShortcuts.js`. Workspace onMount reduced ~110→40 LOC. |
 | 9 | ~~**Overlay registration factory**~~ — extract shared `registerOverlay()` boilerplate from 5 overlay modules | **Rejected after investigation.** The "boilerplate" is the klinecharts API config shape, not duplicated logic. Each overlay's `createPointFigures` is entirely unique. A factory would add more LOC than it saves. The indicators file uses a different API (`registerIndicator`). | N/A |
 
@@ -134,7 +134,7 @@ All five items executed. Build clean, 365/365 tests passing, UI verified.
 
 1. ~~**Tier 1** (half day) — do all five, no planning needed~~ **Done.**
 2. ~~**Tier 2 #6** (1-2 days) — `marketDataStore` decomposition~~ **Done.**
-3. **Tier 2 #7, #8, #9** (1 day each, independent) — can be parallelized or done in any order
+3. ~~**Tier 2 #7, #8, #9** (1 day each, independent)~~ **#7 done, #8 done, #9 rejected.**
 
 ---
 

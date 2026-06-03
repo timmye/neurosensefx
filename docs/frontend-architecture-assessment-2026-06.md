@@ -117,7 +117,7 @@ The features were built one at a time, each with its own variation on the orches
 
 **What was found:** Originally only 7 unit test files, all under `src/lib/chart/__tests__/`. Zero tests for stores, connection, features, or the workspace shell. Playwright is configured but no e2e suite was found in the assessment.
 
-**Update (2026-06-03):** The narrow targets identified below were implemented — 314 tests across 12 files now cover pure-logic modules (`barMerge`, `priceFormat`, `reconcile`, `dataContracts`, `xAxisCustom`, `drawingCommands`, `drawingCoordinator`, `styleUtils`, `pricePrecision`, `cacheFreshness`, `reconnectionHandler`). All use synthetic inputs with no DOM/WebSocket mocks. An additional 51 tests cover the orchestrator compute functions (§12.8). Total: 365 tests across 15 files.
+**Update (2026-06-03):** The narrow targets identified below were implemented — 314 tests across 12 files now cover pure-logic modules (`barMerge`, `priceFormat`, `reconcile`, `dataContracts`, `xAxisCustom`, `drawingCommands`, `drawingCoordinator`, `styleUtils`, `pricePrecision`, `cacheFreshness`, `reconnectionHandler`). All use synthetic inputs with no DOM/WebSocket mocks. An additional 51 tests cover the orchestrator compute functions (§12.8), 79 tests cover marketDataStore extracted modules (§13), and 32 tests cover price marker compute functions. Total: 476 tests across 19 files.
 
 **Why it likely was avoided:** This is the most-defensible gap. The reasons compound:
 
