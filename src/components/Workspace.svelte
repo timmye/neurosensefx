@@ -1,5 +1,5 @@
 <script>
-  import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';
+  import { workspaceActions, workspacePersistence, headlinesStore } from '../stores/workspace.js';
   import { displayStore, displayActions } from '../stores/displayStore.js';
   import FloatingDisplay from './FloatingDisplay.svelte';
   import FxBasketDisplay from './FxBasketDisplay.svelte';
@@ -22,14 +22,14 @@
   let keyboardCleanup;
 
   $: selectedTicker = (() => {
-    if (!$workspaceStore.selectedDisplayId) return null;
-    const display = $workspaceStore.displays.get($workspaceStore.selectedDisplayId);
+    if (!$displayStore.selectedDisplayId) return null;
+    const display = $displayStore.displays.get($displayStore.selectedDisplayId);
     return display?.symbol || null;
   })();
 
   // Update chart symbol when a different ticker is selected
   $: if (selectedTicker) {
-    const chartDisplay = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
+    const chartDisplay = Array.from($displayStore.displays.values()).find(d => d.type === 'chart');
     if (chartDisplay && chartDisplay.symbol !== selectedTicker) {
       workspaceActions.updateChartDisplay(chartDisplay.id, { symbol: selectedTicker });
     }
@@ -103,7 +103,7 @@
 
   function toggleChart() {
     // Find chart display (should be single instance)
-    const chartDisplay = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
+    const chartDisplay = Array.from($displayStore.displays.values()).find(d => d.type === 'chart');
 
     if (chartDisplay) {
       // Chart exists - close it
@@ -112,7 +112,7 @@
       // No chart - create new one for selected ticker
       // Fallback: if no ticker selected, use first priceTicker symbol
       const symbol = selectedTicker || (() => {
-        const ticker = Array.from($workspaceStore.displays.values()).find(d => d.type === 'priceTicker');
+        const ticker = Array.from($displayStore.displays.values()).find(d => d.type === 'priceTicker');
         return ticker?.symbol || null;
       })();
       if (symbol) {
@@ -123,7 +123,7 @@
 
   function createChartDisplay(symbol) {
     // Check if there's already a chart display
-    const existingChart = Array.from($workspaceStore.displays.values()).find(d => d.type === 'chart');
+    const existingChart = Array.from($displayStore.displays.values()).find(d => d.type === 'chart');
     if (existingChart) {
       // Update existing chart with new symbol
       workspaceActions.updateChartDisplay(existingChart.id, { symbol });
@@ -140,7 +140,6 @@
     }
     // Expose workspace actions and store to window for testing/debugging
     window.workspaceActions = workspaceActions;
-    window.workspaceStore = workspaceStore;
 
     // Load workspace persistence first
     // Async: server API load may take time, so await before proceeding (ref: DL-007)
@@ -282,7 +281,7 @@
 <div class="workspace-container" role="application" on:contextmenu|preventDefault>
   <BackgroundShader />
   <div class="workspace" role="region" tabindex="0" aria-label="Workspace">
-    {#each Array.from($workspaceStore.displays.values()) as display (display.id)}
+    {#each Array.from($displayStore.displays.values()) as display (display.id)}
       {#if display.type === 'priceTicker'}
         <PriceTicker ticker={display} rapidFlashEnabled={true} />
       {:else if display.symbol === 'FX_BASKET'}
@@ -293,7 +292,7 @@
         <FloatingDisplay {display} />
       {/if}
     {/each}
-    {#if $workspaceStore.headlinesVisible}
+    {#if $headlinesStore.headlinesVisible}
       <HeadlinesWidget />
     {/if}
   </div>

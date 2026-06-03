@@ -1,5 +1,5 @@
-import { renderDayRange as renderDayRangeOrchestrated } from './dayRangeOrchestrator.js';
-import { getConfig } from './dayRangeConfig.js';
+import { renderDayRange as renderDayRangeOrchestrated } from './dayRange/dayRangeOrchestrator.js';
+import { getConfig } from './dayRange/dayRangeConfig.js';
 import { renderStatusMessage } from './canvasStatusRenderer.js';
 import { renderMarketProfile } from './marketProfile/orchestrator.js';
 

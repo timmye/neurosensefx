@@ -2,7 +2,7 @@
 // Framework-first: Y-coordinate scaling shared with Day Range Meter
 // Ensures Market Profile overlay aligns with Day Range Meter
 
-import { calculateAdaptiveScale as calculateDayRangeScale } from '../dayRangeCalculations.js';
+import { calculateAdaptiveScale as calculateDayRangeScale } from '../dayRange/dayRangeCalculations.js';
 
 const ADR_AXIS_RATIO = 0.75;
 

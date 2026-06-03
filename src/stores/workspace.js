@@ -5,9 +5,7 @@
 // Display state and actions: displayStore.js
 // Marker actions and persistence: markerStore.js
 // This file: headlines state, workspace persistence, import/export.
-// Backward compatibility: exports a combined derived store for consumers that
-// haven't migrated to direct displayStore imports yet.
-import { writable, derived } from 'svelte/store';
+import { writable } from 'svelte/store';
 import { get } from 'svelte/store';
 import { authStore } from './authStore.js';
 import { drawingStore } from '../lib/chart/drawingStore.js';
@@ -25,26 +23,10 @@ function compareSemver(a, b) {
 }
 
 // --- Headlines state (stays here) ---
-const headlinesState = {
+export const headlinesStore = writable({
   headlinesVisible: false,
   headlinesPosition: { x: 20, y: 20 },
   headlinesSize: { width: 500, height: 600 }
-};
-
-const _headlinesStore = writable(headlinesState);
-
-// --- Combined store for backward compatibility ---
-// Provides a single store with both display and headlines state,
-// so existing $workspaceStore subscriptions continue to work.
-const workspaceStore = derived(
-  [displayStore, _headlinesStore],
-  ([$display, $headlines]) => ({ ...$display, ...$headlines })
-);
-
-// Non-reactive combined state access (used by tests and priceMarkerInteraction)
-workspaceStore.getState = () => ({
-  ...displayStore.getState(),
-  ...get(_headlinesStore)
 });
 
 // --- Marker actions imported from markerStore.js ---
@@ -52,18 +34,18 @@ workspaceStore.getState = () => ({
 // --- Headlines actions ---
 const headlinesActions = {
   toggleHeadlines: () => {
-    _headlinesStore.update(state => ({
+    headlinesStore.update(state => ({
       ...state,
       headlinesVisible: !state.headlinesVisible
     }));
   },
 
   updateHeadlinesPosition: (position) => {
-    _headlinesStore.update(state => ({ ...state, headlinesPosition: position }));
+    headlinesStore.update(state => ({ ...state, headlinesPosition: position }));
   },
 
   updateHeadlinesSize: (size) => {
-    _headlinesStore.update(state => ({ ...state, headlinesSize: size }));
+    headlinesStore.update(state => ({ ...state, headlinesSize: size }));
   },
 };
 
@@ -213,7 +195,7 @@ const actions = {
         }
       }
 
-      const headlinesState = get(_headlinesStore);
+      const headlinesState = get(headlinesStore);
 
       const exportData = {
         version: '1.1.0',
@@ -265,7 +247,7 @@ const persistence = {
                 nextZIndex: layout.nextZIndex || 1,
                 chartGhost: layout.chartGhost || null,
               }));
-              _headlinesStore.update(state => ({
+              headlinesStore.update(state => ({
                 ...state,
                 headlinesVisible: 'headlinesVisible' in layout ? layout.headlinesVisible : state.headlinesVisible,
                 headlinesPosition: layout.headlinesPosition || state.headlinesPosition,
@@ -294,7 +276,7 @@ const persistence = {
 
     const syncToStorage = () => {
       const displayState = displayStore.getState();
-      const headlinesState = get(_headlinesStore);
+      const headlinesState = get(headlinesStore);
       const data = {
         displays: Array.from(displayState.displays.entries()),
         nextZIndex: displayState.nextZIndex,
@@ -325,7 +307,7 @@ const persistence = {
     };
 
     const unsub1 = displayStore.subscribe(syncToStorage);
-    const unsub2 = _headlinesStore.subscribe(syncToStorage);
+    const unsub2 = headlinesStore.subscribe(syncToStorage);
     return () => { unsub1(); unsub2(); };
   },
 
@@ -359,7 +341,7 @@ function loadFromLocalStorage() {
         nextZIndex: data.nextZIndex || 1,
         chartGhost: data.chartGhost || null,
       }));
-      _headlinesStore.update(state => ({
+      headlinesStore.update(state => ({
         ...state,
         headlinesVisible: 'headlinesVisible' in data ? data.headlinesVisible : state.headlinesVisible,
         headlinesPosition: data.headlinesPosition || state.headlinesPosition,
@@ -371,7 +353,6 @@ function loadFromLocalStorage() {
 }
 
 export { displayStore, displayActions };
-export { workspaceStore };
 export { persistence as workspacePersistence };
 export const workspaceActions = actions;
 
@@ -382,7 +363,13 @@ if (typeof window !== 'undefined') {
 
 // Expose to window for testing purposes
 if (typeof window !== 'undefined') {
-  window.workspaceStore = workspaceStore;
+  // Non-reactive combined state access for E2E tests
+  window.workspaceStore = {
+    getState: () => ({
+      ...displayStore.getState(),
+      ...get(headlinesStore)
+    })
+  };
   window.displayStore = displayStore;
   window.workspaceActions = actions;
   window.workspacePersistence = persistence;

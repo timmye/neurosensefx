@@ -3,16 +3,16 @@
 // Orchestrates rendering pipeline: validate → scale → draw
 
 import { renderStatusMessage, renderErrorMessage } from '../canvasStatusRenderer.js';
-import { validateMarketData, createPriceScale } from '../dayRangeRenderingUtils.js';
+import { validateMarketData, createPriceScale } from '../dayRange/dayRangeRenderingUtils.js';
 import { calculateAdaptiveScale, calculateDimensions, createMiniPriceScale } from './scaling.js';
 import { calculateMaxTpo, calculateTpoScale, computePOC, calculateValueArea } from './calculations.js';
 import {
   drawValueArea, drawBars, drawPOC,
   drawMiniBars, drawMiniCurrentPrice, drawMiniOpenPrice, drawMiniTwapPrice,
 } from './rendering.js';
-import { createDayRangeConfig } from '../dayRangeRenderingUtils.js';
-import { getConfig } from '../dayRangeConfig.js';
-import { setupCanvas, renderPixelPerfectLine } from '../dayRangeCore.js';
+import { createDayRangeConfig } from '../dayRange/dayRangeRenderingUtils.js';
+import { getConfig } from '../dayRange/dayRangeConfig.js';
+import { setupCanvas, renderPixelPerfectLine } from '../dayRange/dayRangeCore.js';
 
 /**
  * Pure computation step for Market Profile rendering.

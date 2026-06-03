@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeDayRange } from '../dayRangeOrchestrator.js';
+import { computeDayRange } from '../dayRange/dayRangeOrchestrator.js';
 
 // ── Helpers ──
 

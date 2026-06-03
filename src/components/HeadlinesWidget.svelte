@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { createInteractConfig } from '../lib/interactSetup.js';
-  import { workspaceActions, workspaceStore } from '../stores/workspace.js';
+  import { workspaceActions, headlinesStore } from '../stores/workspace.js';
 
   let element, interactable, scriptTag;
   let resizeTimeout;
@@ -48,7 +48,7 @@
         console.warn('[HeadlinesWidget] FJWidgets global not defined after script load');
         return;
       }
-      createWidget($workspaceStore.headlinesSize.width, $workspaceStore.headlinesSize.height);
+      createWidget($headlinesStore.headlinesSize.width, $headlinesStore.headlinesSize.height);
     };
     document.head.appendChild(scriptTag);
   });
@@ -65,7 +65,7 @@
 </script>
 
 <div class="floating-display" bind:this={element}
-  style="left: {$workspaceStore.headlinesPosition.x}px; top: {$workspaceStore.headlinesPosition.y}px; width: {$workspaceStore.headlinesSize.width}px; height: {$workspaceStore.headlinesSize.height}px;">
+  style="left: {$headlinesStore.headlinesPosition.x}px; top: {$headlinesStore.headlinesPosition.y}px; width: {$headlinesStore.headlinesSize.width}px; height: {$headlinesStore.headlinesSize.height}px;">
   <div class="display-header">
     <span class="display-symbol">HEADLINES</span>
     <button class="display-close-btn" on:click={workspaceActions.toggleHeadlines}>×</button>

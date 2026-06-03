@@ -4,7 +4,7 @@
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
   import { getMarketDataStore, subscribeToSymbol } from '../stores/marketDataStore.js';
-  import { calculateDayRangePercentage } from '../lib/dayRangeCalculations.js';
+  import { calculateDayRangePercentage } from '../lib/dayRange/dayRangeCalculations.js';
   import { formatPrice, formatPriceToPip, getPipetteDigit, splitByPipPosition } from '../lib/priceFormat.js';
   import { renderMiniMarketProfile } from '../lib/marketProfile/orchestrator.js';
   import { createInteractConfig } from '../lib/interactSetup.js';

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { setupCanvas } from '../../lib/dayRangeCore.js';
+  import { setupCanvas } from '../../lib/dayRange/dayRangeCore.js';
   import { renderErrorMessage, renderStatusMessage } from '../../lib/canvasStatusRenderer.js';
   import {
     getDisplayType,

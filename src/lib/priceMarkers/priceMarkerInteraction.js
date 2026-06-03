@@ -1,0 +1,190 @@
+// Price Marker Interaction System - Crystal Clarity: Simple, Performant, Maintainable
+// Framework-first: Direct DOM APIs, no custom libraries
+
+import { markerActions } from '../../stores/markerStore.js';
+import { displayStore } from '../../stores/displayStore.js';
+import { createMarker, getMarkerAtPosition } from './priceMarkers.js';
+import { toPrice } from './priceMarkerCoordinates.js';
+import { createPriceScale } from '../dayRange/dayRangeRenderingUtils.js';
+import { showDropdown } from './priceMarkerDropdown.js';
+import { formatPriceToPipLevel } from '../priceFormat.js';
+import { calculateAdaptiveScale } from '../dayRange/dayRangeCalculations.js';
+import { keyManager } from '../keyManager.js';
+
+export class PriceMarkerInteraction {
+  constructor(canvas, displayId, data, scale) {
+    this.canvas = canvas;
+    this.displayId = displayId;
+    this.scale = scale;
+    this.data = data;
+    this.activeDropdown = null;
+    this.deltaMode = null;
+    this.onDeltaMove = null;
+    this.onDeltaEnd = null;
+    this.init();
+  }
+
+  updateData(data) {
+    this.data = data;
+  }
+
+  init() {
+    // Store handler references so removeEventListener can remove the exact same functions
+    this._handleMouseDown = e => this.handleMouseDown(e);
+    this._handleMouseMove = e => this.handleMouseMove(e);
+    this._handleMouseUp = e => this.handleMouseUp(e);
+    this._handleContextMenu = e => this.handleContextMenu(e);
+    this._escapePop = keyManager.pushEscape(() => this.hideDropdown());
+
+    this.canvas.addEventListener('mousedown', this._handleMouseDown);
+    this.canvas.addEventListener('mousemove', this._handleMouseMove);
+    this.canvas.addEventListener('mouseup', this._handleMouseUp);
+    this.canvas.addEventListener('contextmenu', this._handleContextMenu);
+  }
+
+  handleMouseDown(e) {
+    // Right-click-hold for delta mode (but NOT when Alt is held for marker operations)
+    if (e.button === 2 && !e.altKey) {
+      e.preventDefault(); // Prevent context menu
+
+      const rect = this.canvas.getBoundingClientRect();
+      // Bounds checking
+      if (e.clientY < rect.top || e.clientY > rect.bottom) return;
+
+      const relativeY = e.clientY - rect.top;
+      const price = toPrice(this.canvas, this.scale, this.data, relativeY);
+
+      // Validate price
+      if (!price || !isFinite(price)) return;
+
+      if (price) {
+        this.deltaMode = {
+          startY: relativeY,
+          startPrice: price,
+          startTime: Date.now()
+        };
+        // Trigger parent re-render instead of storing canvas data
+        this.onRerender?.();
+      }
+      return;
+    }
+
+    // Alt+click for price markers
+    if (!e.altKey || e.button !== 0) return;
+    const relativeY = e.clientY - this.canvas.getBoundingClientRect().top;
+    const price = toPrice(this.canvas, this.scale, this.data, relativeY);
+    if (price) {
+      const pipSize = this.data?.pipSize || 0.0001;
+      const pipPosition = this.data?.pipPosition;
+      const roundedPrice = formatPriceToPipLevel(price, pipPosition, pipSize);
+      const marker = createMarker('small', roundedPrice, this.displayId);
+      if (marker) {
+        markerActions.addPriceMarker(this.displayId, marker);
+      }
+    }
+  }
+
+  handleMouseMove(e) {
+    // Delta mode drag
+    if (this.deltaMode) {
+      const relativeY = e.clientY - this.canvas.getBoundingClientRect().top;
+      const currentPrice = toPrice(this.canvas, this.scale, this.data, relativeY);
+      if (currentPrice && this.onDeltaMove) {
+        // Let parent handle via reactive render pipeline
+        this.onDeltaMove(this.deltaMode.startPrice, currentPrice);
+      }
+      return;
+    }
+
+    // Alt+hover for price preview
+    const altKey = e.altKey;
+    this.canvas.style.cursor = altKey ? 'crosshair' : 'default';
+
+    if (altKey) {
+      const relativeY = e.clientY - this.canvas.getBoundingClientRect().top;
+      const price = toPrice(this.canvas, this.scale, this.data, relativeY);
+      if (this.onHoverPrice) {
+        this.onHoverPrice(price);
+      }
+    } else {
+      if (this.onHoverPrice) {
+        this.onHoverPrice(null);
+      }
+    }
+  }
+
+  handleMouseUp(e) {
+    // End delta mode on right button release
+    if (this.deltaMode && e.button === 2) {
+      this.deltaMode = null;
+      if (this.onDeltaEnd) {
+        this.onDeltaEnd();
+      }
+    }
+  }
+
+  handleContextMenu(e) {
+    e.preventDefault();
+
+    // Only handle Alt+right-click for dropdown (exclude delta when Alt is held)
+    if (!e.altKey) return;
+
+    const rect = this.canvas.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const price = toPrice(this.canvas, this.scale, this.data, y);
+
+    if (price) {
+      const state = displayStore.getState();
+      const display = state.displays.get(this.displayId);
+      // Use same coordinate system as renderDeltaOverlay (dayRangeRenderingUtils)
+      const scaleData = {
+        adrHigh: this.data?.adrHigh,
+        adrLow: this.data?.adrLow,
+        high: this.data?.high,
+        low: this.data?.low,
+        current: this.data?.current,
+        open: this.data?.open
+      };
+      const config = { scaling: 'adaptive' };
+      const adaptiveScale = calculateAdaptiveScale(scaleData, config);
+      // Use CSS height (rect.height) to match mouse coordinate system
+      const scale = createPriceScale(config, adaptiveScale, this.canvas.getBoundingClientRect().height);
+      const marker = getMarkerAtPosition(display?.priceMarkers || [], y, scale);
+      if (marker) {
+        this.activeDropdown = showDropdown(e.clientX, e.clientY, marker, this.displayId);
+      }
+    }
+  }
+
+  hideDropdown() {
+    if (this.activeDropdown) {
+      this.activeDropdown.remove();
+      this.activeDropdown = null;
+    }
+  }
+
+  endDeltaMode() {
+    this.deltaMode = null;
+    if (this.onDeltaEnd) {
+      this.onDeltaEnd();
+    }
+  }
+
+  
+  destroy() {
+    this._escapePop?.();
+    this.hideDropdown();
+    this.endDeltaMode(); // Clean up any active delta mode
+    this.canvas.removeEventListener('mousedown', this._handleMouseDown);
+    this.canvas.removeEventListener('mousemove', this._handleMouseMove);
+    this.canvas.removeEventListener('mouseup', this._handleMouseUp);
+    this.canvas.removeEventListener('contextmenu', this._handleContextMenu);
+
+    // Clear memory references
+    this.deltaMode = null;
+  }
+}
+
+export function createPriceMarkerInteraction(canvas, displayId, data, scale) {
+  return new PriceMarkerInteraction(canvas, displayId, data, scale);
+}

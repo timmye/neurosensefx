@@ -1,9 +1,9 @@
 // Day Range Percentage Marker Renderer - Crystal Clarity Compliant
 // Framework-first: Static and dynamic percentage markers with Canvas 2D
 
-import { setupTextRendering, renderPixelPerfectLine } from './dayRangeCore.js';
-import { calculateMaxAdrPercentage, calculateDayRangePercentage } from './dayRangeCalculations.js';
-import { createPriceScale } from './dayRangeRenderingUtils.js';
+import { setupTextRendering, renderPixelPerfectLine } from './dayRange/dayRangeCore.js';
+import { calculateMaxAdrPercentage, calculateDayRangePercentage } from './dayRange/dayRangeCalculations.js';
+import { createPriceScale } from './dayRange/dayRangeRenderingUtils.js';
 import { resolveAxisX } from './displayCanvasRenderer.js';
 
 // Main percentage markers orchestrator

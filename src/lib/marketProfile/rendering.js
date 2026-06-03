@@ -1,7 +1,7 @@
 // Market Profile Rendering - Crystal Clarity Compliant
 // Framework-first: Canvas 2D API for all drawing operations
 
-import { renderPixelPerfectLine } from '../dayRangeCore.js';
+import { renderPixelPerfectLine } from '../dayRange/dayRangeCore.js';
 import { getIntensityColor } from './calculations.js';
 
 export function drawValueArea(ctx, valueArea, priceScale, startX, width) {

@@ -5,12 +5,12 @@
 import { renderDayRange, renderDayRangeWithMarketProfile } from './visualizers.js';
 import { renderFxBasket as renderFxBasketOrchestrator } from './fxBasket/fxBasketOrchestrator.js';
 import { renderStatusMessage, renderErrorMessage, SYSTEM_FONT_FAMILY } from './canvasStatusRenderer.js';
-import { renderUserPriceMarkers, renderHoverPreview } from './priceMarkerRenderer.js';
-import { createPriceScale } from './dayRangeRenderingUtils.js';
-import { calculateAdaptiveScale } from './dayRangeCalculations.js';
-import { getConfig } from './dayRangeConfig.js';
+import { renderUserPriceMarkers, renderHoverPreview } from './priceMarkers/priceMarkerRenderer.js';
+import { createPriceScale } from './dayRange/dayRangeRenderingUtils.js';
+import { calculateAdaptiveScale } from './dayRange/dayRangeCalculations.js';
+import { getConfig } from './dayRange/dayRangeConfig.js';
 import { formatPipMovement, formatPriceWithPipPosition, formatPriceToPipLevel } from './priceFormat.js';
-import { drawPriceMarker } from './dayRangeElements.js';
+import { drawPriceMarker } from './dayRange/dayRangeElements.js';
 
 const DELTA_MARKER_COLOR = '#FFD700';
 
