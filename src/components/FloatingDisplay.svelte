@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { workspaceActions, workspaceStore } from '../stores/workspace.js';
+  import { displayActions, displayStore } from '../stores/displayStore.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
@@ -26,10 +26,10 @@
   const flashDuration = 500; // ms
 
   const handlers = {
-    close: () => workspaceActions.removeDisplay(display.id),
+    close: () => displayActions.removeDisplay(display.id),
     focus: () => {
-      workspaceActions.setSelectedDisplay(display.id);
-      workspaceActions.bringToFront(display.id);
+      displayActions.setSelectedDisplay(display.id);
+      displayActions.bringToFront(display.id);
     },
     refresh: () => {
       lastMarketProfileData = null;
@@ -57,7 +57,7 @@
 
   $: ({ currentDisplay, showMarketProfile, selectedMarker, connectionStatus } =
     (() => {
-      const d = $workspaceStore.displays.get(display.id) || {};
+      const d = $displayStore.displays.get(display.id) || {};
       const st = status?.status ?? 'disconnected';
       return {
         currentDisplay: d,
@@ -108,7 +108,7 @@
       (e) => {
         if (!element || !element.contains(document.activeElement)) return false;
         e.preventDefault();
-        workspaceActions.toggleMarketProfile(display.id);
+        displayActions.toggleMarketProfile(display.id);
         return true;
       },
       { priority: 10 }
@@ -119,9 +119,9 @@
     previousSymbol = formattedSymbol;
 
     interactable = createInteractConfig(element, {
-      onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
-      onResizeMove: (event) => workspaceActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height }),
-      onTap: () => workspaceActions.bringToFront(display.id)
+      onDragMove: (e) => displayActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
+      onResizeMove: (event) => displayActions.updateSize(display.id, { width: event.rect.width, height: event.rect.height }),
+      onTap: () => displayActions.bringToFront(display.id)
     });
 
     connectionManager.connect();

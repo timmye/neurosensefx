@@ -8,8 +8,9 @@ Svelte state management stores for frontend application.
 | ---- | ---- | ------------ |
 | `marketDataStore.js` | Centralized market data store with subscription management and market profile integration | Adding data subscriptions, debugging data flow, working with tick/profile data |
 | `chartDataStore.js` | OHLC bar management, IndexedDB caching via Dexie.js, progressive scroll loading | Adding candle subscriptions, debugging chart data flow, implementing resolution switching |
-| `workspace.js` | Workspace state, display management, export/import, headlines widget persistence (visibility, position, size) | Implementing workspace features, debugging state, headlines persistence |
-| `priceMarkerPersistence.js` | Price marker localStorage handling | Fixing marker persistence issues |
+| `displayStore.js` | Display state (displays Map, z-index, selection, chart ghost) and display lifecycle actions (add, remove, move, resize, bring-to-front, chart-specific) | Adding new display types, debugging display CRUD, display selection/navigation |
+| `markerStore.js` | Price marker CRUD actions (add, remove, update, select) that operate on displayStore, plus marker persistence (localStorage + server sync). Absorbs former `priceMarkerPersistence.js` | Adding marker features, debugging marker persistence, marker import/export |
+| `workspace.js` | Workspace persistence (localStorage + server), import/export, headlines widget state (visibility, position, size). Exports combined derived store for backward compat | Implementing workspace persistence, import/export, headlines widget |
 | `authStore.js` | Svelte store for authentication state (login, logout, session) | Modifying login/logout UI, checking auth status |
 | `themeStore.js` | Svelte store for light/dark theme preference | Changing theme, persisting theme choice |
 | `timezoneStore.js` | Svelte store for timezone preference (user → browser local → UTC fallback) | Changing timezone display, debugging timezone labels |

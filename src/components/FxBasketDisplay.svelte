@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { createInteractConfig } from '../lib/interactSetup.js';
-  import { workspaceActions, workspaceStore } from '../stores/workspace.js';
+  import { displayActions, displayStore } from '../stores/displayStore.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
   import { getAllPairs } from '../lib/fxBasket/fxBasketCalculations.js';
@@ -26,7 +26,7 @@
   let ctx, canvas;
   let renderPending = false;
 
-  $: currentDisplay = $workspaceStore.displays.get(display.id);
+  $: currentDisplay = $displayStore.displays.get(display.id);
 
   onMount(() => {
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
@@ -67,9 +67,9 @@
 
   function setupInteract() {
     interactable = createInteractConfig(element, {
-      onDragMove: (e) => workspaceActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
-      onResizeMove: (e) => workspaceActions.updateSize(display.id, { width: e.rect.width, height: e.rect.height }),
-      onTap: () => workspaceActions.bringToFront(display.id)
+      onDragMove: (e) => displayActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
+      onResizeMove: (e) => displayActions.updateSize(display.id, { width: e.rect.width, height: e.rect.height }),
+      onTap: () => displayActions.bringToFront(display.id)
     });
   }
 
@@ -153,10 +153,10 @@
     })), typeof window !== 'undefined' ? window : null);
   }
 
-  function handleClose() { workspaceActions.removeDisplay(display.id); }
+  function handleClose() { displayActions.removeDisplay(display.id); }
   function handleFocus() {
-    workspaceActions.setSelectedDisplay(display.id);
-    workspaceActions.bringToFront(display.id);
+    displayActions.setSelectedDisplay(display.id);
+    displayActions.bringToFront(display.id);
   }
   async function handleRefresh() {
     if (connectionManager) {

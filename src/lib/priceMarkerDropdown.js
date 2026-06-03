@@ -1,7 +1,7 @@
 // Price Marker Dropdown System - Crystal Clarity Compliant
 // Framework-first: Direct DOM APIs, no custom dropdown libraries
 
-import { workspaceActions } from '../stores/workspace.js';
+import { markerActions } from '../stores/markerStore.js';
 import { MARKER_TYPES } from './priceMarkers.js';
 
 // Create and show dropdown menu at position
@@ -52,11 +52,11 @@ export function showDropdown(x, y, marker, displayId) {
 // Execute dropdown action
 export function executeAction(type, marker, displayId) {
   if (type === 'delete') {
-    workspaceActions.removePriceMarker(displayId, marker.id);
+    markerActions.removePriceMarker(displayId, marker.id);
   } else {
     const markerType = MARKER_TYPES[type.toUpperCase()];
     if (markerType) {
-      workspaceActions.updatePriceMarker(displayId, marker.id, { type: markerType });
+      markerActions.updatePriceMarker(displayId, marker.id, { type: markerType });
     }
   }
 }

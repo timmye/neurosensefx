@@ -1,5 +1,6 @@
 <script>
   import { workspaceStore, workspaceActions, workspacePersistence } from '../stores/workspace.js';
+  import { displayStore, displayActions } from '../stores/displayStore.js';
   import FloatingDisplay from './FloatingDisplay.svelte';
   import FxBasketDisplay from './FxBasketDisplay.svelte';
   import PriceTicker from './PriceTicker.svelte';
