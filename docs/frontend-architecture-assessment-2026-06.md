@@ -63,22 +63,22 @@ This assessment was produced from **file reads and grep**, not from running the 
 | Domain | Size | Shape | Headline concern |
 | --- | --- | --- | --- |
 | Charting (`src/lib/chart/`) | ~50 files, largest domain | Modular but sprawling — 8 config/theme files, 5 overlay modules, 3 drawing files mid-refactor | Configuration sprawl + drawing-system polling + unbounded `overlayMeta` Map |
-| Feature domains (fxBasket, marketProfile, dayRange/ADR, priceMarkers) | ~25 files scattered | Three subtly different "orchestrator" patterns applied inconsistently | Duplicated price-scale logic, files in `lib/` root instead of subfolders, module-level mutable state in FX Basket |
+| Feature domains (fxBasket, marketProfile, dayRange/ADR, priceMarkers) | ~25 files scattered | Three orchestrators — all pure render functions receiving `(ctx, data, config)` | Files in `lib/` root instead of subfolders, module-level mutable state in FX Basket. **Compute/render split done (§12.8)** |
 | Workspace & UI shell | ~12 components + 4 lib files | Single shell with floating displays; one 309-LOC `Workspace.svelte` onMount | `Workspace.svelte` overloaded; BackgroundShader GPU cost; multiple modal patterns |
-| Connection & data layer | ~13 files | Modular WS layer + 8 stores | `workspace.js` god store (654 LOC); unsafe localStorage parsing; running H/L never resets |
-| Cross-cutting infra | Build config + utils + deps | Vite/Svelte 4/klinecharts/three/dexie/interact | `ws` dep unused but bundled; three.js pinned to exact version; composables dir abandoned; only 7 unit tests |
+| Connection & data layer | ~13 files | Modular WS layer + decomposed stores | `workspace.js` (389 LOC after P1 #6 split); localStorage parsing fixed (P0) |
+| Cross-cutting infra | Build config + utils + deps | Vite/Svelte 4/klinecharts/three/dexie/interact | `ws` dep required by cTrader layer; three.js caret-pinned; composables dir removed (P0); 365 unit tests across 15 files |
 
 ### 4.2 Cross-cutting themes
 
 These repeat across multiple domains and are the actual leverage points:
 
-- **God stores** — `workspace.js` (654 LOC), `marketDataStore.js` (361 LOC)
+- **God stores** — `workspace.js` (654 LOC → 389 LOC after P1 #6 split), `marketDataStore.js` (361 LOC)
 - **Module-level mutable state** — `fxBasketSubscription`, `drawingCoordinator.overlayMeta`
 - **Leaked intervals / listeners / animations** — `FxBasketDisplay`, `BackgroundShader`, `keyManager` escape stack
 - **Unbounded in-memory growth** — `barCache`, `marketDataStore` running H/L, `overlayMeta` Map, subscription queue
-- **Duplicated patterns** — 3 orchestrator variants, 5 overlay modules, 8 chart config/theme files, price-scale calc repeated in 3 features
+- **Duplicated patterns** — ~~price-scale calc repeated in 3 features~~ (unified P1 #8), ~~3 orchestrator variants~~ (compute/render split done, §12.8), 5 overlay modules, 8 chart config/theme files
 - **No code splitting** — three.js + klinecharts + vendored cTrader layer all loaded eagerly
-- **Unsafe localStorage parsing** — 3 stores, no try/catch
+- **Unsafe localStorage parsing** — ~~3 stores, no try/catch~~ **Fixed (P0)**
 - **Race conditions on reconnect / restore** — subscription flush order, debounced price-marker sync, drawing restoration polling
 
 ---
@@ -110,12 +110,14 @@ The features were built one at a time, each with its own variation on the orches
 **Honest cost/benefit:**
 - **`workspace.js` split** — High cost, high benefit (unlocks future display work). **Worth doing**, but as a deliberate project, not a side task. Plan it.
 - **Chart config consolidation** — Medium cost, low benefit. **Defer.** Group them in a folder if cosmetic order matters; do not merge the modules.
-- **Unifying orchestrator patterns** — High cost, low benefit. **Defer.** The inconsistency is annoying but not dangerous.
+- **Unifying orchestrator patterns** — ~~High cost, low benefit.~~ **Reassessed and done.** See §12. Compute/render split implemented across all three orchestrators (Day Range, Market Profile, FX Basket). 51 new unit tests. No behavior change.
 - **Moving scattered files into subfolders** — Low cost, low benefit. **Do it next time you touch the relevant file.** Don't open a PR just for this.
 
 ### 5.3 Testing
 
-**What was found:** Only 7 unit test files, all under `src/lib/chart/__tests__/`. Zero tests for stores, connection, features, or the workspace shell. Playwright is configured but no e2e suite was found in the assessment.
+**What was found:** Originally only 7 unit test files, all under `src/lib/chart/__tests__/`. Zero tests for stores, connection, features, or the workspace shell. Playwright is configured but no e2e suite was found in the assessment.
+
+**Update (2026-06-03):** The narrow targets identified below were implemented — 314 tests across 12 files now cover pure-logic modules (`barMerge`, `priceFormat`, `reconcile`, `dataContracts`, `xAxisCustom`, `drawingCommands`, `drawingCoordinator`, `styleUtils`, `pricePrecision`, `cacheFreshness`, `reconnectionHandler`). All use synthetic inputs with no DOM/WebSocket mocks. An additional 51 tests cover the orchestrator compute functions (§12.8). Total: 365 tests across 15 files.
 
 **Why it likely was avoided:** This is the most-defensible gap. The reasons compound:
 
@@ -166,7 +168,7 @@ Adding tests for the above is a few hours' work and protects the parts most like
 10. TypeScript migration.
 11. three.js removal.
 12. Chart config consolidation.
-13. Orchestrator pattern unification.
+13. ~~Orchestrator pattern unification~~. **DONE.** See §12.8. Compute/render split implemented, 51 tests added.
 14. Broad test coverage expansion (beyond the narrow targets in §5.3).
 
 ---
@@ -266,7 +268,7 @@ Deeper investigation of `workspace.js` (654 LOC) produced a concrete decompositi
 
 These findings from the first-cut assessment survived verification and remain valid:
 - `workspace.js` is the single highest-leverage refactor target
-- Three subtly different "orchestrator" patterns across feature domains (defer unification)
+- Three "orchestrator" patterns across feature domains — reassessed in §12, cost now low-medium
 - 8 chart config/theme files (defer consolidation)
 - Test coverage gap is real but not worth closing broadly (narrow targets only — see §5.3)
 - Svelte 4 → 5, TypeScript, three.js removal, full e2e suite: all still deferred
@@ -449,4 +451,74 @@ Manual verification completed: display CRUD, arrow-key navigation, chart ghost s
 
 ### 11.6 Recommended next steps
 
-**All P0 and P1 items are complete.** No further assessment-driven work is pending. P2 items remain deferred per §5.4 unless a concrete trigger appears.
+**All P0 and P1 items are complete.** No further assessment-driven work is pending. P2 items remain deferred per §5.4 unless a concrete trigger appears. P2 #13 (orchestrator pattern) has been reassessed — see §12.
+
+---
+
+## 12. Orchestrator Pattern Reassessment (2026-06-03)
+
+Full analysis documented in `docs/orchestrator-unification-reassessment.md`. This section summarizes the findings for the assessment record.
+
+### 12.1 What the original assessment claimed
+
+§5.2 identified three "subtly different orchestrator patterns" with inconsistent subscription management, data flow, rendering triggers, and cleanup. Verdict: high cost, low benefit, defer unless building a 4th feature domain.
+
+### 12.2 What changed
+
+Two P1 items directly reduced the scope of this problem:
+
+- **P1 #6 (workspace.js decomposition)** — Subscription lifecycle, the messiest inconsistency, is now managed by decomposed stores (`chartDataStore`, `displayStore`, `markerStore`), not by orchestrators.
+- **P1 #8 (price-scale unification)** — Price-to-pixel calculation, one of the three key differences between domains, now uses shared code in `dayRangeRenderingUtils.js`.
+
+### 12.3 Key finding — orchestrators are already pure functions
+
+All three orchestrators receive `(ctx, data, config)` as parameters and render to canvas. None import stores, manage subscriptions, or own lifecycle. The "three variants" problem was in the component wiring layer (now standardized by store decomposition), not in the orchestrator functions themselves.
+
+```
+Store (owns subscription) → Component (wires lifecycle) → Orchestrator (pure render) → Canvas
+```
+
+### 12.4 Remaining work — compute/render split
+
+The orchestrators are pure in terms of dependencies but mix computation with canvas drawing. The split needed for testability:
+
+```
+Now:   data → orchestrator (compute + draw mixed) → canvas
+After: data → compute(data) → result              ← testable with synthetic data
+                            → draw(ctx, result) → canvas
+```
+
+Many compute functions already exist as separate pure modules (`calculateAdaptiveScale`, `createPriceScale`, `createMappedData`). The refactor is about calling them in a separate step that returns a result object instead of consuming inline.
+
+### 12.5 Mock data not required
+
+The 314 existing unit tests demonstrate the pattern — synthetic JS object literals into pure functions, no DOM/WebSocket mocks. Orchestrator compute functions would follow the same approach.
+
+### 12.6 Revised cost/benefit
+
+| Factor | Original assessment | Now |
+|---|---|---|
+| Subscription unification | High cost | **Already done** (P1 #6) |
+| Price-scale unification | High cost | **Already done** (P1 #8) |
+| Orchestrator extraction | Medium-high | **Low-medium** (already pure functions) |
+| Testing | Not possible | **Possible** via compute/render split |
+| Trigger | "Building a 4th feature domain" | Also justified on testing grounds alone |
+
+### 12.7 Updated recommendation
+
+P2 #13 is still deferred, but the cost/benefit has shifted from "high cost, low benefit" to "low-medium cost, medium benefit." The trigger is no longer solely "4th feature domain" — it's also "we want orchestrator compute logic to be unit-testable."
+
+If proceeding, natural order: Day Range (simplest) → Market Profile → FX Basket. Each domain can be done independently. No big-bang refactor needed.
+
+### 12.8 Implementation — Completed (2026-06-03)
+
+The compute/render split was implemented across all three orchestrators following the recommended order. No behavior changes. Full details in `docs/orchestrator-unification-reassessment.md` §8.
+
+| Orchestrator | New compute function | Tests |
+|---|---|---|
+| Day Range | `computeDayRange()` | 22 |
+| Market Profile | `computeMarketProfile()` + `computeMiniMarketProfile()` | 14 |
+| FX Basket | `computeFxBasketLayout()` + exported `calculateRange()` / `mapValueToY()` | 15 |
+| **Total** | **4 new functions + 2 newly exported** | **51** |
+
+All 365 unit tests pass. Zero component changes required. P2 #13 is now resolved.

@@ -25,6 +25,7 @@ Architecture, design, and implementation documentation.
 | `timeframe-switching-regression.md` | Regression analysis of timeframe switching bug | Debugging timeframe switch issues, understanding regression history |
 | `tradingview-subscription-latency-analysis.md` | TradingView subscription latency analysis | Debugging subscription latency, tuning timing thresholds |
 | `tradingview-symbol-expressions.md` | TradingView symbol expression reference | Understanding symbol format, adding new symbol types |
+| `orchestrator-unification-reassessment.md` | P2 #13 — done. Orchestrator compute/render split implemented, 51 unit tests added | Understanding orchestrator compute functions, testing layout/scaling logic |
 
 ## Subdirectories
 

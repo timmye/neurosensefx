@@ -8,6 +8,22 @@ import { renderCurrentPrice, renderOpenPrice, renderHighLowMarkers, renderPrevio
 import { renderPercentageMarkers } from './percentageMarkerRenderer.js';
 import { resolveAxisX } from './displayCanvasRenderer.js';
 
+/**
+ * Pure computation step for Day Range rendering.
+ * Returns all computed values needed for drawing — no canvas dependency.
+ */
+export function computeDayRange(d, s, getConfig) {
+  const { width, height } = s;
+  const config = createDayRangeConfig(s, width, height, getConfig);
+  const adaptiveScale = calculateAdaptiveScale(d, config);
+  const priceScale = createPriceScale(config, adaptiveScale, height);
+  const mappedData = createMappedData(d);
+  const dayRangePercentage = calculateDayRangePercentage(d);
+  const midPrice = d.open || d.current;
+  const adrValue = d.adrHigh - d.adrLow;
+  return { config, adaptiveScale, priceScale, mappedData, dayRangePercentage, midPrice, adrValue, width, height };
+}
+
 export function renderDayRange(ctx, d, s, getConfig, options = {}) {
   const { width, height } = s;
   const { clearCanvas = true } = options;
@@ -21,32 +37,29 @@ export function renderDayRange(ctx, d, s, getConfig, options = {}) {
     return;
   }
 
-  const config = createDayRangeConfig(s, width, height, getConfig);
-  const adaptiveScale = calculateAdaptiveScale(d, config);
-  const priceScale = createPriceScale(config, adaptiveScale, height);
+  const result = computeDayRange(d, s, getConfig);
 
   // Only render solid background if not in combined mode
   if (options.clearCanvas !== false) {
-    renderBackground(ctx, width, height);
+    renderBackground(ctx, result.width, result.height);
   }
-  renderStructuralElements(ctx, config, width, height, priceScale, d, adaptiveScale);
+  renderStructuralElements(ctx, result, d);
 
   // Render all price markers EXCEPT current price
-  renderPriceElementsExceptCurrent(ctx, config, priceScale, d, s);
+  renderPriceElementsExceptCurrent(ctx, result, d, s);
 
   // Render percentage markers
-  renderPercentageElements(ctx, config, d, adaptiveScale, height, width);
+  renderPercentageElements(ctx, result, d);
 
   // Calculate axisX for current price rendering
-  let axisX = resolveAxisX(config.positioning.adrAxisX, width);
+  let axisX = resolveAxisX(result.config.positioning.adrAxisX, result.width);
 
   // Render current price LAST so it's always on top of everything
-  renderCurrentPrice(ctx, config, axisX, priceScale, d.current, d);
+  renderCurrentPrice(ctx, result.config, axisX, result.priceScale, d.current, d);
 }
 
-function renderStructuralElements(ctx, config, width, height, priceScale, d, adaptiveScale) {
-  const midPrice = d.open || d.current;
-  const adrValue = d.adrHigh - d.adrLow;
+function renderStructuralElements(ctx, result, d) {
+  const { config, width, height, priceScale, adaptiveScale, midPrice, adrValue } = result;
 
   renderAdrAxis(ctx, config, height, 5, width); // Use minimal padding
   renderCenterLine(ctx, config, width, priceScale(midPrice));
@@ -60,11 +73,10 @@ function renderStructuralElements(ctx, config, width, height, priceScale, d, ada
   }
 }
 
-function renderPriceElementsExceptCurrent(ctx, config, priceScale, d, s) {
+function renderPriceElementsExceptCurrent(ctx, result, d, s) {
+  const { config, priceScale, mappedData } = result;
   const { width } = s;
   let axisX = resolveAxisX(config.positioning.adrAxisX, width);
-
-  const mappedData = createMappedData(d);
 
   // Render all price markers EXCEPT current price
   renderOpenPrice(ctx, config, axisX, priceScale, d.open, d);
@@ -73,7 +85,9 @@ function renderPriceElementsExceptCurrent(ctx, config, priceScale, d, s) {
   renderTwapMarker(ctx, config, axisX, priceScale, d.twap, d);
 }
 
-function renderPercentageElements(ctx, config, d, adaptiveScale, height, width) {
+function renderPercentageElements(ctx, result, d) {
+  const { config, adaptiveScale, height, width } = result;
+
   if (config.features.percentageMarkers.static || config.features.percentageMarkers.dynamic) {
     renderPercentageMarkers(ctx, config, d, adaptiveScale, height, config.positioning.padding, width);
   }

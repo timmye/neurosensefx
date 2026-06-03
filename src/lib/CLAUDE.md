@@ -18,7 +18,7 @@ Utility modules, visualizers, and domain-specific libraries for the frontend app
 | `dayRangeConfig.js` | Day Range configuration constants | Modifying display parameters |
 | `dayRangeCore.js` | Day Range core calculations | Modifying day range logic |
 | `dayRangeElements.js` | Canvas element creation and management | Extending day range visual elements |
-| `dayRangeOrchestrator.js` | Day Range update coordination | Understanding render cycle |
+| `dayRangeOrchestrator.js` | Day Range compute/render split — `computeDayRange()` + `renderDayRange()` | Understanding render cycle, testing compute logic |
 | `dayRangeRenderingUtils.js` | Rendering utility functions | Adding rendering helpers |
 | `displayCanvasRenderer.js` | Canvas 2D rendering with DPR awareness | Fixing rendering issues, text crispness |
 | `displayDataProcessor.js` | Display data transformation and validation | Processing incoming data |
@@ -39,5 +39,5 @@ Utility modules, visualizers, and domain-specific libraries for the frontend app
 | --------- | ---- | ------------ |
 | `chart/` | KLineChart integration: configuration, calendar x-axis, drawing persistence, undo/redo, overlays, themes | Adding chart features, modifying drawing tools, changing resolutions, x-axis behavior |
 | `connection/` | WebSocket connection management (handler, subscription, reconnection) | Debugging connection issues, implementing reconnection |
-| `fxBasket/` | FX Basket calculations, state machine, rendering, subscriptions | Understanding basket system design |
+| `fxBasket/` | FX Basket calculations, state machine, rendering, subscriptions | Understanding basket system design, testing compute/layout logic |
 | `marketProfile/` | Market Profile visualization with orchestrator pattern | Understanding Market Profile rendering pipeline |

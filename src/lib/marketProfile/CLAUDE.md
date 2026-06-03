@@ -6,7 +6,7 @@ Market Profile visualization with orchestrator pattern.
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
-| `orchestrator.js` | Market Profile render coordination | Understanding full render pipeline |
+| `orchestrator.js` | Market Profile compute/render split — `computeMarketProfile()` + `computeMiniMarketProfile()` + render functions | Understanding full render pipeline, testing compute logic |
 | `scaling.js` | Price-to-Y coordinate mapping, dimensions | Fixing alignment issues with Day Range Meter |
 | `rendering.js` | Canvas drawing (bars, value area, POC) | Customizing Market Profile appearance |
 | `calculations.js` | POC, value area, intensity computations | Adding calculation types, tuning algorithms |
