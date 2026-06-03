@@ -61,7 +61,7 @@ All three main feature domains have clean compute/render splits with tests. Pric
 | `src/stores/displayStore.js` | 254 | Display CRUD, selection/focus, z-index, chart ghosting |
 | `src/stores/markerStore.js` | 173 | Marker actions (operates on displayStore) |
 | `src/stores/workspace.js` | 389 | Persistence (localStorage + server), import/export, headlines |
-| `src/components/Workspace.svelte` | 310 | Shell component. 15+ keyboard shortcuts in onMount, connection wiring, focus restoration. |
+| `src/components/Workspace.svelte` | ~220 | Shell component. Keyboard shortcuts extracted to `workspaceKeyboardShortcuts.js`. Connection wiring, focus restoration. |
 
 **Backward-compat derived store:** Removed. Both consumers now import directly from `displayStore` and `headlinesStore`. `window.workspaceStore.getState()` preserved for E2E tests as a plain object.
 
@@ -127,8 +127,8 @@ All five items executed. Build clean, 365/365 tests passing, UI verified.
 |---|------|-----|--------|--------|
 | 6 | **`marketDataStore.js` decomposition** — extract subscription management, message normalization, market profile logic, TWAP, daily reset into focused modules | 361 LOC god store. Blocks future feature work. Every new data feature touches it. | **Done** — commit `5ce5c4d`. 361→205 LOC, 79 new tests. |
 | 7 | **Price marker compute/render split** — extract computation from `priceMarkerRenderer.js`, add tests | Only feature domain without the split. No tests. Pattern proven in 3 other domains. | 4-6 hr | Pending |
-| 8 | **Extract keyboard service** from `Workspace.svelte` onMount | 15+ shortcut registrations in one onMount. Extracting reduces complexity. Clean deps (only `displayStore`). | 4-6 hr | Pending |
-| 9 | **Overlay registration factory** — extract shared `registerOverlay()` boilerplate from 5 overlay modules | Reduces duplication. Makes new overlay types mechanical to add. | 4-6 hr | Pending |
+| 8 | **Extract keyboard service** from `Workspace.svelte` onMount | 15+ shortcut registrations in one onMount. Extracting reduces complexity. Clean deps (only `displayStore`). | **Done** — `workspaceKeyboardShortcuts.js`. Workspace onMount reduced ~110→40 LOC. |
+| 9 | ~~**Overlay registration factory**~~ — extract shared `registerOverlay()` boilerplate from 5 overlay modules | **Rejected after investigation.** The "boilerplate" is the klinecharts API config shape, not duplicated logic. Each overlay's `createPointFigures` is entirely unique. A factory would add more LOC than it saves. The indicators file uses a different API (`registerIndicator`). | N/A |
 
 ### Recommended sequencing
 
