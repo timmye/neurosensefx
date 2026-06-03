@@ -1,7 +1,7 @@
 # Price-Scale Unification Report
 
 **Date:** 2026-06-03
-**Status:** Investigation complete, awaiting implementation decision
+**Status:** **DONE.** Implemented and verified 2026-06-03 (commit `76d2415`).
 **Related:** Frontend Architecture Assessment §6 P1 #8
 
 ---
@@ -172,44 +172,42 @@ Any change — adding log-scale support, changing padding, fixing a rounding err
 
 ---
 
-## 6. Implementation Options
+## 6. Implementation — Completed
 
-### Option A — Minimal cleanup (1-2 hours)
+**Option A** was chosen and implemented. Commit `76d2415`.
 
-Eliminate duplication without changing file locations:
+### Changes made
 
-1. Replace 2 inline lambdas in `percentageMarkerRenderer.js` with `createPriceScale()` calls
-2. Remove dead `getYCoordinate` import from `percentageMarkerRenderer.js`
-3. Add `toPrice()` inverse to `createPriceScale()` return value (return object with both methods instead of bare function)
-4. Rewrite `priceMarkerCoordinates.js` to use the shared `toPrice()` (move fallback logic to call site)
-5. Delete `getYCoordinate()` from `dayRangeCalculations.js`
-6. Leave `createMiniPriceScale()` where it is
+| File | Change |
+|---|---|
+| `dayRangeRenderingUtils.js` | `createPriceScale()` now returns a callable function with `.toPixel()` and `.toPrice()` methods |
+| `percentageMarkerRenderer.js` | 2 inline duplicates replaced with `createPriceScale()` calls; dead `getYCoordinate` import removed |
+| `priceMarkerCoordinates.js` | All 3 fallback paths route through `createPriceScale().toPrice()` instead of inlining the formula |
+| `dayRangeCalculations.js` | Dead `getYCoordinate()` export removed |
 
-**Risk:** Low. All changes are mechanical substitutions. The `createPriceScale()` return type changes from function to object, which requires updating all 4 existing callers from `priceScale(price)` to `priceScale.toPixel(price)`.
+### Return-type design
 
-**Backward compat concern:** The return-type change (function → object) touches all 4 callers. Alternative: keep returning a callable function and attach `.inverse` as a property.
+`createPriceScale()` returns a callable function (backward compatible — existing `priceScale(price)` calls still work) with two properties attached:
 
-### Option B — Extract shared utility file (2-3 hours)
+- `.toPixel(price)` — explicit alias for the function call
+- `.toPrice(y)` — inverse conversion (pixel → price)
 
-Same as Option A, plus:
+This avoids breaking the 4 existing callers that treat the return value as a bare function.
 
-7. Create `src/lib/priceScale.js` with `createPriceScale()`, `toPrice()`, and `createMiniPriceScale()`
-8. Delete from `dayRangeRenderingUtils.js`, `priceMarkerCoordinates.js`, `marketProfile/scaling.js`
-9. Update all import paths (6 files)
+### Bugs fixed during implementation
 
-**Tradeoff:** Cleaner module boundaries and a file name that reflects cross-feature usage. Adds a file move to what is otherwise a simple cleanup. `dayRangeRenderingUtils.js` is only 52 lines and would lose its primary export.
+Two regressions from the prior workspace.js decomposition (P1 #6) were discovered and fixed in the same commit:
 
----
+1. **`_headlinesStore.getState()` crash** — `workspace.js:297`. Plain Svelte `writable()` stores don't have `.getState()`. Fixed by replacing all 3 occurrences with `get(_headlinesStore)`.
+2. **Missing `createPriceMarkerInteraction` import** — `PriceMarkerManager.svelte:37`. The function was called but never imported. Added the missing import.
 
-## 7. Recommendation
+### Verification
 
-**Option A.** The duplication is minor and the existing file location in `dayRangeRenderingUtils.js` is already shared across features. Adding a new file for 3 small functions is marginal organizational benefit for real import-churn cost.
-
-The key deliverable is eliminating the 2 inline copies and the `toPrice()` re-derivation — that removes the fragility, not the file location.
+Manual testing confirmed: Day Range Meter, Percentage Markers, Price Markers (alt+click, drag, hover, delta mode), Market Profile alignment all rendering correctly. Clean build, bundle size unchanged (~1070KB).
 
 ---
 
-## 8. What This Does NOT Cover
+## 7. What This Does NOT Cover
 
 - **klinecharts price-scale** — The main chart uses klinecharts' internal coordinate system. None of the features investigated here depend on it. They all render on independent canvases with their own coordinate system.
 - **Log-scale support** — All current implementations are linear. If log-scale is ever needed, the shared utility is the right place to add it, but that is a new feature, not a unification task.

@@ -159,7 +159,7 @@ Adding tests for the above is a few hours' work and protects the parts most like
 ### P1 — Structural, deliberate (plan, don't squeeze in)
 6. ~~Split `workspace.js` into focused stores (displays / persistence / markers / import-export).~~ **DONE.** See §11.
 7. ~~Fix reconnect subscription ordering — wait for backend `ready` before flushing subscriptions.~~ **DONE.** Pre-existing bug discovered and fixed during P0 live testing. See §10.3.
-8. Unify price-scale calculation across Day Range, Market Profile, and Price Markers. **OPEN.**
+8. ~~Unify price-scale calculation across Day Range, Market Profile, and Price Markers.~~ **DONE.** See `docs/price-scale-unification-report.md` §6.
 
 ### P2 — Defer deliberately
 9. Svelte 5 migration.
@@ -176,8 +176,10 @@ Adding tests for the above is a few hours' work and protects the parts most like
 1. ~~**Verify the assumptions in §3**~~ — Done. See §9.1.
 2. ~~**Execute P0**~~ — Done. See §10.1.
 3. ~~**Plan P1 #6 (`workspace.js` split) as a dedicated project**~~ — Done. See §11.
-4. **P1 #8 (price-scale unification)** — schedule when convenient; lower leverage, no urgency.
+4. ~~**P1 #8 (price-scale unification)**~~ — Done. See `docs/price-scale-unification-report.md` §6.
 5. **Leave P2 alone** unless and until a concrete trigger appears (team growth, user growth, performance incident, regression incident).
+
+**All P0 and P1 items are complete.** The assessment is resolved. P2 items remain deferred per §5.4.
 
 ---
 
@@ -443,10 +445,8 @@ Manual verification completed: display CRUD, arrow-key navigation, chart ghost s
 |---|---|---|
 | 6 | `workspace.js` split | **DONE** |
 | 7 | Reconnect subscription ordering | **DONE** (§10.3) |
-| 8 | Unify price-scale calculation | **OPEN** |
+| 8 | Unify price-scale calculation | **DONE** (commit `76d2415`) |
 
 ### 11.6 Recommended next steps
 
-With P0 complete, P1 #6 and #7 done, the remaining actionable item is **P1 #8 (price-scale unification)**. This is lower leverage than the workspace split — it reduces duplication but doesn't unlock new features. Schedule when convenient; no urgency.
-
-P2 items remain deferred per §5.4.
+**All P0 and P1 items are complete.** No further assessment-driven work is pending. P2 items remain deferred per §5.4 unless a concrete trigger appears.
