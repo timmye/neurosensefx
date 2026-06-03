@@ -2,7 +2,8 @@
 // Framework-first: Static and dynamic percentage markers with Canvas 2D
 
 import { setupTextRendering, renderPixelPerfectLine } from './dayRangeCore.js';
-import { calculateMaxAdrPercentage, calculateDayRangePercentage, getYCoordinate } from './dayRangeCalculations.js';
+import { calculateMaxAdrPercentage, calculateDayRangePercentage } from './dayRangeCalculations.js';
+import { createPriceScale } from './dayRangeRenderingUtils.js';
 import { resolveAxisX } from './displayCanvasRenderer.js';
 
 // Main percentage markers orchestrator
@@ -47,15 +48,7 @@ function renderStaticMarker(ctx, level, config, d, adaptiveScale, height, paddin
   const midPrice = d.open || d.current;
   const adrValue = d.adrHigh && d.adrLow ? d.adrHigh - d.adrLow : 0;
 
-  // Create price scale using same parameters as main visualization
-  const { min, max } = adaptiveScale;
-  const range = Math.max(max - min, 1e-10);
-  const labelPadding = 5;
-
-  const priceScale = (price) => {
-    const normalized = (max - price) / range;
-    return labelPadding + (normalized * (height - 2 * labelPadding));
-  };
+  const priceScale = createPriceScale({}, adaptiveScale, height);
 
   const highPrice = midPrice + (adrValue * level);
   const lowPrice = midPrice - (adrValue * level);
@@ -74,15 +67,7 @@ function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height,
   const midPrice = d.open || d.current;
   const label = `DR ${dayRangePct}%`;
 
-  // Create price scale using same parameters as main visualization
-  const { min, max } = adaptiveScale;
-  const range = Math.max(max - min, 1e-10);
-  const labelPadding = 5;
-
-  const priceScale = (price) => {
-    const normalized = (max - price) / range;
-    return labelPadding + (normalized * (height - 2 * labelPadding));
-  };
+  const priceScale = createPriceScale({}, adaptiveScale, height);
 
   // Center on 0 line (mid price) and align to right edge like main ADR labels
   const midY = priceScale(midPrice);

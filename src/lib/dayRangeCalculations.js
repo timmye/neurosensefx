@@ -122,10 +122,3 @@ function createScaleState(d) {
     adrLow: d.adrLow
   };
 }
-
-// Convert price to Y coordinate
-export function getYCoordinate(price, range, height, padding) {
-  const { min, max } = range;
-  const normalized = (max - price) / (max - min);
-  return padding + (normalized * (height - 2 * padding));
-}

@@ -3,6 +3,7 @@
   import { displayStore } from '../stores/displayStore.js';
   import { markerActions, loadMarkers, saveMarkers } from '../stores/markerStore.js';
   import { formatSymbol } from '../lib/displayDataProcessor.js';
+  import { createPriceMarkerInteraction } from '../lib/priceMarkerInteraction.js';
 
   export let display;
   export let lastData;

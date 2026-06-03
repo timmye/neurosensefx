@@ -44,7 +44,7 @@ const workspaceStore = derived(
 // Non-reactive combined state access (used by tests and priceMarkerInteraction)
 workspaceStore.getState = () => ({
   ...displayStore.getState(),
-  ..._headlinesStore.getState()
+  ...get(_headlinesStore)
 });
 
 // --- Marker actions imported from markerStore.js ---
@@ -213,7 +213,7 @@ const actions = {
         }
       }
 
-      const headlinesState = _headlinesStore.getState();
+      const headlinesState = get(_headlinesStore);
 
       const exportData = {
         version: '1.1.0',
@@ -294,7 +294,7 @@ const persistence = {
 
     const syncToStorage = () => {
       const displayState = displayStore.getState();
-      const headlinesState = _headlinesStore.getState();
+      const headlinesState = get(_headlinesStore);
       const data = {
         displays: Array.from(displayState.displays.entries()),
         nextZIndex: displayState.nextZIndex,
