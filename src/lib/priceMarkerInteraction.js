@@ -1,7 +1,8 @@
 // Price Marker Interaction System - Crystal Clarity: Simple, Performant, Maintainable
 // Framework-first: Direct DOM APIs, no custom libraries
 
-import { workspaceActions, workspaceStore } from '../stores/workspace.js';
+import { markerActions } from '../stores/markerStore.js';
+import { displayStore } from '../stores/displayStore.js';
 import { createMarker, getMarkerAtPosition } from './priceMarkers.js';
 import { toPrice } from './priceMarkerCoordinates.js';
 import { createPriceScale } from './dayRangeRenderingUtils.js';
@@ -78,7 +79,7 @@ export class PriceMarkerInteraction {
       const roundedPrice = formatPriceToPipLevel(price, pipPosition, pipSize);
       const marker = createMarker('small', roundedPrice, this.displayId);
       if (marker) {
-        workspaceActions.addPriceMarker(this.displayId, marker);
+        markerActions.addPriceMarker(this.displayId, marker);
       }
     }
   }
@@ -133,7 +134,7 @@ export class PriceMarkerInteraction {
     const price = toPrice(this.canvas, this.scale, this.data, y);
 
     if (price) {
-      const state = workspaceStore.getState();
+      const state = displayStore.getState();
       const display = state.displays.get(this.displayId);
       // Use same coordinate system as renderDeltaOverlay (dayRangeRenderingUtils)
       const scaleData = {

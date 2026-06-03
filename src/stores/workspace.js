@@ -1,9 +1,18 @@
-// Workspace persistence dual-targets localStorage and server API when authenticated (ref: DL-007).
+// Workspace persistence, import/export, and headlines state.
+// Dual-targets localStorage and server API when authenticated (ref: DL-007).
 // Server is the source of truth; localStorage is fallback if server load fails.
-import { writable } from 'svelte/store';
+//
+// Display state and actions: displayStore.js
+// Marker actions and persistence: markerStore.js
+// This file: headlines state, workspace persistence, import/export.
+// Backward compatibility: exports a combined derived store for consumers that
+// haven't migrated to direct displayStore imports yet.
+import { writable, derived } from 'svelte/store';
 import { get } from 'svelte/store';
 import { authStore } from './authStore.js';
 import { drawingStore } from '../lib/chart/drawingStore.js';
+import { displayStore, displayActions } from './displayStore.js';
+import { markerActions, saveMarkers } from './markerStore.js';
 
 function compareSemver(a, b) {
   const pa = a.split('.').map(Number);
@@ -15,295 +24,59 @@ function compareSemver(a, b) {
   return 0;
 }
 
-const initialState = {
-  displays: new Map(),
-  nextZIndex: 1,
-  selectedDisplayId: null,
-  chartGhost: null,
+// --- Headlines state (stays here) ---
+const headlinesState = {
   headlinesVisible: false,
   headlinesPosition: { x: 20, y: 20 },
-  headlinesSize: { width: 500, height: 600 },
-  config: {
-    defaultSize: { width: 2000, height: 680 },
-    defaultPosition: { x: 100, y: 100 }
-  }
+  headlinesSize: { width: 500, height: 600 }
 };
 
-export const workspaceStore = writable(initialState);
+const _headlinesStore = writable(headlinesState);
 
-// Add getState method for non-reactive access (needed by priceMarkerInteraction)
-workspaceStore.getState = () => {
-  let currentValue;
-  const unsubscribe = workspaceStore.subscribe(value => {
-    currentValue = value;
-  });
-  unsubscribe();
-  return currentValue;
+// --- Combined store for backward compatibility ---
+// Provides a single store with both display and headlines state,
+// so existing $workspaceStore subscriptions continue to work.
+const workspaceStore = derived(
+  [displayStore, _headlinesStore],
+  ([$display, $headlines]) => ({ ...$display, ...$headlines })
+);
+
+// Non-reactive combined state access (used by tests and priceMarkerInteraction)
+workspaceStore.getState = () => ({
+  ...displayStore.getState(),
+  ..._headlinesStore.getState()
+});
+
+// --- Marker actions imported from markerStore.js ---
+
+// --- Headlines actions ---
+const headlinesActions = {
+  toggleHeadlines: () => {
+    _headlinesStore.update(state => ({
+      ...state,
+      headlinesVisible: !state.headlinesVisible
+    }));
+  },
+
+  updateHeadlinesPosition: (position) => {
+    _headlinesStore.update(state => ({ ...state, headlinesPosition: position }));
+  },
+
+  updateHeadlinesSize: (size) => {
+    _headlinesStore.update(state => ({ ...state, headlinesSize: size }));
+  },
 };
 
-// Helper to update display properties
-const updateDisplay = (id, updates, extra = {}) => {
-  workspaceStore.update(state => {
-    const display = state.displays.get(id);
-    if (!display) return state;
-
-    const newDisplays = new Map(state.displays);
-    newDisplays.set(id, { ...display, ...updates });
-
-    return { ...state, displays: newDisplays, ...extra };
-  });
-};
-
+// --- Combined actions ---
 const actions = {
-  setSelectedDisplay: (id) => {
-    workspaceStore.update(state => ({ ...state, selectedDisplayId: id }));
-  },
+  // Display actions delegated to displayStore
+  ...displayActions,
+  // Marker actions
+  ...markerActions,
+  // Headlines actions
+  ...headlinesActions,
 
-  clearSelectedDisplay: () => {
-    workspaceStore.update(state => ({ ...state, selectedDisplayId: null }));
-  },
-
-  addDisplay: (symbol, position = null, source = 'tradingview') => {
-    workspaceStore.update(state => {
-      const id = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const display = {
-        id, symbol, source, created: Date.now(),
-        position: position || state.config.defaultPosition,
-        size: { ...state.config.defaultSize },
-        zIndex: state.nextZIndex,
-        showMarketProfile: true,
-        showHeader: false,
-        priceMarkers: []
-      };
-
-      return {
-        ...state,
-        displays: new Map(state.displays).set(id, display),
-        nextZIndex: state.nextZIndex + 1
-      };
-    });
-  },
-
-  addPriceTicker: (symbol, position = null, source = 'tradingview') => {
-    workspaceStore.update(state => {
-      const id = `ticker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const ticker = {
-        id, symbol, source, created: Date.now(), type: 'priceTicker',
-        position: position || state.config.defaultPosition,
-        size: { width: 240, height: 80 },
-        zIndex: state.nextZIndex
-      };
-
-      return {
-        ...state,
-        displays: new Map(state.displays).set(id, ticker),
-        nextZIndex: state.nextZIndex + 1
-      };
-    });
-  },
-
-  removeDisplay: (id) => {
-    workspaceStore.update(state => {
-      const display = state.displays.get(id);
-      const newDisplays = new Map(state.displays);
-
-      // Save chart position/size/resolution/window for restore on reopen
-      if (display?.type === 'chart') {
-        newDisplays.delete(id);
-        return {
-          ...state,
-          displays: newDisplays,
-          chartGhost: {
-            position: display.position,
-            size: display.size,
-            resolution: display.resolution,
-            window: display.window,
-            windowMode: display.windowMode
-          }
-        };
-      }
-
-      newDisplays.delete(id);
-      return { ...state, displays: newDisplays };
-    });
-  },
-
-  updateDisplay: (id, updates, extra) => updateDisplay(id, updates, extra),
-  updatePosition: (id, position) => updateDisplay(id, { position }),
-  updateSize: (id, size) => updateDisplay(id, { size }),
-
-  bringToFront: (id) => {
-    workspaceStore.update(state => {
-      const display = state.displays.get(id);
-      return display ? {
-        ...state,
-        displays: new Map(state.displays).set(id, { ...display, zIndex: state.nextZIndex }),
-        nextZIndex: state.nextZIndex + 1
-      } : state;
-    });
-  },
-
-  selectNextDisplay: (direction) => {
-    const state = workspaceStore.getState();
-    const displays = Array.from(state.displays.values()).filter(d => d.type !== 'chart');
-    if (displays.length === 0) return;
-
-    const currentId = state.selectedDisplayId;
-    const current = currentId ? displays.find(d => d.id === currentId) : null;
-
-    if (!current) {
-      // Nothing selected — pick first ticker if available, otherwise first display
-      const firstTicker = displays.find(d => d.type === 'priceTicker');
-      const target = firstTicker || displays[0];
-      workspaceActions.setSelectedDisplay(target.id);
-      workspaceActions.bringToFront(target.id);
-      requestAnimationFrame(() => {
-        const el = document.querySelector(`[data-ticker-id="${target.id}"], [data-display-id="${target.id}"]`);
-        el?.focus();
-      });
-      return;
-    }
-
-    // Direction vectors
-    const dirMap = {
-      ArrowUp:    { dx:  0, dy: -1 },
-      ArrowDown:  { dx:  0, dy:  1 },
-      ArrowLeft:  { dx: -1, dy:  0 },
-      ArrowRight: { dx:  1, dy:  0 }
-    };
-    const dir = dirMap[direction];
-    if (!dir) return;
-
-    const PERP_PENALTY = 2;
-
-    // Current center
-    const cx = current.position.x + (current.size?.width || 240) / 2;
-    const cy = current.position.y + (current.size?.height || 80) / 2;
-
-    let best = null;
-    let bestScore = Infinity;
-
-    for (const d of displays) {
-      if (d.id === current.id) continue;
-
-      // Candidate center
-      const dx2 = d.position.x + (d.size?.width || 240) / 2;
-      const dy2 = d.position.y + (d.size?.height || 80) / 2;
-
-      // Vector from current to candidate
-      const vx = dx2 - cx;
-      const vy = dy2 - cy;
-
-      // Project onto direction — must be positive (forward)
-      const projection = vx * dir.dx + vy * dir.dy;
-      if (projection <= 0) continue;
-
-      // Perpendicular distance
-      const perp = Math.abs(vx * (-dir.dy) + vy * dir.dx);
-
-      // Weighted score: primary distance + penalized perpendicular
-      const score = projection + perp * PERP_PENALTY;
-
-      if (score < bestScore) {
-        bestScore = score;
-        best = d;
-      }
-    }
-
-    if (best) {
-      workspaceActions.setSelectedDisplay(best.id);
-      workspaceActions.bringToFront(best.id);
-      requestAnimationFrame(() => {
-        const el = document.querySelector(`[data-ticker-id="${best.id}"], [data-display-id="${best.id}"]`);
-        el?.focus();
-      });
-    }
-    // No wrap-around — if nothing is in that direction, do nothing
-  },
-
-  toggleMarketProfile: (id) => {
-    workspaceStore.update(state => {
-      const display = state.displays.get(id);
-      return display ? {
-        ...state,
-        displays: new Map(state.displays).set(id, {
-          ...display,
-          showMarketProfile: !display.showMarketProfile
-        })
-      } : state;
-    });
-  },
-
-  // Price marker actions
-  addPriceMarker: (displayId, marker) => {
-    workspaceStore.update(state => {
-      const d = state.displays.get(displayId);
-      return d ? {
-        ...state,
-        displays: new Map(state.displays).set(displayId, {
-          ...d,
-          priceMarkers: [...d.priceMarkers, marker]
-        })
-      } : state;
-    });
-  },
-
-  removePriceMarker: (displayId, markerId) => {
-    workspaceStore.update(state => {
-      const d = state.displays.get(displayId);
-      return d ? {
-        ...state,
-        displays: new Map(state.displays).set(displayId, {
-          ...d,
-          priceMarkers: d.priceMarkers.filter(m => m.id !== markerId)
-        })
-      } : state;
-    });
-  },
-
-  updatePriceMarker: (displayId, markerId, updates) => {
-    workspaceStore.update(state => {
-      const d = state.displays.get(displayId);
-      return d ? {
-        ...state,
-        displays: new Map(state.displays).set(displayId, {
-          ...d,
-          priceMarkers: d.priceMarkers.map(m => m.id === markerId ? { ...m, ...updates } : m)
-        })
-      } : state;
-    });
-  },
-
-  selectPriceMarker: (displayId, markerId) => {
-    workspaceStore.update(state => {
-      const d = state.displays.get(displayId);
-      return d ? {
-        ...state,
-        displays: new Map(state.displays).set(displayId, {
-          ...d,
-          priceMarkers: d.priceMarkers.map(m => ({ ...m, selected: m.id === markerId }))
-        })
-      } : state;
-    });
-  },
-
-  clearPriceMarkerSelection: () => {
-    workspaceStore.update(state => {
-      const newDisplays = new Map();
-      for (const [id, display] of state.displays) {
-        newDisplays.set(id, {
-          ...display,
-          priceMarkers: display.priceMarkers.map(m => ({ ...m, selected: false }))
-        });
-      }
-      return { ...state, displays: newDisplays };
-    });
-  },
-
-  setDisplayPriceMarkers: (displayId, markers) => updateDisplay(displayId, { priceMarkers: markers }),
-
-  getDisplay: (displayId) => workspaceStore.getState().displays.get(displayId),
-
+  // Import/export (operates across stores)
   importWorkspace: async (file) => {
     try {
       const text = await new Promise((resolve, reject) => {
@@ -319,26 +92,25 @@ const actions = {
       const batchDelay = 200; // ms
 
       // Clear existing displays first
-      workspaceStore.update(state => ({
+      displayStore.update(state => ({
         ...state,
         displays: new Map(),
         nextZIndex: data.workspace.nextZIndex || 1
       }));
 
-      // IMPORTANT: Restore price markers to localStorage BEFORE adding displays
-      // This ensures PriceMarkerManager.onMount() can load them when displays mount
+      // Restore price markers via markerStore persistence (routes through
+      // proper persistence layer instead of raw localStorage manipulation).
       if (data.priceMarkers) {
-        for (const [key, value] of Object.entries(data.priceMarkers)) {
-          localStorage.setItem(key, JSON.stringify(value));
+        for (const [key, markers] of Object.entries(data.priceMarkers)) {
+          const symbol = key.replace('price-markers-', '');
+          saveMarkers(symbol, markers);
         }
       }
 
-      // Also restore price markers from display objects to localStorage
-      // This ensures markers embedded in displays are properly persisted
+      // Also restore markers embedded in display objects
       for (const [id, display] of displays) {
         if (display.priceMarkers && display.priceMarkers.length > 0) {
-          const symbolKey = `price-markers-${display.symbol}`;
-          localStorage.setItem(symbolKey, JSON.stringify(display.priceMarkers));
+          saveMarkers(display.symbol, display.priceMarkers);
         }
       }
 
@@ -390,7 +162,7 @@ const actions = {
       for (let i = 0; i < displays.length; i += batchSize) {
         const batch = displays.slice(i, i + batchSize);
 
-        workspaceStore.update(state => {
+        displayStore.update(state => {
           const newDisplays = new Map(state.displays);
           for (const [id, display] of batch) {
             newDisplays.set(id, display);
@@ -412,7 +184,7 @@ const actions = {
 
   exportWorkspace: async () => {
     try {
-      const state = workspaceStore.getState();
+      const state = displayStore.getState();
       const priceMarkers = {};
 
       // Collect all price-markers from localStorage
@@ -441,6 +213,8 @@ const actions = {
         }
       }
 
+      const headlinesState = _headlinesStore.getState();
+
       const exportData = {
         version: '1.1.0',
         timestamp: new Date().toISOString(),
@@ -466,63 +240,6 @@ const actions = {
       throw error;
     }
   },
-
-  addChartDisplay: (symbol, position = null, source = 'tradingview') => {
-    workspaceStore.update(state => {
-      const id = `chart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const ghost = state.chartGhost;
-      const chart = {
-        id,
-        type: 'chart',
-        symbol,
-        source,
-        created: Date.now(),
-        position: position || ghost?.position || { x: 100, y: 100 },
-        size: ghost?.size || { ...state.config.defaultSize },
-        zIndex: state.nextZIndex,
-        resolution: ghost?.resolution || '4h',
-        window: ghost?.window || '3M',
-        windowMode: ghost?.windowMode || 'developing',
-        isMinimized: false,
-        showHeader: true
-      };
-
-      return {
-        ...state,
-        displays: new Map(state.displays).set(id, chart),
-        nextZIndex: state.nextZIndex + 1,
-        chartGhost: null
-      };
-    });
-  },
-
-  updateChartDisplay: (id, updates) => actions.updateDisplay(id, updates),
-
-  toggleHeadlines: () => {
-    workspaceStore.update(state => ({
-      ...state,
-      headlinesVisible: !state.headlinesVisible
-    }));
-  },
-
-  updateHeadlinesPosition: (position) => {
-    workspaceStore.update(state => ({ ...state, headlinesPosition: position }));
-  },
-
-  updateHeadlinesSize: (size) => {
-    workspaceStore.update(state => ({ ...state, headlinesSize: size }));
-  },
-
-  getChartDisplay: () => {
-    const state = workspaceStore.getState();
-    for (const display of state.displays.values()) {
-      if (display.type === 'chart') {
-        return display;
-      }
-    }
-    return null;
-  },
-
 };
 
 // Tracks last workspace data for beforeunload flush (module-scoped)
@@ -542,11 +259,14 @@ const persistence = {
             const data = await resp.json();
             if (data && data.layout) {
               const layout = typeof data.layout === 'string' ? JSON.parse(data.layout) : data.layout;
-              workspaceStore.update(state => ({
+              displayStore.update(state => ({
                 ...state,
                 displays: new Map(layout.displays || []),
                 nextZIndex: layout.nextZIndex || 1,
                 chartGhost: layout.chartGhost || null,
+              }));
+              _headlinesStore.update(state => ({
+                ...state,
                 headlinesVisible: 'headlinesVisible' in layout ? layout.headlinesVisible : state.headlinesVisible,
                 headlinesPosition: layout.headlinesPosition || state.headlinesPosition,
                 headlinesSize: layout.headlinesSize || state.headlinesSize
@@ -571,14 +291,17 @@ const persistence = {
       return () => {};
     }
     let debounceTimer = null;
-    return workspaceStore.subscribe(state => {
+
+    const syncToStorage = () => {
+      const displayState = displayStore.getState();
+      const headlinesState = _headlinesStore.getState();
       const data = {
-        displays: Array.from(state.displays.entries()),
-        nextZIndex: state.nextZIndex,
-        chartGhost: state.chartGhost || null,
-        headlinesVisible: state.headlinesVisible,
-        headlinesPosition: state.headlinesPosition,
-        headlinesSize: state.headlinesSize
+        displays: Array.from(displayState.displays.entries()),
+        nextZIndex: displayState.nextZIndex,
+        chartGhost: displayState.chartGhost || null,
+        headlinesVisible: headlinesState.headlinesVisible,
+        headlinesPosition: headlinesState.headlinesPosition,
+        headlinesSize: headlinesState.headlinesSize
       };
       _lastWorkspaceData = data;
       try {
@@ -599,7 +322,11 @@ const persistence = {
           }).catch(err => console.warn('Failed to sync workspace to server:', err));
         }, 2000);
       }
-    });
+    };
+
+    const unsub1 = displayStore.subscribe(syncToStorage);
+    const unsub2 = _headlinesStore.subscribe(syncToStorage);
+    return () => { unsub1(); unsub2(); };
   },
 
   /**
@@ -626,11 +353,14 @@ function loadFromLocalStorage() {
       }
 
       const data = JSON.parse(stored);
-      workspaceStore.update(state => ({
+      displayStore.update(state => ({
         ...state,
         displays: new Map(data.displays || []),
         nextZIndex: data.nextZIndex || 1,
         chartGhost: data.chartGhost || null,
+      }));
+      _headlinesStore.update(state => ({
+        ...state,
         headlinesVisible: 'headlinesVisible' in data ? data.headlinesVisible : state.headlinesVisible,
         headlinesPosition: data.headlinesPosition || state.headlinesPosition,
         headlinesSize: data.headlinesSize || state.headlinesSize
@@ -640,8 +370,10 @@ function loadFromLocalStorage() {
   }
 }
 
+export { displayStore, displayActions };
+export { workspaceStore };
+export { persistence as workspacePersistence };
 export const workspaceActions = actions;
-export const workspacePersistence = persistence;
 
 // Flush pending workspace sync before tab closes to prevent state loss
 if (typeof window !== 'undefined') {
@@ -651,6 +383,7 @@ if (typeof window !== 'undefined') {
 // Expose to window for testing purposes
 if (typeof window !== 'undefined') {
   window.workspaceStore = workspaceStore;
+  window.displayStore = displayStore;
   window.workspaceActions = actions;
   window.workspacePersistence = persistence;
 }

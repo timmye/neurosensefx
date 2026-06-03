@@ -1,7 +1,91 @@
-// Price marker persistence dual-targets localStorage and server API when authenticated (ref: DL-007).
-// Server is source of truth; localStorage provides offline fallback.
-import { authStore } from './authStore.js';
+// Marker actions and persistence.
+// Marker state lives in displayStore (as display.priceMarkers).
+// This module provides CRUD actions that operate on displayStore
+// and persistence functions that dual-target localStorage + server API (ref: DL-007).
 import { get } from 'svelte/store';
+import { displayStore } from './displayStore.js';
+import { authStore } from './authStore.js';
+
+// --- Marker CRUD actions (operate on displayStore) ---
+
+export const markerActions = {
+  addPriceMarker: (displayId, marker) => {
+    displayStore.update(state => {
+      const d = state.displays.get(displayId);
+      return d ? {
+        ...state,
+        displays: new Map(state.displays).set(displayId, {
+          ...d,
+          priceMarkers: [...d.priceMarkers, marker]
+        })
+      } : state;
+    });
+  },
+
+  removePriceMarker: (displayId, markerId) => {
+    displayStore.update(state => {
+      const d = state.displays.get(displayId);
+      return d ? {
+        ...state,
+        displays: new Map(state.displays).set(displayId, {
+          ...d,
+          priceMarkers: d.priceMarkers.filter(m => m.id !== markerId)
+        })
+      } : state;
+    });
+  },
+
+  updatePriceMarker: (displayId, markerId, updates) => {
+    displayStore.update(state => {
+      const d = state.displays.get(displayId);
+      return d ? {
+        ...state,
+        displays: new Map(state.displays).set(displayId, {
+          ...d,
+          priceMarkers: d.priceMarkers.map(m => m.id === markerId ? { ...m, ...updates } : m)
+        })
+      } : state;
+    });
+  },
+
+  selectPriceMarker: (displayId, markerId) => {
+    displayStore.update(state => {
+      const d = state.displays.get(displayId);
+      return d ? {
+        ...state,
+        displays: new Map(state.displays).set(displayId, {
+          ...d,
+          priceMarkers: d.priceMarkers.map(m => ({ ...m, selected: m.id === markerId }))
+        })
+      } : state;
+    });
+  },
+
+  clearPriceMarkerSelection: () => {
+    displayStore.update(state => {
+      const newDisplays = new Map();
+      for (const [id, display] of state.displays) {
+        newDisplays.set(id, {
+          ...display,
+          priceMarkers: display.priceMarkers.map(m => ({ ...m, selected: false }))
+        });
+      }
+      return { ...state, displays: newDisplays };
+    });
+  },
+
+  setDisplayPriceMarkers: (displayId, markers) => {
+    displayStore.update(state => {
+      const display = state.displays.get(displayId);
+      if (!display) return state;
+      const newDisplays = new Map(state.displays);
+      newDisplays.set(displayId, { ...display, priceMarkers: markers });
+      return { ...state, displays: newDisplays };
+    });
+  },
+};
+
+// --- Marker persistence (absorbed from priceMarkerPersistence.js) ---
 
 const STORAGE_PREFIX = 'price-markers-';
 

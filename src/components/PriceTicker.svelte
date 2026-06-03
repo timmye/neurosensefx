@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
-  import { workspaceStore, workspaceActions } from '../stores/workspace.js';
+  import { displayStore, displayActions } from '../stores/displayStore.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
   import { getMarketDataStore, subscribeToSymbol } from '../stores/marketDataStore.js';
@@ -28,7 +28,7 @@
   let unsubscribeSymbol;
   let previousSymbol = null;
 
-  $: isSelected = $workspaceStore.selectedDisplayId === ticker.id;
+  $: isSelected = $displayStore.selectedDisplayId === ticker.id;
 
   // Flash state
   let borderFlashClass = '';
@@ -202,8 +202,8 @@
 
     // Setup drag interaction (no resize for ticker)
     interactable = createInteractConfig(element, {
-      onDragMove: (e) => workspaceActions.updatePosition(ticker.id, { x: e.rect.left, y: e.rect.top }),
-      onTap: () => workspaceActions.bringToFront(ticker.id),
+      onDragMove: (e) => displayActions.updatePosition(ticker.id, { x: e.rect.left, y: e.rect.top }),
+      onTap: () => displayActions.bringToFront(ticker.id),
       resizable: false
     });
 
@@ -239,17 +239,17 @@
   }
 
   function handleClose() {
-    workspaceActions.removeDisplay(ticker.id);
+    displayActions.removeDisplay(ticker.id);
   }
 
   function handleFocus() {
-    workspaceActions.setSelectedDisplay(ticker.id);
-    workspaceActions.bringToFront(ticker.id);
+    displayActions.setSelectedDisplay(ticker.id);
+    displayActions.bringToFront(ticker.id);
   }
 
   function handleTickerClick(e) {
     if (e.target.closest('button')) return;
-    workspaceActions.setSelectedDisplay(ticker.id);
+    displayActions.setSelectedDisplay(ticker.id);
   }
 
   function handleRefresh() {

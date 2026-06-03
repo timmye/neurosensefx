@@ -1,8 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { workspaceStore, workspaceActions } from '../stores/workspace.js';
-  import { createPriceMarkerInteraction } from '../lib/priceMarkerInteraction.js';
-  import { loadMarkers, saveMarkers } from '../stores/priceMarkerPersistence.js';
+  import { displayStore } from '../stores/displayStore.js';
+  import { markerActions, loadMarkers, saveMarkers } from '../stores/markerStore.js';
   import { formatSymbol } from '../lib/displayDataProcessor.js';
 
   export let display;
@@ -29,7 +28,7 @@
     const symbol = localFormattedSymbol || formattedSymbol;
     if (!symbol) return;
     // loadMarkers is async (server API call) — use .then() (ref: DL-007)
-    loadMarkers(symbol).then(m => { priceMarkers = m; workspaceActions.setDisplayPriceMarkers(display.id, m); });
+    loadMarkers(symbol).then(m => { priceMarkers = m; markerActions.setDisplayPriceMarkers(display.id, m); });
 
     // Initialize interaction system after a short delay
     setTimeout(() => {
@@ -67,7 +66,7 @@
   }
 
   // Sync with workspace store
-  $: currentDisplay = $workspaceStore.displays.get(display.id);
+  $: currentDisplay = $displayStore.displays.get(display.id);
   $: if (currentDisplay?.priceMarkers) {
     priceMarkers = currentDisplay.priceMarkers;
     const symbol = localFormattedSymbol || formattedSymbol;

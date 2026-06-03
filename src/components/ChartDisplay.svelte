@@ -4,7 +4,7 @@
   import { unsubscribeFromCandles } from '../stores/chartDataStore.js';
   import { getMarketDataStore } from '../stores/marketDataStore.js';
   import { get } from 'svelte/store';
-  import { workspaceActions, workspaceStore } from '../stores/workspace.js';
+  import { displayActions, displayStore } from '../stores/displayStore.js';
   import { createInteractConfig } from '../lib/interactSetup.js';
 
   import ChartToolbar from './ChartToolbar.svelte';
@@ -221,7 +221,7 @@
     currentWindow = DEFAULT_RESOLUTION_WINDOW[newResolution] || currentWindow;
     setAxisWindow(currentWindow, chart);
     updateWatermark();
-    workspaceActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
+    displayActions.updateDisplay(display.id, { resolution: newResolution, window: currentWindow });
     if (chart) { chart.removeOverlay(); chart.clearData(); chart.resize(); }
     coordinator?.resetForNewSymbol();
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
@@ -239,7 +239,7 @@
     loadChartData(currentSymbol, currentResolution, currentWindow, () => {
       coordinator?.restoreDrawings(currentSymbol, currentResolution).then(() => forceCanvasDPRRefresh(chartContainer)).catch(err => console.error('[ChartDisplay] restoreDrawings failed:', err));
     });
-    workspaceActions.updateDisplay(display.id, persistProps);
+    displayActions.updateDisplay(display.id, persistProps);
   }
   function handleWindowChange(newWindow) {
     if (newWindow === currentWindow) return;
@@ -252,10 +252,10 @@
 
   // --- Window-level handlers ---
   const handlers = {
-    close: () => workspaceActions.removeDisplay(display.id),
-    focus: () => workspaceActions.bringToFront(display.id),
+    close: () => displayActions.removeDisplay(display.id),
+    focus: () => displayActions.bringToFront(display.id),
     refresh: () => reload(currentSymbol, currentResolution, currentWindow),
-    minimize: () => { isMinimized = !isMinimized; workspaceActions.updateDisplay(display.id, { isMinimized }); },
+    minimize: () => { isMinimized = !isMinimized; displayActions.updateDisplay(display.id, { isMinimized }); },
   };
 
   // KeyManager registrations — set up in onMount, torn down in onDestroy
@@ -347,7 +347,7 @@
   }
 
   // --- Reactive statements ---
-  $: currentDisplay = $workspaceStore.displays.get(display.id) || {};
+  $: currentDisplay = $displayStore.displays.get(display.id) || {};
   $: if (display.symbol && display.symbol !== currentSymbol) handleSymbolChange(display.symbol);
   $: if (chart && $resolvedTimezone) {
     chart.setTimezone($resolvedTimezone);
@@ -399,7 +399,7 @@
 
     // Guard: don't init chart if minimized (container won't exist in DOM)
     if (isMinimized) {
-      interactable = setupInteract(element, display, workspaceActions, createInteractConfig);
+      interactable = setupInteract(element, display, displayActions, createInteractConfig);
       return;
     }
 
@@ -433,7 +433,7 @@
       if (chartContainer) resizeObserver = setupResizeObserver(chartContainer, chart, barSpace.applyBarSpace, pendingDataApplyRef, resizeState);
     }, 0);
 
-    interactable = setupInteract(element, display, workspaceActions, createInteractConfig);
+    interactable = setupInteract(element, display, displayActions, createInteractConfig);
     wheelHandler = setupWheelHandler(chartContainer, chart);
     mousedownHandler = () => element.focus();
     chartContainer?.addEventListener('mousedown', mousedownHandler);
