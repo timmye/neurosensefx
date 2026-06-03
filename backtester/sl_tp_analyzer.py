@@ -451,7 +451,8 @@ def simulate_trades(trades: list, sl_pips: float, tp_pips: float,
 
         # Report invalid trades
         for _, t in invalid_trades:
-            results.append({**t, "sim_result": "no_data", "sim_pips": 0,
+            results.append({**t, "sl_actual": _resolve_sl(sl_pips, t["symbol"], sl_map, sl_pips),
+                            "sim_result": "no_data", "sim_pips": 0,
                             "sim_exit": t["close_price"], "sim_bars": 0,
                             "sim_notes": "Could not parse date"})
 
@@ -464,6 +465,8 @@ def simulate_trades(trades: list, sl_pips: float, tp_pips: float,
         interval_ms_map = {"5m": 5*60*1000, "15m": 15*60*1000, "30m": 30*60*1000,
                            "1h": 60*60*1000, "1d": 24*60*60*1000}
         interval_ms = interval_ms_map.get(interval, 15*60*1000)
+        # Mirrors PERIOD_RANGE_LIMITS['M15'] in CTraderDataProcessor.js (services/tick-backend/).
+        # If either value changes, update both to keep backtester and backend in sync.
         thirty_five_weeks_ms = 21168000000
         window_size = min(thirty_five_weeks_ms, max_bars * interval_ms)
 
@@ -495,7 +498,8 @@ def simulate_trades(trades: list, sl_pips: float, tp_pips: float,
                 fetch_count += 1
 
             if cached_df.empty:
-                results.append({**t, "sim_result": "no_data", "sim_pips": 0,
+                results.append({**t, "sl_actual": _resolve_sl(sl_pips, t["symbol"], sl_map, sl_pips),
+                                "sim_result": "no_data", "sim_pips": 0,
                                 "sim_exit": t["close_price"], "sim_bars": 0,
                                 "sim_notes": f"No cTrader data for {sym} ({resolution})"})
                 continue
@@ -583,7 +587,7 @@ def simulate_trades(trades: list, sl_pips: float, tp_pips: float,
                         "sim_notes": "No OHLC data after entry time",
                     }
 
-            results.append({**t, **sim_result})
+            results.append({**t, "sl_actual": trade_sl, **sim_result})
 
     # Calculate metrics
     wins = [r for r in results if r["sim_result"] == "win"]
@@ -707,7 +711,7 @@ def print_results(results: list, metrics: dict):
     print(f"  TRADE RESULTS")
     print(f"{'─' * 100}")
 
-    header = f"{'#':>4}  {'Date':<20}  {'Symbol':<10}  {'Dir':<5}  {'Entry':<12}  {'Result':<12}  {'Sim P/L':>10}  {'Bars':>5}  Notes"
+    header = f"{'#':>4}  {'Date':<20}  {'Symbol':<10}  {'Dir':<5}  {'Entry':<12}  {'Result':<12}  {'Sim P/L':>10}  {'SL Act':>8}  {'Bars':>5}  Notes"
     print(f"  {header}")
     print(f"  {'─' * len(header)}")
 
@@ -718,6 +722,7 @@ def print_results(results: list, metrics: dict):
         entry = f"{r['open_price']:.5f}" if r["open_price"] < 100 else f"{r['open_price']:.2f}"
         result = r["sim_result"]
         pips = r["sim_pips"]
+        sl_actual = r.get("sl_actual", "-")
         bars = r["sim_bars"]
         notes = r["sim_notes"][:35]
 
@@ -732,8 +737,9 @@ def print_results(results: list, metrics: dict):
             result_str = "NODATA"
 
         pips_str = f"{pips:+.1f}"
+        sl_act_str = f"{sl_actual:.0f}" if isinstance(sl_actual, (int, float)) else str(sl_actual)
 
-        print(f"  {i:>4}  {date_str:<20}  {sym:<10}  {direction:<5}  {entry:<12}  {result_str:<12}  {pips_str:>10}  {bars:>5}  {notes}")
+        print(f"  {i:>4}  {date_str:<20}  {sym:<10}  {direction:<5}  {entry:<12}  {result_str:<12}  {pips_str:>10}  {sl_act_str:>8}  {bars:>5}  {notes}")
 
     # --- SYMBOL BREAKDOWN ---
     print(f"\n{'─' * 80}")
@@ -923,14 +929,15 @@ def save_csv(results: list, metrics: dict, output_path: str = "simulation_result
                          f"Timeframe={metrics['timeframe']}, Mode={metrics['mode']}, Source=cTrader"])
         writer.writerow([])
         writer.writerow(["#", "Open Time", "Symbol", "Direction", "Entry Price",
-                         "Sim Result", "Sim Pip P/L", "Sim Exit Price", "Bars", "Notes"])
+                         "Sim Result", "Sim Pip P/L", "Sim Exit Price", "SL Actual", "Bars", "Notes"])
         for i, r in enumerate(results, 1):
             ot = r["open_time"].strftime("%Y-%m-%d %H:%M") if isinstance(r["open_time"], datetime) else r["open_time"]
             writer.writerow([
                 i, ot, r["symbol"], r["direction"],
                 r["open_price"],
                 r["sim_result"], f"{r['sim_pips']:.1f}",
-                f"{r['sim_exit']:.5f}", r["sim_bars"], r["sim_notes"]
+                f"{r['sim_exit']:.5f}", f"{r.get('sl_actual', ''):.0f}",
+                r["sim_bars"], r["sim_notes"]
             ])
     print(f"  CSV saved: {output_path}")
 

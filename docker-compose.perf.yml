@@ -1,8 +1,6 @@
 # Performance Testing Docker Compose Configuration
 # Comprehensive testing with k6, Grafana, and monitoring
 
-version: '3.8'
-
 services:
   # k6 Performance Testing
   k6:

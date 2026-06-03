@@ -31,6 +31,10 @@ class CTraderDataProcessor {
     /**
      * Calculate actual price from raw cTrader integer value.
      * cTrader stores prices as integers; divide by 100000 and apply digits.
+     * The divisor 100000 corresponds to 5-digit pip precision used by most
+     * forex brokers (e.g., EURUSD quoted as 1.05000). JPY pairs and other
+     * instruments may use a different divisor (e.g., 100 for 2-digit brokers),
+     * but this service targets 5-digit pricing exclusively.
      */
     calculatePrice(rawValue, digits) {
         if (typeof rawValue !== 'number') return 0;
@@ -132,14 +136,9 @@ class CTraderDataProcessor {
                     break;
                 }
 
-                // Move to next chunk: start from where data ended
-                const lastBarTs = allBars[allBars.length - 1].timestamp;
-                if (lastBarTs <= currentFrom) {
-                    // No progress — avoid infinite loop by advancing past chunkEnd
-                    currentFrom = chunkEnd;
-                } else {
-                    currentFrom = chunkEnd;
-                }
+                // Advance to next chunk regardless of bar timestamps;
+                // the zero-bar check above already handles exhausted history.
+                currentFrom = chunkEnd;
             } catch (error) {
                 const errMsg = error.errorCode ?? error.message ?? error;
                 const isRateLimit = errMsg === 'REQUEST_FREQUENCY_EXCEEDED';
@@ -248,10 +247,11 @@ class CTraderDataProcessor {
         const symbolInfo = await this.symbolLoader.getFullSymbolInfo(symbolId);
         const { digits } = symbolInfo;
 
-        const moment = require('moment');
-        const to = moment.utc().valueOf();
-        const fromDaily = moment.utc().subtract(adrLookbackDays + 5, 'days').valueOf();
-        const fromIntraday = moment.utc().startOf('day').valueOf();
+        const now = Date.now();
+        const to = now;
+        const DAY_MS = 86400000;
+        const fromDaily = now - (adrLookbackDays + 5) * DAY_MS;
+        const fromIntraday = new Date(now).setUTCHours(0, 0, 0, 0);
 
         const { dailyBars, intradayBars } = await this.fetchHistoricalBars(symbolId, fromDaily, fromIntraday, to);
 

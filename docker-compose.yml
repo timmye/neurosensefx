@@ -1,8 +1,6 @@
 # NeuroSense FX Production-Grade Docker Configuration
 # Optimized for professional trading environments with high performance and reliability
 
-version: '3.8'
-
 services:
   # Frontend Service (Svelte + Vite)
   frontend:

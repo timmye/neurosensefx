@@ -1,5 +1,12 @@
 # NeuroSense FX
 
+## Project Context
+
+- **Deployment model**: Local-first development. Remote VPS deployment is a future option but not a current priority — incomplete Docker/infra configs for remote hosting are expected and not urgent.
+- **Backend**: Open to incremental improvements for robustness and reliability. Not looking for big rewrites — small targeted fixes.
+- **Backtester** (`backtester/`): Side project, not core or critical. May or may not stay in the repo. Findings are valid but should not drive priority work.
+- **Focus area**: Frontend + backend service reliability are the primary concerns. Infrastructure hardening is deferred until remote deployment becomes a priority.
+
 ## Structured Development Workflow
 
 This project uses [Solatis claude-config skills](https://github.com/solatis/claude-config/tree/feat/installer) for high-quality LLM-assisted development.
@@ -52,7 +59,6 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `docker-compose.dev.yml` | Dev compose override | Starting dev environment, overriding production compose settings |
 | `docker-compose.perf.yml` | Performance compose override | Running performance benchmarks, monitoring stack |
 | `docker-healthcheck.sh` | Docker health check script | Debugging container health checks |
-| `setup-dev-workaround.sh` | Dev setup workaround | Bootstrapping dev environment on Codespaces |
 | `setup_project.sh` | Project setup script | Initial project setup, onboarding to new machine |
 | `test-candles-v2.mjs` | Candle data format test script | Debugging candle data pipelines |
 | `test-math-expression-candles.cjs` | Math expression candle parser test | Testing symbol math expression parsing |

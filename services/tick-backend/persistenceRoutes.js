@@ -3,6 +3,11 @@
  * and price markers. All routes require authentication (ref: DL-003).
  * Uses PostgreSQL JSONB columns — data is always loaded/saved as a complete unit.
  * POST /api/migrate uses a transaction for all-or-nothing insert (ref: DL-022).
+ *
+ * Body size limits: the global express.json limit (1 MB, set in httpServer.js)
+ * is sufficient for all persistence routes. Workspace layouts and drawings are
+ * typically <50 KB even with heavy usage. The migrate endpoint accepts batched
+ * data but the 1 MB cap prevents abuse without constraining legitimate use.
  */
 const express = require('express');
 const { query, pool } = require('./db');

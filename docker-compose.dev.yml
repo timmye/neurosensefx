@@ -1,8 +1,6 @@
 # Enhanced Development Docker Compose Configuration
 # Optimized for hot reload and developer experience
 
-version: '3.8'
-
 services:
   # Development Frontend with Hot Reload
   frontend-dev:

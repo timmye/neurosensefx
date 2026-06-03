@@ -29,7 +29,6 @@ WebSocket data streaming and HTTP API backend service.
 | `sessionManager.js` | Redis-backed session create/validate/destroy | Debugging session issues, modifying session TTL or storage |
 | `db.js` | PostgreSQL connection and query helpers | Adding database queries, debugging persistence |
 | `server.js` | WebSocket server entry point | Starting backend, debugging server startup |
-| `stream-real.cjs` | Real-time streaming data test utility | Testing live data streaming |
 | `test-timeframe.js` | Timeframe calculation test utility | Debugging timeframe logic |
 | `Dockerfile` | Production container build definition | Building backend container |
 | `Dockerfile.dev` | Development container build definition | Building backend dev container |

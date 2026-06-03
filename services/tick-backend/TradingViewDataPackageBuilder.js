@@ -14,8 +14,7 @@ class TradingViewDataPackageBuilder {
      * @returns {Array} Today's M1 candles
      */
     filterTodaysM1Candles(m1Candles) {
-        const moment = require('moment');
-        const startOfTodayUtc = moment.utc().startOf('day').valueOf();
+        const startOfTodayUtc = new Date(Date.now()).setUTCHours(0, 0, 0, 0);
         return m1Candles.filter(bar => {
             const barTimeMs = bar.time * 1000;
             return barTimeMs >= startOfTodayUtc;

@@ -227,18 +227,27 @@ update_environment_status() {
         initialize_environment_status
     fi
 
-    # Simple update using sed (basic JSON manipulation)
+    # Map field names to JSON key paths
+    local key
     case "$field" in
-        "backend_running")
-            sed -i "s/\"backend\": [^,]*/\"backend\": $value/" "$ENV_STATUS_FILE"
-            ;;
-        "frontend_running")
-            sed -i "s/\"frontend\": [^,]*/\"frontend\": $value/" "$ENV_STATUS_FILE"
-            ;;
-        "last_command")
-            sed -i "s/\"last_command\": \"[^\"]*\"/\"last_command\": \"$value\"/" "$ENV_STATUS_FILE"
-            ;;
+        "backend_running") key="services.backend" ;;
+        "frontend_running") key="services.frontend" ;;
+        "last_command") key="last_command" ;;
+        *) return 1 ;;
     esac
+
+    node -e "
+        const fs = require('fs');
+        const file = process.argv[1];
+        const key = process.argv[2];
+        const value = process.argv[3];
+        const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+        const parts = key.split('.');
+        let obj = data;
+        for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+        obj[parts[parts.length - 1]] = value === 'true' ? true : value === 'false' ? false : value;
+        fs.writeFileSync(file, JSON.stringify(data, null, 4) + '\n');
+    " "$ENV_STATUS_FILE" "$key" "$value"
 }
 
 # Check if environment status is recent (within last hour)
@@ -504,8 +513,9 @@ snapshot_save() {
 
     local TAG="stable-$(date +%Y%m%d-%H%M%S)"
 
-    # Stage and commit current state
-    git add .
+    # Stage build artifacts and modified tracked files only (avoid staging secrets/binaries)
+    git add src/dist/
+    git diff --name-only | xargs -r git add
     git commit -m "Stable snapshot $TAG" 2>/dev/null || true
 
     # Create immutable tag

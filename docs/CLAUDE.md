@@ -27,6 +27,7 @@ Architecture, design, and implementation documentation.
 | `tradingview-symbol-expressions.md` | TradingView symbol expression reference | Understanding symbol format, adding new symbol types |
 | `frontend-architecture-assessment-2026-06.md` | Original architecture assessment — completed. All P0/P1 resolved. Historical record. | Understanding why decisions were made, verifying past findings |
 | `frontend-architecture-reassessment-2026-06.md` | **Current frontend architecture state, active targets, and deferred items.** | **Starting any frontend structural work.** Read this first. |
+| `architecture-assessment-non-frontend-2026-06.md` | Backend, backtester, and infra assessment. Categorized: actionable now vs deferred (remote deployment) vs informational (backtester). | **Starting any backend structural work.** Read for current known issues. |
 | `orchestrator-unification-reassessment.md` | Orchestrator compute/render split — done, 51 unit tests added | Understanding orchestrator compute functions, testing layout/scaling logic |
 
 ## Subdirectories

@@ -26,31 +26,42 @@ fi
 mkdir -p "$HOME/.claude"
 
 # Write settings (merge with existing file if present)
+# Escape the API key for safe embedding in JSON
+# Replaces: backslash, double-quote, and control characters (U+0000..U+001F)
+ESCAPED_KEY=$(printf '%s' "$API_KEY" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\x00/\\u0000/g' -e ':a;N;$!ba;s/\n/\\n/g')
+
 if [ -f "$CLAUDE_SETTINGS" ]; then
   # Use node to merge so we don't clobber existing keys
+  # Pipe the key via stdin argument to avoid shell injection
   node -e "
     const fs = require('fs');
-    const settings = JSON.parse(fs.readFileSync('$CLAUDE_SETTINGS', 'utf8'));
+    const settingsFile = process.argv[1];
+    const apiKey = fs.readFileSync('/dev/stdin', 'utf8').trim();
+    const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
     settings.env = settings.env || {};
-    settings.env.ANTHROPIC_AUTH_TOKEN = '$API_KEY';
+    settings.env.ANTHROPIC_AUTH_TOKEN = apiKey;
     settings.env.ANTHROPIC_BASE_URL = 'https://api.z.ai/api/anthropic';
     settings.env.API_TIMEOUT_MS = '3000000';
     settings.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
     settings.skipDangerousModePermissionPrompt = true;
-    fs.writeFileSync('$CLAUDE_SETTINGS', JSON.stringify(settings, null, 2) + '\n');
-  "
+    fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + '\n');
+  " "$CLAUDE_SETTINGS" <<<"$ESCAPED_KEY"
 else
-  cat > "$CLAUDE_SETTINGS" <<EOF
-{
-  "env": {
-    "ANTHROPIC_AUTH_TOKEN": "$API_KEY",
-    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
-    "API_TIMEOUT_MS": "3000000",
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
-  },
-  "skipDangerousModePermissionPrompt": true
-}
-EOF
+  node -e "
+    const fs = require('fs');
+    const settingsFile = process.argv[1];
+    const apiKey = fs.readFileSync('/dev/stdin', 'utf8').trim();
+    const settings = {
+      env: {
+        ANTHROPIC_AUTH_TOKEN: apiKey,
+        ANTHROPIC_BASE_URL: 'https://api.z.ai/api/anthropic',
+        API_TIMEOUT_MS: '3000000',
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1'
+      },
+      skipDangerousModePermissionPrompt: true
+    };
+    fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + '\n');
+  " "$CLAUDE_SETTINGS" <<<"$ESCAPED_KEY"
 fi
 
 echo "✅ Claude Code settings configured from secrets/claude-api"
