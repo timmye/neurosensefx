@@ -64,7 +64,7 @@ This assessment was produced from **file reads and grep**, not from running the 
 | --- | --- | --- | --- |
 | Charting (`src/lib/chart/`) | ~50 files, largest domain | Modular but sprawling — 8 config/theme files, 5 overlay modules, 3 drawing files mid-refactor | Configuration sprawl + drawing-system polling + unbounded `overlayMeta` Map |
 | Feature domains (fxBasket, marketProfile, dayRange/ADR, priceMarkers) | ~25 files scattered | Three orchestrators — all pure render functions receiving `(ctx, data, config)` | Files in `lib/` root instead of subfolders, module-level mutable state in FX Basket. **Compute/render split done (§12.8)** |
-| Workspace & UI shell | ~12 components + 4 lib files | Single shell with floating displays; one 309-LOC `Workspace.svelte` onMount | `Workspace.svelte` overloaded; BackgroundShader GPU cost; multiple modal patterns |
+| Workspace & UI shell | ~12 components + 5 lib files | Single shell with floating displays; `Workspace.svelte` onMount reduced (~110→40 LOC); keyboard shortcuts extracted to `workspaceKeyboardShortcuts.js` | BackgroundShader GPU cost; multiple modal patterns |
 | Connection & data layer | ~16 files | Modular WS layer + fully decomposed stores | `workspace.js` (389 LOC after P1 #6 split); `marketDataStore.js` (205 LOC after §13 decomposition); localStorage parsing fixed (P0) |
 | Cross-cutting infra | Build config + utils + deps | Vite/Svelte 4/klinecharts/three/dexie/interact | `ws` dep required by cTrader layer; three.js caret-pinned; composables dir removed (P0); 365 unit tests across 15 files |
 

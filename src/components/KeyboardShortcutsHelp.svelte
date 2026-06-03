@@ -45,12 +45,38 @@
           <span>Toggle Market Profile</span>
         </div>
         <div class="shortcut-item">
+          <span class="keys"><kbd>C</kbd></span>
+          <span>Toggle Chart</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="keys"><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></span>
+          <span>Navigate Displays</span>
+        </div>
+        <div class="shortcut-item">
           <span class="keys"><kbd>H</kbd></span>
           <span>Headlines</span>
         </div>
         <div class="shortcut-item">
           <span class="keys"><kbd>Esc</kbd></span>
           <span>Close / Clear Focus</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="shortcut-section">
+      <h3>Chart (when chart has focus)</h3>
+      <div class="shortcut-list">
+        <div class="shortcut-item">
+          <span class="keys"><kbd>Ctrl</kbd>+<kbd>Z</kbd></span>
+          <span>Undo</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="keys"><kbd>Ctrl</kbd>+<kbd>Y</kbd></span>
+          <span>Redo</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="keys"><kbd>Del</kbd></span>
+          <span>Delete Selected</span>
         </div>
       </div>
     </div>
