@@ -19,7 +19,7 @@ Svelte 4 SPA. Single WebSocket to backend. Workspace of floating chart displays 
 
 ### Test infrastructure
 
-365 unit tests across 15 files. All test pure-logic modules with synthetic inputs — no DOM/WebSocket mocks. Vitest for unit tests, Playwright for E2E (requires running backend + PG + Redis).
+444 unit tests across 18 files. All test pure-logic modules with synthetic inputs — no DOM/WebSocket mocks. Vitest for unit tests, Playwright for E2E (requires running backend + PG + Redis).
 
 ### Bundle
 
@@ -77,7 +77,10 @@ All three main feature domains have clean compute/render splits with tests. Pric
 | `src/lib/connection/connectionHandler.js` | WS lifecycle | Heartbeat (30s), stale detection, pre-warm |
 | `src/lib/connection/subscriptionManager.js` | Tracking | O(1) lookup, batched resubscription (10/batch, 200ms delay) |
 | `src/lib/connection/reconnectionHandler.js` | Backoff | Exponential with jitter, 15s cap, 60s reset |
-| `src/stores/marketDataStore.js` | **361** | **God store** — subscription lifecycle, message normalization, market profile source precedence, TWAP integration, daily reset, latency calculation |
+| `src/stores/marketDataStore.js` | 205 | Subscription lifecycle, message routing. Normalization, profile merge, daily reset extracted to pure modules. |
+| `src/stores/marketDataNormalizer.js` | 69 | `normalizeSymbolDataPackage()` + `normalizeTick()` — pure functions |
+| `src/stores/marketProfileHandler.js` | 40 | `mergeProfileUpdate()` — source precedence, delta merging |
+| `src/stores/dailyResetHandler.js` | 33 | `createResetFields()` + `setupDailyResetHandler()` |
 
 **Reconnect path (verified working):**
 ```
@@ -87,15 +90,9 @@ WS close → onClose → tryScheduleReconnect() → backoff → connect()
 → resubscribeAll() (or skip if flush already sent them)
 ```
 
-**`marketDataStore.js` is the single highest-leverage structural target.** Its responsibilities are clearly separable:
-- Subscription management → extract
-- Message normalization with multi-source fallback → extract
-- Market profile source precedence → extract
-- TWAP data integration → extract
-- Daily reset handler → extract
-- Latency calculation → keep (small, depends on store state)
+**`marketDataStore.js` decomposition complete (commit `5ce5c4d`).** Store reduced from 361→205 LOC. 79 new tests across 3 extracted modules.
 
-**Untested critical modules:** `marketDataStore`, `subscriptionManager`, `ConnectionHandler` heartbeat, ready-signal timeout. These are the highest-value test targets remaining.
+**Untested critical modules:** `subscriptionManager`, `ConnectionHandler` heartbeat, ready-signal timeout. These are the highest-value test targets remaining.
 
 ### 2.5 Cross-cutting
 
@@ -126,17 +123,17 @@ All five items executed. Build clean, 365/365 tests passing, UI verified.
 
 ### Tier 2 — Structural (plan each as a mini-project)
 
-| # | What | Why | Effort | Dependencies |
-|---|------|-----|--------|-------------|
-| 6 | **`marketDataStore.js` decomposition** — extract subscription management, message normalization, market profile logic, TWAP, daily reset into focused modules | 361 LOC god store. Blocks future feature work. Every new data feature touches it. | 1-2 days | None. Plan it. |
-| 7 | **Price marker compute/render split** — extract computation from `priceMarkerRenderer.js`, add tests | Only feature domain without the split. No tests. Pattern proven in 3 other domains. | 4-6 hr | None. Follow `dayRangeOrchestrator.js` as template. |
-| 8 | **Extract keyboard service** from `Workspace.svelte` onMount | 15+ shortcut registrations in one onMount. Extracting reduces complexity. Clean deps (only `displayStore`). | 4-6 hr | None. |
-| 9 | **Overlay registration factory** — extract shared `registerOverlay()` boilerplate from 5 overlay modules | Reduces duplication. Makes new overlay types mechanical to add. | 4-6 hr | None. Read all 5 overlay modules side-by-side first to verify no subtle differences. |
+| # | What | Why | Effort | Status |
+|---|------|-----|--------|--------|
+| 6 | **`marketDataStore.js` decomposition** — extract subscription management, message normalization, market profile logic, TWAP, daily reset into focused modules | 361 LOC god store. Blocks future feature work. Every new data feature touches it. | **Done** — commit `5ce5c4d`. 361→205 LOC, 79 new tests. |
+| 7 | **Price marker compute/render split** — extract computation from `priceMarkerRenderer.js`, add tests | Only feature domain without the split. No tests. Pattern proven in 3 other domains. | 4-6 hr | Pending |
+| 8 | **Extract keyboard service** from `Workspace.svelte` onMount | 15+ shortcut registrations in one onMount. Extracting reduces complexity. Clean deps (only `displayStore`). | 4-6 hr | Pending |
+| 9 | **Overlay registration factory** — extract shared `registerOverlay()` boilerplate from 5 overlay modules | Reduces duplication. Makes new overlay types mechanical to add. | 4-6 hr | Pending |
 
 ### Recommended sequencing
 
-1. **Tier 1** (half day) — do all five, no planning needed
-2. **Tier 2 #6** (1-2 days) — `marketDataStore` decomposition. Plan it as a dedicated project. This is the biggest unlock.
+1. ~~**Tier 1** (half day) — do all five, no planning needed~~ **Done.**
+2. ~~**Tier 2 #6** (1-2 days) — `marketDataStore` decomposition~~ **Done.**
 3. **Tier 2 #7, #8, #9** (1 day each, independent) — can be parallelized or done in any order
 
 ---
@@ -154,7 +151,7 @@ These were explicitly considered. They are not forgotten — they are **deferred
 | Theme file splits (443/438 LOC) | No user-facing benefit. Mechanical but noisy refactor. | Theme files need significant modification for a new feature |
 | Code splitting / lazy loading | 1.1MB loads fast on broadband. No user complaint about load time. | Mobile users; measurable load-time regression; bundle exceeds 2MB |
 | Centralized error handling / toast | Console-only is fine when the developer *is* the primary user. | Userbase grows beyond the core team; non-technical users need feedback |
-| Broad test coverage expansion | 365 tests cover all pure-logic modules. Higher-value targets are in Tier 2 #7. | Regression incident that tests would have caught; team grows |
+| Broad test coverage expansion | 444 tests cover all pure-logic modules. Higher-value targets are in Tier 2 #7–#9. | Regression incident that tests would have caught; team grows |
 | Full E2E suite | No userbase pressure. Playwright config exists and is ready when needed. | Multiple users reporting UI bugs; CI/CD pipeline requires it |
 | Composables pattern resurrection | Was a completed migration *away* from composables to stores. The pattern didn't stick. | Never. Svelte stores are the right idiom here. |
 | Shared modal base component | 3 modal patterns is annoying but not actively harmful. | Adding a 4th modal type; modal accessibility requirements |
@@ -171,7 +168,7 @@ Findings from static analysis. Verify at runtime before committing to structural
 | `eventemitter3` is dead | **High** | `npm ls eventemitter3` + remove and build |
 | `formatterCache` grows | **High** | Open app 48hr, snapshot Map size |
 | Backward-compat store has 2 consumers | **High** | `grep -r workspaceStore src/` |
-| `marketDataStore` is decomposable | **Medium** | Attempt the split; coupling may be deeper than visible |
+| `marketDataStore` is decomposable | ~~Medium~~ **Proven** | Completed. 361→205 LOC, 79 tests, no coupling surprises |
 | Overlay factory is extractable | **Medium** | Read all 5 registration blocks side-by-side for subtle differences |
 | Price marker split is mechanical | **Medium-High** | Follow `dayRangeOrchestrator.js` as template |
 
