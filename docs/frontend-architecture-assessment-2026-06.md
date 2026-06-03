@@ -150,16 +150,16 @@ Adding tests for the above is a few hours' work and protects the parts most like
 ## 6. Prioritized Targets
 
 ### P0 — Real risk, low effort (hours, not days)
-1. Add try/catch around every `JSON.parse(localStorage.getItem(...))` call (3 stores).
-2. Cap running high/low in `marketDataStore` so long sessions don't grow unbounded.
-3. Clear the `freshnessCheckInterval` in `FxBasketDisplay.svelte` `onDestroy`.
-4. Add a `visibilitychange` handler to `BackgroundShader` so it pauses when the tab is hidden.
-5. Remove `ws` from `package.json` deps if confirmed unused; delete `src/test_debug_*.html`, `src/start.sh`, `.env_status`; remove the empty `composables/` directory.
+1. ~~Add try/catch around every `JSON.parse(localStorage.getItem(...))` call (3 stores).~~ **DONE.** See §10.1.
+2. ~~Cap running high/low in `marketDataStore` so long sessions don't grow unbounded.~~ **DROPPED** — already bounded + daily reset (§9.1 #2).
+3. ~~Clear the `freshnessCheckInterval` in `FxBasketDisplay.svelte` `onDestroy`.~~ **NO-OP** — cleanup already present (§10.2).
+4. ~~Add a `visibilitychange` handler to `BackgroundShader` so it pauses when the tab is hidden.~~ **DONE.** See §10.1.
+5. ~~Remove `ws` from `package.json` deps if confirmed unused; delete `src/test_debug_*.html`, `src/start.sh`, `.env_status`; remove the empty `composables/` directory.~~ **PARTIAL** — `ws` cannot be removed (cTrader layer needs it). Hygiene done. See §10.1.
 
 ### P1 — Structural, deliberate (plan, don't squeeze in)
-6. Split `workspace.js` into focused stores (displays / persistence / markers / import-export).
-7. Fix reconnect subscription ordering — wait for backend `ready` before flushing subscriptions.
-8. Unify price-scale calculation across Day Range, Market Profile, and Price Markers.
+6. ~~Split `workspace.js` into focused stores (displays / persistence / markers / import-export).~~ **DONE.** See §11.
+7. ~~Fix reconnect subscription ordering — wait for backend `ready` before flushing subscriptions.~~ **DONE.** Pre-existing bug discovered and fixed during P0 live testing. See §10.3.
+8. Unify price-scale calculation across Day Range, Market Profile, and Price Markers. **OPEN.**
 
 ### P2 — Defer deliberately
 9. Svelte 5 migration.
@@ -173,10 +173,11 @@ Adding tests for the above is a few hours' work and protects the parts most like
 
 ## 7. Recommended Next Step
 
-1. **Verify the assumptions in §3** — half a day of runtime checks against the live app. Some P0 items may evaporate; some P2 items may move up.
-2. **Execute P0** — small, isolated changes, no architecture impact.
-3. **Plan P1 #6 (`workspace.js` split) as a dedicated project** — this is the highest-leverage structural change and the only one that meaningfully changes the future change-cost curve.
-4. **Leave P2 alone** unless and until a concrete trigger appears (team growth, user growth, performance incident, regression incident).
+1. ~~**Verify the assumptions in §3**~~ — Done. See §9.1.
+2. ~~**Execute P0**~~ — Done. See §10.1.
+3. ~~**Plan P1 #6 (`workspace.js` split) as a dedicated project**~~ — Done. See §11.
+4. **P1 #8 (price-scale unification)** — schedule when convenient; lower leverage, no urgency.
+5. **Leave P2 alone** unless and until a concrete trigger appears (team growth, user growth, performance incident, regression incident).
 
 ---
 
@@ -387,3 +388,65 @@ Three things to note from the verified log:
 **P0 + reconnect fix: verified working in production-equivalent conditions.**
 
 **Open small observation (not P0):** the transient `WebSocket error` between the two `ready` messages. If it becomes a usability issue (visible in UI, or causes a spurious reconnect loop), investigate then. Otherwise leave it — the reconnect path is robust to it.
+
+---
+
+## 11. P1 Execution — workspace.js Decomposition
+
+P1 #6 was executed as a dedicated project on 2026-06-03. Plan documented in `plans/workspace-decomposition.md`.
+
+### 11.1 Outcome
+
+`workspace.js` (657 LOC) split into three focused modules:
+
+| New store | LOC | Contents |
+|---|---|---|
+| `displayStore.js` | 254 | Display lifecycle CRUD, selection/focus, z-index, chart ghosting, navigation |
+| `markerStore.js` | 173 | Marker CRUD actions (operate on displayStore) + absorbed `priceMarkerPersistence.js` |
+| `workspace.js` (slimmed) | 389 | Persistence (localStorage + server), import/export, headlines state |
+
+`priceMarkerPersistence.js` deleted — its contents absorbed into `markerStore.js`.
+
+### 11.2 Key decisions
+
+1. **Marker actions have no own writable state.** Markers are nested in display objects (`display.priceMarkers`). `markerStore.js` exports pure action functions that operate on `displayStore`. This avoids state duplication while giving marker logic a clear home.
+
+2. **Combined derived store for backward compat.** `workspace.js` exports a Svelte `derived` store that merges `displayStore` + `_headlinesStore`. This preserves the `$workspaceStore` reactive binding used by components that haven't migrated yet, and the `window.workspaceStore.getState()` API used by all 20 test files. Zero test changes required.
+
+3. **Import/export routes through markerStore.** The original `importWorkspace` wrote price markers to localStorage directly, bypassing the persistence layer. Fixed to call `markerStore.saveMarkers()` instead, routing through the proper persistence path.
+
+4. **Persistence subscribes to both stores.** `initPersistence()` subscribes to `displayStore` and `_headlinesStore` separately, combining their state for localStorage sync and server push. The `beforeunload` sendBeacon reads the combined `_lastWorkspaceData`.
+
+### 11.3 Consumer migration
+
+7 components + 2 lib files migrated to direct store imports:
+
+| Component | Now imports from |
+|---|---|
+| `ChartDisplay.svelte` | `displayStore.js` |
+| `PriceTicker.svelte` | `displayStore.js` |
+| `FxBasketDisplay.svelte` | `displayStore.js` |
+| `FloatingDisplay.svelte` | `displayStore.js` |
+| `PriceMarkerManager.svelte` | `displayStore.js` + `markerStore.js` |
+| `priceMarkerInteraction.js` | `markerStore.js` + `displayStore.js` |
+| `priceMarkerDropdown.js` | `markerStore.js` |
+
+`Workspace.svelte` and `HeadlinesWidget.svelte` remain on `workspace.js` — they legitimately need the combined workspace store (persistence, import/export, headlines).
+
+### 11.4 Verification
+
+Manual verification completed: display CRUD, arrow-key navigation, chart ghost save/restore, price markers, headlines persistence, workspace export/import round-trip, persistence round-trip (close/reopen tab), reconnect test (kill/restart backend). All passing. Build size unchanged (~1070KB).
+
+### 11.5 Remaining P1 items
+
+| # | Item | Status |
+|---|---|---|
+| 6 | `workspace.js` split | **DONE** |
+| 7 | Reconnect subscription ordering | **DONE** (§10.3) |
+| 8 | Unify price-scale calculation | **OPEN** |
+
+### 11.6 Recommended next steps
+
+With P0 complete, P1 #6 and #7 done, the remaining actionable item is **P1 #8 (price-scale unification)**. This is lower leverage than the workspace split — it reduces duplication but doesn't unlock new features. Schedule when convenient; no urgency.
+
+P2 items remain deferred per §5.4.
