@@ -1,9 +1,9 @@
 # Frontend Architecture Assessment — June 2026
 
-**Status:** First-cut assessment. Findings are directional, not definitive. Assumptions must be verified before any refactoring work begins.
+**Status:** Assessment resolved. All P0, P1, and Tier 2 items complete. Only P2 deferred items remain. Forward-looking guide: `docs/frontend-architecture-reassessment-2026-06.md`.
 **Scope:** Frontend only (`src/`). Backend services are out of scope per project owner.
 **Audience:** Project owner / lead developer.
-**Method:** Five parallel domain assessments (charting, feature domains, workspace/UI shell, connection/data layer, cross-cutting infra), each producing a focused report. This document synthesizes them.
+**Method:** Five parallel domain assessments (charting, feature domains, workspace/UI shell, connection/data layer, cross-cutting infra), each producing a focused report. This document synthesizes them and records execution history.
 
 ---
 
@@ -29,9 +29,9 @@ The codebase is fit for the operating context — a small number of trusted user
 
 That said, three things are **not** suitable even at this scale and warrant attention:
 
-1. **Unsafe localStorage parsing** — a single corrupted key crashes the app. Trivial fix, real risk.
-2. **Unbounded in-memory growth in long-running sessions** — `marketDataStore` running high/low never resets; `barCache` eviction is manual; the `overlayMeta` Map persists across symbol changes. For a trader who leaves a tab open for days, this matters.
-3. **A 654-line `workspace.js` god store** — this is the single biggest multiplier on future change cost. Every new display feature reaches into it. It is not dangerous today, but it is the bottleneck that makes everything in the workspace feel coupled.
+1. ~~**Unsafe localStorage parsing** — a single corrupted key crashes the app. Trivial fix, real risk.~~ **Fixed (P0, §10.1).**
+2. ~~**Unbounded in-memory growth in long-running sessions** — `marketDataStore` running high/low never resets; `barCache` eviction is manual; the `overlayMeta` Map persists across symbol changes.~~ **Refuted (§9.1).** `marketDataStore` has daily reset; `barCache` auto-evicts; growth bounded by symbol count.
+3. ~~**A 654-line `workspace.js` god store** — this is the single biggest multiplier on future change cost.~~ **Resolved (§11).** Split into 3 focused stores.
 
 Everything else is defensible at current scale.
 
@@ -63,10 +63,10 @@ This assessment was produced from **file reads and grep**, not from running the 
 | Domain | Size | Shape | Headline concern |
 | --- | --- | --- | --- |
 | Charting (`src/lib/chart/`) | ~50 files, largest domain | Modular but sprawling — 8 config/theme files, 5 overlay modules, 3 drawing files mid-refactor | Configuration sprawl + drawing-system polling + unbounded `overlayMeta` Map |
-| Feature domains (fxBasket, marketProfile, dayRange/ADR, priceMarkers) | ~25 files scattered | Three orchestrators — all pure render functions receiving `(ctx, data, config)` | Files in `lib/` root instead of subfolders, module-level mutable state in FX Basket. **Compute/render split done (§12.8)** |
+| Feature domains (fxBasket, marketProfile, dayRange/ADR, priceMarkers) | ~25 files, organized into subfolders | All four domains follow compute/render split pattern | ~~Files in `lib/` root~~ (moved to subfolders, Tier 1), module-level mutable state in FX Basket. **Compute/render split done across all 4 domains (§12.8, §14)** |
 | Workspace & UI shell | ~12 components + 5 lib files | Single shell with floating displays; `Workspace.svelte` onMount reduced (~110→40 LOC); keyboard shortcuts extracted to `workspaceKeyboardShortcuts.js` | BackgroundShader GPU cost; multiple modal patterns |
 | Connection & data layer | ~16 files | Modular WS layer + fully decomposed stores | `workspace.js` (389 LOC after P1 #6 split); `marketDataStore.js` (205 LOC after §13 decomposition); localStorage parsing fixed (P0) |
-| Cross-cutting infra | Build config + utils + deps | Vite/Svelte 4/klinecharts/three/dexie/interact | `ws` dep required by cTrader layer; three.js caret-pinned; composables dir removed (P0); 365 unit tests across 15 files |
+| Cross-cutting infra | Build config + utils + deps | Vite/Svelte 4/klinecharts/three/dexie/interact | `ws` dep required by cTrader layer; three.js caret-pinned; composables dir removed (P0); 476 unit tests across 19 files |
 
 ### 4.2 Cross-cutting themes
 
@@ -76,10 +76,10 @@ These repeat across multiple domains and are the actual leverage points:
 - **Module-level mutable state** — `fxBasketSubscription`, `drawingCoordinator.overlayMeta`
 - **Leaked intervals / listeners / animations** — `FxBasketDisplay`, `BackgroundShader`, `keyManager` escape stack
 - **Unbounded in-memory growth** — `barCache` (auto-evicting), ~~`marketDataStore` running H/L~~ (bounded + daily reset, §9.1 #2), `overlayMeta` Map, subscription queue
-- **Duplicated patterns** — ~~price-scale calc repeated in 3 features~~ (unified P1 #8), ~~3 orchestrator variants~~ (compute/render split done, §12.8), 5 overlay modules, 8 chart config/theme files
+- **Duplicated patterns** — ~~price-scale calc repeated in 3 features~~ (unified P1 #8), ~~3 orchestrator variants~~ (compute/render split done across all 4 domains, §12.8, §14), 5 overlay modules, 8 chart config/theme files
 - **No code splitting** — three.js + klinecharts + vendored cTrader layer all loaded eagerly
 - **Unsafe localStorage parsing** — ~~3 stores, no try/catch~~ **Fixed (P0)**
-- **Race conditions on reconnect / restore** — subscription flush order, debounced price-marker sync, drawing restoration polling
+- **Race conditions on reconnect / restore** — ~~subscription flush order~~ (fixed §10.3), debounced price-marker sync, drawing restoration polling
 
 ---
 
@@ -110,7 +110,7 @@ The features were built one at a time, each with its own variation on the orches
 **Honest cost/benefit:**
 - **`workspace.js` split** — High cost, high benefit (unlocks future display work). **Worth doing**, but as a deliberate project, not a side task. Plan it.
 - **Chart config consolidation** — Medium cost, low benefit. **Defer.** Group them in a folder if cosmetic order matters; do not merge the modules.
-- **Unifying orchestrator patterns** — ~~High cost, low benefit.~~ **Reassessed and done.** See §12. Compute/render split implemented across all three orchestrators (Day Range, Market Profile, FX Basket). 51 new unit tests. No behavior change.
+- **Unifying orchestrator patterns** — ~~High cost, low benefit.~~ **Reassessed and done.** See §12. Compute/render split implemented across all four feature domains (Day Range, Market Profile, FX Basket, Price Markers). 83 unit tests across the 4 domains. No behavior change.
 - **Moving scattered files into subfolders** — Low cost, low benefit. **Do it next time you touch the relevant file.** Don't open a PR just for this.
 
 ### 5.3 Testing
@@ -213,7 +213,7 @@ The assumptions in §3 were verified via four parallel deeper investigations. **
 | 5 | `ws` package is unused in browser code | **PARTIALLY TRUE** | Browser code indeed doesn't use it. **But** `libs/cTrader-Layer/src/cTrader-Layer-API/RealTimeClient.js:55` requires it (Node.js side of the vendored layer). Removing from top-level `package.json` would break the broker layer. |
 | 6 | Composables migration was abandoned mid-flight | **CORRECTED** | Not abandoned — it was a **completed** migration. `git log` shows a clean removal commit (`refactor: remove composables in favor of marketDataStore`, 2024-11-26). Directory is empty by design, kept for reference. Safe to delete. |
 | 7 | `three` is exact-pinned to `0.160.0` | **REFUTED** | `package.json` uses caret `"three": "^0.160.0"`. Lockfile resolves to 0.160.0 because nothing has triggered an update. Currently 4 minor versions behind current (0.164.0 as of June 2026). |
-| 8 | BackgroundShader is the only three.js consumer | **UNDERSTATED** | Three.js is imported by **two** components: `src/lib/shaders/BackgroundShader.svelte` AND `src/lib/MarketVisualization.svelte`. Both need to be considered for any three.js decision. |
+| 8 | BackgroundShader is the only three.js consumer | **REFUTED (twice)** | Initial verification claimed two consumers (cited non-existent `MarketVisualization.svelte`). Corrected during P0 execution (§10.2): only `src/components/BackgroundShader.svelte` uses three.js. |
 
 ### 9.2 Revised P0 list
 
@@ -267,8 +267,8 @@ Deeper investigation of `workspace.js` (654 LOC) produced a concrete decompositi
 ### 9.4 What did not change
 
 These findings from the first-cut assessment survived verification and remain valid:
-- `workspace.js` is the single highest-leverage refactor target
-- Three "orchestrator" patterns across feature domains — reassessed in §12, cost now low-medium
+- ~~`workspace.js` is the single highest-leverage refactor target~~ — **Done (§11).**
+- ~~Three "orchestrator" patterns across feature domains~~ — **Done (§12, §14).** All 4 feature domains now have compute/render split.
 - 8 chart config/theme files (defer consolidation)
 - Test coverage gap is real but not worth closing broadly (narrow targets only — see §5.3)
 - Svelte 4 → 5, TypeScript, three.js removal, full e2e suite: all still deferred
@@ -356,16 +356,12 @@ This is a **pre-existing bug**, not introduced by any P0 change. It would have b
 
 ### 10.5 Recommended next steps (updated)
 
-With P0 complete and the reconnect bug fixed, the situation is:
+**All items complete.** See §11–§14 for execution records. P2 items remain deferred per §5.4.
 
-- **P0 + reconnect fix need live re-verification** after the user refreshes the browser / rebuilds. The fix is in source; the running app may still be on old code.
-- **P1 #6 (workspace.js split)** remains the recommended next structural project, with the scope outlined in §9.3 unchanged.
-- **No new P0 items** have emerged. The reconnect flush bug was a one-off discovery from live testing, not a category of issue that suggests further fishing.
-
-Suggested sequencing:
-1. User confirms the reconnect fix works in live test (ticks resume after backend kill/restart). ✅ **Confirmed — see §10.6.**
-2. Commit P0 + reconnect fix as one or two commits.
-3. Plan the `workspace.js` decomposition project when ready (not under time pressure).
+Historical sequencing:
+1. ~~User confirms the reconnect fix works in live test~~ ✅ **Confirmed — see §10.6.**
+2. ~~Commit P0 + reconnect fix~~ — Done.
+3. ~~Plan the `workspace.js` decomposition project~~ — Done. See §11.
 4. P2 items remain deferred indefinitely unless a concrete trigger appears.
 
 ### 10.6 Live re-verification result
@@ -415,7 +411,7 @@ P1 #6 was executed as a dedicated project on 2026-06-03. Plan documented in `pla
 
 1. **Marker actions have no own writable state.** Markers are nested in display objects (`display.priceMarkers`). `markerStore.js` exports pure action functions that operate on `displayStore`. This avoids state duplication while giving marker logic a clear home.
 
-2. **Combined derived store for backward compat.** `workspace.js` exports a Svelte `derived` store that merges `displayStore` + `_headlinesStore`. This preserves the `$workspaceStore` reactive binding used by components that haven't migrated yet, and the `window.workspaceStore.getState()` API used by all 20 test files. Zero test changes required.
+2. **Combined derived store for backward compat.** `workspace.js` originally exported a Svelte `derived` store that merged `displayStore` + `_headlinesStore`. This was later removed (Tier 1 #3) after both remaining consumers were migrated to direct imports.
 
 3. **Import/export routes through markerStore.** The original `importWorkspace` wrote price markers to localStorage directly, bypassing the persistence layer. Fixed to call `markerStore.saveMarkers()` instead, routing through the proper persistence path.
 
@@ -439,7 +435,7 @@ P1 #6 was executed as a dedicated project on 2026-06-03. Plan documented in `pla
 
 ### 11.4 Verification
 
-Manual verification completed: display CRUD, arrow-key navigation, chart ghost save/restore, price markers, headlines persistence, workspace export/import round-trip, persistence round-trip (close/reopen tab), reconnect test (kill/restart backend). All passing. Build size unchanged (~1070KB).
+Manual verification completed: display CRUD, arrow-key navigation, chart ghost save/restore, price markers, headlines persistence, workspace export/import round-trip, persistence round-trip (close/reopen tab), reconnect test (kill/restart backend). All passing. Build ~1070KB.
 
 ### 11.5 Remaining P1 items
 
@@ -492,7 +488,7 @@ Many compute functions already exist as separate pure modules (`calculateAdaptiv
 
 ### 12.5 Mock data not required
 
-The 314 existing unit tests demonstrate the pattern — synthetic JS object literals into pure functions, no DOM/WebSocket mocks. Orchestrator compute functions would follow the same approach.
+The existing unit tests demonstrate the pattern — synthetic JS object literals into pure functions, no DOM/WebSocket mocks. Orchestrator compute functions follow the same approach.
 
 ### 12.6 Revised cost/benefit
 
@@ -506,9 +502,7 @@ The 314 existing unit tests demonstrate the pattern — synthetic JS object lite
 
 ### 12.7 Updated recommendation
 
-P2 #13 is still deferred, but the cost/benefit has shifted from "high cost, low benefit" to "low-medium cost, medium benefit." The trigger is no longer solely "4th feature domain" — it's also "we want orchestrator compute logic to be unit-testable."
-
-If proceeding, natural order: Day Range (simplest) → Market Profile → FX Basket. Each domain can be done independently. No big-bang refactor needed.
+~~P2 #13 is still deferred, but the cost/benefit has shifted~~ **P2 #13 is now resolved.** Compute/render split implemented across all feature domains. See §12.8 and §14.
 
 ### 12.8 Implementation — Completed (2026-06-03)
 
@@ -521,7 +515,7 @@ The compute/render split was implemented across all three orchestrators followin
 | FX Basket | `computeFxBasketLayout()` + exported `calculateRange()` / `mapValueToY()` | 15 |
 | **Total** | **4 new functions + 2 newly exported** | **51** |
 
-All 365 unit tests pass. Zero component changes required. P2 #13 is now resolved.
+All tests pass. Zero component changes required. P2 #13 is now resolved.
 
 ---
 
@@ -550,6 +544,38 @@ The last god store was decomposed following the same pattern as the workspace.js
 ### 13.3 Verification
 
 - Build passes
-- 444 tests pass (365 existing + 79 new across 3 test files)
+- 476 tests pass (365 existing + 79 new across 3 test files, +32 price marker tests in §14)
 - UI verified working by project owner
 - Commit: `5ce5c4d`
+
+---
+
+## 14. Tier 2 Completions (2026-06-03)
+
+Tracked in `docs/frontend-architecture-reassessment-2026-06.md` Tier 2. Three items investigated, two implemented, one rejected.
+
+### 14.1 Keyboard service extraction
+
+15+ keyboard shortcut registrations extracted from `Workspace.svelte` onMount into `src/lib/workspaceKeyboardShortcuts.js`. Workspace onMount reduced from ~110 to ~40 LOC. No behavior changes.
+
+Also fixed the keyboard help overlay (`KeyboardShortcutsHelp.svelte`) — arrow keys, C (toggle chart), and chart contextual shortcuts (Ctrl+Z/Y, Del) were registered but not shown in the help.
+
+### 14.2 Price marker compute/render split
+
+7 pure compute functions extracted from `priceMarkerRenderer.js` into `priceMarkerCompute.js`. Renderer reduced to thin draw calls. 32 new tests. All four feature domains now follow the compute/render pattern.
+
+| Domain | Compute function(s) | Tests |
+|---|---|---|
+| Day Range | `computeDayRange()` | 22 |
+| Market Profile | `computeMarketProfile()` + `computeMiniMarketProfile()` | 14 |
+| FX Basket | `computeFxBasketLayout()` | 15 |
+| Price Markers | `computeCurrentPrice` + 6 others | 32 |
+| **Total** | | **83** |
+
+### 14.3 Overlay registration factory — rejected
+
+Investigation found the "shared boilerplate" claim doesn't hold. Each overlay has entirely unique `createPointFigures` logic. The `registerOverlay()` API config object IS the template. A factory would add net LOC. The indicators file uses a different klinecharts API (`registerIndicator`). Not implemented.
+
+### 14.4 Current state
+
+**All assessment items resolved.** 476 tests across 19 files. No outstanding structural work. P2 deferred items remain in `docs/frontend-architecture-reassessment-2026-06.md` §4.
