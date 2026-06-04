@@ -1,146 +1,68 @@
 <!--
-BackgroundShader - WebGL procedural background with raymarched cos/sin fractal field.
-
-Glowing neon line pattern created via raymarching with customizable:
-- Animation speed, spatial scale, color intensity
-- Iteration depth (detail vs performance tradeoff)
-- Corner roundness (smooth vs sharp fractal edges)
-- Three-color blending weighted by spatial position
-
-Volatility-driven uniforms available but disabled by default.
+BackgroundShader - WebGL procedural background.
+Domain-warped fBm raymarcher by @YoheiNishitsuji (MIT license).
 -->
 <script>
   import * as THREE from 'three';
   import { onMount } from 'svelte';
-  import { volatilityStore } from '../stores/volatilityStore.js';
 
   let container;
   let renderer, material, animationId;
 
-  let volatility = { smoothedSigma: 0, smoothedMaxZone: 0, smoothedVelocity: 0, smoothedRange: 0, ready: false };
-  let debugVisible = true;
-
-  // Per-metric volatility toggles — set any to true to enable that effect
-  let volatilitySpeed = false;      // velocity → animation speed
-  let volatilityRoundness = true;   // velocity → corner roundness (1=smooth, 0=sharp)
-  let volatilityScale = false;      // sigma → fractal scale distortion
-  let volatilityIntensity = false;  // range → color brightness
-  let volatilityColor = false;      // max zone → primary & accent colors
-
-  function lerp(a, b, t) {
-    return a + (b - a) * t;
-  }
-
-  const ZONE_COLORS = [
-    [0x57/255, 0x8f/255, 0xff/255],
-    [0x00/255, 0xd4/255, 0xaa/255],
-    [0xe0/255, 0x40/255, 0xfb/255],
-    [0xff/255, 0x6b/255, 0x35/255],
-    [0xef/255, 0x44/255, 0x44/255],
-  ];
-
-  const ACCENT_COLORS = [
-    [0x00/255, 0x42/255, 0x80/255],
-    [0x6b/255, 0x21/255, 0xa8/255],
-    [0xff/255, 0x6b/255, 0x35/255],
-  ];
-
-  function colorForZone(score) {
-    const colors = ZONE_COLORS;
-    const t = Math.min(Math.max(score, 0), 100) / 25;
-    const i = Math.min(Math.floor(t), 3);
-    const f = t - i;
-    const c1 = colors[i];
-    const c2 = colors[i + 1];
-    return { r: lerp(c1[0], c2[0], f), g: lerp(c1[1], c2[1], f), b: lerp(c1[2], c2[2], f) };
-  }
-
-  function accentForZone(score) {
-    const colors = ACCENT_COLORS;
-    const t = Math.min(Math.max(score, 0), 100) / 50;
-    const i = Math.min(Math.floor(t), 1);
-    const f = t - i;
-    const c1 = colors[i];
-    const c2 = colors[i + 1];
-    return { r: lerp(c1[0], c2[0], f), g: lerp(c1[1], c2[1], f), b: lerp(c1[2], c2[2], f) };
-  }
-
-  const vertexShader = `
-    varying vec2 vUv;
+  const VERTEX_SHADER = `
     void main() {
-      vUv = uv;
       gl_Position = vec4(position, 1.0);
     }
   `;
 
-  const fragmentShader = `
-    uniform vec3 iResolution;
-    uniform float iTime;
-    uniform float uSpeed;
-    uniform float uScaleX;
-    uniform float uScaleY;
-    uniform float uColorOffset;
-    uniform float uIterLimit;
-    uniform float uRoundness;
-    uniform vec3 uColor1;
-    uniform vec3 uColor2;
-    uniform vec3 uColor3;
-    uniform float uOpacity;
-    varying vec2 vUv;
+  const FRAGMENT_SHADER = `
+    // SPDX-License-Identifier: MIT
+    // Copyright (c) 2026 @YoheiNishitsuji
+    uniform vec2 u_resolution;
+    uniform float u_time;
 
-    float random(vec2 st) {
-        return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-    }
-
-    void mainImage(out vec4 O, vec2 I) {
-        float i = 0.0, z = 0.0, d = 0.0;
-        O = vec4(0.0);
-
-        for(O *= i; i++ < uIterLimit;) {
-            vec3 p = z * normalize(vec3(I + I, 0.0) - iResolution.xyy);
-            vec3 v;
-
-            p.x += sin(p.x + iTime * uSpeed * 0.5) + cos(p.y + iTime * uSpeed * 0.3);
-            p.y += cos(p.x - iTime * uSpeed * 0.4) + sin(p.y + iTime * uSpeed * 0.6);
-            p.z += sin(iTime * uSpeed * 0.2) * 1.5;
-
-            p.x *= uScaleX;
-            p.y *= uScaleY;
-
-            v = cos(p) - sin(p).yzx;
-
-            vec3 shape = mix(max(v, v.yzx * 0.2), v, uRoundness);
-
-            z += d = 1e-4 + 0.5 * length(shape);
-
-            vec3 weights = abs(cos(p));
-            weights /= dot(weights, vec3(1.0));
-
-            vec3 customColor = uColor1 * weights.x + uColor2 * weights.y + uColor3 * weights.z;
-
-            O.rgb += (customColor * uColorOffset) / d;
-        }
-
-        O /= O + 300.0;
-
-        float luminance = dot(O.rgb, vec3(0.299, 0.587, 0.114));
-        O.rgb = mix(vec3(luminance), O.rgb, 1.6);
-
-        O.rgb += (random(I) - 0.5) / 128.0;
-
-        O.a = uOpacity;
+    vec3 hsv(float h, float s, float v) {
+        vec4 t = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+        vec3 p = abs(fract(vec3(h) + t.xyz) * 6.0 - vec3(t.w));
+        return v * mix(vec3(t.x), clamp(p - vec3(t.x), 0.0, 1.0), s);
     }
 
     void main() {
-        mainImage(gl_FragColor, gl_FragCoord.xy);
+        vec2 fragCoord = gl_FragCoord.xy;
+        vec2 r = u_resolution;
+        float t = u_time * 0.02;
+        vec4 o = vec4(0.0, 0.0, 0.0, 1.0);
+
+        float i = 0.0, e = 0.0, R = 0.0, s = 0.0;
+
+        // RAY SETUP
+        vec3 q = vec3(0.0), p,
+             d = vec3((fragCoord - 0.5*r)/min(r.y, r.x)*0.5 + vec2(0, 1), 1);
+
+        // RAY MARCH: 129 steps walking point q along d
+        for (q.yz -= 1.0; i++ < 129.0; ) {
+            o.rgb += hsv(-R/i, 0.4, min(R*e*s - 0.07, e)/20.0);
+
+            s = 1.0;
+
+            // ADAPTIVE STEP
+            p = q += d*e*R*0.24;
+
+            // DOMAIN WARP
+            p = vec3(log2(R = length(p)) - t*0.5, exp(-p.z/R), atan(p.y, p.x));
+
+            // fBm: sum sin/cos noise at octaves doubling each pass
+            for (e = (p.y -= 1.0); s < 5e2; s += s)
+                e += dot(sin(p.yzx*s - t), vec3(0.2) - cos(p.yxy*s))/s*0.2;
+        }
+
+        gl_FragColor = o;
     }
   `;
 
   onMount(() => {
     // Skip entire WebGL setup in headless/test environments
     if (navigator.webdriver) return;
-
-    const unsubVolatility = volatilityStore.subscribe(v => { volatility = v; });
 
     try {
       const scene = new THREE.Scene();
@@ -149,61 +71,25 @@ Volatility-driven uniforms available but disabled by default.
       renderer.setSize(window.innerWidth, window.innerHeight);
       container.appendChild(renderer.domElement);
 
+      const geometry = new THREE.PlaneGeometry(2, 2);
       material = new THREE.ShaderMaterial({
         uniforms: {
-          iTime: { value: 0 },
-          iResolution: { value: new THREE.Vector3(window.innerWidth, window.innerHeight, 1.0) },
-          uSpeed: { value: 0.1 },
-          uScaleX: { value: 2.0 },
-          uScaleY: { value: 2.0 },
-          uColorOffset: { value: 3.0 },
-          uIterLimit: { value: 10.0 },
-          uRoundness: { value: 1.0 },
-          uColor1: { value: new THREE.Color('#004cff') },
-          uColor2: { value: new THREE.Color('#03123f') },
-          uColor3: { value: new THREE.Color('#2e89ff') },
-          uOpacity: { value: 1.0 }
+          u_time: { value: 0 },
+          u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         },
-        vertexShader,
-        fragmentShader
+        vertexShader: VERTEX_SHADER,
+        fragmentShader: FRAGMENT_SHADER
       });
-
-      const geometry = new THREE.PlaneGeometry(2, 2);
       const mesh = new THREE.Mesh(geometry, material);
       scene.add(mesh);
 
       const clock = new THREE.Clock();
       let tabVisible = !document.hidden;
 
-      // Skip animation loop in headless/test environments (no GPU)
       function animate() {
         if (!tabVisible) return;
         animationId = requestAnimationFrame(animate);
-        material.uniforms.iTime.value = clock.getElapsedTime();
-
-        // ── Volatility-driven uniform adjustments (per-metric toggles) ──
-        if (volatility.ready) {
-          if (volatilitySpeed) {
-            material.uniforms.uSpeed.value = lerp(0.1, 1.5, volatility.smoothedVelocity / 100);
-          }
-          if (volatilityRoundness) {
-            material.uniforms.uRoundness.value = lerp(1.0, 0.0, volatility.smoothedVelocity / 100);
-          }
-          if (volatilityScale) {
-            material.uniforms.uScaleX.value = lerp(1.5, 3.0, volatility.smoothedSigma / 100);
-            material.uniforms.uScaleY.value = lerp(1.5, 3.0, volatility.smoothedSigma / 100);
-          }
-          if (volatilityIntensity) {
-            material.uniforms.uColorOffset.value = lerp(2.0, 5.0, volatility.smoothedRange / 100);
-          }
-          if (volatilityColor) {
-            const c = colorForZone(volatility.smoothedMaxZone);
-            material.uniforms.uColor1.value.setRGB(c.r, c.g, c.b);
-            const ac = accentForZone(volatility.smoothedMaxZone);
-            material.uniforms.uColor3.value.setRGB(ac.r, ac.g, ac.b);
-          }
-        }
-
+        material.uniforms.u_time.value = clock.getElapsedTime();
         renderer.render(scene, camera);
       }
       animate();
@@ -216,7 +102,7 @@ Volatility-driven uniforms available but disabled by default.
 
       const handleResize = () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
-        material.uniforms.iResolution.value.set(window.innerWidth, window.innerHeight, 1.0);
+        material.uniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
       };
       window.addEventListener('resize', handleResize);
       document.addEventListener('visibilitychange', handleVisibility);
@@ -225,14 +111,16 @@ Volatility-driven uniforms available but disabled by default.
         window.removeEventListener('resize', handleResize);
         document.removeEventListener('visibilitychange', handleVisibility);
         cancelAnimationFrame(animationId);
-        unsubVolatility();
         geometry.dispose();
         material.dispose();
         renderer.dispose();
         renderer.domElement.remove();
       };
     } catch (e) {
-      unsubVolatility();
+      if (renderer) {
+        renderer.dispose();
+        renderer.domElement.remove();
+      }
       console.warn('WebGL not supported:', e);
     }
   });
@@ -240,30 +128,11 @@ Volatility-driven uniforms available but disabled by default.
 
 <div class="background-shader" bind:this={container} aria-hidden="true"></div>
 
-{#if debugVisible}
-  <div class="vol-debug">
-    <div>vel: {volatility.smoothedVelocity.toFixed(1)}</div>
-    <div>rnd: {volatilityRoundness ? material?.uniforms.uRoundness.value.toFixed(3) : 'off'}</div>
-  </div>
-{/if}
-
 <style>
   .background-shader {
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-  }
-
-  .vol-debug {
-    position: fixed;
-    bottom: 8px;
-    right: 8px;
-    font-family: monospace;
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.5);
-    line-height: 1.4;
-    pointer-events: none;
-    z-index: 0;
   }
 </style>
