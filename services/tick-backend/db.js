@@ -36,18 +36,14 @@ async function query(text, params) {
  * Called on server startup. Logs warning if schema is incomplete.
  */
 async function verifySchema() {
-    try {
-        const result = await query(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users','sessions','workspaces','drawings','price_markers')"
-        );
-        const tables = result.rows.map(r => r.table_name);
-        if (tables.length === 5) {
-            console.log('[DB] Auth schema verified (5 tables found)');
-        } else {
-            console.warn('[DB] Auth schema incomplete: found ' + tables.length + '/5 tables: ' + tables.join(', '));
-        }
-    } catch (err) {
-        console.error('[DB] Schema verification failed:', err.message);
+    const result = await query(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users','sessions','workspaces','drawings','price_markers')"
+    );
+    const tables = result.rows.map(r => r.table_name);
+    if (tables.length === 5) {
+        console.log('[DB] Auth schema verified (5 tables found)');
+    } else {
+        throw new Error('Auth schema incomplete: found ' + tables.length + '/5 tables: ' + tables.join(', '));
     }
 }
 

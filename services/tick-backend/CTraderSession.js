@@ -1,11 +1,14 @@
 const EventEmitter = require('events');
 const path = require('path');
+const fs = require('fs');
 const { CTraderConnection } = require('../../libs/cTrader-Layer/build/entry/node/main');
 const { HealthMonitor } = require('./HealthMonitor');
 const { ReconnectionManager } = require('./utils/ReconnectionManager');
 const { CTraderSymbolLoader } = require('./CTraderSymbolLoader');
 const { CTraderDataProcessor } = require('./CTraderDataProcessor');
 const { CTraderEventHandler } = require('./CTraderEventHandler');
+const { VALID_PERIODS } = require('./utils/constants');
+const config = require('./config');
 
 /**
  * CTrader Session - Main orchestration for cTrader connection.
@@ -16,11 +19,11 @@ class CTraderSession extends EventEmitter {
         super();
         this.connection = null;
         this.heartbeatInterval = null;
-        this.ctidTraderAccountId = Number(process.env.CTRADER_ACCOUNT_ID);
-        this.accessToken = process.env.CTRADER_ACCESS_TOKEN;
-        this.refreshToken = process.env.CTRADER_REFRESH_TOKEN;
-        this.clientId = process.env.CTRADER_CLIENT_ID;
-        this.clientSecret = process.env.CTRADER_CLIENT_SECRET;
+        this.ctidTraderAccountId = Number(config.ctraderAccountId);
+        this.accessToken = config.ctraderAccessToken;
+        this.refreshToken = config.ctraderRefreshToken;
+        this.clientId = config.ctraderClientId;
+        this.clientSecret = config.ctraderClientSecret;
 
         this.symbolLoader = null;
         this.dataProcessor = null;
@@ -29,7 +32,7 @@ class CTraderSession extends EventEmitter {
         // 60s staleness threshold - FX pairs can go tens of seconds without ticks
         // during low-activity periods; only ticks reset the timer, so this must be generous
         this.healthMonitor = new HealthMonitor('ctrader', 60000, 10000);
-        this.reconnection = new ReconnectionManager(15000, 500, Number(process.env.MAX_RECONNECT_ATTEMPTS) || 20);
+        this.reconnection = new ReconnectionManager(15000, 500, config.maxReconnectAttempts);
 
         // Store listener references to prevent duplicates
         this.spotEventHandler = null;
@@ -63,8 +66,8 @@ class CTraderSession extends EventEmitter {
         if (this.connection) this.connection.close();
 
         this.connection = new CTraderConnection({
-            host: process.env.HOST,
-            port: Number(process.env.PORT),
+            host: config.ctraderHost,
+            port: Number(config.ctraderPort),
         });
 
         this.symbolLoader = new CTraderSymbolLoader(this.connection, this.ctidTraderAccountId);
@@ -271,8 +274,8 @@ class CTraderSession extends EventEmitter {
     }
 
     persistTokens(accessToken, refreshToken) {
-        const fs = require('fs');
         const envPath = path.resolve(__dirname, '../../.env');
+        const tmpPath = envPath + '.tmp';
         try {
             let envContent = fs.readFileSync(envPath, 'utf8');
             envContent = envContent.replace(
@@ -283,9 +286,13 @@ class CTraderSession extends EventEmitter {
                 /^CTRADER_REFRESH_TOKEN=.*$/m,
                 `CTRADER_REFRESH_TOKEN=${refreshToken}`
             );
-            fs.writeFileSync(envPath, envContent);
+            // Atomic write: write to temp file, then rename (atomic on POSIX)
+            fs.writeFileSync(tmpPath, envContent);
+            fs.renameSync(tmpPath, envPath);
         } catch (err) {
             console.warn('[CTraderSession] Failed to persist tokens to .env:', err.message);
+            // Clean up temp file if it exists
+            try { fs.unlinkSync(tmpPath); } catch (e) { /* ignore */ }
         }
     }
 
@@ -458,7 +465,6 @@ class CTraderSession extends EventEmitter {
      * @param {string} period - cTrader period string (M1, M5, M10, M15, M30, H1, H4, H12, D1, W1, MN1)
      */
     async subscribeToBars(symbolName, period) {
-        const VALID_PERIODS = ['M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'H12', 'D1', 'W1', 'MN1'];
         if (!VALID_PERIODS.includes(period)) {
             throw new Error(`Invalid period: ${period}. Must be one of: ${VALID_PERIODS.join(', ')}`);
         }
@@ -559,10 +565,12 @@ class CTraderSession extends EventEmitter {
         return this.dataProcessor.getSymbolDataPackage(symbolName, adrLookbackDays);
     }
 
-    disconnect() {
-        // Clear subscription tracking on explicit disconnect
-        this.activeSubscriptions.clear();
-        this.activeBarSubscriptions.clear();
+    disconnect(clearSubscriptions = true) {
+        if (clearSubscriptions) {
+            // Clear subscription tracking on explicit disconnect
+            this.activeSubscriptions.clear();
+            this.activeBarSubscriptions.clear();
+        }
         // Use handleDisconnect with shouldScheduleReconnect=false to prevent auto-reconnect
         this.handleDisconnect(null, false);
     }
@@ -571,7 +579,9 @@ class CTraderSession extends EventEmitter {
         this.healthMonitor.stop();
         this.reconnection.cancelReconnect();
         this.isConnecting = false;
-        await this.disconnect();
+        // Preserve subscriptions across reconnect — connect() → restoreSubscriptions()
+        // repopulates the backend from the saved maps.
+        await this.disconnect(false);
         await this.connect();
     }
 }

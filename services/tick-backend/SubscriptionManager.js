@@ -49,6 +49,16 @@ class SubscriptionManager {
     }
 
     /**
+     * Remove a backend M1 bar subscription
+     * @param {string} symbol - Symbol identifier
+     * @param {string} source - Data source
+     */
+    removeBackendSubscription(symbol, source) {
+        const key = `${symbol}:${source}`;
+        this.m1BarSubscriptions.delete(key);
+    }
+
+    /**
      * Get clients subscribed to a symbol from a specific source
      * @param {string} symbol - Symbol identifier
      * @param {string} source - Data source
@@ -122,15 +132,6 @@ class SubscriptionManager {
     hasM1BarSubscription(symbol, source) {
         const key = `${symbol}:${source}`;
         return this.m1BarSubscriptions.has(key);
-    }
-
-    /**
-     * Get all symbols a client is subscribed to
-     * @param {WebSocket} client - Client WebSocket connection
-     * @returns {Set} Set of symbols
-     */
-    getClientSubscriptions(client) {
-        return this.clientSubscriptions.get(client) || new Set();
     }
 
     /**

@@ -2,6 +2,8 @@
  * StatusBroadcaster - Handles status updates and broadcasting to clients
  * Manages backend status communication
  */
+const { send: safeSend } = require('./utils/SafeSender');
+
 class StatusBroadcaster {
     constructor(wsServer) {
         this.wsServer = wsServer;
@@ -51,44 +53,12 @@ class StatusBroadcaster {
     }
 
     /**
-     * Broadcast message to clients subscribed to a symbol from a specific source
-     * @param {Object} message - Message to broadcast
-     * @param {string} symbol - Symbol identifier
-     * @param {string} source - Data source ('ctrader' or 'tradingview')
-     */
-    broadcastToClients(message, symbol, source) {
-        const key = `${symbol}:${source}`;
-        const symbolSubscribers = this.wsServer.subscriptionManager.getSubscribedClients(symbol, source);
-        if (!symbolSubscribers) return;
-
-        let jsonMessage;
-        try {
-            jsonMessage = JSON.stringify(message);
-        } catch (error) {
-            console.error('[StatusBroadcaster] Failed to stringify message:', error);
-            return;
-        }
-
-        symbolSubscribers.forEach(client => {
-            try {
-                if (client.readyState === 1) { // WebSocket.OPEN
-                    client.send(jsonMessage);
-                }
-            } catch (error) {
-                console.error('[StatusBroadcaster] Failed to send to client:', error.message);
-            }
-        });
-    }
-
-    /**
      * Send message to a specific client
      * @param {WebSocket} client - Client WebSocket connection
      * @param {Object} data - Data to send
      */
     sendToClient(client, data) {
-        if (client.readyState === 1) { // WebSocket.OPEN
-            client.send(JSON.stringify(data));
-        }
+        safeSend(client, JSON.stringify(data));
     }
 
     /**
@@ -112,21 +82,6 @@ class StatusBroadcaster {
         }
     }
 
-    /**
-     * Get current backend status
-     * @returns {string} Current status
-     */
-    getCurrentStatus() {
-        return this.currentBackendStatus;
-    }
-
-    /**
-     * Get current available symbols
-     * @returns {Array<string>} Available symbols
-     */
-    getAvailableSymbols() {
-        return this.currentAvailableSymbols;
-    }
 }
 
 module.exports = { StatusBroadcaster };

@@ -12,8 +12,19 @@
 const express = require('express');
 const { query, pool } = require('./db');
 const { requireAuth, errorResponse } = require('./middleware');
+const { SYMBOL_RE } = require('./utils/constants');
 
 const router = express.Router();
+
+/** Validate :symbol param — reject non-matching strings with 400. */
+function validateSymbol(req, res) {
+    const { symbol } = req.params;
+    if (!symbol || typeof symbol !== 'string' || !SYMBOL_RE.test(symbol)) {
+        errorResponse(res, 400, 'INVALID_SYMBOL', `Invalid symbol: ${symbol}`);
+        return false;
+    }
+    return true;
+}
 
 /** PUT /api/workspace — save workspace layout (upsert). */
 router.put('/api/workspace', requireAuth, async (req, res) => {
@@ -46,6 +57,7 @@ router.get('/api/workspace', requireAuth, async (req, res) => {
 /** PUT /api/drawings/:symbol/:resolution — save drawings with optimistic locking. */
 router.put('/api/drawings/:symbol/:resolution', requireAuth, async (req, res) => {
     const { symbol, resolution } = req.params;
+    if (!validateSymbol(req, res)) return;
     const clientVersion = parseInt(req.headers['x-drawings-version'], 10) || 0;
     try {
         const result = await query(
@@ -78,6 +90,7 @@ router.put('/api/drawings/:symbol/:resolution', requireAuth, async (req, res) =>
 /** GET /api/drawings/:symbol/:resolution — load drawings with version. */
 router.get('/api/drawings/:symbol/:resolution', requireAuth, async (req, res) => {
     const { symbol, resolution } = req.params;
+    if (!validateSymbol(req, res)) return;
     try {
         const result = await query(
             'SELECT data, version FROM drawings WHERE user_id = $1 AND symbol = $2 AND resolution = $3',
@@ -96,6 +109,7 @@ router.get('/api/drawings/:symbol/:resolution', requireAuth, async (req, res) =>
 /** PUT /api/markers/:symbol — save price markers for a symbol (upsert). */
 router.put('/api/markers/:symbol', requireAuth, async (req, res) => {
     const { symbol } = req.params;
+    if (!validateSymbol(req, res)) return;
     try {
         await query(
             'INSERT INTO price_markers (user_id, symbol, data, updated_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP) ON CONFLICT (user_id, symbol) DO UPDATE SET data = $3, updated_at = CURRENT_TIMESTAMP',
@@ -111,6 +125,7 @@ router.put('/api/markers/:symbol', requireAuth, async (req, res) => {
 /** GET /api/markers/:symbol — load price markers for a symbol. */
 router.get('/api/markers/:symbol', requireAuth, async (req, res) => {
     const { symbol } = req.params;
+    if (!validateSymbol(req, res)) return;
     try {
         const result = await query(
             'SELECT data FROM price_markers WHERE user_id = $1 AND symbol = $2',

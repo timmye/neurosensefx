@@ -3,6 +3,9 @@
  * Extracted from CTraderSession for single responsibility.
  */
 
+const { VALID_PERIODS } = require('./utils/constants');
+const { buildPrevDayFields } = require('./utils/MessageBuilder');
+
 // Per-request range limits for cTrader trendbar requests (in milliseconds)
 const PERIOD_RANGE_LIMITS = {
     M1:  302400000,      // 5 weeks
@@ -20,6 +23,26 @@ const PERIOD_RANGE_LIMITS = {
     W1:  158112000000,    // 5 years
     MN1: 158112000000,
 };
+
+/**
+ * Convert a raw cTrader trendbar to OHLC + volume + timestamp.
+ * cTrader bars encode OHLC as (low + delta) pairs.
+ * @param {Object} rawBar - Raw bar from cTrader with low, deltaOpen, deltaHigh, deltaClose
+ * @param {number} digits - Decimal places for price calculation
+ * @param {Function} calculatePrice - Price rounding function
+ * @returns {{ open, high, low, close, volume, timestamp }}
+ */
+function barToOHLC(rawBar, digits, calculatePrice) {
+    const low = Number(rawBar.low);
+    return {
+        open: calculatePrice(low + Number(rawBar.deltaOpen), digits),
+        high: calculatePrice(low + Number(rawBar.deltaHigh), digits),
+        low: calculatePrice(low, digits),
+        close: calculatePrice(low + Number(rawBar.deltaClose), digits),
+        volume: rawBar.volume ? Number(rawBar.volume) : 0,
+        timestamp: rawBar.utcTimestampInMinutes ? Number(rawBar.utcTimestampInMinutes) * 60 * 1000 : null
+    };
+}
 
 class CTraderDataProcessor {
     constructor(connection, ctidTraderAccountId, symbolLoader) {
@@ -75,7 +98,6 @@ class CTraderDataProcessor {
      * @returns {Array} Array of OHLC bar objects sorted by timestamp
      */
     async fetchHistoricalCandles(symbolName, period, fromTimestamp, toTimestamp) {
-        const VALID_PERIODS = ['M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'H12', 'D1', 'W1', 'MN1'];
         if (!VALID_PERIODS.includes(period)) {
             throw new Error(`Invalid period: ${period}. Must be one of: ${VALID_PERIODS.join(', ')}`);
         }
@@ -116,17 +138,7 @@ class CTraderDataProcessor {
                 });
 
                 if (response && response.trendbar && response.trendbar.length > 0) {
-                    const processedBars = response.trendbar.map(bar => {
-                        const low = Number(bar.low);
-                        return {
-                            open: this.calculatePrice(low + Number(bar.deltaOpen), digits),
-                            high: this.calculatePrice(low + Number(bar.deltaHigh), digits),
-                            low: this.calculatePrice(low, digits),
-                            close: this.calculatePrice(low + Number(bar.deltaClose), digits),
-                            volume: bar.volume ? Number(bar.volume) : 0,
-                            timestamp: bar.utcTimestampInMinutes ? Number(bar.utcTimestampInMinutes) * 60 * 1000 : null
-                        };
-                    }).filter(bar => bar.timestamp !== null);
+                    const processedBars = response.trendbar.map(bar => barToOHLC(bar, digits, this.calculatePrice)).filter(bar => bar.timestamp !== null);
 
                     allBars.push(...processedBars);
                 }
@@ -218,13 +230,7 @@ class CTraderDataProcessor {
             initialPrice = this.calculatePrice(Number(lastDailyBar.low) + Number(lastDailyBar.deltaClose), digits);
             initialMarketProfile = [];
         } else {
-            const processedM1Bars = intradayBars.map(bar => ({
-                open: this.calculatePrice(Number(bar.low) + Number(bar.deltaOpen), digits),
-                high: this.calculatePrice(Number(bar.low) + Number(bar.deltaHigh), digits),
-                low: this.calculatePrice(Number(bar.low), digits),
-                close: this.calculatePrice(Number(bar.low) + Number(bar.deltaClose), digits),
-                timestamp: Number(bar.utcTimestampInMinutes) * 60 * 1000
-            }));
+            const processedM1Bars = intradayBars.map(bar => barToOHLC(bar, digits, this.calculatePrice));
 
             todaysOpen = processedM1Bars[0].open;
             todaysHigh = Math.max(...processedM1Bars.map(b => b.high));
@@ -262,12 +268,7 @@ class CTraderDataProcessor {
         const adr = this.calculateADR(dailyBars, adrLookbackDays, digits);
 
         const previousDay = dailyBars.length >= 2 ? dailyBars[dailyBars.length - 2] : null;
-        const prevDayOHLC = previousDay ? {
-            open: this.calculatePrice(Number(previousDay.low) + Number(previousDay.deltaOpen), digits),
-            high: this.calculatePrice(Number(previousDay.low) + Number(previousDay.deltaHigh), digits),
-            low: this.calculatePrice(Number(previousDay.low), digits),
-            close: this.calculatePrice(Number(previousDay.low) + Number(previousDay.deltaClose), digits)
-        } : null;
+        const prevDayOHLC = previousDay ? barToOHLC(previousDay, digits, this.calculatePrice) : null;
 
         const { todaysOpen, todaysHigh, todaysLow, initialPrice, initialMarketProfile } =
             this.extractTodaysOHLC(intradayBars, dailyBars, digits);
@@ -286,12 +287,9 @@ class CTraderDataProcessor {
             pipPosition: symbolInfo.pipPosition,
             pipSize: symbolInfo.pipSize,
             pipetteSize: symbolInfo.pipetteSize,
-            ...(prevDayOHLC && { prevDayOpen: prevDayOHLC.open }),
-            ...(prevDayOHLC && { prevDayHigh: prevDayOHLC.high }),
-            ...(prevDayOHLC && { prevDayLow: prevDayOHLC.low }),
-            ...(prevDayOHLC && { prevDayClose: prevDayOHLC.close })
+            ...buildPrevDayFields(prevDayOHLC)
         };
     }
 }
 
-module.exports = { CTraderDataProcessor };
+module.exports = { CTraderDataProcessor, barToOHLC };

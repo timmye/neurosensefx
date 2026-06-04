@@ -3,6 +3,7 @@
  * Manages pending requests to avoid duplicate API calls
  */
 const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
+const { buildPrevDayFields } = require('./utils/MessageBuilder');
 
 class RequestCoordinator {
     constructor(wsServer, fetchTimeout = 30000) {
@@ -205,10 +206,7 @@ class RequestCoordinator {
                 pipPosition: data.pipPosition,
                 pipSize: data.pipSize,
                 pipetteSize: data.pipetteSize,
-                ...(data.prevDayOpen !== undefined && { prevDayOpen: data.prevDayOpen }),
-                ...(data.prevDayHigh !== undefined && { prevDayHigh: data.prevDayHigh }),
-                ...(data.prevDayLow !== undefined && { prevDayLow: data.prevDayLow }),
-                ...(data.prevDayClose !== undefined && { prevDayClose: data.prevDayClose })
+                ...buildPrevDayFields(data)
             });
         });
 
@@ -300,9 +298,11 @@ class RequestCoordinator {
         }
         this.pendingTradingViewRequests.get(symbol).add(client);
 
-        // Set up one-time listener for the data package
+        // Use `on` (not `once`) so the listener stays active until the correct symbol's data arrives.
+        // `once` would be consumed by a wrong symbol's event, leaving this request stuck forever.
         const onDataPackage = (data) => {
             if (data.symbol === symbol && data.type === 'symbolDataPackage') {
+                clearTimeout(timeoutId);
                 const waitingClients = this.pendingTradingViewRequests.get(symbol);
                 if (waitingClients) {
                     waitingClients.forEach(c => {
@@ -323,13 +323,27 @@ class RequestCoordinator {
             }
         };
 
-        this.wsServer.tradingViewSession.once('candle', onDataPackage);
+        this.wsServer.tradingViewSession.on('candle', onDataPackage);
+
+        // Timeout fallback: if no matching candle arrives within fetchTimeout, clean up
+        const timeoutId = setTimeout(() => {
+            this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
+            this.pendingTradingViewRequests.delete(symbol);
+            console.error(`[RequestCoordinator] TradingView data timeout for ${symbol}`);
+            this.wsServer.sendToClient(client, {
+                type: 'error',
+                message: `Timeout waiting for TradingView data for ${symbol}`,
+                symbol: symbol,
+                source: 'tradingview'
+            });
+        }, this.fetchTimeout);
 
         // Queue the TradingView subscription to avoid IP ban
         return this._enqueueTradingView(async () => {
             try {
                 await this.wsServer.tradingViewSession.subscribeToSymbol(symbol, adrLookbackDays);
             } catch (error) {
+                clearTimeout(timeoutId);
                 console.error(`Failed to get TradingView data for ${symbol}:`, error);
                 this.pendingTradingViewRequests.get(symbol)?.delete(client);
                 this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
@@ -376,15 +390,6 @@ class RequestCoordinator {
         this._tvProcessing = false;
     }
 
-    /**
-     * Resolve a pending request (call when data is received)
-     * @param {string} symbol - Symbol identifier
-     * @param {number} adrLookbackDays - ADR lookback period
-     */
-    resolveRequest(symbol, adrLookbackDays) {
-        const requestKey = `${symbol}:${adrLookbackDays}`;
-        this.pendingRequests.delete(requestKey);
-    }
 }
 
 module.exports = { RequestCoordinator };

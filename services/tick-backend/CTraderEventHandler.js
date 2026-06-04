@@ -3,6 +3,8 @@
  * Extracted from CTraderSession for single responsibility.
  */
 
+const { barToOHLC } = require('./CTraderDataProcessor');
+
 class CTraderEventHandler {
     constructor(dataProcessor, healthMonitor) {
         this.dataProcessor = dataProcessor;
@@ -21,15 +23,12 @@ class CTraderEventHandler {
         const price = this.dataProcessor.calculatePrice(closePriceRaw, symbolInfo.digits);
         const timestamp = tb.utcTimestampInMinutes ? Number(tb.utcTimestampInMinutes) * 60 * 1000 : Date.now();
 
+        const ohlc = barToOHLC(tb, symbolInfo.digits, this.dataProcessor.calculatePrice.bind(this.dataProcessor));
         return {
             m1Bar: {
                 symbol: symbolName,
-                open: this.dataProcessor.calculatePrice(Number(tb.low) + Number(tb.deltaOpen), symbolInfo.digits),
-                high: this.dataProcessor.calculatePrice(Number(tb.low) + Number(tb.deltaHigh), symbolInfo.digits),
-                low: this.dataProcessor.calculatePrice(Number(tb.low), symbolInfo.digits),
-                close: price,
-                volume: tb.volume ? Number(tb.volume) : 0,
-                timestamp: timestamp
+                ...ohlc,
+                timestamp: ohlc.timestamp || timestamp,
             },
             tick: {
                 symbol: symbolName,
@@ -52,22 +51,15 @@ class CTraderEventHandler {
      */
     processMultiTimeframeTrendbarEntry(tb, symbolName, symbolInfo, period) {
         if (!tb) return null;
-        const low = Number(tb.low);
-        const deltaOpen = Number(tb.deltaOpen);
-        const deltaHigh = Number(tb.deltaHigh);
-        const deltaClose = Number(tb.deltaClose);
         const timestamp = tb.utcTimestampInMinutes ? Number(tb.utcTimestampInMinutes) * 60 * 1000 : Date.now();
+        const ohlc = barToOHLC(tb, symbolInfo.digits, this.dataProcessor.calculatePrice.bind(this.dataProcessor));
 
         return {
             symbol: symbolName,
             timeframe: period,
             bar: {
-                open: this.dataProcessor.calculatePrice(low + deltaOpen, symbolInfo.digits),
-                high: this.dataProcessor.calculatePrice(low + deltaHigh, symbolInfo.digits),
-                low: this.dataProcessor.calculatePrice(low, symbolInfo.digits),
-                close: this.dataProcessor.calculatePrice(low + deltaClose, symbolInfo.digits),
-                volume: tb.volume ? Number(tb.volume) : 0,
-                timestamp: timestamp
+                ...ohlc,
+                timestamp: ohlc.timestamp || timestamp,
             }
         };
     }

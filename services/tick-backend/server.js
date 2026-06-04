@@ -5,7 +5,7 @@ const { CTraderSession } = require('./CTraderSession');
 const { TradingViewSession } = require('./TradingViewSession');
 const { WebSocketServer } = require('./WebSocketServer');
 const { listen: listenHttp, server: httpServer, addCandleApiRoutes } = require('./httpServer');
-const { verifySchema } = require('./db');
+const { verifySchema, pool } = require('./db');
 
 // Create services first (needed by WebSocketServer and TradingViewSession)
 const { TwapService } = require('./TwapService');
@@ -32,12 +32,17 @@ const wsServer = new WebSocketServer(httpServer, session, tradingViewSession, tw
 
 // Start Express HTTP server and verify PostgreSQL auth schema on startup (ref: DL-002, DL-004)
 listenHttp(port);
-verifySchema().catch(err => console.error('[DB] Schema verification failed on startup:', err.message));
+verifySchema().catch(err => {
+    console.error('[DB] Schema verification failed on startup:', err.message);
+    process.exit(1);
+});
 
-// Global error handlers to prevent crashes on connection interrupt
+// Global error handlers — uncaught exceptions are fatal; exit so the process manager can restart cleanly.
 process.on('uncaughtException', (error) => {
     console.error('[FATAL] Uncaught exception:', error.message);
     console.error(error.stack);
+    // Allow logs to flush before exiting; the process manager (pm2/Docker/run.sh) will restart.
+    setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -45,17 +50,39 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('at:', promise);
 });
 
-// Handle graceful shutdown
-process.on('SIGINT', async () => {
-    console.log('Shutting down backend...');
+const { sessionManager } = require('./middleware');
+
+// Handle graceful shutdown — drain DB pool and Redis before exit
+async function gracefulShutdown(signal) {
+    console.log(`${signal} received, shutting down backend...`);
     session.disconnect();
     tradingViewSession.disconnect();
     wsServer.close(); // Stop heartbeat
+
+    // Drain PostgreSQL pool
+    try {
+        await pool.end();
+        console.log('[DB] PostgreSQL pool closed.');
+    } catch (err) {
+        console.error('[DB] Error closing pool:', err.message);
+    }
+
+    // Close Redis connection
+    try {
+        sessionManager.redis.quit();
+        console.log('[SessionManager] Redis connection closed.');
+    } catch (err) {
+        console.error('[SessionManager] Error closing Redis:', err.message);
+    }
+
     wsServer.wss.close(() => {
         console.log('WebSocket server closed.');
         process.exit(0);
     });
-});
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // Initiate the cTrader session connection when the backend starts
 session.connect()

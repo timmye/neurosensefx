@@ -95,9 +95,26 @@ function buildCandleUpdateMessage(data) {
     };
 }
 
+/**
+ * Build prev-day fields for data packages.
+ * Returns an object with only the defined fields (open/high/low/close).
+ * @param {Object|null} prevDay - Previous day OHLC data (may be null)
+ * @returns {Object} Object with only defined prevDay fields
+ */
+function buildPrevDayFields(prevDay) {
+    if (!prevDay) return {};
+    const fields = {};
+    if (prevDay.open !== undefined) fields.prevDayOpen = prevDay.open;
+    if (prevDay.high !== undefined) fields.prevDayHigh = prevDay.high;
+    if (prevDay.low !== undefined) fields.prevDayLow = prevDay.low;
+    if (prevDay.close !== undefined) fields.prevDayClose = prevDay.close;
+    return fields;
+}
+
 module.exports = {
     buildCTraderMessage,
     buildTradingViewMessage,
     buildCandleUpdateMessage,
-    includeField
+    includeField,
+    buildPrevDayFields
 };

@@ -65,7 +65,13 @@ class SessionManager extends EventEmitter {
             'EX', SESSION_TTL
         );
         multi.set(indexKey, tokenHash, 'EX', SESSION_TTL);
-        await multi.exec();
+        const results = await multi.exec();
+        for (const [err] of results) {
+            if (err) {
+                console.error('[SessionManager] Redis multi.exec partial failure:', err.message);
+                throw err;
+            }
+        }
 
         return token;
     }

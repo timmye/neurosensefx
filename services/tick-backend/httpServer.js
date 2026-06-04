@@ -8,6 +8,7 @@ const http = require('http');
 const cookieParser = require('cookie-parser');
 const config = require('./config');
 const { errorResponse } = require('./middleware');
+const { RESOLUTION_TO_PERIOD } = require('./utils/constants');
 
 const app = express();
 
@@ -46,11 +47,6 @@ const { persistenceRoutes } = require('./persistenceRoutes');
  * Called from server.js after the cTrader session is instantiated.
  */
 function addCandleApiRoutes(cTraderSession) {
-    const RESOLUTION_TO_PERIOD = {
-        '1m': 'M1', '5m': 'M5', '10m': 'M10', '15m': 'M15', '30m': 'M30',
-        '1h': 'H1', '4h': 'H4', '12h': 'H12', 'D': 'D1', 'W': 'W1', 'M': 'MN1'
-    };
-
     const candleRouter = express.Router();
 
     candleRouter.get('/api/candles', async (req, res) => {

@@ -391,9 +391,6 @@ class MarketProfileService extends EventEmitter {
     }
   }
 
-  resetSequence(symbol) {
-    this.sequenceNumbers.set(symbol, 0);
-  }
 
   /**
    * Increment and return the next sequence number for a symbol

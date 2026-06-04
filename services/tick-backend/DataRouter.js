@@ -3,6 +3,7 @@
  * Parallel feeds, no aggregation - just simple routing
  */
 const { buildCTraderMessage, buildTradingViewMessage, buildCandleUpdateMessage } = require('./utils/MessageBuilder');
+const { send: safeSend } = require('./utils/SafeSender');
 
 class DataRouter {
     constructor(webSocketServer) {
@@ -150,9 +151,7 @@ class DataRouter {
 
         clients.forEach(client => {
             try {
-                if (client.readyState === 1) {
-                    client.send(jsonMessage);
-                }
+                safeSend(client, jsonMessage);
             } catch (error) {
                 console.error('[DataRouter] Failed to send candle update to client:', error.message);
             }
@@ -182,9 +181,7 @@ class DataRouter {
 
         symbolSubscribers.forEach(client => {
             try {
-                if (client.readyState === 1) { // WebSocket.OPEN
-                    client.send(jsonMessage);
-                }
+                safeSend(client, jsonMessage);
             } catch (error) {
                 console.error('[DataRouter] Failed to send to client:', error.message);
             }

@@ -3,6 +3,8 @@
  * Extracted from TradingViewCandleHandler for single responsibility
  */
 
+const { buildPrevDayFields } = require('./utils/MessageBuilder');
+
 class TradingViewDataPackageBuilder {
     constructor(calculateBucketSizeForSymbol) {
         this.calculateBucketSizeForSymbol = calculateBucketSizeForSymbol;
@@ -73,10 +75,7 @@ class TradingViewDataPackageBuilder {
             projectedAdrLow: todaysOpen - (adr / 2),
             initialMarketProfile: todaysM1Candles,
             bucketSize,
-            ...(previousDay?.open !== undefined && { prevDayOpen: previousDay.open }),
-            ...(previousDay?.high !== undefined && { prevDayHigh: previousDay.high }),
-            ...(previousDay?.low !== undefined && { prevDayLow: previousDay.low }),
-            ...(previousDay?.close !== undefined && { prevDayClose: previousDay.close })
+            ...buildPrevDayFields(previousDay)
         };
     }
 

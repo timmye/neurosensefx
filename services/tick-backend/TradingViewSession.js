@@ -31,10 +31,6 @@ class TradingViewSession extends EventEmitter {
         this.healthMonitor = new HealthMonitor('tradingview', 300000, 30000);
         this.reconnection = new ReconnectionManager(15000, 500, config.maxReconnectAttempts);
 
-        // Track current M1 bars being built from tick data
-        // TradingView doesn't send real-time M1 updates after series_completed
-        this.currentM1Bars = new Map(); // symbol -> { open, high, low, close, minuteTimestamp }
-
         const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
         this.candleHandler = new TradingViewCandleHandler(this.healthMonitor, calculateBucketSizeForSymbol, twapService, marketProfileService);
         this.candleHandler.setEmitter(this.emit.bind(this));
@@ -382,6 +378,14 @@ class TradingViewSession extends EventEmitter {
             this.client = null;
         }
         this.subscriptions.clear();
+        // Reject all pending historical candle promises before clearing
+        for (const [key, pending] of this._pendingHistorical) {
+            try {
+                pending.reject(new Error('TradingView session disconnected'));
+            } catch (e) {
+                // Promise may already be settled
+            }
+        }
         this._pendingHistorical.clear();
 
         // Reset flag after cleanup

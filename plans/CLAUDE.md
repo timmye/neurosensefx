@@ -40,6 +40,7 @@ Implementation plans for features, refactors, and operational tasks.
 | `phase4-auth-and-persistence.md` | Phase 4 auth and persistence plan | Understanding auth+persistence integration |
 | `refactor-evaluation-report.md` | Refactor evaluation report | Assessing refactor quality |
 | `volatility-background-design.md` | Volatility background display design | Implementing volatility visualization |
+| `backend-reliability-fixes.md` | Backend reliability fixes (3 phases, 18 items, from June 2026 assessment) | Executing backend reliability, cleanup, and hardening fixes |
 
 ## Subdirectories
 

@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const { send: safeSend, drainDisconnectCount } = require('./utils/SafeSender');
 const cookie = require('cookie');
 const { sessionManager, SESSION_COOKIE_NAME } = require('./middleware');
 const { DataRouter } = require('./DataRouter');
@@ -7,14 +8,7 @@ const { TwapService } = require('./TwapService');
 const { SubscriptionManager } = require('./SubscriptionManager');
 const { RequestCoordinator } = require('./RequestCoordinator');
 const { StatusBroadcaster } = require('./StatusBroadcaster');
-
-
-// Resolution string (used by frontend) to cTrader period string mapping
-const RESOLUTION_TO_PERIOD = {
-    '1m': 'M1', '5m': 'M5', '10m': 'M10', '15m': 'M15', '30m': 'M30',
-    '1h': 'H1', '4h': 'H4', '12h': 'H12',
-    'D': 'D1', 'W': 'W1', 'M': 'MN1'
-};
+const { RESOLUTION_TO_PERIOD, SYMBOL_RE } = require('./utils/constants');
 
 class WebSocketServer {
     // Constructor receives an http.Server instead of a port number (ref: DL-002).
@@ -56,11 +50,6 @@ class WebSocketServer {
         });
         this.cTraderSession.on('connected', (symbols) => {
             this.statusBroadcaster.broadcastStatus('connected', null, symbols);
-            if (symbols && Array.isArray(symbols)) {
-                symbols.forEach(symbol => {
-                    this.marketProfileService.resetSequence(symbol);
-                });
-            }
         });
         this.cTraderSession.on('disconnected', () => this.statusBroadcaster.broadcastStatus('disconnected'));
         this.cTraderSession.on('error', (error) => this.statusBroadcaster.broadcastStatus('error', error.message));
@@ -115,8 +104,13 @@ class WebSocketServer {
             this.wss.clients.forEach((client) => {
                 if (client.readyState === WebSocket.OPEN) openClients++;
             });
-            if (openClients > 0) {
-                console.log(`[WebSocketServer] Heartbeat summary: ${openClients} connected client(s)`);
+            const slowDisconnects = drainDisconnectCount();
+            if (openClients > 0 || slowDisconnects > 0) {
+                const parts = [`${openClients} connected client(s)`];
+                if (slowDisconnects > 0) {
+                    parts.push(`${slowDisconnects} slow-client disconnect(s)`);
+                }
+                console.log(`[WebSocketServer] Heartbeat summary: ${parts.join(', ')}`);
             }
         }, 300000);
 
@@ -132,13 +126,7 @@ class WebSocketServer {
             symbol: 'system'
         };
         this.wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                try {
-                    client.send(JSON.stringify(heartbeatMessage));
-                } catch (error) {
-                    console.error('[WebSocketServer] Failed to send heartbeat:', error.message);
-                }
-            }
+            safeSend(client, JSON.stringify(heartbeatMessage));
         });
     }
 
@@ -179,13 +167,8 @@ class WebSocketServer {
         };
         let clientCount = 0;
         this.wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                try {
-                    client.send(JSON.stringify(dailyResetMsg));
-                    clientCount++;
-                } catch (error) {
-                    console.error('[WebSocketServer] Failed to send dailyReset to client:', error.message);
-                }
+            if (safeSend(client, JSON.stringify(dailyResetMsg))) {
+                clientCount++;
             }
         });
         // Step 3: Re-fetch fresh data for each symbol and re-send to subscribed clients
@@ -297,7 +280,6 @@ class WebSocketServer {
             'subscribeCandles', 'unsubscribeCandles'
         ];
         const VALID_SOURCES = ['ctrader', 'tradingview'];
-        const SYMBOL_RE = /^[A-Za-z0-9./_-]+$/;
 
         // Validate message schema
         if (!data.type || typeof data.type !== 'string' || data.type.trim().length === 0 || !VALID_TYPES.includes(data.type)) {
@@ -467,7 +449,9 @@ class WebSocketServer {
                 const [symbol, source] = key.split(':');
                 if (source === 'ctrader') {
                     this.cTraderSession.unsubscribeFromTicks(symbolName);
+                    this.cTraderSession.unsubscribeFromBars(symbolName, 'M1');
                 }
+                this.subscriptionManager.removeBackendSubscription(symbol, source);
                 // Clean up market profile data to free memory
                 this.marketProfileService.cleanupSymbol(symbol);
             }
