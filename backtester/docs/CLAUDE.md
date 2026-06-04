@@ -8,3 +8,4 @@ Backtester analysis and planning documents.
 | ---- | ---- | ------------ |
 | `bugs.md` | Backtester bug inventory and root cause notes | Debugging backtester issues, understanding known bugs |
 | `range-sweep-plan.md` | Parameter sweep implementation plan | Planning grid sweep analysis |
+| `legacy-evaluation-sweep-analysis.md` | Legacy evaluation sweep analysis results | Reviewing past sweep analysis outcomes |

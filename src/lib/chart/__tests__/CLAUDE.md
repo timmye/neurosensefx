@@ -13,6 +13,8 @@ Unit tests for chart modules — runs via `npm run test:unit`, no DOM or canvas 
 | `pricePrecision.test.js` | Price precision and rounding tests | Debugging price display accuracy |
 | `reconcile.test.js` | 15 tests — createReconcile single-writer: full replace, new-bar append, tick merge, same-timestamp skip, rAF coalescing, unsubscribe; mapBarToKline | Debugging reconciliation logic, adding reconcile tests |
 | `styleUtils.test.js` | 6 tests — fadeColor for rgb, rgba, hex formats | Debugging color fading, adding style tests |
+| `barMerge.test.js` | Bar merge dedup and conditional sort tests | Debugging bar merge integrity |
+| `cacheFreshness.test.js` | Cache staleness threshold tests | Debugging cache freshness logic |
 
 ## Subdirectories
 

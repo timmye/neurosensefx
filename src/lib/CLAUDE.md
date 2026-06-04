@@ -6,6 +6,7 @@ Utility modules, visualizers, and domain-specific libraries for the frontend app
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
+| `workspaceKeyboardShortcuts.js` | Keyboard shortcut definitions extracted from Workspace.svelte | Adding/modifying global keyboard shortcuts |
 | `visualizers.js` | Day range and combined visualization renderers | Registering new visualization types |
 | `connectionManager.js` | WebSocket connection lifecycle management | Debugging connection issues, implementing reconnection |
 | `dataContracts.js` | WebSocket message type definitions and runtime validation | Understanding data shapes, adding new message types, debugging contract violations |
@@ -41,3 +42,5 @@ Utility modules, visualizers, and domain-specific libraries for the frontend app
 | `connection/` | WebSocket connection management (handler, subscription, reconnection) | Debugging connection issues, implementing reconnection |
 | `fxBasket/` | FX Basket calculations, state machine, rendering, subscriptions | Understanding basket system design, testing compute/layout logic |
 | `marketProfile/` | Market Profile visualization with orchestrator pattern | Understanding Market Profile rendering pipeline |
+| `priceMarkers/` | Price marker compute/render split — base model, coordinates, dropdown, interaction, renderer | Adding marker types, debugging marker positioning |
+| `dayRange/` | Day Range ADR boundary visualization — orchestrator pattern with compute/render split | Understanding day range pipeline, modifying ADR calculations |
