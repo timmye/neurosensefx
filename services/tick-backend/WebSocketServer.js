@@ -315,11 +315,10 @@ class WebSocketServer {
             });
         }
         if (data.resolution !== undefined) {
-            const res = typeof data.resolution === 'string' ? parseInt(data.resolution, 10) : data.resolution;
-            if (typeof res !== 'number' || !Number.isInteger(res) || res <= 0) {
+            if (typeof data.resolution !== 'string' || !RESOLUTION_TO_PERIOD[data.resolution]) {
                 return this.sendToClient(ws, {
                     type: 'error',
-                    message: `Invalid resolution: ${data.resolution} (must be a positive integer)`,
+                    message: `Invalid resolution: ${data.resolution}. Supported: ${Object.keys(RESOLUTION_TO_PERIOD).join(', ')}`,
                     symbol: data.symbol || 'system'
                 });
             }
