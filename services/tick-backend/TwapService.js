@@ -12,13 +12,11 @@ class TwapService extends EventEmitter {
   // Idempotent: skips if already initialized (prevents source race overwrites)
   initializeFromHistory(symbol, initialMarketProfile, source = 'ctrader') {
     if (!initialMarketProfile || initialMarketProfile.length === 0) {
-      console.log(`[TwapService] No history for ${symbol}, starting from scratch`);
       return;
     }
 
-    // Skip if already initialized — prevents later source from overwriting state
+    // Skip if already initialized -- prevents later source from overwriting state
     if (this.twapState.has(symbol)) {
-      console.log(`[TwapService] ${symbol} already initialized, skipping duplicate init from ${source}`);
       return;
     }
 
@@ -49,9 +47,7 @@ class TwapService extends EventEmitter {
       this.lastBarTimestamps.set(symbol, lastBarTime);
     }
 
-    console.log(`[TwapService] Initialized ${symbol} TWAP from ${count} historical bars (${source}): ${this.twapState.get(symbol).twap}`);
-
-    // Emit initial TWAP — source-agnostic, DataRouter broadcasts to all subscribers
+    // Emit initial TWAP -- source-agnostic, DataRouter broadcasts to all subscribers
     this.emit('twapUpdate', {
       symbol,
       twapValue: this.twapState.get(symbol).twap,
@@ -72,7 +68,7 @@ class TwapService extends EventEmitter {
       return;
     }
 
-    // Deduplication by symbol only — both cTrader and TradingView deliver the same bar
+    // Deduplication by symbol only -- both cTrader and TradingView deliver the same bar
     const lastTimestamp = this.lastBarTimestamps.get(symbol);
     if (lastTimestamp === bar.timestamp) {
       return;
@@ -101,7 +97,7 @@ class TwapService extends EventEmitter {
     state.twap = state.sum / state.count;
     state.lastUpdate = bar.timestamp;
 
-    // Emit update — source-agnostic, DataRouter broadcasts to all subscribers
+    // Emit update -- source-agnostic, DataRouter broadcasts to all subscribers
     this.emit('twapUpdate', {
       symbol,
       twapValue: state.twap,

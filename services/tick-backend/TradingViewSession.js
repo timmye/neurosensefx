@@ -15,6 +15,7 @@ const { HealthMonitor } = require('./HealthMonitor');
 const { ReconnectionManager } = require('./utils/ReconnectionManager');
 const { TradingViewCandleHandler, estimatePipData } = require('./TradingViewCandleHandler');
 const { TradingViewSubscriptionManager } = require('./TradingViewSubscriptionManager');
+const config = require('./config');
 
 class TradingViewSession extends EventEmitter {
     constructor(twapService = null, marketProfileService = null) {
@@ -28,7 +29,7 @@ class TradingViewSession extends EventEmitter {
         // only actual candle data resets the timer. Quiet periods between
         // subscriptions or during low-activity can be very long.
         this.healthMonitor = new HealthMonitor('tradingview', 300000, 30000);
-        this.reconnection = new ReconnectionManager(15000, 500, Number(process.env.MAX_RECONNECT_ATTEMPTS) || 20);
+        this.reconnection = new ReconnectionManager(15000, 500, config.maxReconnectAttempts);
 
         // Track current M1 bars being built from tick data
         // TradingView doesn't send real-time M1 updates after series_completed
@@ -100,9 +101,6 @@ class TradingViewSession extends EventEmitter {
 
     handleEvent(event) {
         try {
-            // DIAGNOSTIC: Log ALL events to understand TradingView behavior
-            console.log(`[TradingView] EVENT: ${event.name}`, event.params ? `params: ${JSON.stringify(event.params).substring(0, 200)}` : '');
-
             switch (event.name) {
                 case 'timescale_update':
                 case 'du':
@@ -118,8 +116,6 @@ class TradingViewSession extends EventEmitter {
             }
         } catch (error) {
             console.error('[TradingView] Error handling event:', error.message);
-            console.error('Event data:', JSON.stringify(event).substring(0, 200));
-            // Emit error but don't crash - continue processing other events
             this.emit('error', error);
         }
     }
@@ -221,8 +217,6 @@ class TradingViewSession extends EventEmitter {
         this.subscriptions.set(symbol, subscription);
 
         this.subscriptionManager.setCompletionTimeout(subscription, symbol, (error) => this.emit('error', error));
-
-        console.log(`[TradingView] M1 subscription active for ${symbol}`);
     }
 
     /**
@@ -246,8 +240,6 @@ class TradingViewSession extends EventEmitter {
         const chartSession = `cs_hist_${randomstring.generate(12)}`;
         const seriesId = `sds_hist_${Date.now()}`;
 
-        console.log(`[TV-CHART] Fetching historical candles: ${symbol} ${resolution} (${tvResolution}), ${amount} bars`);
-
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 this._pendingHistorical.delete(chartSession);
@@ -265,7 +257,6 @@ class TradingViewSession extends EventEmitter {
                     clearTimeout(timeout);
                     this._pendingHistorical.delete(chartSession);
                     try { this.client.send('delete_session', [chartSession]); } catch (e) { /* ignore */ }
-                    console.log(`[TV-CHART] Historical candles fetched: ${symbol} ${resolution}, ${bars.length} bars`);
                     resolve(bars);
                 },
                 reject: (err) => {
@@ -296,7 +287,6 @@ class TradingViewSession extends EventEmitter {
 
     setupEventListeners() {
         if (this.eventListenersAttached) {
-            console.log('[TradingView] Event listeners already attached, skipping');
             return;
         }
 
@@ -375,12 +365,10 @@ class TradingViewSession extends EventEmitter {
     handleDisconnect(error = null, shouldScheduleReconnect = true) {
         // Prevent concurrent disconnect handling
         if (this.isDisconnecting) {
-            console.log('[TradingView] Already disconnecting, skipping duplicate call');
             return;
         }
 
         this.isDisconnecting = true;
-        console.log('[TradingView] handleDisconnect() called');
         if (error) console.error('[TradingView] connection failed:', error);
 
         this.reconnection.cancelReconnect();
@@ -388,7 +376,6 @@ class TradingViewSession extends EventEmitter {
         this.emit('disconnected');
 
         if (this.client) {
-            console.log('[TradingView] Closing client in handleDisconnect');
             this.removeEventListeners();
             if (this.unsubscribe) this.unsubscribe();
             this.client.close();

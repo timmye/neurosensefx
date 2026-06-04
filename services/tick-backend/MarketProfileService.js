@@ -21,7 +21,6 @@ class MarketProfileService extends EventEmitter {
       // Use price-based bucket size if available, otherwise use default
       const bucketSize = calculateBucketSizeForSymbol(symbol, currentPrice);
 
-      console.log(`[MarketProfileService] Initializing ${symbol} with bucketSize=${bucketSize}${currentPrice ? ` (price: ${currentPrice})` : ''}, source=${source}`);
       this.profiles.set(symbol, {
         levels: new Map(),
         bucketSize,
@@ -52,7 +51,6 @@ class MarketProfileService extends EventEmitter {
     this.profiles.delete(symbol);
     this.sequenceNumbers.delete(symbol);
     this.symbolSources.delete(symbol);
-    console.log(`[MarketProfileService] Cleaned up state for ${symbol}`);
   }
 
   onM1Bar(symbol, bar, source = null) {
@@ -89,7 +87,6 @@ class MarketProfileService extends EventEmitter {
       const profileDay = this._getUtcDayStart(profile.lastUpdate);
       const barDay = this._getUtcDayStart(bar.timestamp);
       if (profileDay !== barDay) {
-        console.log(`[MarketProfileService] ${symbol} day boundary in onM1Bar: ${profileDay} → ${barDay}, resetting`);
         this.cleanupSymbol(symbol);
         this.subscribeToSymbol(symbol, source || this.symbolSources.get(symbol) || 'tradingview');
         profile = this.profiles.get(symbol);
@@ -110,8 +107,8 @@ class MarketProfileService extends EventEmitter {
       if (pending) {
         // Enforce maximum pending bars limit to prevent unbounded memory growth
         if (pending.length >= this.MAX_PENDING_BARS) {
-          console.error(`[MarketProfileService] Pending bars limit exceeded (${this.MAX_PENDING_BARS}) for ${symbol}, dropping oldest bar`);
-          pending.shift();
+          console.warn(`[MarketProfileService] Pending bars limit reached (${this.MAX_PENDING_BARS}) for ${symbol}, dropping newest unprocessed bar`);
+          return;
         }
         if (DEBUG) console.log(`[MarketProfileService] Buffering bar for ${symbol} during initialization (timestamp: ${new Date(bar.timestamp).toISOString()})`);
         pending.push(bar);
@@ -164,7 +161,6 @@ class MarketProfileService extends EventEmitter {
 
     // DIAGNOSTIC: Log what actually changed
     if (DEBUG && (delta.added.length > 0 || delta.updated.length > 0)) {
-      console.log(`[MarketProfileService] ${symbol} M1 bar processed: +${delta.added.length} levels, updated ${delta.updated.length} levels`);
       if (delta.updated.length > 0 && delta.updated.length <= 5) {
         console.log(`[MarketProfileService] ${symbol} Updated TPOs:`, delta.updated.map(u => `${u.price}→${u.tpo}`).join(', '));
       }
@@ -230,7 +226,6 @@ class MarketProfileService extends EventEmitter {
 
     // Guard: Prevent re-entrant processing
     if (this.isProcessingPending.get(symbol)) {
-      console.log(`[MarketProfileService] Already processing pending bars for ${symbol}, skipping`);
       return 0;
     }
 
@@ -326,7 +321,6 @@ class MarketProfileService extends EventEmitter {
         return;
       } else {
         // Different day - daily boundary crossed, must reset to prevent cross-day contamination
-        console.log(`[MarketProfileService] ${symbol} daily boundary detected: ${existingDayStart} → ${newDataDayStart}, resetting profile`);
         existingProfile.levels.clear();
         // Clear sequence for new day
         this.sequenceNumbers.delete(symbol);
@@ -355,7 +349,6 @@ class MarketProfileService extends EventEmitter {
       profile.bucketSize = bucketSize;
 
       if (!m1Bars || m1Bars.length === 0) {
-        console.log(`[MarketProfileService] No historical bars for ${symbol} - will build from live M1 bars`);
         // Emit initial empty profile so frontend knows profile is ready
         const seq = this._incrementSequence(symbol);
         const fullProfile = this.getFullProfile(symbol);
@@ -368,9 +361,11 @@ class MarketProfileService extends EventEmitter {
       // Clear existing state and rebuild from historical data
       profile.levels.clear();
 
-      console.log(`[MarketProfileService] Initializing ${symbol} from ${m1Bars.length} historical bars`);
-
       for (const bar of m1Bars) {
+        if (profile.levels.size >= this.MAX_LEVELS) {
+          console.warn(`[MarketProfile] ${symbol} reached ${this.MAX_LEVELS} levels during historical initialization, stopping`);
+          break;
+        }
         const levels = this.generatePriceLevels(bar.low, bar.high, bucketSize);
         for (const price of levels) {
           profile.levels.set(price, (profile.levels.get(price) || 0) + 1);
@@ -420,7 +415,6 @@ class MarketProfileService extends EventEmitter {
   reemitProfile(symbol) {
     const profile = this.profiles.get(symbol);
     if (!profile || profile.levels.size === 0) {
-      console.log(`[MarketProfileService] No profile to re-emit for ${symbol}`);
       return;
     }
 

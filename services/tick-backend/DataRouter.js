@@ -4,8 +4,6 @@
  */
 const { buildCTraderMessage, buildTradingViewMessage, buildCandleUpdateMessage } = require('./utils/MessageBuilder');
 
-const DEBUG = process.env.DEBUG_PROFILE === '1';
-
 class DataRouter {
     constructor(webSocketServer) {
         this.wsServer = webSocketServer;
@@ -16,9 +14,9 @@ class DataRouter {
      * @param {Object} tick - cTrader tick data
      */
     routeFromCTrader(tick) {
-        tick._receivedAt = Date.now();
-        const message = buildCTraderMessage(tick);
-        this.broadcastToClients(message, tick.symbol, 'ctrader');
+        const routedTick = { ...tick, _receivedAt: Date.now() };
+        const message = buildCTraderMessage(routedTick);
+        this.broadcastToClients(message, routedTick.symbol, 'ctrader');
     }
 
     /**
@@ -26,13 +24,12 @@ class DataRouter {
      * @param {Object} candle - TradingView candle data (can be tick or symbolDataPackage)
      */
     routeFromTradingView(candle) {
-        candle._receivedAt = Date.now();
-        const message = buildTradingViewMessage(candle);
-        this.broadcastToClients(message, candle.symbol, 'tradingview');
+        const routedCandle = { ...candle, _receivedAt: Date.now() };
+        const message = buildTradingViewMessage(routedCandle);
+        this.broadcastToClients(message, routedCandle.symbol, 'tradingview');
     }
 
     routeProfileUpdate(symbol, profileOrDelta, source, seq, isDelta = false) {
-        if (DEBUG) console.log(`[DataRouter] routeProfileUpdate: ${symbol} (${source}), seq=${seq}, isDelta=${isDelta}`);
         const message = {
             type: 'profileUpdate',
             symbol,
@@ -40,11 +37,9 @@ class DataRouter {
             seq,
             ...(isDelta ? { delta: profileOrDelta } : { profile: profileOrDelta })
         };
-        if (DEBUG) console.log(`[DataRouter] About to call broadcastToClients for ${source}`);
         // Broadcast to ALL sources — profile data is shared regardless of originating feed
         this.broadcastToClients(message, symbol, 'ctrader');
         this.broadcastToClients(message, symbol, 'tradingview');
-        if (DEBUG) console.log(`[DataRouter] Profile update broadcast complete for ${symbol}:${source}`);
     }
 
     routeProfileError(symbol, error, message) {
@@ -54,7 +49,7 @@ class DataRouter {
             error,
             message
         };
-        console.log(`[DataRouter] routeProfileError: ${symbol} - ${error}: ${message}`);
+        console.error(`[DataRouter] routeProfileError: ${symbol} - ${error}: ${message}`);
         this.broadcastToClients(error_message, symbol, 'ctrader');
         this.broadcastToClients(error_message, symbol, 'tradingview');
     }
@@ -117,7 +112,6 @@ class DataRouter {
      * @param {Object} m1Bar - M1 bar data { symbol, open, high, low, close, timestamp }
      */
     routeTradingViewM1CandleUpdate(m1Bar) {
-        console.log(`[TV-CHART] routeTradingViewM1CandleUpdate: ${m1Bar.symbol}`);
         const key = `${m1Bar.symbol}:M1:tradingview`;
         const message = {
             type: 'candleUpdate',
@@ -173,9 +167,7 @@ class DataRouter {
      */
     broadcastToClients(message, symbol, source) {
         const symbolSubscribers = this.wsServer.subscriptionManager.getSubscribedClients(symbol, source);
-        if (DEBUG) console.log(`[DataRouter] broadcastToClients for ${symbol}:${source}, subscribers: ${symbolSubscribers?.size || 0}`);
         if (!symbolSubscribers) {
-            if (DEBUG) console.log(`[DataRouter] No subscribers for ${symbol}:${source}, skipping broadcast`);
             return;
         }
 

@@ -61,15 +61,8 @@ class TradingViewCandleHandler {
             parsedM1.length = M1_HARD_CAP;
         }
 
-        // ALWAYS log when handleM1Candles is called
-        console.log(`[TradingView] handleM1Candles called for ${symbol}: ${parsedM1.length} candles, initialSent=${data.initialSent}`);
-
         if (!data.initialSent) {
             data.m1Candles.push(...parsedM1);
-            console.log(`[TradingView] Accumulated ${data.m1Candles.length} M1 candles for ${symbol} (historical)`);
-        } else {
-            // Real-time update - log diagnostic info
-            console.log(`[TradingView] M1 REALTIME UPDATE for ${symbol}: ${parsedM1.length} candles`);
         }
 
         const latest = parsedM1[parsedM1.length - 1];
@@ -84,14 +77,9 @@ class TradingViewCandleHandler {
 
         // Only emit if this looks like new data (not historical)
         if (data.initialSent) {
-            console.log(`[TradingView] EMITTING m1Bar for ${symbol}:`, JSON.stringify(m1Bar));
             this.emit('m1Bar', m1Bar);
             // Also emit tick for live ticker stats updates (every minute is better than never)
             this.emitTickFromCandle(latest, symbol, data);
-        } else {
-            // During historical load, don't emit individual bars
-            // They'll be processed in batch via initializeFromHistory
-            console.log(`[TradingView] NOT emitting m1Bar (historical load in progress)`);
         }
     }
 
@@ -179,7 +167,6 @@ class TradingViewCandleHandler {
      * @param {number} price - Current tick price
      */
     updateM1BarFromTick(symbol, price) {
-        console.log(`[TradingView] updateM1BarFromTick called for ${symbol} price=${price}`);
         const now = Date.now();
         const currentMinute = Math.floor(now / 60000) * 60000; // Round down to minute
 
@@ -196,7 +183,6 @@ class TradingViewCandleHandler {
                     close: existing.close,
                     timestamp: existing.minuteTimestamp
                 };
-                console.log(`[TradingView] M1 bar completed for ${symbol}:`, JSON.stringify(completedBar));
                 this.emit('m1Bar', completedBar);
 
                 // Start new bar
@@ -215,7 +201,6 @@ class TradingViewCandleHandler {
             }
         } else {
             // First tick for this symbol
-            console.log(`[TradingView] First tick for ${symbol}, starting M1 bar at ${currentMinute}`);
             this.currentM1Bars.set(symbol, {
                 open: price,
                 high: price,
@@ -239,10 +224,10 @@ class TradingViewCandleHandler {
  * TradingView doesn't provide pipPosition, so estimate from price.
  *
  * Thresholds tuned to real instrument ranges:
- *   > 10000  indices/crypto (US30 ~39850, BTC ~67500) → pipPosition=1
- *   > 1000   gold (XAUUSD ~2340) → pipPosition=1
- *   > 10     silver (XAGUSD ~29), JPY pairs (USDJPY ~149) → pipPosition=2
- *   ≤ 10     major FX (EURUSD ~1.08, GBPUSD ~1.27) → pipPosition=4
+ *   > 10000  indices/crypto (US30 ~39850, BTC ~67500) -> pipPosition=1
+ *   > 1000   gold (XAUUSD ~2340) -> pipPosition=1
+ *   > 10     silver (XAGUSD ~29), JPY pairs (USDJPY ~149) -> pipPosition=2
+ *   <= 10    major FX (EURUSD ~1.08, GBPUSD ~1.27) -> pipPosition=4
  */
 function estimatePipData(price) {
     if (price > 10000) return { pipPosition: 1, pipSize: 0.1, pipetteSize: 0.01 };

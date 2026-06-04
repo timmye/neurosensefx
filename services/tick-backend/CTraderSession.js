@@ -1,6 +1,5 @@
 const EventEmitter = require('events');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { CTraderConnection } = require('../../libs/cTrader-Layer/build/entry/node/main');
 const { HealthMonitor } = require('./HealthMonitor');
 const { ReconnectionManager } = require('./utils/ReconnectionManager');
@@ -56,7 +55,6 @@ class CTraderSession extends EventEmitter {
 
     async connect() {
         if (this.isConnecting) {
-            console.log('[CTraderSession] Connection already in progress, skipping');
             return;
         }
 
@@ -114,7 +112,6 @@ class CTraderSession extends EventEmitter {
 
     setupEventListeners() {
         if (this.eventListenersAttached) {
-            console.log('[CTraderSession] Event listeners already attached, skipping');
             return;
         }
 
@@ -192,7 +189,6 @@ class CTraderSession extends EventEmitter {
         };
 
         this.closeEventHandler = () => {
-            console.log('[DEBUG] CTraderConnection closed');
             this.handleDisconnect(null, true);
         };
 
@@ -203,7 +199,6 @@ class CTraderSession extends EventEmitter {
 
         // Handle staleness detection from HealthMonitor
         this.staleEventHandler = () => {
-            console.log('[CTraderSession] Connection detected as stale, triggering reconnection');
             this.handleDisconnect(new Error('Connection stale - no data received'), true);
         };
 
@@ -258,13 +253,11 @@ class CTraderSession extends EventEmitter {
             });
         } catch (authError) {
             if (authError.errorCode === 'CH_ACCESS_TOKEN_INVALID' && this.refreshToken) {
-                console.log('[CTraderSession] Access token expired, refreshing...');
                 const refreshRes = await this.connection.sendCommand('ProtoOARefreshTokenReq', {
                     refreshToken: this.refreshToken
                 });
                 this.accessToken = refreshRes.accessToken;
                 this.refreshToken = refreshRes.refreshToken;
-                console.log('[CTraderSession] Token refreshed, persisting to .env');
                 this.persistTokens(this.accessToken, this.refreshToken);
 
                 await this.connection.sendCommand('ProtoOAAccountAuthReq', {
@@ -291,7 +284,6 @@ class CTraderSession extends EventEmitter {
                 `CTRADER_REFRESH_TOKEN=${refreshToken}`
             );
             fs.writeFileSync(envPath, envContent);
-            console.log('[CTraderSession] Tokens persisted to .env');
         } catch (err) {
             console.warn('[CTraderSession] Failed to persist tokens to .env:', err.message);
         }
@@ -300,12 +292,10 @@ class CTraderSession extends EventEmitter {
     handleDisconnect(error = null, shouldScheduleReconnect = true) {
         // Prevent concurrent disconnect handling
         if (this.isDisconnecting) {
-            console.log('[CTraderSession] Already disconnecting, skipping duplicate call');
             return;
         }
 
         this.isDisconnecting = true;
-        console.log('[CTraderSession] handleDisconnect() called');
         if (error) console.error('[CTraderSession] connection failed:', error);
         this.reconnection.cancelReconnect();
         this.isConnecting = false;
@@ -314,7 +304,6 @@ class CTraderSession extends EventEmitter {
         this.emit('disconnected');
 
         if (this.connection) {
-            console.log('[CTraderSession] Closing connection in handleDisconnect');
             this.connection.close();
         }
 
@@ -367,8 +356,6 @@ class CTraderSession extends EventEmitter {
             return;
         }
 
-        console.log(`[CTraderSession] Restoring ${this.activeSubscriptions.size} subscriptions`);
-
         // Restore subscriptions in order: ticks first, then M1 bars, then other bar subscriptions
         for (const symbolName of this.activeSubscriptions) {
             try {
@@ -391,7 +378,6 @@ class CTraderSession extends EventEmitter {
 
         // Restore non-M1 bar subscriptions
         if (this.activeBarSubscriptions.size > 0) {
-            console.log(`[CTraderSession] Restoring ${this.activeBarSubscriptions.size} bar subscriptions`);
             for (const [key] of this.activeBarSubscriptions) {
                 const [symbolName, period] = key.split(':');
                 try {
@@ -402,8 +388,6 @@ class CTraderSession extends EventEmitter {
                 }
             }
         }
-
-        console.log(`[CTraderSession] Subscription restoration complete`);
     }
 
     async subscribeToTicks(symbolName) {
@@ -489,7 +473,6 @@ class CTraderSession extends EventEmitter {
 
         const key = `${symbolName}:${period}`;
         if (this.activeBarSubscriptions.has(key)) {
-            console.log(`[CTraderSession] Already subscribed to ${key}, skipping`);
             return;
         }
 
@@ -507,7 +490,6 @@ class CTraderSession extends EventEmitter {
             if (nonM1Keys.length >= MAX_NON_M1_PER_SYMBOL) {
                 const evictKey = nonM1Keys[0];
                 const [, evictPeriod] = evictKey.split(':');
-                console.log(`[CTraderSession] Max non-M1 subscriptions for ${symbolName}, evicting ${evictKey}`);
                 await this.unsubscribeFromBars(symbolName, evictPeriod);
             }
         }
@@ -519,7 +501,6 @@ class CTraderSession extends EventEmitter {
         });
 
         this.activeBarSubscriptions.set(key, true);
-        console.log(`[CTraderSession] Subscribed to ${key}`);
     }
 
     /**
@@ -533,7 +514,6 @@ class CTraderSession extends EventEmitter {
 
         const key = `${symbolName}:${period}`;
         if (!this.activeBarSubscriptions.has(key)) {
-            console.log(`[CTraderSession] Not subscribed to ${key}, skipping unsubscribe`);
             return;
         }
 
@@ -544,7 +524,6 @@ class CTraderSession extends EventEmitter {
         });
 
         this.activeBarSubscriptions.delete(key);
-        console.log(`[CTraderSession] Unsubscribed from ${key}`);
     }
 
     /**
@@ -589,7 +568,6 @@ class CTraderSession extends EventEmitter {
     }
 
     async reconnect() {
-        console.log('[CTraderSession] Manual reinit requested');
         this.healthMonitor.stop();
         this.reconnection.cancelReconnect();
         this.isConnecting = false;

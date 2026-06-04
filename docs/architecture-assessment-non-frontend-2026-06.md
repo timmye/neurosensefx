@@ -44,48 +44,21 @@ The non-frontend codebase has **solid architectural bones** — good module deco
 
 ## Issues by Category
 
-### Category A: Actionable Now (affects local dev)
+### ~~Category A: Actionable Now~~ — RESOLVED
 
-#### A-B1. cTrader tokens written to `.env` file on disk
-- `CTraderSession.js:280-298` — `persistTokens()` writes access/refresh tokens via `fs.writeFileSync`
-- No file locking, no atomic write, plaintext credentials
-- Concurrent token refreshes can cause interleaved writes (race condition at lines 258-278)
-- **Why now**: Race condition can corrupt `.env`, breaking local dev sessions
+All items except A-B1 resolved in reliability pass (2026-06-04). A-B1 (token persistence to Redis) deferred as a separate task.
 
-#### A-B2. No input validation on WebSocket messages
-- `WebSocketServer.js:286-348` — JSON is parsed but `symbol`, `resolution`, `source`, timestamps are not validated
-- Arbitrary strings flow into cTrader API calls and data processing
-- **Why now**: Any client can trigger unexpected behavior deep in the call chain
-
-#### A-B3. Excessive diagnostic logging (164 unconditional console.log)
-- 164 `console.log` calls across 16 files, many labeled `[DEBUGGER:]` / `[DEBUG_TRACE]`
-- No log level gating. Logs full message contents including subscription data on every message
-- **Why now**: Clutters local dev output, hides real issues, makes debugging harder
-
-#### A-B4. Double dotenv loading
-- `server.js:5` loads `.env` from project root, `CTraderSession.js:3` loads again at require time with different path
-- **Why now**: Can cause subtle config inconsistencies when env vars change between loads
-
-#### A-B5. Unbounded memory growth in MarketProfileService
-- `MarketProfileService.js:137-146` caps levels at 3000 in `onM1Bar` but `initializeFromHistory` (line 369-378) has no guard
-- `pendingBars` silently drops oldest bar when limit exceeded (line 112-114)
-- **Why now**: Long-running local dev sessions can accumulate memory without the user noticing
-
-#### A-B6. `broadcastTick` is dead code
-- `WebSocketServer.js:650-657` defined but never called (DataRouter handles this instead)
-- **Why now**: Confusing during local dev, should be removed
-
-#### A-B7. `_receivedAt` mutates source tick object
-- `DataRouter.js:19,29` mutates incoming tick/candle by setting `_receivedAt`
-- **Why now**: Hidden side effect can cause confusing bugs when ticks are routed through multiple paths
-
-#### A-B8. WebSocket heartbeat logs every 15s even with 0 clients
-- `WebSocketServer.js:112-143` — generates 4 noise logs per minute on idle
-- **Why now**: Annoying during local dev, obscures real log output
-
-#### A-B9. 21 scattered `process.env` references, no centralized config
-- Throughout backend modules. Config read inline in constructors and at module level
-- **Why now**: Makes it unclear what env vars each module requires, hard to test
+| ID | Resolution |
+|----|------------|
+| A-B1 | **Open** — Token persistence to Redis. Deferred as standalone task. |
+| A-B2 | WS message schema validation added in `WebSocketServer.js` (type, symbol, resolution, source, from/to) |
+| A-B3 | ~60 debug console.log removed across 16 files. Only warn/error kept. |
+| A-B4 | Double dotenv removed from `CTraderSession.js` |
+| A-B5 | MAX_LEVELS guard added to `initializeFromHistory`; pendingBars drops newest instead of oldest |
+| A-B6 | Dead `broadcastTick` method removed from `WebSocketServer.js` |
+| A-B7 | `_receivedAt` now uses shallow copy (`{ ...tick }`) in `DataRouter.js` — source tick/candle data untouched |
+| A-B8 | Heartbeat now silent unless clients connected; 5-minute summary instead of 15s noise |
+| A-B9 | New `config.js` centralizes env vars; 4 files migrated (server, httpServer, db, sessionManager) |
 
 ### Category B: Deferred (remote deployment)
 

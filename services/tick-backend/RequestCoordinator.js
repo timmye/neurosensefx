@@ -15,7 +15,7 @@ class RequestCoordinator {
         this._queue = [];
         this._processing = false;
         this._MIN_REQUEST_INTERVAL_MS = 300;
-        // TradingView subscription queue — prevents IP ban from burst subscriptions
+        // TradingView subscription queue -- prevents IP ban from burst subscriptions
         this._tvQueue = [];
         this._tvProcessing = false;
         this._TV_MIN_INTERVAL_MS = 500; // 500ms between TradingView subscriptions (safe per community evidence)
@@ -135,7 +135,6 @@ class RequestCoordinator {
         if (this.pendingRequests.has(requestKey)) {
             const pending = this.pendingRequests.get(requestKey);
             pending.clients.push(client);
-            console.log(`[COALESCE] Joining pending request for ${requestKey} (${pending.clients.length} clients)`);
             return pending.promise;
         }
         return null;
@@ -156,8 +155,6 @@ class RequestCoordinator {
         const attemptFetch = async (retries = 0) => {
             try {
                 const data = await this.wsServer.cTraderSession.getSymbolDataPackage(symbol, adrLookbackDays);
-                console.log(`[COALESCE] Sending ${requestKey} to ${clients.length} clients${retries > 0 ? ` (after ${retries} retries)` : ''}`);
-                console.log(`[E2E_TRACE | RequestCoordinator] Sending package with ${data.initialMarketProfile.length} profile entries.`);
 
                 this.sendDataToClients(data, clients);
                 this.pendingRequests.delete(requestKey);
@@ -218,19 +215,16 @@ class RequestCoordinator {
         // After sending symbolDataPackage, initialize TWAP and Market Profile from history
         // This ensures profileUpdate events are emitted AFTER clients have price data
         if (data.initialMarketProfile) {
-            console.log(`[RequestCoordinator] Initializing TWAP for ${data.symbol}:${source} with ${data.initialMarketProfile.length} bars`);
             try {
                 this.wsServer.twapService.initializeFromHistory(
                     data.symbol,
                     data.initialMarketProfile,
                     source
                 );
-                console.log(`[RequestCoordinator] TWAP initialized for ${data.symbol}:${source}`);
             } catch (error) {
                 console.error(`[RequestCoordinator] TWAP initialization failed for ${data.symbol}:`, error);
             }
 
-            console.log(`[RequestCoordinator] Initializing Market Profile for ${data.symbol}:${source} with ${data.initialMarketProfile.length} bars`);
             try {
                 const bucketSize = calculateBucketSizeForSymbol(data.symbol, data.initialPrice);
                 this.wsServer.marketProfileService.initializeFromHistory(
@@ -239,7 +233,6 @@ class RequestCoordinator {
                     bucketSize,
                     source
                 );
-                console.log(`[RequestCoordinator] Market Profile initialized for ${data.symbol}:${source} with bucketSize=${bucketSize}`);
             } catch (error) {
                 console.error(`[RequestCoordinator] Market Profile initialization failed for ${data.symbol}:`, error);
             }
@@ -262,8 +255,6 @@ class RequestCoordinator {
 
         if ((isRateLimit || isBlocked) && retries < this.MAX_RETRIES) {
             const delayMs = this.INITIAL_RETRY_DELAY_MS * Math.pow(2, retries);
-            const errorType = isRateLimit ? 'Rate limit' : 'Blocked payload';
-            console.log(`[COALESCE] ${errorType} for ${requestKey}, retry ${retries + 1}/${this.MAX_RETRIES} after ${delayMs}ms`);
             await sleep(delayMs);
             return attemptFetch(retries + 1);
         }
@@ -308,12 +299,10 @@ class RequestCoordinator {
             this.pendingTradingViewRequests.set(symbol, new Set());
         }
         this.pendingTradingViewRequests.get(symbol).add(client);
-        console.log(`[RequestCoordinator] Tracking ${this.pendingTradingViewRequests.get(symbol).size} clients waiting for TradingView data: ${symbol}`);
 
         // Set up one-time listener for the data package
         const onDataPackage = (data) => {
             if (data.symbol === symbol && data.type === 'symbolDataPackage') {
-                console.log(`[RequestCoordinator] Received TradingView data package for ${symbol}, sending to ${this.pendingTradingViewRequests.get(symbol)?.size || 0} waiting clients`);
                 const waitingClients = this.pendingTradingViewRequests.get(symbol);
                 if (waitingClients) {
                     waitingClients.forEach(c => {

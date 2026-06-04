@@ -8,7 +8,6 @@ const { SubscriptionManager } = require('./SubscriptionManager');
 const { RequestCoordinator } = require('./RequestCoordinator');
 const { StatusBroadcaster } = require('./StatusBroadcaster');
 
-console.log('[WebSocketServer] FILE LOADED - Modular architecture with sub-managers');
 
 // Resolution string (used by frontend) to cTrader period string mapping
 const RESOLUTION_TO_PERIOD = {
@@ -87,7 +86,6 @@ class WebSocketServer {
 
         // TradingView event handlers
         this.tradingViewSession.on('m1Bar', (bar) => {
-            console.log(`[WebSocketServer] TradingView m1Bar received:`, JSON.stringify(bar));
             this.marketProfileService.onM1Bar(bar.symbol, bar, 'tradingview');
         });
         this.tradingViewSession.on('m1Bar', (bar) => this.twapService.onM1Bar(bar.symbol, bar, 'tradingview'));
@@ -98,22 +96,29 @@ class WebSocketServer {
         });
         this.tradingViewSession.on('candle', (candle) => this.dataRouter.routeFromTradingView(candle));
         this.tradingViewSession.on('connected', () => {
-            console.log('[TradingView] Backend connected');
             this.statusBroadcaster.broadcastStatus('connected');
         });
         this.tradingViewSession.on('disconnected', () => {
-            console.log('[TradingView] Backend disconnected');
             this.statusBroadcaster.broadcastStatus('disconnected');
         });
         this.tradingViewSession.on('error', (error) => console.error('[TradingView] Backend error:', error));
 
         // Start heartbeat to keep frontend connections alive
         // Frontend expects messages within 30 seconds, we send every 15 seconds
-        console.log('[WebSocketServer] Starting heartbeat interval (15s)');
         this.heartbeatInterval = setInterval(() => {
-            console.log('[WebSocketServer] Heartbeat interval triggered');
             this.sendHeartbeat();
         }, 15000);
+
+        // Periodic heartbeat summary — only logs when clients are connected, every 5 minutes
+        this.heartbeatSummaryInterval = setInterval(() => {
+            let openClients = 0;
+            this.wss.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN) openClients++;
+            });
+            if (openClients > 0) {
+                console.log(`[WebSocketServer] Heartbeat summary: ${openClients} connected client(s)`);
+            }
+        }, 300000);
 
         // Schedule daily reset at 0000hrs UTC
         console.log('[WebSocketServer] Scheduling daily reset at 0000hrs UTC');
@@ -126,20 +131,15 @@ class WebSocketServer {
             timestamp: Date.now(),
             symbol: 'system'
         };
-        let sentCount = 0;
-        let openClients = 0;
         this.wss.clients.forEach((client) => {
             if (client.readyState === WebSocket.OPEN) {
-                openClients++;
                 try {
                     client.send(JSON.stringify(heartbeatMessage));
-                    sentCount++;
                 } catch (error) {
-                    console.error('[DEBUGGER:WebSocketServer:sendHeartbeat:76] Failed to send heartbeat:', error.message);
+                    console.error('[WebSocketServer] Failed to send heartbeat:', error.message);
                 }
             }
         });
-        console.log('[DEBUGGER:WebSocketServer:sendHeartbeat:67] Heartbeat sent: ' + sentCount + '/' + openClients + ' clients, timestamp=' + heartbeatMessage.timestamp);
     }
 
     scheduleDailyReset() {
@@ -147,8 +147,6 @@ class WebSocketServer {
         const midnight = new Date(now);
         midnight.setUTCHours(24, 0, 0, 0);
         const msUntilMidnight = midnight - now;
-
-        console.log(`[WebSocketServer] Daily reset scheduled in ${Math.round(msUntilMidnight / 60000)} minutes`);
         this._dailyResetTimeout = setTimeout(() => {
             this.performDailyReset();
             this.scheduleDailyReset(); // Re-schedule for next day
@@ -158,11 +156,8 @@ class WebSocketServer {
     async performDailyReset() {
         const activeSymbols = this.subscriptionManager.getActiveSymbols();
         if (activeSymbols.length === 0) {
-            console.log('[WebSocketServer] No active symbols, skipping daily reset');
             return;
         }
-
-        console.log(`[WebSocketServer] Performing daily reset for ${activeSymbols.length} symbols: ${activeSymbols.join(', ')}`);
 
         // Step 1: Reset backend state for each symbol
         // Skip symbols with in-flight initialization to avoid race with initializeFromHistory
@@ -193,8 +188,6 @@ class WebSocketServer {
                 }
             }
         });
-        console.log(`[WebSocketServer] dailyReset sent to ${clientCount} clients`);
-
         // Step 3: Re-fetch fresh data for each symbol and re-send to subscribed clients
         // This triggers initializeFromHistory which rebuilds profiles from new day's M1 bars
         for (const symbol of activeSymbols) {
@@ -221,10 +214,7 @@ class WebSocketServer {
                         // Re-subscribe to symbol so profile Map exists for initializeFromHistory
                         this.marketProfileService.subscribeToSymbol(symbol, source);
                         this.requestCoordinator.sendDataToClients(data, clientArray);
-                        console.log(`[WebSocketServer] Re-sent data package for ${symbol} to ${clientArray.length} clients`);
                     }
-                } else {
-                    console.log(`[WebSocketServer] Skipping re-fetch for ${symbol} (${source}) — will auto-recover via M1 bar day-boundary guard`);
                 }
             } catch (error) {
                 console.error(`[WebSocketServer] Failed to re-fetch data for ${symbol} during daily reset:`, error.message);
@@ -237,6 +227,10 @@ class WebSocketServer {
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
+        }
+        if (this.heartbeatSummaryInterval) {
+            clearInterval(this.heartbeatSummaryInterval);
+            this.heartbeatSummaryInterval = null;
         }
         if (this._dailyResetTimeout) {
             clearTimeout(this._dailyResetTimeout);
@@ -297,15 +291,63 @@ class WebSocketServer {
             });
         }
 
+        const VALID_TYPES = [
+            'get_symbol_data_package', 'subscribe', 'unsubscribe',
+            'reinit', 'refresh_profile', 'getHistoricalCandles',
+            'subscribeCandles', 'unsubscribeCandles'
+        ];
+        const VALID_SOURCES = ['ctrader', 'tradingview'];
+        const SYMBOL_RE = /^[A-Za-z0-9./_-]+$/;
+
+        // Validate message schema
+        if (!data.type || typeof data.type !== 'string' || data.type.trim().length === 0 || !VALID_TYPES.includes(data.type)) {
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: `Invalid or missing message type: ${data.type || '(empty)'}`,
+                symbol: 'system'
+            });
+        }
+        if (data.symbol !== undefined && (typeof data.symbol !== 'string' || !SYMBOL_RE.test(data.symbol))) {
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: `Invalid symbol: ${data.symbol}`,
+                symbol: data.symbol || 'system'
+            });
+        }
+        if (data.resolution !== undefined) {
+            const res = typeof data.resolution === 'string' ? parseInt(data.resolution, 10) : data.resolution;
+            if (typeof res !== 'number' || !Number.isInteger(res) || res <= 0) {
+                return this.sendToClient(ws, {
+                    type: 'error',
+                    message: `Invalid resolution: ${data.resolution} (must be a positive integer)`,
+                    symbol: data.symbol || 'system'
+                });
+            }
+        }
+        if (data.source !== undefined && !VALID_SOURCES.includes(data.source)) {
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: `Invalid source: ${data.source} (expected one of: ${VALID_SOURCES.join(', ')})`,
+                symbol: data.symbol || 'system'
+            });
+        }
+        if (data.from !== undefined && (typeof data.from !== 'number' || data.from <= 0)) {
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: `Invalid from: ${data.from} (must be a positive number)`,
+                symbol: data.symbol || 'system'
+            });
+        }
+        if (data.to !== undefined && (typeof data.to !== 'number' || data.to <= 0)) {
+            return this.sendToClient(ws, {
+                type: 'error',
+                message: `Invalid to: ${data.to} (must be a positive number)`,
+                symbol: data.symbol || 'system'
+            });
+        }
+
         // Process message - separate try-catch for processing errors
         try {
-            console.log(`[DEBUGGER:WebSocketServer:handleMessage:82] Received message: ${JSON.stringify(data)}`);
-            if (data.symbol) {
-                console.log(`[DEBUGGER:WebSocketServer:handleMessage:84] Symbol request: ${data.symbol}, type: ${data.type}, adrLookbackDays: ${data.adrLookbackDays}, source: ${data.source || 'ctrader'}`);
-            } else if (data.symbols) {
-                console.log(`[DEBUGGER:WebSocketServer:handleMessage:86] Symbols subscribe request: ${data.symbols.join(', ')}, type: ${data.type}`);
-            }
-
             switch (data.type) {
                 case 'get_symbol_data_package':
                 case 'subscribe':
@@ -349,15 +391,12 @@ class WebSocketServer {
     }
 
     async handleSubscribe(ws, symbolName, adrLookbackDays = 14, source = 'ctrader') {
-        console.log(`[DEBUGGER:WebSocketServer:handleSubscribe:117] Called with symbol=${symbolName}, adrLookbackDays=${adrLookbackDays}, source=${source}`);
         if (!symbolName || typeof symbolName !== 'string' || symbolName.trim().length === 0) {
-            console.log(`[DEBUGGER:WebSocketServer:handleSubscribe:119] Invalid symbol name: ${symbolName}`);
             return this.sendToClient(ws, { type: 'error', message: `Invalid symbol name: ${symbolName}`, symbol: symbolName, source: source });
         }
 
         // Add client subscription first
         const isFirstSubscriber = this.subscriptionManager.addClientSubscription(symbolName, source, ws);
-        console.log(`[DEBUGGER:WebSocketServer:handleSubscribe:124] isFirstSubscriber=${isFirstSubscriber}`);
 
         // CRITICAL: cTrader requires spot (ticks) subscription BEFORE M1 bars subscription
         // Subscribe to ticks first if first subscriber for cTrader
@@ -377,7 +416,6 @@ class WebSocketServer {
 
         // Define callback to subscribe to M1 bars when profile initialization completes
         const onDataReceived = () => {
-            console.log(`[WebSocketServer] Profile initialization complete for ${symbolName}, now subscribing to M1 bars`);
             if (source === 'ctrader') {
                 this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
                     console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err?.message || String(err));
@@ -397,7 +435,6 @@ class WebSocketServer {
         // NOTE: M1 bar subscription activates upon profile initialization completion
         if (!this.subscriptionManager.hasM1BarSubscription(symbolName, source)) {
             this.subscriptionManager.addBackendSubscription(symbolName, source);
-            console.log(`[WebSocketServer] Registering M1 bar subscription for ${symbolName} (${source}) - will activate after profile initialization`);
             this.marketProfileService.subscribeToSymbol(symbolName, source);
         }
 
@@ -407,17 +444,12 @@ class WebSocketServer {
 
     async handleReinit(ws, data) {
         const source = data.source || 'all';
-        console.log('[DEBUGGER:WebSocketServer:handleReinit:162] Reinit requested for: ' + source);
 
         if (source === 'ctrader' || source === 'all') {
-            console.log('[DEBUGGER:WebSocketServer:handleReinit:165] Calling cTraderSession.reconnect()');
             await this.cTraderSession.reconnect();
-            console.log('[DEBUGGER:WebSocketServer:handleReinit:167] cTraderSession.reconnect() returned');
         }
         if (source === 'tradingview' || source === 'all') {
-            console.log('[DEBUGGER:WebSocketServer:handleReinit:169] Calling tradingViewSession.reconnect()');
             await this.tradingViewSession.reconnect();
-            console.log('[DEBUGGER:WebSocketServer:handleReinit:171] tradingViewSession.reconnect() returned');
         }
 
         this.sendToClient(ws, {
@@ -450,11 +482,9 @@ class WebSocketServer {
         // Check if client is subscribed to this symbol
         const clients = this.subscriptionManager.getSubscribedClients(symbol, source);
         if (!clients || !clients.has(ws)) {
-            console.log(`[WebSocketServer] Refresh profile requested for ${symbol} by unsubscribed client`);
             return;
         }
 
-        console.log(`[WebSocketServer] Refresh profile requested for ${symbol} (${source})`);
         this.marketProfileService.reemitProfile(symbol);
     }
 
@@ -479,8 +509,6 @@ class WebSocketServer {
             });
         }
 
-        console.log(`[TV-CHART] getHistoricalCandles: ${symbol} ${resolution}(${period}) from=${from} to=${to} source=${source}`);
-
         try {
             let bars;
             if (source === 'tradingview') {
@@ -500,7 +528,6 @@ class WebSocketServer {
                 bars,
                 currentPrice: this.lastPrices.get(symbol)?.price ?? null
             });
-            console.log(`[TV-CHART] Sent ${bars.length} ${resolution} bars for ${symbol} (${source})`);
         } catch (error) {
             console.error(`[TV-CHART] Failed to fetch historical candles for ${symbol} ${resolution} (${source}):`, error.message);
             this.sendToClient(ws, {
@@ -553,7 +580,6 @@ class WebSocketServer {
                 // (M1 bars flow from the ticker subscription pipeline)
                 const hasTVSub = this.subscriptionManager.getSubscribedClients(symbol, 'tradingview')?.size > 0;
                 if (!hasTVSub) {
-                    console.log(`[TV-CHART] No TradingView ticker subscription for ${symbol}, initiating one`);
                     this.handleSubscribe(ws, symbol, 14, 'tradingview').catch(err => {
                         console.error(`[TV-CHART] Failed to initiate TradingView subscription for ${symbol}:`, err.message);
                     });
@@ -566,7 +592,6 @@ class WebSocketServer {
                     source,
                     status: 'subscribed'
                 });
-                console.log(`[TV-CHART] TradingView candle subscription active: ${symbol} ${resolution}(${period})`);
             } else {
                 // cTrader: subscribe to ticks and bars
                 try {
@@ -580,7 +605,6 @@ class WebSocketServer {
                         source,
                         status: 'subscribed'
                     });
-                    console.log(`[WebSocketServer] Candle subscription active: ${symbol} ${resolution}(${period})`);
                 } catch (error) {
                     // Clean up client tracking on failure
                     const clients = this.candleSubscriptions.get(key);
@@ -606,7 +630,6 @@ class WebSocketServer {
                 source,
                 status: 'subscribed'
             });
-            console.log(`[WebSocketServer] Candle subscription: ${symbol} ${resolution}(${period}) (${source}, ${this.candleSubscriptions.get(key).size} clients)`);
         }
     }
 
@@ -623,7 +646,6 @@ class WebSocketServer {
         const clients = this.candleSubscriptions.get(key);
 
         if (!clients || !clients.has(ws)) {
-            console.log(`[WebSocketServer] Candle unsubscribe: ${symbol} ${resolution}(${period}) - client not subscribed`);
             return;
         }
 
@@ -639,23 +661,12 @@ class WebSocketServer {
             }
             // TradingView subscriptions are managed by the ticker subscription lifecycle
         }
-
-        console.log(`[WebSocketServer] Candle unsubscription: ${symbol} ${resolution}(${period}) (${source}, ${clients?.size || 0} remaining clients)`);
     }
 
     sendToClient(ws, data) {
         this.statusBroadcaster.sendToClient(ws, data);
     }
     
-    broadcastTick(tick) {
-        console.log(`[DEBUG_TRACE | WebSocketServer] Broadcasting tick to subscribers:`, JSON.stringify(tick));
-        if (tick.source === 'tradingview') {
-            this.dataRouter.routeFromTradingView(tick);
-        } else {
-            this.dataRouter.routeFromCTrader(tick);
-        }
-    }
-
     handleClose(ws) {
         console.log('Client disconnected');
         // Clean up userId registry on disconnect. Only delete if this is the

@@ -6,6 +6,7 @@
 const express = require('express');
 const http = require('http');
 const cookieParser = require('cookie-parser');
+const config = require('./config');
 const { errorResponse } = require('./middleware');
 
 const app = express();
@@ -13,7 +14,7 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
-if (process.env.NODE_ENV !== 'production') {
+if (config.nodeEnv !== 'production') {
     // Dev-only CORS: Vite runs on port 5174, backend on 8081 (ref: DL-018)
     const cors = require('cors');
     app.use(cors({

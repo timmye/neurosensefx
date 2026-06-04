@@ -16,7 +16,6 @@ class TradingViewSubscriptionManager {
      */
     createD1Session(symbol, d1ChartSession, lookbackDays) {
         const amount = lookbackDays + 5;
-        console.log(`[TradingView] Subscribing to ${symbol} D1 candles (${amount} days)...`);
 
         this.client.send('chart_create_session', [d1ChartSession, '']);
         this.client.send('resolve_symbol', [
@@ -41,8 +40,6 @@ class TradingViewSubscriptionManager {
      * @param {string} m1ChartSession - Chart session ID
      */
     createM1Session(symbol, m1ChartSession) {
-        console.log(`[TradingView] Subscribing to ${symbol} M1 candles (1500 bars)...`);
-
         this.client.send('chart_create_session', [m1ChartSession, '']);
         this.client.send('resolve_symbol', [
             m1ChartSession,

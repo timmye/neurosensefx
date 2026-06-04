@@ -8,6 +8,7 @@
 const Redis = require('ioredis');
 const crypto = require('crypto');
 const EventEmitter = require('events');
+const config = require('./config');
 
 const SESSION_COOKIE_NAME = 'neurosense_session';
 const SESSION_TTL = 30 * 24 * 60 * 60;
@@ -16,7 +17,7 @@ const MAX_AGE_MS = SESSION_TTL * 1000;
 class SessionManager extends EventEmitter {
     constructor() {
         super();
-        this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+        this.redis = new Redis(config.redisUrl);
         this.redis.on('error', (err) => console.error('[SessionManager] Redis error:', err.message));
     }
 
@@ -26,7 +27,7 @@ class SessionManager extends EventEmitter {
             path: '/',
             httpOnly: true,
             sameSite: 'Lax',
-            secure: process.env.NODE_ENV === 'production',
+            secure: config.nodeEnv === 'production',
             maxAge: MAX_AGE_MS
         };
     }

@@ -81,7 +81,6 @@ class CTraderEventHandler {
         const timestamp = event.timestamp ? Number(event.timestamp) : Date.now();
 
         if (!isFinite(bidRaw) || !isFinite(askRaw) || bidRaw <= 0 || askRaw <= 0) {
-            console.log(`[DEBUG_TRACE | CTraderSession] Skipping tick - invalid numeric values: bid=${bidRaw}, ask=${askRaw}`);
             return null;
         }
 
@@ -89,7 +88,6 @@ class CTraderEventHandler {
         const askPrice = this.dataProcessor.calculatePrice(askRaw, symbolInfo.digits);
 
         if (askPrice <= bidPrice) {
-            console.log(`[DEBUG_TRACE | CTraderSession] Skipping tick - ask (${askPrice}) <= bid (${bidPrice})`);
             return null;
         }
 
