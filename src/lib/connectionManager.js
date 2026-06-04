@@ -84,9 +84,7 @@ export class ConnectionManager {
         this.flushPendingMessages();
         if (this._skipResubscribe) {
           this._skipResubscribe = false;
-          console.log('[ConnectionManager] Skipping resubscribeAll - flushPending already sent subscriptions');
         } else {
-          console.log('[ConnectionManager] Backend ready, resubscribing to all symbols');
           this.resubscribeAll();
         }
       }
@@ -206,9 +204,6 @@ export class ConnectionManager {
       // Re-queue: connection closed between swap and check
       this.pendingMessages = pending;
       return;
-    }
-    if (import.meta.env.DEV) {
-      console.log(`[ConnectionManager] Flushing ${pending.length} pending messages`);
     }
     const remaining = [...pending];
     for (const msg of pending) {

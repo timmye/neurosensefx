@@ -42,7 +42,6 @@ export class SubscriptionManager {
         console.error(`[SubscriptionManager] Failed to send for ${symbol}:`, error);
       }
     } else {
-      console.log(`[SubscriptionManager] Queueing subscription for ${symbol}`);
       this.pendingSubscriptions.push(subscription);
     }
   }
@@ -51,9 +50,6 @@ export class SubscriptionManager {
     if (this.pendingSubscriptions.length === 0) return;
     const pending = this.pendingSubscriptions;
     this.pendingSubscriptions = [];
-    if (import.meta.env.DEV) {
-      console.log(`[SubscriptionManager] Sending ${pending.length} pending`);
-    }
     for (let i = 0; i < pending.length; i++) {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         // Re-queue remaining subscriptions
@@ -73,12 +69,6 @@ export class SubscriptionManager {
       message.type === 'reinit_started' || message.type === 'dailyReset' ||
       message.type === 'candleHistory' || message.type === 'candleUpdate' ||
       (message.type === 'error' && message.symbol === 'system');
-
-    // Log profileUpdate messages for E2E test verification
-    if (import.meta.env.DEV && message.type === 'profileUpdate') {
-      const levelInfo = message.profile?.levels?.length ?? `delta:+${message.delta?.added?.length ?? 0}/~${message.delta?.updated?.length ?? 0}`;
-      console.log(`[SubscriptionManager] profileUpdate dispatch for ${message.symbol} (${message.source}), seq=${message.seq}, levels=${levelInfo}`);
-    }
 
     if (isSystem) {
       this.subscriptions.forEach((callbacks) => {
@@ -126,17 +116,10 @@ export class SubscriptionManager {
     const key = message.source ? this.makeKey(message.symbol, message.source) : message.symbol;
     const callbacks = this.subscriptions.get(key);
 
-    if (import.meta.env.DEV && message.type === 'profileUpdate') {
-      console.log(`[SubscriptionManager] Looking for key '${key}', found callbacks:`, callbacks?.size || 0);
-      console.log(`[SubscriptionManager] All subscription keys:`, Array.from(this.subscriptions.keys()));
-    }
-
     if (callbacks) {
       callbacks.forEach((cb) => {
         try { cb(message); } catch (e) { console.error(`Callback error for ${key}:`, e); }
       });
-    } else if (import.meta.env.DEV && message.type === 'profileUpdate') {
-      console.warn(`[SubscriptionManager] No callbacks found for profileUpdate ${message.symbol} (${message.source}), key='${key}'`);
     }
   }
 

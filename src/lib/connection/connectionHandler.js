@@ -54,41 +54,19 @@ export class ConnectionHandler {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] WebSocket connected, readyState=' + this.ws.readyState);
-      }
       this.connecting = false;
       this.status = 'connected';
       this.lastMessageTime = Date.now();
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] lastMessageTime initialized to ' + this.lastMessageTime);
-        console.log('[ConnectionHandler] About to call startHeartbeatCheck()');
-      }
       this.startHeartbeatCheck();
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] startHeartbeatCheck() completed, calling onOpen callback');
-      }
       if (this.onOpen) this.onOpen();
     };
 
     this.ws.onclose = () => {
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] WebSocket disconnected, readyState=' + this.ws.readyState);
-      }
       this.connecting = false;
       this.status = 'disconnected';
       this.ws = null; // Clean up reference to allow reconnection
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] ws set to null, calling stopHeartbeatCheck');
-      }
       this.stopHeartbeatCheck();
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] About to call onClose callback');
-      }
       if (this.onClose) this.onClose();
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] onClose callback completed');
-      }
     };
 
     this.ws.onerror = (error) => {
@@ -105,9 +83,6 @@ export class ConnectionHandler {
       this.lastMessageTime = Date.now();
       try {
         const data = JSON.parse(event.data);
-        if (import.meta.env.DEV) {
-          console.log('[ConnectionHandler] Received message type=' + data.type + ', previousTime=' + previousTime + ', newTime=' + this.lastMessageTime + ', gap=' + (previousTime ? (this.lastMessageTime - previousTime) + 'ms' : 'first message'));
-        }
         if (this.onMessage) this.onMessage(data);
       } catch (error) {
         console.error('[ConnectionHandler] Message parse error:', error);
@@ -123,17 +98,10 @@ export class ConnectionHandler {
   }
 
   startHeartbeatCheck() {
-    if (import.meta.env.DEV) {
-      console.log('[ConnectionHandler] Starting heartbeat check, status=' + this.status + ', ws.readyState=' + (this.ws?.readyState));
-    }
     this.stopHeartbeatCheck(); // Clear any existing interval
     this.heartbeatCheckInterval = setInterval(() => {
       const now = Date.now();
       const timeSinceLastMessage = this.lastMessageTime ? now - this.lastMessageTime : Infinity;
-
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] status=' + this.status + ', timeSinceLastMessage=' + Math.round(timeSinceLastMessage / 1000) + 's, threshold=' + (this.heartbeatTimeoutMs / 1000) + 's, ws.readyState=' + (this.ws?.readyState));
-      }
 
       // If we haven't received a message in heartbeatTimeoutMs, trigger reconnection
       if (this.status === 'connected' && timeSinceLastMessage > this.heartbeatTimeoutMs) {
@@ -146,9 +114,6 @@ export class ConnectionHandler {
   }
 
   handleStaleConnection() {
-    if (import.meta.env.DEV) {
-      console.log('[ConnectionHandler] handleStaleConnection() - Cleaning up and triggering reconnection');
-    }
     this.stopHeartbeatCheck();
     this.connecting = false;
     this.status = 'disconnected';
@@ -162,38 +127,24 @@ export class ConnectionHandler {
       try {
         this.ws.close();
       } catch (e) {
-        if (import.meta.env.DEV) {
-          console.log('[ConnectionHandler] ws.close() error (expected):', e.message);
-        }
+        // Expected when closing zombie connections
       }
       this.ws = null;
     }
 
     // Directly trigger the stale callback (which will schedule reconnect)
     if (this.onStale) {
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] Calling onStale callback');
-      }
       this.onStale();
     } else if (this.onClose) {
       // Fallback to onClose if onStale not set
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] Calling onClose callback (fallback)');
-      }
       this.onClose();
     }
   }
 
   stopHeartbeatCheck() {
-    if (import.meta.env.DEV) {
-      console.log('[ConnectionHandler] Stopping heartbeat check');
-    }
     if (this.heartbeatCheckInterval) {
       clearInterval(this.heartbeatCheckInterval);
       this.heartbeatCheckInterval = null;
-      if (import.meta.env.DEV) {
-        console.log('[ConnectionHandler] Heartbeat check cleared');
-      }
     }
   }
 
