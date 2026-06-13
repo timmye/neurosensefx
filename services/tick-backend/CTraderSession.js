@@ -174,7 +174,13 @@ class CTraderSession extends EventEmitter {
                         m1Bar = result.m1Bar;
                         tickData = result.tick;
                     }
-                } else if (event.bid != null && event.ask != null) {
+                }
+
+                // Always derive live tick price from bid/ask when available.
+                // Trendbar close prices are from the last *closed* bar (stale),
+                // whereas bid/ask are live market quotes. Both can arrive in the
+                // same spot event, so process them independently.
+                if (event.bid != null && event.ask != null) {
                     tickData = this.eventHandler.processSpotEvent(event, symbolName, symbolInfo);
                 }
 

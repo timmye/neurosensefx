@@ -13,16 +13,33 @@ class CTraderSymbolLoader {
     }
 
     /**
+     * Normalize a cTrader symbol name for lookup.
+     * Strips slashes and known broker suffixes (.P, .F, .I, etc.)
+     * so the frontend's plain format matches (e.g. "USD/JPY.P" → "USDJPY").
+     * Prefers plain variants over suffixed ones when both exist.
+     */
+    static normalizeName(raw) {
+        return raw.replace(/\//g, '').replace(/\.[A-Za-z]+\d*$/g, '');
+    }
+
+    /**
      * Load all available symbols from cTrader.
      * Populates symbolMap and reverseSymbolMap for bidirectional lookup.
+     * Normalizes symbol names by stripping slashes and broker suffixes
+     * so lookups match the format used by the frontend.
      */
     async loadAllSymbols() {
         const response = await this.connection.sendCommand('ProtoOASymbolsListReq', {
             ctidTraderAccountId: this.ctidTraderAccountId
         });
         response.symbol.forEach(s => {
-            this.symbolMap.set(s.symbolName, Number(s.symbolId));
-            this.reverseSymbolMap.set(Number(s.symbolId), s.symbolName);
+            const normalizedName = CTraderSymbolLoader.normalizeName(s.symbolName);
+            // Prefer plain variants: if EURUSD and EURUSD.P both exist,
+            // keep the plain one (no dot in raw name).
+            if (!this.symbolMap.has(normalizedName) || !s.symbolName.includes('.')) {
+                this.symbolMap.set(normalizedName, Number(s.symbolId));
+                this.reverseSymbolMap.set(Number(s.symbolId), normalizedName);
+            }
         });
     }
 

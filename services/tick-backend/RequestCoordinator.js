@@ -206,7 +206,7 @@ class RequestCoordinator {
                 pipPosition: data.pipPosition,
                 pipSize: data.pipSize,
                 pipetteSize: data.pipetteSize,
-                ...buildPrevDayFields(data)
+                ...buildPrevDayFields({ open: data.prevDayOpen, high: data.prevDayHigh, low: data.prevDayLow, close: data.prevDayClose })
             });
         });
 
