@@ -192,7 +192,7 @@
 />
 
 <div class="workspace-container" role="application" on:contextmenu|preventDefault>
-  <BackgroundShader />
+  <!-- <BackgroundShader /> -->
   <div class="workspace" role="region" tabindex="0" aria-label="Workspace">
     {#each Array.from($displayStore.displays.values()) as display (display.id)}
       {#if display.type === 'priceTicker'}
