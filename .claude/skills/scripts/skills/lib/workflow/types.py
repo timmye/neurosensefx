@@ -5,7 +5,11 @@ Explicit, composable abstractions over stringly-typed dicts and parameter groups
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Literal, Protocol, TypeAlias
+from typing import Any, Callable, Literal, Protocol
+try:
+    from typing import TypeAlias
+except ImportError:
+    TypeAlias = type
 
 
 class ResourceProvider(Protocol):
