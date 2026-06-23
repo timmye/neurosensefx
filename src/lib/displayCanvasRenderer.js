@@ -82,8 +82,21 @@ export function renderWithRenderer(renderer, ctx, data, config, displayType, mar
   }
 }
 
+// Compute the adaptive price scale once for a render. The three sub-render
+// paths (day range, price markers, price delta) all derive the same scale from
+// the same `data` (calculateAdaptiveScale reads only adrHigh/adrLow/high/low/
+// current/open/pipSize and config.scaling; createPriceScale reads only the
+// adaptiveScale min/max plus height). Computing it here once and passing it
+// down avoids the previous triple-recompute per render.
+export function computePriceScale(data, height) {
+  const config = { scaling: 'adaptive' };
+  const adaptiveScale = calculateAdaptiveScale(data, config);
+  const priceScale = createPriceScale(config, adaptiveScale, height);
+  return priceScale;
+}
+
 // Render price markers - delegates to specialized price marker renderers
-export function renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hoverPrice, width, height) {
+export function renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hoverPrice, width, height, priceScale) {
   // We need market data to create a price scale
   if (!data) {
     console.warn('[DISPLAY_CANVAS_RENDERER] Cannot render price markers without market data');
@@ -91,20 +104,26 @@ export function renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hove
   }
 
   try {
-    // Create the necessary configuration and scale for rendering
+    // Use the precomputed scale shared across the render (or compute one for
+    // direct callers that didn't supply it).
+    const scale = priceScale || (() => {
+      const config = getConfig({ positioning: { adrAxisX: width * 0.75 } });
+      const adaptiveScale = calculateAdaptiveScale(data, config);
+      return createPriceScale(config, adaptiveScale, height);
+    })();
+
+    // Create the necessary configuration for rendering (axis position only)
     const config = getConfig({ positioning: { adrAxisX: width * 0.75 } });
-    const adaptiveScale = calculateAdaptiveScale(data, config);
-    const priceScale = createPriceScale(config, adaptiveScale, height);
 
     // Calculate axis position (same as day range renderer)
     let axisX = resolveAxisX(config.positioning.adrAxisX, width);
 
     // Render user-placed price markers with selection highlighting
-    renderUserPriceMarkers(ctx, config, axisX, priceScale, priceMarkers, selectedMarker, data);
+    renderUserPriceMarkers(ctx, config, axisX, scale, priceMarkers, selectedMarker, data);
 
     // Render hover preview if hovering with Alt key
     if (hoverPrice) {
-      renderHoverPreview(ctx, config, axisX, priceScale, hoverPrice, data);
+      renderHoverPreview(ctx, config, axisX, scale, hoverPrice, data);
     }
   } catch (error) {
     console.error('[DISPLAY_CANVAS_RENDERER] Error rendering price markers:', error);
@@ -132,23 +151,18 @@ export function renderConnectionStatus(ctx, connectionStatus, symbol, width, hei
 }
 
 // Render price delta measurement
-export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
+export function renderPriceDelta(ctx, deltaInfo, data, width, height, priceScale) {
   if (!deltaInfo || !deltaInfo.active || !data) return;
 
   try {
 
-    // Use the exact same coordinate system as Day Range Meter
-    const scaleData = {
-      adrHigh: data?.adrHigh,
-      adrLow: data?.adrLow,
-      high: data?.high,
-      low: data?.low,
-      current: data?.current,
-      open: data?.open
-    };
+    // Use the exact same coordinate system as Day Range Meter.
+    // Reuse the precomputed scale shared across the render (or compute one for
+    // direct callers that didn't supply it). calculateAdaptiveScale reads only
+    // adrHigh/adrLow/high/low/current/open, so the result is identical to the
+    // previous scaleData-subset computation.
+    const scale = priceScale || computePriceScale(data, height);
     const config = { scaling: 'adaptive' };
-    const adaptiveScale = calculateAdaptiveScale(scaleData, config);
-    const priceScale = createPriceScale(config, adaptiveScale, height);
 
     const delta = deltaInfo.currentPrice - deltaInfo.startPrice;
     const deltaPercent = ((delta / deltaInfo.startPrice) * 100).toFixed(2);
@@ -160,8 +174,8 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height) {
     const formattedStartPrice = formatPriceWithPipPosition(formatPriceToPipLevel(deltaInfo.startPrice, pipPosition, pipSize), pipPosition);
     const formattedCurrentPrice = formatPriceWithPipPosition(formatPriceToPipLevel(deltaInfo.currentPrice, pipPosition, pipSize), pipPosition);
 
-    const startY = priceScale(deltaInfo.startPrice);
-    const currentY = priceScale(deltaInfo.currentPrice);
+    const startY = scale(deltaInfo.startPrice);
+    const currentY = scale(deltaInfo.currentPrice);
 
     // Calculate ADR axis position (same as Day Range Meter)
     const dayRangeConfig = getConfig({ positioning: { adrAxisX: width * 0.75 } });

@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { setupCanvas } from '../../lib/dayRange/dayRangeCore.js';
   import { renderErrorMessage, renderStatusMessage } from '../../lib/canvasStatusRenderer.js';
   import {
@@ -8,7 +8,8 @@
     renderWithRenderer,
     renderPriceMarkers,
     renderConnectionStatus as renderConnStatus,
-    renderPriceDelta
+    renderPriceDelta,
+    computePriceScale
   } from '../../lib/displayCanvasRenderer.js';
 
   export let data, showMarketProfile, marketProfileData, width, height, onResize;
@@ -20,6 +21,20 @@
   export let deltaInfo = null;
 
   let canvas, ctx;
+
+  // rAF coalescing: at most one render() per animation frame for the reactive
+  // (tick-driven) path. Synchronous paths (canvas init, resize) call render()
+  // directly so a resize never flashes stale content while waiting a frame.
+  let renderScheduled = false;
+
+  function scheduleRender() {
+    if (renderScheduled) return;
+    renderScheduled = true;
+    requestAnimationFrame(() => {
+      renderScheduled = false;
+      render();
+    });
+  }
 
   function render() {
     if (!ctx || !canvas) {
@@ -37,8 +52,12 @@
 
         if (renderer) {
           renderWithRenderer(renderer, ctx, data, config, displayType, marketProfileData);
-          renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hoverPrice, width, height);
-          renderPriceDelta(ctx, deltaInfo, data, width, height);
+          // Compute the price scale once and share it across the marker and
+          // delta paths (previously each recomputed calculateAdaptiveScale +
+          // createPriceScale from the same data).
+          const priceScale = computePriceScale(data, height);
+          renderPriceMarkers(ctx, data, priceMarkers, selectedMarker, hoverPrice, width, height, priceScale);
+          renderPriceDelta(ctx, deltaInfo, data, width, height, priceScale);
         } else {
           console.error('[DISPLAY_CANVAS] No renderer found for display type:', displayType);
           renderErrorMessage(ctx, 'Renderer not available', { width, height });
@@ -95,9 +114,13 @@
     if (_ctx && (_data || _marketProfileData || _connectionStatus ||
         _showMarketProfile || _priceMarkers || _selectedMarker ||
         _hoverPrice || _deltaInfo)) {
-      render();
+      scheduleRender();
     }
   }
+
+  onDestroy(() => {
+    renderScheduled = false;
+  });
 
   export function getContext() { return ctx; }
   export function getCanvas() { return canvas; }
@@ -113,13 +136,6 @@
   export function refreshCanvas() {
     if (!ctx || !canvas) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    render();
-  }
-
-  export function renderFxBasket(basketData) {
-    // Update the data prop which will trigger a re-render via Svelte reactivity
-    data = basketData;
-    // Trigger render explicitly for immediate update
     render();
   }
 </script>
