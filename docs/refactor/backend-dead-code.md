@@ -55,6 +55,8 @@ Removing either broke 4 unit tests on the first pass; both were restored before 
 
 ## Status
 
-Tier 1 executed on branch `chore/backend-dead-code-cleanup` and verified with the backend unit suite (83 passing). Removed: the 3 broken npm scripts, `CTraderSymbolLoader.hasSymbol`, the `includeField` and `app` exports, and the `events` / `protobufjs` / `@rollup/rollup-linux-x64-gnu` dependencies; `test-results/.last-run.json` untracked and the `.gitignore` `test-results/` pattern un-anchored. An initial over-aggressive pass also removed `getTwap` and the SafeSender constants, which broke 4 unit tests — those were restored (see "Investigated but kept" above). Tier 2 and Tier 3 remain open.
+Tier 1 executed on branch `chore/backend-dead-code-cleanup` and verified with the backend unit suite (83 passing). Removed: the 3 broken npm scripts, `CTraderSymbolLoader.hasSymbol`, the `includeField` and `app` exports, and the `events` / `protobufjs` / `@rollup/rollup-linux-x64-gnu` dependencies; `test-results/.last-run.json` untracked and the `.gitignore` `test-results/` pattern un-anchored. An initial over-aggressive pass also removed `getTwap` and the SafeSender constants, which broke 4 unit tests — those were restored (see "Investigated but kept" above).
+
+Tier 2 #9–#10 done in a follow-up commit: removed the rotting per-file line-count annotations and the false "Line Limits (<120 lines / <15 lines)" rule from `services/tick-backend/README.md` (replaced with role labels), and dropped the `test-timeframe.js` row from `services/tick-backend/CLAUDE.md`. The rest of Tier 2 (#11–#12, stale Mar-20 docs) and Tier 3 remain open.
 
 > Note: `__tests__/drawingVersioning.test.js` fails at collection time with `require('vitest')` in a CommonJS module — this is pre-existing (a skipped-by-default integration test) and unrelated to this cleanup.
