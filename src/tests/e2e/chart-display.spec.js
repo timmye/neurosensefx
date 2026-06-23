@@ -274,8 +274,7 @@ test.describe('Chart Display - "c" Key Workflow', () => {
     const criticalErrors = consoleErrors.filter(err =>
       !err.includes('favicon') &&
       !err.includes('WebGL') &&
-      !err.includes('THREE') &&
-      !err.includes('BackgroundShader')
+      !err.includes('THREE')
     );
 
     expect(criticalErrors).toHaveLength(0);

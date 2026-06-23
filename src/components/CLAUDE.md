@@ -15,7 +15,6 @@ Svelte UI components for the workspace and visualization displays.
 | `WorkspaceModal.svelte` | Workspace configuration dialog | Modifying workspace settings UI |
 | `ChartDisplay.svelte` | KLineChart candlestick display bound to selected ticker, drawing tools, interact.js drag/resize, x-axis window sync via setAxisWindow | Adding chart features, debugging chart rendering, drawing persistence |
 | `ChartToolbar.svelte` | Resolution, window, and drawing tool selectors for chart | Adding chart controls, modifying toolbar layout |
-| `BackgroundShader.svelte` | WebGL procedural background with simplex noise patterns | Modifying background visuals, debugging Three.js shader |
 | `LoginForm.svelte` | Login and registration form component | Modifying login UI, auth form behavior |
 | `OverlayContextMenu.svelte` | Right-click context menu for chart and display interactions | Adding context menu actions, modifying menu behavior |
 | `QuickRuler.svelte` | Quick price-distance ruler tool for chart | Modifying ruler behavior, adding measurement features |

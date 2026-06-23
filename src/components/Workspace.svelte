@@ -1,11 +1,10 @@
 <script>
   import { workspaceActions, workspacePersistence, headlinesStore } from '../stores/workspace.js';
-  import { displayStore, displayActions } from '../stores/displayStore.js';
+  import { displayStore } from '../stores/displayStore.js';
   import FloatingDisplay from './FloatingDisplay.svelte';
   import FxBasketDisplay from './FxBasketDisplay.svelte';
   import PriceTicker from './PriceTicker.svelte';
   import ChartDisplay from './ChartDisplay.svelte';
-  import BackgroundShader from './BackgroundShader.svelte';
   import WorkspaceModal from './WorkspaceModal.svelte';
   import KeyboardShortcutsHelp from './KeyboardShortcutsHelp.svelte';
   import HeadlinesWidget from './HeadlinesWidget.svelte';
@@ -192,7 +191,6 @@
 />
 
 <div class="workspace-container" role="application" on:contextmenu|preventDefault>
-  <!-- <BackgroundShader /> -->
   <div class="workspace" role="region" tabindex="0" aria-label="Workspace">
     {#each Array.from($displayStore.displays.values()) as display (display.id)}
       {#if display.type === 'priceTicker'}
