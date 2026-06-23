@@ -115,6 +115,5 @@ module.exports = {
     buildCTraderMessage,
     buildTradingViewMessage,
     buildCandleUpdateMessage,
-    includeField,
     buildPrevDayFields
 };

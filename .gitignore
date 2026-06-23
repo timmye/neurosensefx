@@ -188,7 +188,7 @@ manual_*.md
 *_TEST_*.md
 
 # Playwright
-/test-results/
+test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/

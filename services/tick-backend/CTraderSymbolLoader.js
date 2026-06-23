@@ -89,13 +89,6 @@ class CTraderSymbolLoader {
     }
 
     /**
-     * Check if symbol exists in map.
-     */
-    hasSymbol(symbolName) {
-        return this.symbolMap.has(symbolName);
-    }
-
-    /**
      * Get all loaded symbol names.
      */
     getAllSymbolNames() {

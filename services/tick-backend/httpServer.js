@@ -96,4 +96,4 @@ function listen(port) {
     });
 }
 
-module.exports = { app, server, listen, addCandleApiRoutes };
+module.exports = { server, listen, addCandleApiRoutes };

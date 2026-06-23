@@ -4,9 +4,6 @@
     "description": "cTrader live tick streaming application",
     "main": "server.js",
     "scripts": {
-        "test-subscription": "node test/test-subscription.js",
-        "live-display": "node bin/live-display.js",
-        "subscribe": "node bin/subscribe.js",
         "start": "node server.js",
         "dev": "node server.js",
         "ws-stream": "node server.js"
@@ -18,18 +15,13 @@
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.6",
         "dotenv": "^16.3.1",
-        "events": "^3.3.0",
         "express": "^4.22.1",
         "ioredis": "^5.10.1",
         "pg": "^8.20.0",
-        "protobufjs": "^7.2.5",
         "tradingview-ws": "^0.0.3",
         "ws": "^8.14.2"
     },
     "engines": {
         "node": ">=18.0.0"
-    },
-    "devDependencies": {
-        "@rollup/rollup-linux-x64-gnu": "^4.53.3"
     }
 }
