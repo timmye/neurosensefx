@@ -8,7 +8,7 @@
 
 ## 1. Architecture Overview
 
-Svelte 4 SPA. Single WebSocket to backend. Workspace of floating chart displays with overlays. klinecharts for charting, three.js for background shader, Dexie for IndexedDB persistence.
+Svelte 4 SPA. Single WebSocket to backend. Workspace of floating chart displays with overlays. klinecharts for charting, Dexie for IndexedDB persistence. (three.js/background shader removed 2026-06-23; see `frontend-audit-2026-06-23.md`.)
 
 ### Key architectural patterns
 
@@ -23,7 +23,7 @@ Svelte 4 SPA. Single WebSocket to backend. Workspace of floating chart displays 
 
 ### Bundle
 
-1.1MB, eagerly loaded. No code splitting. `three.js` used only in `BackgroundShader.svelte`.
+~622 kB, eagerly loaded. No code splitting. (Was ~1.1 MB before the three.js/background-shader removal on 2026-06-23.)
 
 ---
 
@@ -146,7 +146,7 @@ These were explicitly considered. They are not forgotten — they are **deferred
 |------|-------------|----------------------|
 | Svelte 4→5 migration | Works fine. Runes migration touches every component. No concrete pain. | Component complexity becomes unmanageable; Svelte 4 security EOL |
 | TypeScript migration | JSDoc + `dataContracts.js` validators get most of the value at none of the migration cost. | Team grows; onboarding new developers who expect types |
-| three.js removal | BackgroundShader is the only consumer. Visibility handler already solves GPU drain on hidden tabs. | GPU performance incident; desire to remove WebGL dependency entirely |
+| ~~three.js removal~~ | **Done (2026-06-23).** BackgroundShader + backgroundStore removed; bundle ~1.1 MB → ~622 kB. | N/A |
 | Chart config consolidation (8 files) | Low benefit. Each file exists for a reason (lazy loading, runtime swap). | Adding new themes or chart types makes the sprawl actively confusing |
 | Theme file splits (443/438 LOC) | No user-facing benefit. Mechanical but noisy refactor. | Theme files need significant modification for a new feature |
 | Code splitting / lazy loading | 1.1MB loads fast on broadband. No user complaint about load time. | Mobile users; measurable load-time regression; bundle exceeds 2MB |
