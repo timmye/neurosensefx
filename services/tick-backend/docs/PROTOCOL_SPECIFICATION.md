@@ -1,6 +1,9 @@
 # NeuroSense FX WebSocket Protocol Specification
 
-**Definitive Source of Truth - Current Implementation**
+> ⚠️ **Historical — last updated 2026-03-20.** Predates the June 2026 backend rework
+> (reliability fixes, TWAP/Market-Profile symbol normalization, the leveled logger in
+> `utils/Logger.js`, symbol-key canonicalization). **No longer definitive** — verify
+> message formats against `utils/MessageBuilder.js` and `WebSocketServer.js` in the source.
 
 ## Quick Reference
 

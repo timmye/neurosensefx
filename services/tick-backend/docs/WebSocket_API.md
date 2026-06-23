@@ -1,6 +1,10 @@
 # WebSocket API Documentation
 
-**Source of Truth for NeuroSense FX Backend Communication Protocol**
+> ⚠️ **Historical — last updated 2026-03-20.** Predates the June 2026 backend rework
+> (reliability fixes, TWAP/Market-Profile symbol normalization, the leveled logger in
+> `utils/Logger.js`, symbol-key canonicalization). Message types and fields may have
+> changed — this is **no longer authoritative**. Verify against the source
+> (`WebSocketServer.js`, `utils/MessageBuilder.js`) and the parent `README.md`.
 
 ## Endpoints
 

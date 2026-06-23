@@ -1,5 +1,11 @@
 # Backend Architecture Documentation for cTrader Tick Streamer
 
+> ⚠️ **Historical — last updated 2026-03-20.** Predates the June 2026 backend rework
+> (reliability fixes, TWAP/Market-Profile symbol normalization, the leveled logger,
+> symbol-key canonicalization). The high-level design is broadly still accurate, but
+> module sizes, line counts, and some responsibilities have drifted — verify against
+> the source and the parent `README.md`.
+
 ## Overview
 This document describes the architecture of the real-time cTrader Tick Streamer backend. The primary goal of this service is to provide a lean, high-performance, and reliable conduit for cTrader Open API tick data to various frontend applications. It prioritizes simplicity, maintainability, and efficient resource utilization.
 
