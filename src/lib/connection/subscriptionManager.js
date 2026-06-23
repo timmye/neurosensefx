@@ -1,5 +1,20 @@
 // SubscriptionManager - WebSocket subscription management and message dispatch
 // Map/Set provides O(1) subscription lookup. Source-aware keys enable multi-source FX.
+
+/**
+ * Canonical symbol normalization — mirrors the backend
+ * (services/tick-backend/MarketProfileService.js `normalizeSymbol`) so a
+ * profileUpdate emitted under the canonical (upper-cased, suffix-stripped)
+ * symbol matches a subscription stored under any feed's name form. Applied only
+ * to profile routing; the tick path is left untouched.
+ * @param {string} raw
+ * @returns {string}
+ */
+function normalizeSymbol(raw) {
+  if (!raw || typeof raw !== 'string') return raw;
+  return raw.toUpperCase().replace(/\//g, '').replace(/\.[A-Za-z]+\d*$/g, '');
+}
+
 export class SubscriptionManager {
   constructor() {
     this.subscriptions = new Map();
@@ -79,12 +94,17 @@ export class SubscriptionManager {
       return;
     }
 
-    // Source-agnostic dispatch: twapUpdate has no source field, so match by symbol
-    // across all registered sources (e.g., "EURUSD:ctrader" and "EURUSD:tradingview")
-    if (message.type === 'twapUpdate' && !message.source) {
+    // TWAP updates: deliver to every subscriber for the symbol, source-agnostic
+    // (TWAP is shared — one value per instrument, broadcast to all sources by the
+    // backend). Symbols are normalized so the canonical form emitted by the backend
+    // matches a subscription stored under any feed's name form. Tick routing untouched.
+    if (message.type === 'twapUpdate') {
+      const normSym = normalizeSymbol(message.symbol);
       const delivered = new Set();
       for (const [key, callbacks] of this.subscriptions) {
-        if (key.startsWith(`${message.symbol}:`)) {
+        const sep = key.indexOf(':');
+        const kSym = sep === -1 ? key : key.slice(0, sep);
+        if (normalizeSymbol(kSym) === normSym) {
           callbacks.forEach((cb) => {
             if (!delivered.has(cb)) {
               delivered.add(cb);
@@ -96,12 +116,18 @@ export class SubscriptionManager {
       return;
     }
 
-    // Profile updates are also source-agnostic: deliver to all symbol subscribers
-    // regardless of which source they subscribed to (profile data is shared)
-    if (message.type === 'profileUpdate' && !message.source) {
+    // Profile updates: deliver to every subscriber for the symbol, source-agnostic
+    // (profile data is shared — one canonical profile per instrument, populated by
+    // both feeds). Symbols are normalized so the canonical form emitted by the
+    // backend matches a subscription stored under any feed's name form (case or
+    // suffix). Tick routing is untouched.
+    if (message.type === 'profileUpdate') {
+      const normSym = normalizeSymbol(message.symbol);
       const delivered = new Set();
       for (const [key, callbacks] of this.subscriptions) {
-        if (key.startsWith(`${message.symbol}:`)) {
+        const sep = key.indexOf(':');
+        const kSym = sep === -1 ? key : key.slice(0, sep);
+        if (normalizeSymbol(kSym) === normSym) {
           callbacks.forEach((cb) => {
             if (!delivered.has(cb)) {
               delivered.add(cb);

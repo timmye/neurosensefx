@@ -150,7 +150,7 @@ class WebSocketServer {
         // Step 1: Reset backend state for each symbol
         // Skip symbols with in-flight initialization to avoid race with initializeFromHistory
         for (const symbol of activeSymbols) {
-            if (this.marketProfileService.isInitializing.get(symbol) || this.twapService.isInitializing.get(symbol)) {
+            if (this.marketProfileService.isSymbolInitializing(symbol) || this.twapService.isSymbolInitializing(symbol)) {
                 console.warn(`[WebSocketServer] Skipping daily reset for ${symbol} — initialization in progress`);
                 continue;
             }

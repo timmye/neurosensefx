@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const { normalizeSymbol } = require('./utils/normalizeSymbol');
 
 class TwapService extends EventEmitter {
   constructor() {
@@ -8,9 +9,21 @@ class TwapService extends EventEmitter {
     this.isInitializing = new Map(); // symbol -> boolean (guard for concurrent init/reset)
   }
 
+  /**
+   * Whether a symbol's TWAP is currently initializing. Normalizes the symbol so
+   * external callers (e.g. WebSocketServer) can pass any feed's name form rather
+   * than reaching into the Map directly.
+   * @param {string} symbol - Symbol identifier (any feed form)
+   * @returns {boolean}
+   */
+  isSymbolInitializing(symbol) {
+    return !!this.isInitializing.get(normalizeSymbol(symbol));
+  }
+
   // Initialize TWAP from historical M1 bars (for mid-session joins)
   // Idempotent: skips if already initialized (prevents source race overwrites)
   initializeFromHistory(symbol, initialMarketProfile, source = 'ctrader') {
+    symbol = normalizeSymbol(symbol);
     if (!initialMarketProfile || initialMarketProfile.length === 0) {
       return;
     }
@@ -61,6 +74,7 @@ class TwapService extends EventEmitter {
 
   // Process incoming M1 bar
   onM1Bar(symbol, bar, source = 'ctrader') {
+    symbol = normalizeSymbol(symbol);
     // Validate bar structure
     if (!bar || typeof bar.close !== 'number' || isNaN(bar.close)) {
       console.error(`[TwapService] Invalid bar data for ${symbol}:`, bar);
@@ -108,13 +122,14 @@ class TwapService extends EventEmitter {
   }
 
   resetDaily(symbol) {
+    symbol = normalizeSymbol(symbol);
     this.twapState.delete(symbol);
     this.lastBarTimestamps.delete(symbol);
     this.isInitializing.delete(symbol);
   }
 
   getTwap(symbol) {
-    return this.twapState.get(symbol)?.twap || null;
+    return this.twapState.get(normalizeSymbol(symbol))?.twap || null;
   }
 }
 

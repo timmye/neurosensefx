@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const { normalizeSymbol } = require('./utils/normalizeSymbol');
 
 const DEBUG = process.env.DEBUG_PROFILE === '1';
 
@@ -17,6 +18,7 @@ class MarketProfileService extends EventEmitter {
   }
 
   subscribeToSymbol(symbol, source = 'ctrader', currentPrice = null) {
+    symbol = normalizeSymbol(symbol);
     if (!this.profiles.has(symbol)) {
       // Use price-based bucket size if available, otherwise use default
       const bucketSize = calculateBucketSizeForSymbol(symbol, currentPrice);
@@ -36,6 +38,7 @@ class MarketProfileService extends EventEmitter {
   }
 
   cleanupSymbol(symbol) {
+    symbol = normalizeSymbol(symbol);
     // Remove pending bars buffer
     this.pendingBars.delete(symbol);
     // Remove all keys starting with symbol (including source-specific keys)
@@ -53,7 +56,19 @@ class MarketProfileService extends EventEmitter {
     this.symbolSources.delete(symbol);
   }
 
+  /**
+   * Whether a symbol's profile is currently initializing (history build in
+   * progress). Normalizes the symbol so external callers (e.g. WebSocketServer)
+   * can pass any feed's name form rather than reaching into the Map directly.
+   * @param {string} symbol - Symbol identifier (any feed form)
+   * @returns {boolean}
+   */
+  isSymbolInitializing(symbol) {
+    return !!this.isInitializing.get(normalizeSymbol(symbol));
+  }
+
   onM1Bar(symbol, bar, source = null) {
+    symbol = normalizeSymbol(symbol);
     let profile = this.profiles.get(symbol);
     if (!profile) {
       // Check if currently initializing - if so, buffer the bar
@@ -73,7 +88,9 @@ class MarketProfileService extends EventEmitter {
       // Use provided source or default to tradingview
       const initSource = source || 'tradingview';
       console.warn(`[MarketProfileService] No profile found for ${symbol}, auto-initializing from live M1 bars with source=${initSource}`);
-      this.subscribeToSymbol(symbol, initSource);
+      // Pass bar.close as currentPrice so a stray auto-init uses a price-based
+      // bucket instead of the flat 0.0001 forex default (the regression root cause).
+      this.subscribeToSymbol(symbol, initSource, bar.close);
       profile = this.profiles.get(symbol);
       if (!profile) {
         console.error(`[MarketProfileService] Failed to auto-initialize ${symbol}`);
@@ -205,6 +222,7 @@ class MarketProfileService extends EventEmitter {
   }
 
   getFullProfile(symbol) {
+    symbol = normalizeSymbol(symbol);
     const profile = this.profiles.get(symbol);
     if (!profile) return null;
 
@@ -219,6 +237,7 @@ class MarketProfileService extends EventEmitter {
   }
 
   processPendingBars(symbol) {
+    symbol = normalizeSymbol(symbol);
     const pending = this.pendingBars.get(symbol);
     if (!pending || pending.length === 0) {
       return 0;
@@ -297,6 +316,7 @@ class MarketProfileService extends EventEmitter {
   }
 
   initializeFromHistory(symbol, m1Bars, bucketSize, source = 'ctrader') {
+    symbol = normalizeSymbol(symbol);
     // Guard: Prevent concurrent initialization for the same symbol
     if (this.isInitializing.get(symbol)) {
       console.warn(`[MarketProfileService] Already initializing ${symbol}, skipping duplicate initialization request`);
@@ -400,6 +420,7 @@ class MarketProfileService extends EventEmitter {
    * @private
    */
   _incrementSequence(symbol) {
+    symbol = normalizeSymbol(symbol);
     const seq = (this.sequenceNumbers.get(symbol) || 0) + 1;
     this.sequenceNumbers.set(symbol, seq);
     return seq;
@@ -410,6 +431,7 @@ class MarketProfileService extends EventEmitter {
    * @param {string} symbol - Symbol identifier
    */
   reemitProfile(symbol) {
+    symbol = normalizeSymbol(symbol);
     const profile = this.profiles.get(symbol);
     if (!profile || profile.levels.size === 0) {
       return;
