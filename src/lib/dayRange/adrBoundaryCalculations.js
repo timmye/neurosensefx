@@ -45,7 +45,3 @@ export function calculateReferenceLines(boundaries, priceScale, adrValue) {
     fiftyPercentPrice
   };
 }
-
-export function shouldShowReferenceLines(upperExpansion, lowerExpansion) {
-  return upperExpansion > 0.5 || lowerExpansion > 0.5;
-}

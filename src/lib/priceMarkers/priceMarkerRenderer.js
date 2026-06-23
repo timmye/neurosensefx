@@ -1,8 +1,7 @@
 // Day Range Price Marker Renderer - Crystal Clarity Compliant
 // Framework-first: Current, open, and H/L price markers with Canvas 2D
 
-import { MARKER_TYPES } from './priceMarkers.js';
-import { renderMarkerLine, formatPriceForDisplay } from './priceMarkerBase.js';
+import { renderMarkerLine } from './priceMarkerBase.js';
 import {
   computeCurrentPrice,
   computeOpenPrice,

@@ -45,23 +45,9 @@ export function getMarkerAtPosition(markers, yPosition, priceScale, hitThreshold
   });
 }
 
-export function isValidPrice(price) {
+function isValidPrice(price) {
   return price !== null &&
          price !== undefined &&
          !isNaN(parseFloat(price)) &&
          isFinite(price);
-}
-
-export function filterMarkersByDisplay(markers, displayId) {
-  return markers.filter(marker => marker.displayId === displayId);
-}
-
-export function removeMarkerById(markers, markerId) {
-  return markers.filter(marker => marker.id !== markerId);
-}
-
-export function getMarkersByPriceRange(markers, minPrice, maxPrice) {
-  return markers.filter(marker =>
-    marker.price >= minPrice && marker.price <= maxPrice
-  );
 }

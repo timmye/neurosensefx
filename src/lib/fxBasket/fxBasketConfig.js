@@ -1,22 +1,6 @@
 // FX Basket visual configuration
 // Centralizes colors, fonts, positioning for consistency
 
-export const CURRENCY_COLORS = {
-  'USD': '#4a9eff',
-  'EUR': '#ef4444',
-  'JPY': '#f59e0b',
-  'GBP': '#8b5cf6',
-  'AUD': '#10b981',
-  'CAD': '#14b8a6',
-  'CHF': '#dc2626',
-  'NZD': '#84cc16'
-};
-
-export const ANCHOR_CONFIG = {
-  defaultTime: '17:00',
-  timezone: 'America/New_York'
-};
-
 const defaultConfig = {
   colors: {
     baseline: '#6B7280',
@@ -41,20 +25,6 @@ const defaultConfig = {
 export function getConfig(overrides = {}) {
   return { ...defaultConfig, ...overrides };
 }
-
-export const STATE_CONFIG = {
-  colors: {
-    waiting: '#F59E0B',
-    error: '#EF4444',
-    ready: '#10B981'
-  },
-  messages: {
-    waiting: (progress) => `Initializing... (${progress.received}/${progress.total} pairs)`,
-    error: (missing) => `Unable to initialize - missing ${missing.length} pairs`,
-    timeout: 'Initialization timeout - some pairs failed to arrive'
-  },
-  timeout: 30000
-};
 
 export const fxBasketConfig = defaultConfig;
 

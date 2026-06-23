@@ -352,7 +352,6 @@ function loadFromLocalStorage() {
   }
 }
 
-export { displayStore, displayActions };
 export { persistence as workspacePersistence };
 export const workspaceActions = actions;
 

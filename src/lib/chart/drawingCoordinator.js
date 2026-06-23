@@ -4,7 +4,7 @@
  * and chartDrawingHandlers into one cohesive module.
  */
 
-import { writable, derived } from 'svelte/store';
+import { writable } from 'svelte/store';
 import { DrawingCommandStack, CreateDrawingCommand } from './drawingCommands.js';
 import { DeleteDrawingCommand } from './DeleteDrawingCommand.js';
 import { getFadedStyles, withOriginBadge, isPriceOnlyOverlay } from './styleUtils.js';

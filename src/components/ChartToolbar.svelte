@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { RESOLUTION_GROUPS, TIME_WINDOW_GROUPS, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
-  import { timezoneStore, TIMEZONE_PRESETS, resolvedTimezone } from '../stores/timezoneStore.js';
+  import { timezoneStore, TIMEZONE_PRESETS } from '../stores/timezoneStore.js';
   import { themeStore, toggleTheme } from '../stores/themeStore.js';
 
   export let currentResolution = '4h';

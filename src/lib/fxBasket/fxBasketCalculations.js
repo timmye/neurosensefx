@@ -78,12 +78,6 @@ export function getAllPairs() {
   return Array.from(pairSet);
 }
 
-// Check if state has all daily opens for baseline initialization
-// Requires 100% of pairs for accurate basket calculation
-export function hasMinimumDailyOpens(state) {
-  return state.dailyOpenPrices.size >= getAllPairs().length;
-}
-
 // Validate calculation result for correctness
 // Returns: { valid: boolean, reason: string|null }
 export function validateCalculationResult(result) {
