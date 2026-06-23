@@ -1,5 +1,8 @@
 'use strict';
 
+const { createLogger } = require('./Logger');
+const log = createLogger('SafeSender');
+
 const BUFFER_THRESHOLD = 64 * 1024; // 64KB
 const SLOW_DISCONNECT_CODE = 4002;
 
@@ -17,7 +20,7 @@ function send(ws, message) {
 
     if (ws.bufferedAmount > BUFFER_THRESHOLD) {
         slowDisconnectCount++;
-        console.warn(`[SafeSender] Disconnecting slow client (bufferedAmount=${ws.bufferedAmount})`);
+        log.warn(`Disconnecting slow client (bufferedAmount=${ws.bufferedAmount})`);
         try {
             ws.close(SLOW_DISCONNECT_CODE, 'Slow connection');
         } catch (e) {
@@ -30,7 +33,7 @@ function send(ws, message) {
         ws.send(message);
         return true;
     } catch (error) {
-        console.error(`[SafeSender] Failed to send: ${error.message}`);
+        log.error(`Failed to send: ${error.message}`);
         return false;
     }
 }

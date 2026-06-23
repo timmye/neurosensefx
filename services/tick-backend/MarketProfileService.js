@@ -1,7 +1,7 @@
 const EventEmitter = require('events');
 const { normalizeSymbol } = require('./utils/normalizeSymbol');
-
-const DEBUG = process.env.DEBUG_PROFILE === '1';
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('MarketProfileService');
 
 class MarketProfileService extends EventEmitter {
   constructor() {
@@ -73,7 +73,7 @@ class MarketProfileService extends EventEmitter {
     if (!profile) {
       // Check if currently initializing - if so, buffer the bar
       if (this.isInitializing.get(symbol)) {
-        if (DEBUG) console.log(`[MarketProfileService] Profile initializing for ${symbol}, buffering bar`);
+        log.debug(`Profile initializing for ${symbol}, buffering bar`);
         let pending = this.pendingBars.get(symbol);
         if (!pending) {
           pending = [];
@@ -87,13 +87,13 @@ class MarketProfileService extends EventEmitter {
 
       // Use provided source or default to tradingview
       const initSource = source || 'tradingview';
-      console.warn(`[MarketProfileService] No profile found for ${symbol}, auto-initializing from live M1 bars with source=${initSource}`);
+      log.warn(`No profile found for ${symbol}, auto-initializing from live M1 bars with source=${initSource}`);
       // Pass bar.close as currentPrice so a stray auto-init uses a price-based
       // bucket instead of the flat 0.0001 forex default (the regression root cause).
       this.subscribeToSymbol(symbol, initSource, bar.close);
       profile = this.profiles.get(symbol);
       if (!profile) {
-        console.error(`[MarketProfileService] Failed to auto-initialize ${symbol}`);
+        log.error(`Failed to auto-initialize ${symbol}`);
         return;
       }
     }
@@ -112,7 +112,7 @@ class MarketProfileService extends EventEmitter {
 
     // Guard: Skip if already processing pending bars for this symbol
     if (this.isProcessingPending.get(symbol)) {
-      if (DEBUG) console.log(`[MarketProfileService] Skipping bar for ${symbol} - currently processing pending bars`);
+      log.debug(`Skipping bar for ${symbol} - currently processing pending bars`);
       return 0;
     }
 
@@ -124,10 +124,10 @@ class MarketProfileService extends EventEmitter {
       if (pending) {
         // Enforce maximum pending bars limit to prevent unbounded memory growth
         if (pending.length >= this.MAX_PENDING_BARS) {
-          console.warn(`[MarketProfileService] Pending bars limit reached (${this.MAX_PENDING_BARS}) for ${symbol}, dropping newest unprocessed bar`);
+          log.warn(`Pending bars limit reached (${this.MAX_PENDING_BARS}) for ${symbol}, dropping newest unprocessed bar`);
           return;
         }
-        if (DEBUG) console.log(`[MarketProfileService] Buffering bar for ${symbol} during initialization (timestamp: ${new Date(bar.timestamp).toISOString()})`);
+        log.debug(`Buffering bar for ${symbol} during initialization (timestamp: ${new Date(bar.timestamp).toISOString()})`);
         pending.push(bar);
         return;
       }
@@ -143,13 +143,13 @@ class MarketProfileService extends EventEmitter {
     const lastBarData = this.lastBarTimestamps.get(dedupeKey);
 
     if (lastBarData === barSignature) {
-      if (DEBUG) console.log(`[MarketProfileService] Skipping identical bar for ${symbol}:${barSource}`);
+      log.debug(`Skipping identical bar for ${symbol}:${barSource}`);
       return;
     }
     this.lastBarTimestamps.set(dedupeKey, barSignature);
 
     if (profile.levels.size >= this.MAX_LEVELS) {
-      console.warn(`[MarketProfile] ${symbol} exceeded ${this.MAX_LEVELS} levels`);
+      log.warn(`${symbol} exceeded ${this.MAX_LEVELS} levels`);
       this.emit('profileError', {
         symbol,
         error: 'MAX_LEVELS_EXCEEDED',
@@ -176,16 +176,13 @@ class MarketProfileService extends EventEmitter {
 
     profile.lastUpdate = bar.timestamp;
 
-    // DIAGNOSTIC: Log what actually changed
-    if (DEBUG && (delta.added.length > 0 || delta.updated.length > 0)) {
-      if (delta.updated.length > 0 && delta.updated.length <= 5) {
-        console.log(`[MarketProfileService] ${symbol} Updated TPOs:`, delta.updated.map(u => `${u.price}→${u.tpo}`).join(', '));
-      }
+    if (delta.updated.length > 0 && delta.updated.length <= 5) {
+      log.debug(`${symbol} Updated TPOs:`, delta.updated.map(u => `${u.price}→${u.tpo}`).join(', '));
     }
 
     const seq = this._incrementSequence(symbol);
     // source is already declared above
-    if (DEBUG) console.log(`[MarketProfileService] EMITTING profileUpdate for ${symbol} (${source}), seq=${seq}, delta: +${delta.added.length} ~${delta.updated.length}`);
+    log.debug(`EMITTING profileUpdate for ${symbol} (${source}), seq=${seq}, delta: +${delta.added.length} ~${delta.updated.length}`);
     this.emit('profileUpdate', {
       symbol,
       delta: { added: delta.added, updated: delta.updated },
@@ -197,14 +194,14 @@ class MarketProfileService extends EventEmitter {
   generatePriceLevels(low, high, bucketSize) {
     // Validate inputs to prevent corrupted price levels
     if (!isFinite(low) || !isFinite(high) || !isFinite(bucketSize) || bucketSize <= 0) {
-      console.error(`[MarketProfileService] Invalid price level inputs: low=${low}, high=${high}, bucketSize=${bucketSize}`);
+      log.error(`Invalid price level inputs: low=${low}, high=${high}, bucketSize=${bucketSize}`);
       return [];
     }
 
     // Sanity check: price range should be reasonable
     const priceRange = high - low;
     if (priceRange < 0 || priceRange > 1000000) {
-      console.warn(`[MarketProfileService] Suspicious price range: ${priceRange} (low=${low}, high=${high})`);
+      log.warn(`Suspicious price range: ${priceRange} (low=${low}, high=${high})`);
     }
 
     const levels = [];
@@ -252,7 +249,7 @@ class MarketProfileService extends EventEmitter {
     this.isProcessingPending.set(symbol, true);
 
     try {
-      if (DEBUG) console.log(`[MarketProfileService] Processing ${pending.length} pending bars for ${symbol}`);
+      log.debug(`Processing ${pending.length} pending bars for ${symbol}`);
       const processedCount = pending.length;
 
       // Process each buffered bar through the normal onM1Bar flow
@@ -260,7 +257,7 @@ class MarketProfileService extends EventEmitter {
         // Skip the initialization check since we're now initialized
         const profile = this.profiles.get(symbol);
         if (!profile || profile.levels.size === 0) {
-          console.warn(`[MarketProfileService] Profile not initialized while processing pending bars for ${symbol}`);
+          log.warn(`Profile not initialized while processing pending bars for ${symbol}`);
           this.pendingBars.delete(symbol);
           return 0;
         }
@@ -271,13 +268,13 @@ class MarketProfileService extends EventEmitter {
         const barSignature = `${bar.timestamp}|${bar.low}|${bar.high}|${bar.close}`;
         const lastBarData = this.lastBarTimestamps.get(dedupeKey);
         if (lastBarData === barSignature) {
-          if (DEBUG) console.log(`[MarketProfileService] Skipping identical pending bar for ${symbol}:${source}`);
+          log.debug(`Skipping identical pending bar for ${symbol}:${source}`);
           continue;
         }
         this.lastBarTimestamps.set(dedupeKey, barSignature);
 
         if (profile.levels.size >= this.MAX_LEVELS) {
-          console.warn(`[MarketProfile] ${symbol} exceeded ${this.MAX_LEVELS} levels while processing pending bars`);
+          log.warn(`${symbol} exceeded ${this.MAX_LEVELS} levels while processing pending bars`);
           this.emit('profileError', {
             symbol,
             error: 'MAX_LEVELS_EXCEEDED',
@@ -305,7 +302,7 @@ class MarketProfileService extends EventEmitter {
       const seq = this._incrementSequence(symbol);
       const source = this.symbolSources.get(symbol) || 'ctrader';
       const fullProfile = this.getFullProfile(symbol);
-      if (DEBUG) console.log(`[MarketProfileService] EMITTING profileUpdate after processing pending bars for ${symbol} (${source}), seq=${seq}, levels=${fullProfile.levels.length}`);
+      log.debug(`EMITTING profileUpdate after processing pending bars for ${symbol} (${source}), seq=${seq}, levels=${fullProfile.levels.length}`);
       this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
 
       return processedCount;
@@ -319,7 +316,7 @@ class MarketProfileService extends EventEmitter {
     symbol = normalizeSymbol(symbol);
     // Guard: Prevent concurrent initialization for the same symbol
     if (this.isInitializing.get(symbol)) {
-      console.warn(`[MarketProfileService] Already initializing ${symbol}, skipping duplicate initialization request`);
+      log.warn(`Already initializing ${symbol}, skipping duplicate initialization request`);
       return;
     }
 
@@ -334,7 +331,7 @@ class MarketProfileService extends EventEmitter {
 
       if (existingDayStart === newDataDayStart) {
         // Same day - safe to skip reinitialization (optimization for multi-client subscriptions)
-        if (DEBUG) console.log(`[MarketProfileService] ${symbol} already initialized for ${newDataDayStart}, skipping reinitialization`);
+        log.debug(`${symbol} already initialized for ${newDataDayStart}, skipping reinitialization`);
         const seq = this._incrementSequence(symbol);
         const fullProfile = this.getFullProfile(symbol);
         this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
@@ -372,7 +369,7 @@ class MarketProfileService extends EventEmitter {
         // Emit initial empty profile so frontend knows profile is ready
         const seq = this._incrementSequence(symbol);
         const fullProfile = this.getFullProfile(symbol);
-        if (DEBUG) console.log(`[MarketProfileService] EMITTING initial empty profile for ${symbol} (${source}), levels=${fullProfile.levels.length}, seq=${seq}`);
+        log.debug(`EMITTING initial empty profile for ${symbol} (${source}), levels=${fullProfile.levels.length}, seq=${seq}`);
         this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
         this.pendingBars.delete(symbol);
         return;
@@ -383,7 +380,7 @@ class MarketProfileService extends EventEmitter {
 
       for (const bar of m1Bars) {
         if (profile.levels.size >= this.MAX_LEVELS) {
-          console.warn(`[MarketProfile] ${symbol} reached ${this.MAX_LEVELS} levels during historical initialization, stopping`);
+          log.warn(`${symbol} reached ${this.MAX_LEVELS} levels during historical initialization, stopping`);
           break;
         }
         const levels = this.generatePriceLevels(bar.low, bar.high, bucketSize);
@@ -392,18 +389,18 @@ class MarketProfileService extends EventEmitter {
         }
       }
 
-      if (DEBUG) console.log(`[MarketProfileService] Initialized ${symbol} with ${profile.levels.size} price levels`);
+      log.debug(`Initialized ${symbol} with ${profile.levels.size} price levels`);
 
       // Process any bars that arrived during initialization
       const pendingCount = this.processPendingBars(symbol);
       if (pendingCount > 0) {
-        if (DEBUG) console.log(`[MarketProfileService] Processed ${pendingCount} pending bars that arrived during initialization for ${symbol}`);
+        log.debug(`Processed ${pendingCount} pending bars that arrived during initialization for ${symbol}`);
       }
 
       // Emit profileUpdate so frontend receives the initialized profile
       const seq = this._incrementSequence(symbol);
       const fullProfile = this.getFullProfile(symbol);
-      if (DEBUG) console.log(`[MarketProfileService] EMITTING profileUpdate after initializeFromHistory for ${symbol} (${source}), levels=${fullProfile.levels.length}`);
+      log.debug(`EMITTING profileUpdate after initializeFromHistory for ${symbol} (${source}), levels=${fullProfile.levels.length}`);
       this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
     } finally {
       // Always clear the initialization guard, even if an error occurred
@@ -440,7 +437,7 @@ class MarketProfileService extends EventEmitter {
     const source = this.symbolSources.get(symbol) || 'ctrader';
     const seq = this._incrementSequence(symbol);
     const fullProfile = this.getFullProfile(symbol);
-    if (DEBUG) console.log(`[MarketProfileService] RE-EMITTING profileUpdate for ${symbol} (${source}), seq=${seq}, levels=${fullProfile.levels.length}`);
+    log.debug(`RE-EMITTING profileUpdate for ${symbol} (${source}), seq=${seq}, levels=${fullProfile.levels.length}`);
     this.emit('profileUpdate', { symbol, profile: fullProfile, seq, source });
   }
 

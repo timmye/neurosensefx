@@ -59,4 +59,10 @@ const config = {
     redisUrl: optional('REDIS_URL', 'redis://localhost:6379'),
 };
 
+// ── Logging ───────────────────────────────────────────────────────────
+// Verbosity: error | warn | info | debug. Defaults to info in production, debug otherwise.
+const _knownLevels = ['error', 'warn', 'info', 'debug'];
+const _logLevelRaw = (optional('LOG_LEVEL', config.nodeEnv === 'production' ? 'info' : 'debug') || 'info').toLowerCase();
+config.logLevel = _knownLevels.includes(_logLevelRaw) ? _logLevelRaw : 'info';
+
 module.exports = config;

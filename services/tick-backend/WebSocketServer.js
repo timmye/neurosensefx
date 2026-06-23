@@ -9,6 +9,8 @@ const { SubscriptionManager } = require('./SubscriptionManager');
 const { RequestCoordinator } = require('./RequestCoordinator');
 const { StatusBroadcaster } = require('./StatusBroadcaster');
 const { RESOLUTION_TO_PERIOD, SYMBOL_RE } = require('./utils/constants');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('WebSocketServer');
 
 class WebSocketServer {
     // Constructor receives an http.Server instead of a port number (ref: DL-002).
@@ -90,7 +92,7 @@ class WebSocketServer {
         this.tradingViewSession.on('disconnected', () => {
             this.statusBroadcaster.broadcastStatus('disconnected');
         });
-        this.tradingViewSession.on('error', (error) => console.error('[TradingView] Backend error:', error));
+        this.tradingViewSession.on('error', (error) => log.error('[TradingView] Backend error:', error));
 
         // Start heartbeat to keep frontend connections alive
         // Frontend expects messages within 30 seconds, we send every 15 seconds
@@ -110,12 +112,12 @@ class WebSocketServer {
                 if (slowDisconnects > 0) {
                     parts.push(`${slowDisconnects} slow-client disconnect(s)`);
                 }
-                console.log(`[WebSocketServer] Heartbeat summary: ${parts.join(', ')}`);
+                log.debug(`Heartbeat summary: ${parts.join(', ')}`);
             }
         }, 300000);
 
         // Schedule daily reset at 0000hrs UTC
-        console.log('[WebSocketServer] Scheduling daily reset at 0000hrs UTC');
+        log.info('Scheduling daily reset at 0000hrs UTC');
         this.scheduleDailyReset();
     }
 
@@ -151,7 +153,7 @@ class WebSocketServer {
         // Skip symbols with in-flight initialization to avoid race with initializeFromHistory
         for (const symbol of activeSymbols) {
             if (this.marketProfileService.isSymbolInitializing(symbol) || this.twapService.isSymbolInitializing(symbol)) {
-                console.warn(`[WebSocketServer] Skipping daily reset for ${symbol} — initialization in progress`);
+                log.warn(`Skipping daily reset for ${symbol} — initialization in progress`);
                 continue;
             }
             this.twapService.resetDaily(symbol);
@@ -200,7 +202,7 @@ class WebSocketServer {
                     }
                 }
             } catch (error) {
-                console.error(`[WebSocketServer] Failed to re-fetch data for ${symbol} during daily reset:`, error.message);
+                log.error(`Failed to re-fetch data for ${symbol} during daily reset:`, error.message);
             }
         }
     }
@@ -245,7 +247,7 @@ class WebSocketServer {
             }
             ws.userId = userId;
             this.wsByUserId.set(userId, ws);
-            console.log('Client connected (userId=' + userId + ')');
+            log.debug('Client connected (userId=' + userId + ')');
             this.attachConnectionHandlers(ws);
         }).catch(() => {
             ws.close(4001, 'Session validation failed');
@@ -256,7 +258,7 @@ class WebSocketServer {
     attachConnectionHandlers(ws) {
         ws.on('message', (message) => this.handleMessage(ws, message));
         ws.on('close', () => this.handleClose(ws));
-        ws.on('error', (error) => console.error('Client WebSocket error:', error));
+        ws.on('error', (error) => log.error('Client WebSocket error:', error));
         this.statusBroadcaster.sendInitialStatus(ws);
     }
 
@@ -266,7 +268,7 @@ class WebSocketServer {
         try {
             data = JSON.parse(message);
         } catch (parseError) {
-            console.error('[WebSocketServer] JSON parse error:', parseError.message);
+            log.error('JSON parse error:', parseError.message);
             return this.sendToClient(ws, {
                 type: 'error',
                 message: 'Invalid message format.',
@@ -357,10 +359,10 @@ class WebSocketServer {
                     this.handleUnsubscribeCandles(ws, data);
                     break;
                 default:
-                    console.warn(`Unknown message type: ${data.type}`);
+                    log.warn(`Unknown message type: ${data.type}`);
             }
         } catch (processingError) {
-            console.error(`[WebSocketServer] Processing error for ${data.symbol || 'unknown'}:`, processingError.message);
+            log.error(`Processing error for ${data.symbol || 'unknown'}:`, processingError.message);
             this.sendToClient(ws, {
                 type: 'error',
                 message: processingError.message || 'Processing failed',
@@ -383,7 +385,7 @@ class WebSocketServer {
         // Subscribe to ticks first if first subscriber for cTrader
         if (isFirstSubscriber && source === 'ctrader') {
             this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
-                console.error(`Failed to subscribe to ticks for ${symbolName}:`, err?.message || String(err));
+                log.error(`Failed to subscribe to ticks for ${symbolName}:`, err?.message || String(err));
                 // Notify client of subscription failure so frontend can track failed pairs
                 this.sendToClient(ws, {
                     type: 'error',
@@ -399,7 +401,7 @@ class WebSocketServer {
         const onDataReceived = () => {
             if (source === 'ctrader') {
                 this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
-                    console.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err?.message || String(err));
+                    log.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err?.message || String(err));
                     // Notify client of subscription failure
                     this.sendToClient(ws, {
                         type: 'error',
@@ -512,7 +514,7 @@ class WebSocketServer {
                 currentPrice: this.lastPrices.get(symbol)?.price ?? null
             });
         } catch (error) {
-            console.error(`[TV-CHART] Failed to fetch historical candles for ${symbol} ${resolution} (${source}):`, error.message);
+            log.error(`[TV-CHART] Failed to fetch historical candles for ${symbol} ${resolution} (${source}):`, error.message);
             this.sendToClient(ws, {
                 type: 'candleHistory',
                 symbol,
@@ -564,7 +566,7 @@ class WebSocketServer {
                 const hasTVSub = this.subscriptionManager.getSubscribedClients(symbol, 'tradingview')?.size > 0;
                 if (!hasTVSub) {
                     this.handleSubscribe(ws, symbol, 14, 'tradingview').catch(err => {
-                        console.error(`[TV-CHART] Failed to initiate TradingView subscription for ${symbol}:`, err.message);
+                        log.error(`[TV-CHART] Failed to initiate TradingView subscription for ${symbol}:`, err.message);
                     });
                 }
                 this.sendToClient(ws, {
@@ -595,7 +597,7 @@ class WebSocketServer {
                         clients.delete(ws);
                         if (clients.size === 0) this.candleSubscriptions.delete(key);
                     }
-                    console.error(`[WebSocketServer] Failed to subscribe to candles for ${symbol} ${resolution}:`, error.message || error);
+                    log.error(`Failed to subscribe to candles for ${symbol} ${resolution}:`, error.message || error);
                     this.sendToClient(ws, {
                         type: 'error',
                         message: `Failed to subscribe to candles: ${error.message || error}`,
@@ -639,7 +641,7 @@ class WebSocketServer {
             // Only unsubscribe from backend when last client leaves
             if (source === 'ctrader') {
                 this.cTraderSession.unsubscribeFromBars(symbol, period).catch(err => {
-                    console.error(`[WebSocketServer] Failed to unsubscribe from candles for ${symbol} ${resolution}:`, err.message);
+                    log.error(`Failed to unsubscribe from candles for ${symbol} ${resolution}:`, err.message);
                 });
             }
             // TradingView subscriptions are managed by the ticker subscription lifecycle
@@ -651,7 +653,7 @@ class WebSocketServer {
     }
     
     handleClose(ws) {
-        console.log('Client disconnected');
+        log.debug('Client disconnected');
         // Clean up userId registry on disconnect. Only delete if this is the
         // current connection for the user (avoids deleting a newer connection) (ref: DL-023).
         if (ws.userId) {
@@ -688,7 +690,7 @@ class WebSocketServer {
                     const source = parts[parts.length - 1];
                     if (source === 'ctrader') {
                         this.cTraderSession.unsubscribeFromBars(symbol, period).catch(err => {
-                            console.error(`[WebSocketServer] Failed to unsubscribe from candles on client disconnect for ${key}:`, err.message);
+                            log.error(`Failed to unsubscribe from candles on client disconnect for ${key}:`, err.message);
                         });
                     }
                 }

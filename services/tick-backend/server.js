@@ -1,5 +1,7 @@
 const path = require('path');
 const config = require('./config');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('Server');
 
 const { CTraderSession } = require('./CTraderSession');
 const { TradingViewSession } = require('./TradingViewSession');
@@ -16,10 +18,10 @@ const marketProfileService = new MarketProfileService();
 // Environment-aware port configuration
 const port = config.port || (config.nodeEnv === 'production' ? 8081 : 8080);
 
-console.log(`Backend Environment: ${config.nodeEnv}`);
-console.log(`Backend WebSocket Port: ${port}`);
-console.log(`WebSocket URL: ws://localhost:${port}`);
-console.log(`TradingView Session: ${config.tradingViewSession ? 'authenticated' : 'unauthenticated (limited)'}`);
+log.info(`Backend Environment: ${config.nodeEnv}`);
+log.info(`Backend WebSocket Port: ${port}`);
+log.info(`WebSocket URL: ws://localhost:${port}`);
+log.info(`TradingView Session: ${config.tradingViewSession ? 'authenticated' : 'unauthenticated (limited)'}`);
 
 const session = new CTraderSession();
 const tradingViewSession = new TradingViewSession(twapService, marketProfileService);
@@ -33,28 +35,28 @@ const wsServer = new WebSocketServer(httpServer, session, tradingViewSession, tw
 // Start Express HTTP server and verify PostgreSQL auth schema on startup (ref: DL-002, DL-004)
 listenHttp(port);
 verifySchema().catch(err => {
-    console.error('[DB] Schema verification failed on startup:', err.message);
+    log.error('[DB] Schema verification failed on startup:', err.message);
     process.exit(1);
 });
 
 // Global error handlers — uncaught exceptions are fatal; exit so the process manager can restart cleanly.
 process.on('uncaughtException', (error) => {
-    console.error('[FATAL] Uncaught exception:', error.message);
-    console.error(error.stack);
+    log.error('[FATAL] Uncaught exception:', error.message);
+    log.error(error.stack);
     // Allow logs to flush before exiting; the process manager (pm2/Docker/run.sh) will restart.
     setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[FATAL] Unhandled promise rejection:', reason);
-    console.error('at:', promise);
+    log.error('[FATAL] Unhandled promise rejection:', reason);
+    log.error('at:', promise);
 });
 
 const { sessionManager } = require('./middleware');
 
 // Handle graceful shutdown — drain DB pool and Redis before exit
 async function gracefulShutdown(signal) {
-    console.log(`${signal} received, shutting down backend...`);
+    log.info(`${signal} received, shutting down backend...`);
     session.disconnect();
     tradingViewSession.disconnect();
     wsServer.close(); // Stop heartbeat
@@ -62,21 +64,21 @@ async function gracefulShutdown(signal) {
     // Drain PostgreSQL pool
     try {
         await pool.end();
-        console.log('[DB] PostgreSQL pool closed.');
+        log.info('[DB] PostgreSQL pool closed.');
     } catch (err) {
-        console.error('[DB] Error closing pool:', err.message);
+        log.error('[DB] Error closing pool:', err.message);
     }
 
     // Close Redis connection
     try {
         sessionManager.redis.quit();
-        console.log('[SessionManager] Redis connection closed.');
+        log.info('[SessionManager] Redis connection closed.');
     } catch (err) {
-        console.error('[SessionManager] Error closing Redis:', err.message);
+        log.error('[SessionManager] Error closing Redis:', err.message);
     }
 
     wsServer.wss.close(() => {
-        console.log('WebSocket server closed.');
+        log.info('WebSocket server closed.');
         process.exit(0);
     });
 }
@@ -87,13 +89,13 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 // Initiate the cTrader session connection when the backend starts
 session.connect()
     .catch((error) => {
-        console.error('[ERROR] Failed to connect to cTrader:', error);
+        log.error('[ERROR] Failed to connect to cTrader:', error);
         // Continue running - graceful degradation
     });
 
 // Initiate the TradingView session connection
 tradingViewSession.connect(config.tradingViewSession)
     .catch((error) => {
-        console.error('[ERROR] Failed to connect to TradingView:', error);
+        log.error('[ERROR] Failed to connect to TradingView:', error);
         // Continue running - graceful degradation
     });

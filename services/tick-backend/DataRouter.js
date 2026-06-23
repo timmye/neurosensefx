@@ -4,6 +4,8 @@
  */
 const { buildCTraderMessage, buildTradingViewMessage, buildCandleUpdateMessage } = require('./utils/MessageBuilder');
 const { send: safeSend } = require('./utils/SafeSender');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('DataRouter');
 
 class DataRouter {
     constructor(webSocketServer) {
@@ -50,7 +52,7 @@ class DataRouter {
             error,
             message
         };
-        console.error(`[DataRouter] routeProfileError: ${symbol} - ${error}: ${message}`);
+        log.error(`routeProfileError: ${symbol} - ${error}: ${message}`);
         this.broadcastToClients(error_message, symbol, 'ctrader');
         this.broadcastToClients(error_message, symbol, 'tradingview');
     }
@@ -67,7 +69,7 @@ class DataRouter {
             this.broadcastToClients(message, symbol, 'ctrader');
             this.broadcastToClients(message, symbol, 'tradingview');
         } catch (error) {
-            console.error(`[DataRouter] Error in routeTwapUpdate for ${symbol}:`, error);
+            log.error(`Error in routeTwapUpdate for ${symbol}:`, error);
         }
     }
 
@@ -145,7 +147,7 @@ class DataRouter {
         try {
             jsonMessage = JSON.stringify(message);
         } catch (error) {
-            console.error('[DataRouter] Failed to stringify candle update:', error);
+            log.error('Failed to stringify candle update:', error);
             return;
         }
 
@@ -153,7 +155,7 @@ class DataRouter {
             try {
                 safeSend(client, jsonMessage);
             } catch (error) {
-                console.error('[DataRouter] Failed to send candle update to client:', error.message);
+                log.error('Failed to send candle update to client:', error.message);
             }
         });
     }
@@ -175,7 +177,7 @@ class DataRouter {
         try {
             jsonMessage = JSON.stringify(message);
         } catch (error) {
-            console.error('[DataRouter] Failed to stringify message:', error);
+            log.error('Failed to stringify message:', error);
             return;
         }
 
@@ -183,7 +185,7 @@ class DataRouter {
             try {
                 safeSend(client, jsonMessage);
             } catch (error) {
-                console.error('[DataRouter] Failed to send to client:', error.message);
+                log.error('Failed to send to client:', error.message);
             }
         });
     }
