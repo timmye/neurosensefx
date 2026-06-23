@@ -16,6 +16,8 @@ const { ReconnectionManager } = require('./utils/ReconnectionManager');
 const { TradingViewCandleHandler, estimatePipData } = require('./TradingViewCandleHandler');
 const { TradingViewSubscriptionManager } = require('./TradingViewSubscriptionManager');
 const config = require('./config');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('TradingViewSession');
 
 class TradingViewSession extends EventEmitter {
     constructor(twapService = null, marketProfileService = null) {
@@ -85,11 +87,11 @@ class TradingViewSession extends EventEmitter {
             this.healthMonitor.recordTick();
             this.reconnection.reset();
 
-            console.log('[TradingView] Connected');
+            log.info('Connected');
             this.emit('connected');
 
         } catch (error) {
-            console.error('[TradingView] Connection failed:', error.message);
+            log.error('Connection failed:', error.message);
             this.handleDisconnect(error);
             throw error;
         }
@@ -106,12 +108,12 @@ class TradingViewSession extends EventEmitter {
                     this.handleSeriesCompleted(event.params);
                     break;
                 case 'symbol_error':
-                    console.error('[TradingView] Symbol error:', event.params);
+                    log.error('Symbol error:', event.params);
                     this.emit('error', new Error(event.params?.toString() || 'Unknown symbol error'));
                     break;
             }
         } catch (error) {
-            console.error('[TradingView] Error handling event:', error.message);
+            log.error('Error handling event:', error.message);
             this.emit('error', error);
         }
     }
@@ -169,9 +171,9 @@ class TradingViewSession extends EventEmitter {
             if (data.d1ChartSession === chartSession && !data.initialSent) {
                 if (data.historicalCandles.length > 0 && !data.d1Complete) {
                     data.d1Complete = true;
-                    console.log(`[TradingView] D1 series complete for ${symbol}`);
+                    log.info(`D1 series complete for ${symbol}`);
                 } else if (data.historicalCandles.length === 0 && !data.d1Complete) {
-                    console.error(`[TradingView] D1 series completed with zero candles for ${symbol}`);
+                    log.error(`D1 series completed with zero candles for ${symbol}`);
                     this.emit('error', new Error(`D1 series empty for ${symbol}`));
                     return;
                 }
@@ -185,9 +187,9 @@ class TradingViewSession extends EventEmitter {
             if (data.m1ChartSession === chartSession && !data.initialSent) {
                 if (data.m1Candles.length > 0 && !data.m1Complete) {
                     data.m1Complete = true;
-                    console.log(`[TradingView] M1 series complete for ${symbol} (${data.m1Candles.length} candles)`);
+                    log.info(`M1 series complete for ${symbol} (${data.m1Candles.length} candles)`);
                 } else if (data.m1Candles.length === 0 && !data.m1Complete) {
-                    console.error(`[TradingView] M1 series completed with zero candles for ${symbol}`);
+                    log.error(`M1 series completed with zero candles for ${symbol}`);
                     this.emit('error', new Error(`M1 series empty for ${symbol}`));
                     return;
                 }
@@ -289,18 +291,18 @@ class TradingViewSession extends EventEmitter {
         // tradingview-ws library doesn't emit standard 'close'/'error' events
         // Instead, we use the health monitor to detect stale connections
         this.staleEventHandler = () => {
-            console.log('[TradingView] Connection detected as stale, triggering reconnection');
+            log.info('Connection detected as stale, triggering reconnection');
             this.handleDisconnect(new Error('Connection stale - no data received'), true);
         };
 
         // Try to bind to library events if they exist (won't work with current library version)
         this.closeEventHandler = () => {
-            console.log('[TradingView] Connection closed');
+            log.info('Connection closed');
             this.handleDisconnect();
         };
 
         this.errorEventHandler = (err) => {
-            console.error('[TradingView] Connection error:', err);
+            log.error('Connection error:', err);
             this.handleDisconnect(err);
         };
 
@@ -351,7 +353,7 @@ class TradingViewSession extends EventEmitter {
     }
 
     async reconnect() {
-        console.log('[TradingViewSession] Manual reinit requested');
+        log.info('Manual reinit requested');
         this.healthMonitor.stop();
         this.reconnection.cancelReconnect();
         this.disconnect();
@@ -365,7 +367,7 @@ class TradingViewSession extends EventEmitter {
         }
 
         this.isDisconnecting = true;
-        if (error) console.error('[TradingView] connection failed:', error);
+        if (error) log.error('connection failed:', error);
 
         this.reconnection.cancelReconnect();
         this.healthMonitor.stop();

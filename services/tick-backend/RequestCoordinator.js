@@ -4,6 +4,8 @@
  */
 const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
 const { buildPrevDayFields } = require('./utils/MessageBuilder');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('RequestCoordinator');
 
 class RequestCoordinator {
     constructor(wsServer, fetchTimeout = 30000) {
@@ -165,7 +167,7 @@ class RequestCoordinator {
                     try {
                         onComplete();
                     } catch (error) {
-                        console.error(`[RequestCoordinator] Completion callback error for ${symbol}:`, error);
+                        log.error(`Completion callback error for ${symbol}:`, error);
                     }
                 }
 
@@ -220,7 +222,7 @@ class RequestCoordinator {
                     source
                 );
             } catch (error) {
-                console.error(`[RequestCoordinator] TWAP initialization failed for ${data.symbol}:`, error);
+                log.error(`TWAP initialization failed for ${data.symbol}:`, error);
             }
 
             try {
@@ -232,7 +234,7 @@ class RequestCoordinator {
                     source
                 );
             } catch (error) {
-                console.error(`[RequestCoordinator] Market Profile initialization failed for ${data.symbol}:`, error);
+                log.error(`Market Profile initialization failed for ${data.symbol}:`, error);
             }
         }
     }
@@ -257,7 +259,7 @@ class RequestCoordinator {
             return attemptFetch(retries + 1);
         }
 
-        console.error(`[COALESCE] Failed ${requestKey} after ${retries} retries:`, error);
+        log.error(`Failed ${requestKey} after ${retries} retries:`, error);
         this.pendingRequests.delete(requestKey);
 
         // Notify clients of all errors (not just rate limits) so frontend can track failed pairs
@@ -317,7 +319,7 @@ class RequestCoordinator {
                     try {
                         onComplete();
                     } catch (error) {
-                        console.error(`[RequestCoordinator] Completion callback error for ${symbol}:`, error);
+                        log.error(`Completion callback error for ${symbol}:`, error);
                     }
                 }
             }
@@ -329,7 +331,7 @@ class RequestCoordinator {
         const timeoutId = setTimeout(() => {
             this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
             this.pendingTradingViewRequests.delete(symbol);
-            console.error(`[RequestCoordinator] TradingView data timeout for ${symbol}`);
+            log.error(`TradingView data timeout for ${symbol}`);
             this.wsServer.sendToClient(client, {
                 type: 'error',
                 message: `Timeout waiting for TradingView data for ${symbol}`,
@@ -344,7 +346,7 @@ class RequestCoordinator {
                 await this.wsServer.tradingViewSession.subscribeToSymbol(symbol, adrLookbackDays);
             } catch (error) {
                 clearTimeout(timeoutId);
-                console.error(`Failed to get TradingView data for ${symbol}:`, error);
+                log.error(`Failed to get TradingView data for ${symbol}:`, error);
                 this.pendingTradingViewRequests.get(symbol)?.delete(client);
                 this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
                 this.wsServer.sendToClient(client, {

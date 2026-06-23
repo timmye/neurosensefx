@@ -4,6 +4,8 @@
  */
 const { Pool } = require('pg');
 const config = require('./config');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('DB');
 
 const pool = new Pool({
     host: config.pgHost,
@@ -17,7 +19,7 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-    console.error('[DB] Unexpected pool error:', err.message);
+    log.error('Unexpected pool error:', err.message);
 });
 
 /**
@@ -41,7 +43,7 @@ async function verifySchema() {
     );
     const tables = result.rows.map(r => r.table_name);
     if (tables.length === 5) {
-        console.log('[DB] Auth schema verified (5 tables found)');
+        log.info('Auth schema verified (5 tables found)');
     } else {
         throw new Error('Auth schema incomplete: found ' + tables.length + '/5 tables: ' + tables.join(', '));
     }

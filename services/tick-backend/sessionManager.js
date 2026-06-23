@@ -6,6 +6,8 @@
  * Redis SPOF is accepted for v1 single-VPS: host failure loses PostgreSQL too (ref: DL-013).
  */
 const Redis = require('ioredis');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('SessionManager');
 const crypto = require('crypto');
 const EventEmitter = require('events');
 const config = require('./config');
@@ -18,7 +20,7 @@ class SessionManager extends EventEmitter {
     constructor() {
         super();
         this.redis = new Redis(config.redisUrl);
-        this.redis.on('error', (err) => console.error('[SessionManager] Redis error:', err.message));
+        this.redis.on('error', (err) => log.error('Redis error:', err.message));
     }
 
     /** Cookie options shared between backend set-cookie and frontend reads (ref: DL-020). */
@@ -68,7 +70,7 @@ class SessionManager extends EventEmitter {
         const results = await multi.exec();
         for (const [err] of results) {
             if (err) {
-                console.error('[SessionManager] Redis multi.exec partial failure:', err.message);
+                log.error('Redis multi.exec partial failure:', err.message);
                 throw err;
             }
         }

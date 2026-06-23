@@ -4,6 +4,8 @@
  * Dev mode enables CORS for Vite dev server on localhost:5174. (ref: DL-002, DL-018)
  */
 const express = require('express');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('HTTP');
 const http = require('http');
 const cookieParser = require('cookie-parser');
 const config = require('./config');
@@ -67,7 +69,7 @@ function addCandleApiRoutes(cTraderSession) {
             );
             res.json({ symbol, resolution, period, bars, count: bars.length });
         } catch (error) {
-            console.error(`[API] Failed to fetch candles for ${symbol} ${resolution}:`, error.message);
+            log.error(`Failed to fetch candles for ${symbol} ${resolution}:`, error.message);
             res.status(500).json({ error: error.message, bars: [] });
         }
     });
@@ -89,7 +91,7 @@ const server = http.createServer(app);
 function listen(port) {
     return new Promise((resolve, reject) => {
         server.listen(port, () => {
-            console.log(`[HTTP] Express server listening on port ${port}`);
+            log.info(`Express server listening on port ${port}`);
             resolve(server);
         });
         server.on('error', reject);

@@ -5,6 +5,8 @@
 
 const { VALID_PERIODS } = require('./utils/constants');
 const { buildPrevDayFields } = require('./utils/MessageBuilder');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('CTraderDataProcessor');
 
 // Per-request range limits for cTrader trendbar requests (in milliseconds)
 const PERIOD_RANGE_LIMITS = {
@@ -159,7 +161,7 @@ class CTraderDataProcessor {
                 if (isRateLimit && retries < MAX_RETRIES) {
                     retries++;
                     const delay = 2000 * retries;
-                    console.warn(`[CTraderDataProcessor] Rate limited on ${period} bars for ${symbolName}, retry ${retries}/${MAX_RETRIES} in ${delay}ms`);
+                    log.warn(`Rate limited on ${period} bars for ${symbolName}, retry ${retries}/${MAX_RETRIES} in ${delay}ms`);
                     await sleep(delay);
 
                     // If first chunk failed and we haven't tried fallback range yet
@@ -175,7 +177,7 @@ class CTraderDataProcessor {
                     continue;
                 }
 
-                console.error(`[CTraderDataProcessor] Failed to fetch ${period} bars for ${symbolName} [${currentFrom} - ${chunkEnd}]:`, errMsg);
+                log.error(`Failed to fetch ${period} bars for ${symbolName} [${currentFrom} - ${chunkEnd}]:`, errMsg);
 
                 // If the very first chunk failed (non-rate-limit), retry from within the range limit
                 if (allBars.length === 0 && !firstChunkFailed && !isRateLimit) {

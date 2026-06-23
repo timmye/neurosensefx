@@ -5,6 +5,8 @@
  * Audit events logged to audit_log table (ref: DL-012, DL-015).
  */
 const express = require('express');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('Auth');
 const bcrypt = require('bcrypt');
 const { query } = require('./db');
 const { errorResponse, requireAuth, sessionManager, SESSION_COOKIE_NAME } = require('./middleware');
@@ -67,7 +69,7 @@ async function logAuthEvent(action, userId, details) {
             [action, userId, JSON.stringify(details)]
         );
     } catch (err) {
-        console.error('[Auth] Audit log failed:', err.message);
+        log.error('Audit log failed:', err.message);
     }
 }
 
@@ -108,7 +110,7 @@ router.post('/api/register', async (req, res) => {
 
         res.status(201).json({ user: { id: user.id, email: user.email, displayName: user.display_name } });
     } catch (err) {
-        console.error('[Auth] Register error:', err.message);
+        log.error('Register error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Registration failed');
     }
 });
@@ -151,7 +153,7 @@ router.post('/api/login', async (req, res) => {
 
         res.json({ user: { id: user.id, email: user.email, displayName: user.display_name } });
     } catch (err) {
-        console.error('[Auth] Login error:', err.message);
+        log.error('Login error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Login failed');
     }
 });
@@ -174,7 +176,7 @@ router.get('/api/me', requireAuth, async (req, res) => {
         const user = result.rows[0];
         res.json({ user: { id: user.id, email: user.email, displayName: user.display_name } });
     } catch (err) {
-        console.error('[Auth] GET /api/me error:', err.message);
+        log.error('GET /api/me error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Failed to fetch user');
     }
 });

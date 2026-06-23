@@ -3,6 +3,8 @@
  * Extracted from TradingViewSession for single responsibility.
  */
 const { TradingViewDataPackageBuilder } = require('./TradingViewDataPackageBuilder');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('TradingViewCandleHandler');
 
 class TradingViewCandleHandler {
     constructor(healthMonitor, calculateBucketSizeForSymbol, twapService = null, marketProfileService = null) {
@@ -57,7 +59,7 @@ class TradingViewCandleHandler {
 
         const M1_HARD_CAP = 1500;
         if (parsedM1.length > M1_HARD_CAP) {
-            console.warn(`[TradingView] M1 candle count ${parsedM1.length} exceeds hard cap ${M1_HARD_CAP} for ${symbol} - truncating`);
+            log.warn(`M1 candle count ${parsedM1.length} exceeds hard cap ${M1_HARD_CAP} for ${symbol} - truncating`);
             parsedM1.length = M1_HARD_CAP;
         }
 
@@ -140,7 +142,7 @@ class TradingViewCandleHandler {
             try {
                 this.twapService.initializeFromHistory(symbol, todaysM1Candles, 'tradingview');
             } catch (error) {
-                console.error(`[TradingViewCandleHandler] TWAP initialization failed for ${symbol}:`, error);
+                log.error(`TWAP initialization failed for ${symbol}:`, error);
             }
         }
 
@@ -151,7 +153,7 @@ class TradingViewCandleHandler {
                 const bucketSize = this.packageBuilder.calculateBucketSizeForSymbol(symbol, currentPrice);
                 this.marketProfileService.initializeFromHistory(symbol, todaysM1Candles, bucketSize, 'tradingview');
             } catch (error) {
-                console.error(`[TradingViewCandleHandler] Market Profile initialization failed for ${symbol}:`, error);
+                log.error(`Market Profile initialization failed for ${symbol}:`, error);
             }
         }
 

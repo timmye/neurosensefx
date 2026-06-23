@@ -2,6 +2,9 @@
  * ReconnectionManager handles exponential backoff reconnection logic.
  * Used by both CTraderSession and TradingViewSession for identical reconnection behavior.
  */
+const { createLogger } = require('./Logger');
+const log = createLogger('ReconnectionManager');
+
 class ReconnectionManager {
     constructor(maxDelay = 15000, initialDelay = 500, maxAttempts = 20) {
         this.maxDelay = maxDelay;
@@ -18,7 +21,7 @@ class ReconnectionManager {
      */
     scheduleReconnect(reconnectFn) {
         if (this.reconnectAttempts >= this.maxAttempts) {
-            console.error('[ReconnectionManager] Max reconnection attempts reached. Giving up.');
+            log.error('Max reconnection attempts reached. Giving up.');
             return;
         }
 
@@ -28,14 +31,14 @@ class ReconnectionManager {
         );
         const jitter = Math.random() * 0.3 * baseDelay;
         const delay = baseDelay + jitter;
-        console.log(`[ReconnectionManager] Scheduling reconnect attempt ${this.reconnectAttempts + 1} in ${delay}ms`);
+        log.debug(`Scheduling reconnect attempt ${this.reconnectAttempts + 1} in ${delay}ms`);
         this.reconnectTimeout = setTimeout(async () => {
             this.reconnectAttempts++;
             try {
                 await reconnectFn();
                 this.reset();
             } catch (error) {
-                console.error('[ReconnectionManager] Reconnect attempt failed:', error);
+                log.error('Reconnect attempt failed:', error);
                 this.scheduleReconnect(reconnectFn);
             }
         }, delay);

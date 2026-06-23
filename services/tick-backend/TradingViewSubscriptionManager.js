@@ -3,6 +3,9 @@
  * Handles D1 and M1 chart session creation and lifecycle
  */
 
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('TradingViewSubscriptionManager');
+
 class TradingViewSubscriptionManager {
     constructor(client) {
         this.client = client;
@@ -90,7 +93,7 @@ class TradingViewSubscriptionManager {
         const TIMEOUT_MS = 30000;
         subscription.completionTimeout = setTimeout(() => {
             if (!subscription.initialSent) {
-                console.error(`[TradingView] Series completion timeout for ${symbol}`);
+                log.error(`Series completion timeout for ${symbol}`);
                 onError(new Error(`Series completion timeout for ${symbol}`));
             }
         }, TIMEOUT_MS);

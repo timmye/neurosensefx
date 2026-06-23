@@ -9,6 +9,8 @@ const { CTraderDataProcessor } = require('./CTraderDataProcessor');
 const { CTraderEventHandler } = require('./CTraderEventHandler');
 const { VALID_PERIODS } = require('./utils/constants');
 const config = require('./config');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('CTraderSession');
 
 /**
  * CTrader Session - Main orchestration for cTrader connection.
@@ -90,7 +92,7 @@ class CTraderSession extends EventEmitter {
         } catch (error) {
             clearTimeout(timeoutHandle);
             this.isConnecting = false;
-            console.error('[CTraderSession] Connection failed:', error.message);
+            log.error('Connection failed:', error.message);
             this.handleDisconnect(error, true);
             throw error;
         }
@@ -193,7 +195,7 @@ class CTraderSession extends EventEmitter {
                     this.emit('m1Bar', m1Bar);
                 }
             } catch (error) {
-                console.error('[ERROR] Unhandled error in PROTO_OA_SPOT_EVENT handler:', error);
+                log.error('[ERROR] Unhandled error in PROTO_OA_SPOT_EVENT handler:', error);
             }
         };
 
@@ -202,7 +204,7 @@ class CTraderSession extends EventEmitter {
         };
 
         this.errorEventHandler = (err) => {
-            console.error('[ERROR] CTraderConnection error:', err);
+            log.error('[ERROR] CTraderConnection error:', err);
             this.handleDisconnect(err, true);
         };
 
@@ -296,7 +298,7 @@ class CTraderSession extends EventEmitter {
             fs.writeFileSync(tmpPath, envContent);
             fs.renameSync(tmpPath, envPath);
         } catch (err) {
-            console.warn('[CTraderSession] Failed to persist tokens to .env:', err.message);
+            log.warn('Failed to persist tokens to .env:', err.message);
             // Clean up temp file if it exists
             try { fs.unlinkSync(tmpPath); } catch (e) { /* ignore */ }
         }
@@ -309,7 +311,7 @@ class CTraderSession extends EventEmitter {
         }
 
         this.isDisconnecting = true;
-        if (error) console.error('[CTraderSession] connection failed:', error);
+        if (error) log.error('connection failed:', error);
         this.reconnection.cancelReconnect();
         this.isConnecting = false;
         this.healthMonitor.stop();
@@ -376,7 +378,7 @@ class CTraderSession extends EventEmitter {
                 await this.subscribeToTicks(symbolName);
                 await new Promise(resolve => setTimeout(resolve, 50)); // Small delay to avoid overwhelming API
             } catch (error) {
-                console.error(`[CTraderSession] Failed to restore tick subscription for ${symbolName}:`, error.message);
+                log.error(`Failed to restore tick subscription for ${symbolName}:`, error.message);
             }
         }
 
@@ -385,7 +387,7 @@ class CTraderSession extends EventEmitter {
                 await this.subscribeToM1Bars(symbolName);
                 await new Promise(resolve => setTimeout(resolve, 50)); // Small delay to avoid overwhelming API
             } catch (error) {
-                console.error(`[CTraderSession] Failed to restore M1 bar subscription for ${symbolName}:`, error.message);
+                log.error(`Failed to restore M1 bar subscription for ${symbolName}:`, error.message);
             }
         }
 
@@ -397,7 +399,7 @@ class CTraderSession extends EventEmitter {
                     await this.subscribeToBars(symbolName, period);
                     await new Promise(resolve => setTimeout(resolve, 50));
                 } catch (error) {
-                    console.error(`[CTraderSession] Failed to restore bar subscription for ${key}:`, error.message);
+                    log.error(`Failed to restore bar subscription for ${key}:`, error.message);
                 }
             }
         }

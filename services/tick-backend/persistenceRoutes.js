@@ -10,6 +10,8 @@
  * data but the 1 MB cap prevents abuse without constraining legitimate use.
  */
 const express = require('express');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('Persistence');
 const { query, pool } = require('./db');
 const { requireAuth, errorResponse } = require('./middleware');
 const { SYMBOL_RE } = require('./utils/constants');
@@ -35,7 +37,7 @@ router.put('/api/workspace', requireAuth, async (req, res) => {
         );
         res.json({ success: true });
     } catch (err) {
-        console.error('[Persistence] PUT /api/workspace error:', err.message);
+        log.error('PUT /api/workspace error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Failed to save workspace');
     }
 });
@@ -49,7 +51,7 @@ router.get('/api/workspace', requireAuth, async (req, res) => {
         }
         res.json({ layout: result.rows[0].layout });
     } catch (err) {
-        console.error('[Persistence] GET /api/workspace error:', err.message);
+        log.error('GET /api/workspace error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Failed to load workspace');
     }
 });
@@ -82,7 +84,7 @@ router.put('/api/drawings/:symbol/:resolution', requireAuth, async (req, res) =>
         }
         res.json({ success: true, version: result.rows[0].version });
     } catch (err) {
-        console.error('[Persistence] PUT /api/drawings error:', err.message);
+        log.error('PUT /api/drawings error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Failed to save drawings');
     }
 });
@@ -101,7 +103,7 @@ router.get('/api/drawings/:symbol/:resolution', requireAuth, async (req, res) =>
         }
         res.json({ data: result.rows[0].data, version: result.rows[0].version });
     } catch (err) {
-        console.error('[Persistence] GET /api/drawings error:', err.message);
+        log.error('GET /api/drawings error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Failed to load drawings');
     }
 });
@@ -117,7 +119,7 @@ router.put('/api/markers/:symbol', requireAuth, async (req, res) => {
         );
         res.json({ success: true });
     } catch (err) {
-        console.error('[Persistence] PUT /api/markers error:', err.message);
+        log.error('PUT /api/markers error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Failed to save markers');
     }
 });
@@ -136,7 +138,7 @@ router.get('/api/markers/:symbol', requireAuth, async (req, res) => {
         }
         res.json({ data: result.rows[0].data });
     } catch (err) {
-        console.error('[Persistence] GET /api/markers error:', err.message);
+        log.error('GET /api/markers error:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Failed to load markers');
     }
 });
@@ -184,7 +186,7 @@ router.post('/api/migrate', requireAuth, async (req, res) => {
     } catch (err) {
         // Transaction rollback on any failure — local data remains intact (ref: DL-022)
         await client.query('ROLLBACK');
-        console.error('[Persistence] Migration failed, rolled back:', err.message);
+        log.error('Migration failed, rolled back:', err.message);
         errorResponse(res, 500, 'SERVER_ERROR', 'Data migration failed');
     } finally {
         client.release();

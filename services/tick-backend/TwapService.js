@@ -1,5 +1,7 @@
 const EventEmitter = require('events');
 const { normalizeSymbol } = require('./utils/normalizeSymbol');
+const { createLogger } = require('./utils/Logger');
+const log = createLogger('TwapService');
 
 class TwapService extends EventEmitter {
   constructor() {
@@ -77,7 +79,7 @@ class TwapService extends EventEmitter {
     symbol = normalizeSymbol(symbol);
     // Validate bar structure
     if (!bar || typeof bar.close !== 'number' || isNaN(bar.close)) {
-      console.error(`[TwapService] Invalid bar data for ${symbol}:`, bar);
+      log.error(`Invalid bar data for ${symbol}:`, bar);
       this.emit('error', { symbol, error: 'Invalid bar data structure', code: 'INVALID_BAR_DATA', bar });
       return;
     }
