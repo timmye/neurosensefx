@@ -76,12 +76,19 @@ describe('CTraderSession connect/reconnect characterization (B0)', () => {
         expect(emittedNames).toEqual(EXPECTED_NAMES);
 
         // The ordered handshake command sequence (auth before symbols-list).
+        // Phase 2.2: restore is now POST-connect, and a lazy background symbol-map
+        // refresh (Phase 2.1) issues a SECOND ProtoOASymbolsListReq after
+        // 'connected'. The load-bearing invariant is the ORDERED PREFIX:
+        // app-auth → account-auth → symbols-list, with auth before symbols.
         const commandNames = fake.receivedCommands.map((c) => c.name);
-        expect(commandNames).toEqual([
+        expect(commandNames.slice(0, 3)).toEqual([
             'ProtoOAApplicationAuthReq',
             'ProtoOAAccountAuthReq',
             'ProtoOASymbolsListReq',
         ]);
+        // No subscribe command fires during the handshake (restore is deferred).
+        expect(commandNames).not.toContain('ProtoOASubscribeSpotsReq');
+        expect(commandNames).not.toContain('ProtoOASubscribeLiveTrendbarReq');
 
         // account-auth payload carried the configured account id + access token.
         const accountAuth = fake.receivedCommands.find(
@@ -189,8 +196,17 @@ describe('CTraderSession connect/reconnect characterization (B0)', () => {
         session.connection = fake;
 
         // reconnect() → disconnect(false) preserves activeSubscriptions, then
-        // connect(fake) → restoreSubscriptions() snapshots+clears and re-sends.
+        // connect(fake) emits 'connected' and DEFERS restore to a background
+        // task (Phase 2.2). Awaiting session.restorePromise (or the
+        // 'restoreComplete' event) observes restore settling before asserting.
         await session.reconnect(fake);
+        // Restore is detached post-connect; await it so the symbol-for-symbol
+        // assertion runs against the fully-restored set.
+        if (session.restorePromise) {
+            await session.restorePromise;
+        }
+        // Let any detached microtasks (deferred-subscription retries) settle.
+        await new Promise((resolve) => setImmediate(resolve));
 
         const spotPayloads = fake.receivedCommands
             .filter((c) => c.name === 'ProtoOASubscribeSpotsReq')

@@ -10,6 +10,23 @@ class CTraderSymbolLoader {
         this.symbolMap = new Map();
         this.reverseSymbolMap = new Map();
         this.symbolInfoCache = new Map();
+        // True once loadAllSymbols() has succeeded at least once. Used by the
+        // session's Phase-3 defer-queue to distinguish a genuinely-absent symbol
+        // (resolved-after-refresh vs. still-absent) so it can be logged once and
+        // skipped rather than retried forever.
+        this.loadedOnce = false;
+    }
+
+    /**
+     * Re-bind the underlying connection on a reconnect WITHOUT recreating the
+     * loader (Phase 2.1 / Loop-G). The maps + symbolInfoCache survive, so:
+     *   - restore can resolve symbolIds against the existing map immediately;
+     *   - symbolInfoCache is reused (no ~60 re-fetched SymbolByIdReq across
+     *     reconnects — the root amplifier of Loop-E/G).
+     * @param {Object} connection
+     */
+    setConnection(connection) {
+        this.connection = connection;
     }
 
     /**
@@ -41,6 +58,49 @@ class CTraderSymbolLoader {
                 this.reverseSymbolMap.set(Number(s.symbolId), normalizedName);
             }
         });
+        this.loadedOnce = true;
+    }
+
+    /**
+     * Lazily refresh the symbol map in the BACKGROUND after connect (Phase 2.1 /
+     * Loop-G / Phase 3 / Loop-C). Builds a FRESH map from the latest
+     * ProtoOASymbolsListReq and swaps it in atomically only on success, so:
+     *   - the OLD map stays valid and serving restore while the refresh is in
+     *     flight (the map is never empty during restore);
+     *   - symbolInfoCache is NEVER cleared (it is keyed by symbolId, which is
+     *     stable; a name re-resolution just remaps names → ids);
+     *   - a refresh failure leaves the old map intact (logged, not thrown) so
+     *     restore proceeds against the persisted map and the Phase-3 defer-queue
+     *     can resolve symbols that were absent before.
+     *
+     * Resolves to the fresh map on success, or null on failure. Never rejects
+     * (must be safe to fire-and-forget from connect()).
+     * @returns {Promise<Map|null>}
+     */
+    async refreshAllSymbols() {
+        try {
+            const response = await this.connection.sendCommand('ProtoOASymbolsListReq', {
+                ctidTraderAccountId: this.ctidTraderAccountId
+            });
+            const freshMap = new Map();
+            const freshReverse = new Map();
+            response.symbol.forEach(s => {
+                const normalizedName = CTraderSymbolLoader.normalizeName(s.symbolName);
+                if (!freshMap.has(normalizedName) || !s.symbolName.includes('.')) {
+                    freshMap.set(normalizedName, Number(s.symbolId));
+                    freshReverse.set(Number(s.symbolId), normalizedName);
+                }
+            });
+            // Atomic swap: the old maps are only replaced once the fresh ones
+            // are fully built. symbolInfoCache is intentionally untouched.
+            this.symbolMap = freshMap;
+            this.reverseSymbolMap = freshReverse;
+            this.loadedOnce = true;
+            return freshMap;
+        } catch (err) {
+            // Leave the existing map valid; the refresh is best-effort.
+            return null;
+        }
     }
 
     /**

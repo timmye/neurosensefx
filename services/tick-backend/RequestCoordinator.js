@@ -4,7 +4,7 @@
  */
 const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
 const { buildPrevDayFields } = require('./utils/MessageBuilder');
-const { createLogger } = require('./utils/Logger');
+const { createLogger, describeError } = require('./utils/Logger');
 const log = createLogger('RequestCoordinator');
 
 class RequestCoordinator {
@@ -259,7 +259,7 @@ class RequestCoordinator {
             return attemptFetch(retries + 1);
         }
 
-        log.error(`Failed ${requestKey} after ${retries} retries:`, error);
+        log.error(`Failed ${requestKey} after ${retries} retries:`, describeError(error));
         this.pendingRequests.delete(requestKey);
 
         // Notify clients of all errors (not just rate limits) so frontend can track failed pairs
@@ -275,10 +275,11 @@ class RequestCoordinator {
      * @param {Error} error - Error details
      */
     notifyClientsError(clients, symbol, error, source = 'ctrader') {
+        const detail = describeError(error);
         clients.forEach(client => {
             this.wsServer.sendToClient(client, {
                 type: 'error',
-                message: `Failed to get data for ${symbol}: ${error.message || error.description}`,
+                message: `Failed to get data for ${symbol}: ${detail}`,
                 symbol: symbol,
                 source: source
             });

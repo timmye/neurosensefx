@@ -72,6 +72,25 @@ describe('CTraderTransportAdapter (B4)', () => {
         expect(conn.opened).toBe(true);
     });
 
+    // Runtime-loop root cause (found live): the FeedSupervisor opens the transport,
+    // then CTraderSession.connect() calls open() AGAIN on the same transport. Without
+    // the idempotent guard the second open() creates a SECOND library connection,
+    // orphaning the first → two live cTrader connections for one app/account →
+    // cTrader kills the duplicate after ~28s (its "at most one connection" rule).
+    it('open() is idempotent — a second open() does not create a second connection', async () => {
+        let factoryCalls = 0;
+        const conn = fakeLibConn();
+        const adapter = new CTraderTransportAdapter({
+            host: 'live.ctraderapi.com', port: 5035,
+            connectionFactory: () => { factoryCalls++; return conn; },
+            scheduleTimeout: timers.scheduleTimeout, cancelTimeout: timers.cancelTimeout,
+        });
+        await adapter.open();       // supervisor open
+        await adapter.open();       // session.connect() open (must be a no-op)
+        expect(factoryCalls).toBe(1); // exactly ONE library connection — no duplicate socket
+        expect(conn.opened).toBe(true);
+    });
+
     it('sendCommand resolves with the connection response', async () => {
         const conn = fakeLibConn({ sendCommandImpl: (name) => Promise.resolve({ name, ok: true }) });
         const adapter = new CTraderTransportAdapter({
@@ -117,7 +136,7 @@ describe('CTraderTransportAdapter (B4)', () => {
         await expect(p).rejects.toThrow(/closed/);
     });
 
-    it('sendRaw sends a heartbeat fire-and-forget (not awaited/tracked)', async () => {
+    it('sendRaw falls back to the library heartbeat when no raw socket is captured (e.g. fakes)', async () => {
         const conn = fakeLibConn();
         const adapter = new CTraderTransportAdapter({
             host: 'h', port: 5035, dnsLookup: async () => '1.1.1.1',
@@ -128,6 +147,37 @@ describe('CTraderTransportAdapter (B4)', () => {
         adapter.sendRaw();
         expect(conn.sendHeartbeat).toHaveBeenCalledTimes(1);
         expect(timers.pendingCount()).toBe(0); // heartbeat not tracked as an RPC
+    });
+
+    // Loop-A/F: the raw keepalive frame is a bare ProtoHeartbeatEvent with NO
+    // clientMsgId (re-derived from the library's own encoder; drift guard).
+    it('raw heartbeat frame is a clientMsgId-free ProtoHeartbeatEvent (Loop-A/F)', () => {
+        const { buildHeartbeatFrame, PINNED_RAW_HEARTBEAT_FRAME } = require('../../supervision/CTraderTransportAdapter');
+        const frame = buildHeartbeatFrame();
+        // Verified-empirically bytes: Int32BE(4) + payloadType=51 + empty payload, NO clientMsgId.
+        expect(frame.toString('hex')).toBe(PINNED_RAW_HEARTBEAT_FRAME.toString('hex'));
+        expect(frame.toString('hex')).toBe('000000040833' + '1200'); // 0a.. never appears (no clientMsgId)
+        expect(frame.toString('hex')).not.toMatch(/1a/); // field-3 clientMsgId tag absent
+    });
+
+    // Loop-A/F: with a captured raw socket, sendRaw writes the frame directly and
+    // does NOT route through the library command map (no leak / no clientMsgId).
+    it('sendRaw writes the raw frame to the captured socket, bypassing the command map', async () => {
+        const conn = fakeLibConn();
+        const adapter = new CTraderTransportAdapter({
+            host: 'h', port: 5035, dnsLookup: async () => '1.1.1.1',
+            connectionFactory: () => conn,
+            scheduleTimeout: timers.scheduleTimeout, cancelTimeout: timers.cancelTimeout,
+        });
+        await adapter.open();
+        const writes = [];
+        // Inject a fake captured socket (as the tls.connect capture would).
+        adapter._rawSocket = { destroyed: false, writable: true, write: (b) => writes.push(b) };
+        adapter.sendRaw();
+        expect(writes).toHaveLength(1);
+        expect(writes[0].toString('hex')).toBe('000000040833' + '1200');
+        expect(conn.sendHeartbeat).not.toHaveBeenCalled(); // command map NOT touched
+        expect(timers.pendingCount()).toBe(0);
     });
 
     it('delegates on/removeListener to the underlying connection', async () => {

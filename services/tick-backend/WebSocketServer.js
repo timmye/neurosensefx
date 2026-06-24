@@ -9,7 +9,7 @@ const { SubscriptionManager } = require('./SubscriptionManager');
 const { RequestCoordinator } = require('./RequestCoordinator');
 const { StatusBroadcaster } = require('./StatusBroadcaster');
 const { RESOLUTION_TO_PERIOD, SYMBOL_RE } = require('./utils/constants');
-const { createLogger } = require('./utils/Logger');
+const { createLogger, describeError } = require('./utils/Logger');
 const log = createLogger('WebSocketServer');
 
 class WebSocketServer {
@@ -389,12 +389,13 @@ class WebSocketServer {
         // Subscribe to ticks first if first subscriber for cTrader
         if (isFirstSubscriber && source === 'ctrader') {
             this.cTraderSession.subscribeToTicks(symbolName).catch(err => {
-                log.error(`Failed to subscribe to ticks for ${symbolName}:`, err?.message || String(err));
+                const detail = describeError(err);
+                log.error(`Failed to subscribe to ticks for ${symbolName}:`, detail);
                 // Notify client of subscription failure so frontend can track failed pairs
                 this.sendToClient(ws, {
                     type: 'error',
-                    code: err.code || 'SUBSCRIPTION_FAILED',
-                    message: `Failed to subscribe to ticks for ${symbolName}: ${err?.message || String(err)}`,
+                    code: err?.code || 'SUBSCRIPTION_FAILED',
+                    message: `Failed to subscribe to ticks for ${symbolName}: ${detail}`,
                     symbol: symbolName,
                     source: source
                 });
@@ -405,12 +406,13 @@ class WebSocketServer {
         const onDataReceived = () => {
             if (source === 'ctrader') {
                 this.cTraderSession.subscribeToM1Bars(symbolName).catch(err => {
-                    log.error(`Failed to subscribe to M1 bars for ${symbolName}:`, err?.message || String(err));
+                    const detail = describeError(err);
+                    log.error(`Failed to subscribe to M1 bars for ${symbolName}:`, detail);
                     // Notify client of subscription failure
                     this.sendToClient(ws, {
                         type: 'error',
-                        code: err.code || 'SUBSCRIPTION_FAILED',
-                        message: `Failed to subscribe to M1 bars for ${symbolName}: ${err?.message || String(err)}`,
+                        code: err?.code || 'SUBSCRIPTION_FAILED',
+                        message: `Failed to subscribe to M1 bars for ${symbolName}: ${detail}`,
                         symbol: symbolName,
                         source: source
                     });

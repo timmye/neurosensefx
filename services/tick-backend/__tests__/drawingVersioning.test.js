@@ -2,7 +2,7 @@
 // These require a running backend with PostgreSQL and Redis on port 3001.
 // They are skipped by default — run with `npx vitest run --no-skip` when the backend is up.
 
-const { describe, it, expect, beforeAll, afterAll } = require('vitest');
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 const BASE_URL = 'http://localhost:3001';
 

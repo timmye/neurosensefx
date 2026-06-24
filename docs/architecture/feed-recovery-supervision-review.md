@@ -11,6 +11,17 @@ hung-command), and the **§9 non-negotiable was honored**: characterization test
 written *before* any code moved, scripting the full cTrader protobuf handshake and asserting
 subscription restore symbol-for-symbol. See the "Update (2026-06-24): executed" outcome note
 at the bottom of this doc. The analysis below is preserved unchanged as the rationale.
+
+**Update (2026-06-24, round 2): supervision tier CONFIRMED CORRECT.** The first live run exposed a
+*runtime* cTrader reconnect loop that the offline supervision suite could not see. Root cause was a
+**second-round operational cluster** (named Loop-A–H), **not** a supervision-tier defect — the tier
+was re-confirmed correct and is **unchanged save one additive gate**: `FeedSupervisor._wireFeed` now
+sets `handle.restoreActive` from the feed's `'restoreStart'`/`'restoreComplete'` events, and
+`_reactToHealth` HOLDS (no force-reconnect) on DEGRADED during restore (STALE still reconnects).
+The loop was fixed by decoupling `restoreSubscriptions()` from `connect()`, persisting
+`symbolLoader`, and adding a throttled/error-aware restore — see
+[`plans/feed-loop-stabilization.md`](../../plans/feed-loop-stabilization.md) (Phases 1–4 implemented
+and offline-tested, 168 tests green; Phase 5 heartbeat commandMap leak data-gated/pending).
 **Date:** 2026-06-23
 **Area:** `services/tick-backend/` + `libs/cTrader-Layer/`
 **Trigger:** The 2026-06-23 overnight stall exposed that the *individual* defects

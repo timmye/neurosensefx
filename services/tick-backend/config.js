@@ -48,6 +48,20 @@ const config = {
     // Maximum reconnection attempts for session recovery
     maxReconnectAttempts: Number(optional('MAX_RECONNECT_ATTEMPTS', '20')),
 
+    // ── Restore runner tuning (Phase 4.1 / Loop-E) ──────────────────────
+    // Post-connect subscription restore runs bounded-concurrency with
+    // inter-request spacing + a per-command budget. ~56 commands (28 symbols ×
+    // 2) complete well under dataStaleMs (60s) while keeping cTrader from
+    // throttling us. Configurable without a code change.
+    restoreConcurrency: Number(optional('CTRADER_RESTORE_CONCURRENCY', '6')),
+    restoreSpacingMs: Number(optional('CTRADER_RESTORE_SPACING_MS', '50')),
+    // FIX M1: strictly LESS than the CTraderTransportAdapter's 15s per-RPC TTL,
+    // so the restore budget rejects a stalled command BEFORE the adapter's TTL
+    // force-closes the whole transport. This lets restore make progress (isolate
+    // one bad command) and removes the ambiguous equal-timer race.
+    restoreCommandTimeoutMs: Number(optional('CTRADER_RESTORE_COMMAND_TIMEOUT_MS', '12000')),
+    restoreMaxRetries: Number(optional('CTRADER_RESTORE_MAX_RETRIES', '2')),
+
     // ── Database (PostgreSQL) ──────────────────────────────────────────
     pgHost: optional('PG_HOST', 'localhost'),
     pgPort: parseInt(optional('PG_PORT', '5432'), 10),

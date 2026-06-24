@@ -649,3 +649,57 @@ string, so the resolved "IP" logged as `[object Object]`; (3) pre-resolving to a
 ServerName matching (see the corrected fallback-trap note above). A regression test now guards the
 lib require path. Minor: the library prints cosmetic `Attempted to listen for unknown event type:
 close/error` warnings — these are harmless (it still registers and fires those listeners).
+
+## Round 2: runtime cTrader reconnect loop (2026-06-24) — Phases 1–4 implemented
+
+The first live run's "reconnects every ~30s" behavior (above) was the opening symptom of a
+**second-round operational cluster** — a set of *runtime* defects the offline supervision suite
+could not see (they only manifest against the live broker). Plan
+[`plans/feed-loop-stabilization.md`](../../plans/feed-loop-stabilization.md) drove the diagnosis and
+fix. **All phases (1–5) are COMPLETE and LIVE-VALIDATED against `live.ctraderapi.com:5035`
+(2026-06-24, 176 backend tests green).** The supervision tier (A→B) was confirmed **correct and
+untouched** except one additive gate (below).
+
+> **LIVE-VALIDATED ROOT CAUSE (2026-06-24) — a defect NOT in the original Loop-A–H list:** the
+> persistent ~28s disconnect was a **DOUBLE-OPEN of the cTrader transport**.
+> `FeedSupervisor._openAndHandshake` calls `transport.open()` (socket S1), then
+> `CTraderSession.connect()` calls `this.connection.open()` *again* → a SECOND cTrader-Layer
+> connection/socket (S2), orphaning S1 → **two live connections for one app/account** → cTrader's
+> "at most one connection" rule kills the duplicate with a clean TLS FIN every ~28s, *regardless of
+> traffic or heartbeat* (`ss` showed 2 ESTAB `:5035` conns from one pid). **Fix: `CTraderTransportAdapter.open()`
+> is idempotent** (`_opened` guard) → exactly one connection. With one connection the raw heartbeat
+> (Loop-A/F) was confirmed correct (server echoes it) and the 28s loop is gone. Live proof: 60s
+> supervised run with EURUSD/GBPUSD/XAUUSD/USDJPY subscribed = 336 ticks / 0 disconnects; production
+> `server.js` = no server-FIN kills, `0` connect-phase-deadline aborts, single connection.
+
+The diagnosis named eight loops (A–H). Each fix targets the *structural* root the loop exposed, not
+a line-level patch:
+
+| Loop | Defect | Status |
+|------|--------|--------|
+| **Loop-A** | Clean server FIN during idle lulls (the ~30s broker close) | **FIXED (live-confirmed)** — was NOT the dominant cause (that was the double-open, above), but the keepalive WAS genuinely broken: the library `sendHeartbeat()`→`sendCommand()` attaches a `clientMsgId`, and cTrader ignores a one-way `ProtoHeartbeatEvent` carrying one. Now sent as a **raw clientMsgId-free frame** (`00000004 0833 1200`) written directly to the TLS socket via a scoped `tls.connect` capture; the server **echoes** it and the idle connection stays alive. |
+| **Loop-B** | Connect-phase deadline aborts the handshake — **the structural root**. `restoreSubscriptions()` ran *inside* `connect()`, so a slow/failed restore blew the deadline and aborted the connect, which re-triggered restore, which re-aborted… | **FIXED** — `connect()` is now split into a FAST handshake (open → authenticate → `loadAllSymbols` → `startHeartbeat` → emit `'connected'`) and a **detached** post-connect restore via `_beginRestore()` / `_runRestore()`, exposed as `this.restorePromise` and via `'restoreStart'` / `'restoreComplete'` events. Restore can no longer trip the connect deadline. |
+| **Loop-C** | `Symbol ID not found` during restore. | **Hardened** — Phase 3 defer-queue + lazy `refreshAllSymbols()`. **Corrected framing:** `loadAllSymbols()` repopulates the map every connect (merges, never clears), so the map is **not cold**; Loop-C is symbols that *don't resolve* (normalization/format mismatch), not an empty map. Unresolved symbols are deferred and retried once against the lazy refresh, then logged-once-and-skipped if still absent. Live confirmation of the actual failing symbols still wanted. |
+| **Loop-D** | cTrader `errorCode` rejections swallowed — the library rejects `sendCommand` with the raw protobuf payload, so naive `err.message` logging printed `[object Object]` and the `errorCode`/`description` that explained the rejection were lost. | **FIXED** — `utils/Logger.js`'s new `describeError(err)` surfaces `errorCode`/`description`/`code`/`symbol` first at every catch site; new `utils/ctraderErrorCode.js` classifies codes (`ALREADY_SUBSCRIBED` = success, `RATE_LIMIT` = backoff+retry, `PERMANENT`/`UNKNOWN` = log-and-skip). **Live fix:** cTrader returns these codes **bare** (e.g. `ALREADY_SUBSCRIBED`, no `CH_` prefix); the classifier now strips a leading `CH_` so both forms match (previously the bare form fell through to PERMANENT and broke restore on reconnect re-subscribes). |
+| **Loop-E** | Command timeouts / server throttle — the old serial-burst restore exceeded cTrader's concurrent-request limits (345 command timeouts in the incident). | **FIXED** — bounded-concurrency throttled restore (`_runBounded`), inter-request spacing, per-command budget (`_sendWithBudget`), and rate-limit retry (`_sendWithRetry`). Tuning centralized in `config.js` (`restoreConcurrency`, `restoreSpacingMs`, `restoreCommandTimeoutMs`, `restoreMaxRetries`). |
+| **Loop-F** | Heartbeat commandMap leak — heartbeats echoed as push events are never extracted from `#openCommands`. | **FIXED** — the raw-heartbeat frame (Loop-A) is written directly to the socket, bypassing the library command map entirely, so no heartbeat promise is ever tracked/leaked. The library source stays read-only (the seam is a scoped `tls.connect` wrap). |
+| **Loop-G** | Cold `symbolLoader` rebuilt every connect — every reconnect re-fetched ~60 `SymbolByIdReq` (the amplifier of Loop-E). | **FIXED** — `symbolLoader` is now **persistent** across reconnects (created once, `setConnection()` re-binds on reconnect); `symbolInfoCache` survives, so restore resolves symbolIds against an already-warm map. |
+| **Loop-H** | No timestamps + swallowed errors — the log carried no per-line wall-clock time, making per-cycle timing impossible to reconstruct. | **FIXED** — every log line is now prefixed with an ISO-8601 ms timestamp (`utils/Logger.js`); connect-cycle timing markers (`connect-start`, `connect-step open/authenticate/loadAllSymbols`, `connect-end`, `restore-start`, `restore-end`) reconstruct the full handshake timeline from `backend.log` alone. |
+
+### Supervision tier: confirmed correct, one additive gate
+
+The tier built in Round 1 (A→B) was **re-confirmed correct** for this cluster — the runtime loop was
+*not* a supervision-tier defect. The single supervision change is **additive** and only concerns the
+restore window introduced by Loop-B's decoupling:
+
+- `FeedSupervisor._wireFeed` now sets an additive `handle.restoreActive` flag from the feed's
+  `'restoreStart'` / `'restoreComplete'` events.
+- `_reactToHealth` **holds** (transitions to DEGRADED + logs, no force-reconnect) on a DEGRADED
+  health status **while `restoreActive` is true** — because `'connected'` now emits *before* data
+  flows, heartbeats are fresh but no data ticks arrive during restore, which would otherwise look
+  like a dead-but-alive transport and re-trip the loop. **STALE (both clocks stale = genuinely dead)
+  still force-reconnects even during restore.** When restore completes the flag flips and normal
+  DEGRADED force-reconnect resumes.
+
+See [`plans/feed-loop-stabilization.md`](../../plans/feed-loop-stabilization.md) for the full
+diagnosis, phase breakdown, and decision log.

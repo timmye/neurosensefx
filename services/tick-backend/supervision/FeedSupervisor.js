@@ -82,10 +82,28 @@ class FeedSupervisor extends EventEmitter {
 
     /** Wire feed domain events into supervisor state/health. */
     _wireFeed(handle) {
+        // restoreActive is set by the feed's post-connect restore lifecycle
+        // (Phase 2.2 DEGRADED gate). While a feed's restore is in flight, a
+        // DEGRADED health status is HELD rather than force-reconnecting —
+        // because 'connected' now emits BEFORE data flows, heartbeats are fresh
+        // but no data ticks arrive during the restore window, which would
+        // otherwise look like a dead-but-alive transport (DEGRADED) and re-trip
+        // the reconnect loop. STALE (both clocks stale = genuinely dead) still
+        // force-reconnects even during restore.
+        handle.restoreActive = false;
         handle.feed.on('connected', () => this._onFeedConnected(handle));
         handle.feed.on('disconnected', () => this._onFeedDisconnected(handle));
+        // FIX B2: restoreActive is normally cleared by 'restoreComplete', but a
+        // mid-restore disconnect (+ event reordering) can leave it true forever,
+        // silently disabling DEGRADED recovery. Clear it on disconnect so a later
+        // DEGRADED observation can still force a reconnect.
+        handle.feed.on('disconnected', () => { handle.restoreActive = false; });
         handle.feed.on('tick', () => handle.health.recordDataTick());
         handle.feed.on('heartbeat', () => handle.health.recordHeartbeat());
+        // Additive Phase-2.2 hooks (optional events; a feed that never emits
+        // them just never enters the restore window — behavior unchanged).
+        handle.feed.on('restoreStart', () => { handle.restoreActive = true; });
+        handle.feed.on('restoreComplete', () => { handle.restoreActive = false; });
     }
 
     /** Begin supervising: kick every registered feed toward CONNECTING. */
@@ -103,6 +121,9 @@ class FeedSupervisor extends EventEmitter {
             this._clearAllTimers(handle);
             this._forceClose(handle);
             handle.connected = false;
+            // FIX B2: clear restoreActive on stop too so a stopped handle can't
+            // leave the DEGRADED gate latched open.
+            handle.restoreActive = false;
             handle.health.stop();
             if (handle.state.canTransition(FeedStates.DISCONNECTED)) {
                 handle.state.transition(FeedStates.DISCONNECTED);
@@ -339,6 +360,23 @@ class FeedSupervisor extends EventEmitter {
 
     _reactToHealth(handle, status) {
         if (status === HealthStatus.STALE || status === HealthStatus.DEGRADED) {
+            // Phase 2.2 DEGRADED gate: during the feed's post-connect restore
+            // window ('connected' emitted before data flows), DEGRADED is
+            // EXPECTED — heartbeats are fresh but no data ticks have arrived
+            // yet. Hold (transition to DEGRADED state + log) WITHOUT forcing a
+            // reconnect, so a slow-but-progressing restore is not mistaken for a
+            // dead feed and re-trips the reconnect loop. STALE (both data AND
+            // heartbeat stale = genuinely dead) still force-reconnects even
+            // during restore. When restore completes, restoreActive flips false
+            // and the next DEGRADED observation resumes normal force-reconnect.
+            if (status === HealthStatus.DEGRADED && handle.restoreActive) {
+                if (handle.state.canTransition(FeedStates.DEGRADED)) {
+                    handle.state.transition(FeedStates.DEGRADED);
+                    this._emitState(handle);
+                }
+                log.warn(`[${handle.name}] DEGRADED during restore — holding (restore in progress)`);
+                return;
+            }
             // Both mean the feed is not delivering data. Force a reconnect so a
             // partially-alive transport (heartbeats flowing, no data — DEGRADED)
             // or a fully-dead one (STALE) self-heals. The generous dataStaleMs
