@@ -22,6 +22,12 @@ const log = createLogger('TradingViewSession');
 class TradingViewSession extends EventEmitter {
     constructor(twapService = null, marketProfileService = null) {
         super();
+        // Per-symbol listener model: RequestCoordinator attaches at most ONE
+        // 'candle' listener per in-flight symbol and fans the data out to all
+        // waiting clients (see handleTradingViewRequest). Even so, distinct
+        // symbols can have concurrent listeners, so lift EventEmitter's default
+        // ceiling (10) to remove any residual MaxListenersExceededWarning.
+        this.setMaxListeners(50);
         this.client = null;
         this.sessionId = null;
         this.subscriptions = new Map();
@@ -70,7 +76,23 @@ class TradingViewSession extends EventEmitter {
 
         try {
             const options = sessionId ? { sessionId } : {};
-            this.client = await connect(options);
+            // Connect-phase deadline: race the tradingview-ws connect() against a
+            // timeout so a hung connect (DNS/network) can't hang the backend
+            // forever. cTrader has this via the supervisor; TV does not, so the
+            // deadline lives here. The handle is cleared on both success and
+            // failure to avoid a leaked timer (same pattern as CTraderSession).
+            let connectTimeoutHandle;
+            const connectDeadline = new Promise((_, reject) => {
+                connectTimeoutHandle = setTimeout(
+                    () => reject(new Error('TradingView connect-phase deadline exceeded')),
+                    config.tvConnectTimeoutMs
+                );
+            });
+            try {
+                this.client = await Promise.race([connect(options), connectDeadline]);
+            } finally {
+                clearTimeout(connectTimeoutHandle);
+            }
             this.subscriptionManager = new TradingViewSubscriptionManager(this.client);
 
             this.removeEventListeners();
@@ -200,6 +222,15 @@ class TradingViewSession extends EventEmitter {
                 break;
             }
         }
+    }
+
+    /**
+     * Whether the TradingView client is currently connected.
+     * Lets callers (RequestCoordinator) avoid a per-request error storm when
+     * subscribeToSymbol is invoked during a disconnect/reconnect window.
+     */
+    isConnected() {
+        return !!this.client;
     }
 
     async subscribeToSymbol(symbol, lookbackDays = 14) {

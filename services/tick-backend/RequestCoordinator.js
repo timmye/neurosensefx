@@ -12,7 +12,14 @@ class RequestCoordinator {
         this.wsServer = wsServer;
         this.fetchTimeout = fetchTimeout;
         this.pendingRequests = new Map(); // "symbol:adr" -> {promise, clients[]}
-        this.pendingTradingViewRequests = new Map(); // "symbol" -> Set<clients>
+        // symbol -> { clients: Set<ws>, onCompletes: Map<ws, Function|null> }
+        // One entry per in-flight symbol. A single 'candle' listener + timeout +
+        // subscribeToSymbol call serves ALL waiting clients for that symbol, so
+        // concurrent requests for the same symbol never stack duplicate listeners
+        // (which would trip MaxListenersExceededWarning). onCompletes preserves
+        // each client's completion callback (kept non-null across callers even
+        // though the TV branch of onDataReceived is currently a no-op).
+        this.pendingTradingViewRequests = new Map();
         this.MAX_RETRIES = 3;
         this.INITIAL_RETRY_DELAY_MS = 500;
         this._queue = [];
@@ -295,42 +302,58 @@ class RequestCoordinator {
      * @param {Function} onComplete - Optional callback called after data is sent to clients
      */
     async handleTradingViewRequest(symbol, adrLookbackDays, client, onComplete = null) {
-        // Track this client as waiting for TradingView data
-        if (!this.pendingTradingViewRequests.has(symbol)) {
-            this.pendingTradingViewRequests.set(symbol, new Set());
+        const tvSession = this.wsServer.tradingViewSession;
+
+        // Track this client (and its completion callback) as waiting for this
+        // symbol. The pending entry is created on the first request for a symbol
+        // and reused by subsequent requests so only ONE listener / timeout /
+        // subscribeToSymbol call is active per symbol at a time.
+        let pending = this.pendingTradingViewRequests.get(symbol);
+        if (!pending) {
+            pending = { clients: new Set(), onCompletes: new Map() };
+            this.pendingTradingViewRequests.set(symbol, pending);
         }
-        this.pendingTradingViewRequests.get(symbol).add(client);
+        pending.clients.add(client);
+        pending.onCompletes.set(client, onComplete);
+
+        // Already a request in flight for this symbol: the existing listener and
+        // timeout will deliver data to this client too (via pending.clients) and
+        // invoke its onComplete. Do NOT add another listener/timeout/subscribe.
+        if (pending.clients.size > 1) {
+            return;
+        }
 
         // Use `on` (not `once`) so the listener stays active until the correct symbol's data arrives.
         // `once` would be consumed by a wrong symbol's event, leaving this request stuck forever.
         const onDataPackage = (data) => {
             if (data.symbol === symbol && data.type === 'symbolDataPackage') {
                 clearTimeout(timeoutId);
-                const waitingClients = this.pendingTradingViewRequests.get(symbol);
-                if (waitingClients) {
-                    waitingClients.forEach(c => {
+                const entry = this.pendingTradingViewRequests.get(symbol);
+                if (entry) {
+                    entry.clients.forEach(c => {
                         this.wsServer.sendToClient(c, data);
+                    });
+                    // Invoke each client's completion callback after its data is sent.
+                    entry.onCompletes.forEach((cb, c) => {
+                        if (cb) {
+                            try {
+                                cb();
+                            } catch (error) {
+                                log.error(`Completion callback error for ${symbol}:`, error);
+                            }
+                        }
                     });
                     this.pendingTradingViewRequests.delete(symbol);
                 }
-                this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
-
-                // Call completion callback after data is sent
-                if (onComplete) {
-                    try {
-                        onComplete();
-                    } catch (error) {
-                        log.error(`Completion callback error for ${symbol}:`, error);
-                    }
-                }
+                tvSession.removeListener('candle', onDataPackage);
             }
         };
 
-        this.wsServer.tradingViewSession.on('candle', onDataPackage);
+        tvSession.on('candle', onDataPackage);
 
         // Timeout fallback: if no matching candle arrives within fetchTimeout, clean up
         const timeoutId = setTimeout(() => {
-            this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
+            tvSession.removeListener('candle', onDataPackage);
             this.pendingTradingViewRequests.delete(symbol);
             log.error(`TradingView data timeout for ${symbol}`);
             this.wsServer.sendToClient(client, {
@@ -343,13 +366,30 @@ class RequestCoordinator {
 
         // Queue the TradingView subscription to avoid IP ban
         return this._enqueueTradingView(async () => {
+            // D4: if TV is in a disconnect/reconnect window, skip the subscribe
+            // call entirely rather than throw 'Not connected' once per queued
+            // request (an 882-line error storm in the incident). The listener +
+            // fetchTimeout are already armed; the timeout will clean up the
+            // listener and notify this client. No re-attempt is needed because
+            // the current model does not re-drain on reconnect.
+            if (!tvSession.isConnected()) {
+                log.warn(`TradingView not connected; deferring ${symbol} to fetch timeout`);
+                return;
+            }
             try {
-                await this.wsServer.tradingViewSession.subscribeToSymbol(symbol, adrLookbackDays);
+                await tvSession.subscribeToSymbol(symbol, adrLookbackDays);
             } catch (error) {
                 clearTimeout(timeoutId);
                 log.error(`Failed to get TradingView data for ${symbol}:`, error);
-                this.pendingTradingViewRequests.get(symbol)?.delete(client);
-                this.wsServer.tradingViewSession.removeListener('candle', onDataPackage);
+                const entry = this.pendingTradingViewRequests.get(symbol);
+                if (entry) {
+                    entry.clients.delete(client);
+                    entry.onCompletes.delete(client);
+                    if (entry.clients.size === 0) {
+                        this.pendingTradingViewRequests.delete(symbol);
+                    }
+                }
+                tvSession.removeListener('candle', onDataPackage);
                 this.wsServer.sendToClient(client, {
                     type: 'error',
                     message: `Failed to get TradingView data for ${symbol}: ${error.message}`,

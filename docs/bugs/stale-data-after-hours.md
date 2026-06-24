@@ -703,3 +703,29 @@ restore window introduced by Loop-B's decoupling:
 
 See [`plans/feed-loop-stabilization.md`](../../plans/feed-loop-stabilization.md) for the full
 diagnosis, phase breakdown, and decision log.
+
+---
+
+## TradingView feed — latent-defect audit (2026-06-24)
+
+TradingView is a **critical live alternative data source** (parallel WebSocket feed via the
+`tradingview-ws` library; **not** under `FeedSupervisor` — different connection model). A live probe
+(4 min, unauthenticated) confirmed it is **healthy**: connected @745ms, first data @1032ms, 0
+disconnects, 764 ticks / 393 M1 bars. It self-recovers via `ReconnectionManager` (never gives up;
+plateaus at 15s backoff) + `HealthMonitor` (5-min staleness). **Limitation:** `tradingview-ws@0.0.3`
+emits no close/error events, so staleness is the only dead-connection detector.
+
+Six latent defects were identified (none firing at low load); **D1/D2/D4 are fixed, D3/D5/D6 deferred:**
+
+| Tag | Defect | Status |
+|-----|--------|--------|
+| **D1** | `candle` listener spike → `MaxListenersExceededWarning` under concurrent multi-symbol/multi-client TV load (`RequestCoordinator.handleTradingViewRequest` added a listener per request). | **FIXED** — listener/timeout/subscribe are now **deduped per symbol** (one in-flight per symbol); data + `onComplete` fan out to all waiting clients; `TradingViewSession.setMaxListeners(50)` as a belt-and-suspenders guard. |
+| **D2** | No connect-phase deadline — a hung `tradingview-ws` `connect()` (DNS/network) hung the backend forever. | **FIXED** — `connect()` now races against `config.tvConnectTimeoutMs` (default 15s); on expiry it rejects → `handleDisconnect` → `scheduleReconnect`. Timer cleared in `finally`. |
+| **D4** | `subscribeToSymbol` threw "Not connected" once per queued request during a disconnect window (882× error storm in the incident). | **FIXED** — new `TradingViewSession.isConnected()`; `handleTradingViewRequest` skips the subscribe call when disconnected (single warn) and lets `fetchTimeout` clean up the listener + notify the client. |
+| **D3** | TV is not supervised — invisible to `GET /health`, no DEGRADED detection, no state machine (vs cTrader's `FeedSupervisor`). | **Deferred** — moving TV under the supervisor is a larger architectural change; left for a dedicated plan. |
+| **D5** | 5-min staleness threshold is generous; silent data starvation takes 5 min to detect. | **Deferred** — acceptable for candle-based feeds; revisit if silent stalls are observed. |
+| **D6** | `tradingview-ws@0.0.3` is an early library; no close/error events, no configurable host. | **Deferred** — info-level; library swap is a separate decision. |
+
+Tests: `npx vitest run` = **185 passed / 5 skipped, 0 regressions** (+9 new: TV request-dedup,
+TV connect-deadline, TV subscribe-while-disconnected). Regression re-probe (2 min) confirmed TV
+still connects + serves data after the fixes.

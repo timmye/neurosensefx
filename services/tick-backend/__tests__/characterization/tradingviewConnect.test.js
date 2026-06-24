@@ -25,6 +25,8 @@ Object.assign(config, {
     maxReconnectAttempts: 3,
     logLevel: 'error',
     nodeEnv: 'test',
+    // D2: short, deterministic connect-phase deadline for the deadline test.
+    tvConnectTimeoutMs: 150,
 });
 
 // Replace the real `connect` with a swappable stub. TradingViewSession captures
@@ -135,5 +137,59 @@ describe('TradingViewSession connect/disconnect characterization (B0)', () => {
 
         // shouldScheduleReconnect=true → a reconnect timer was armed.
         expect(session.reconnection.reconnectTimeout).not.toBeNull();
+    });
+
+    // ─── 4. connect-phase deadline (D2) ─────────────────────────────────────
+    it('connect-phase deadline: a hanging connect() rejects within tvConnectTimeoutMs', async () => {
+        // Fake connect that never resolves — simulates a DNS/network hang.
+        tvControl.connectImpl = () => new Promise(() => {});
+
+        const disconnected = vi.fn();
+        session.on('disconnected', disconnected);
+
+        const start = Date.now();
+        await expect(session.connect()).rejects.toThrow('TradingView connect-phase deadline exceeded');
+        const elapsed = Date.now() - start;
+
+        // Honors the configured deadline (150ms in this suite) with slack.
+        expect(elapsed).toBeLessThan(1500);
+        // Deadline rejection routes through handleDisconnect → 'disconnected'.
+        expect(disconnected).toHaveBeenCalledTimes(1);
+        expect(session.client).toBeNull();
+    });
+});
+
+// ─── 5. isConnected accessor (D4) ─────────────────────────────────────────
+describe('TradingViewSession isConnected (D4)', () => {
+    let session;
+
+    beforeEach(() => {
+        tvControl.connectImpl = async () => null;
+        session = new TradingViewSession(null, null);
+    });
+
+    afterEach(() => {
+        try { if (session && session.healthMonitor) session.healthMonitor.stop(); } catch (e) {}
+        try { if (session && session.reconnection) session.reconnection.cancelReconnect(); } catch (e) {}
+    });
+
+    it('isConnected() is false before connect and true after a successful connect', async () => {
+        expect(session.isConnected()).toBe(false);
+
+        const fakeClient = createFakeTvClient();
+        tvControl.connectImpl = async () => fakeClient;
+        await session.connect();
+
+        expect(session.isConnected()).toBe(true);
+        expect(session.client).toBe(fakeClient);
+    });
+
+    it('isConnected() returns false after disconnect', async () => {
+        const fakeClient = createFakeTvClient();
+        tvControl.connectImpl = async () => fakeClient;
+        await session.connect();
+
+        session.disconnect();
+        expect(session.isConnected()).toBe(false);
     });
 });

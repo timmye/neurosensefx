@@ -45,6 +45,13 @@ const config = {
     // Leave undefined to use unauthenticated mode (limited data).
     tradingViewSession: optional('TRADINGVIEW_SESSION_ID', undefined),
 
+    // Connect-phase deadline for the tradingview-ws `connect()` call. If the
+    // underlying connect hangs (DNS/network), reject so the existing catch
+    // routes through handleDisconnect → scheduleReconnect. Mirrors the cTrader
+    // supervisor connect-phase deadline; TV has no supervisor, so the deadline
+    // lives here.
+    tvConnectTimeoutMs: Number(optional('TV_CONNECT_TIMEOUT_MS', '15000')),
+
     // Maximum reconnection attempts for session recovery
     maxReconnectAttempts: Number(optional('MAX_RECONNECT_ATTEMPTS', '20')),
 
