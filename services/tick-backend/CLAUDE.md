@@ -16,6 +16,7 @@ WebSocket data streaming and HTTP API backend service.
 | `StatusBroadcaster.js` | Status message broadcasting to subscribed clients | Understanding status propagation, modifying broadcast logic, debugging client notifications |
 | `DataRouter.js` | Data routing from cTrader/TradingView sessions to WebSocket clients using MessageBuilder | Understanding data flow, modifying routing logic, debugging message delivery |
 | `HealthMonitor.js` | Centralized staleness detection service; tracks lastTick timestamp, emits stale/tick_resumed events | Understanding health monitoring logic, debugging staleness detection, modifying timeout thresholds |
+| `supervision/FeedSupervisor.js` | Owns feed lifecycle via an explicit state machine; injectable clock/transport; applies RetryPolicy, observes HealthSensor, enforces connect-phase deadline (the hang-after-open fix); per-feed isolation; emits ObservableState | Connection lifecycle, recovery behavior, debugging feed health, adding a supervised feed |
 | `MarketProfileService.js` | Market Profile calculation with bucket size determination and level aggregation | Understanding Market Profile logic, modifying bucket calculations, debugging profile generation |
 | `TradingViewDataPackageBuilder.js` | Builds TradingView-compatible data packages | Building data packages for TradingView, debugging data format |
 | `TradingViewSession.js` | TradingView protocol session handler | Debugging TradingView connection, modifying session lifecycle |
@@ -28,7 +29,7 @@ WebSocket data streaming and HTTP API backend service.
 | `middleware.js` | Auth middleware (session validation) | Adding protected routes, modifying auth checks |
 | `sessionManager.js` | Redis-backed session create/validate/destroy | Debugging session issues, modifying session TTL or storage |
 | `db.js` | PostgreSQL connection and query helpers | Adding database queries, debugging persistence |
-| `server.js` | WebSocket server entry point | Starting backend, debugging server startup |
+| `server.js` | WebSocket server entry point; constructs `FeedSupervisor` and drives the supervised cTrader feed; exposes `GET /health` and dev-only `POST /admin/reconnect` | Starting backend, debugging server startup, understanding supervised feed wiring |
 | `Dockerfile` | Production container build definition | Building backend container |
 | `Dockerfile.dev` | Development container build definition | Building backend dev container |
 | `README.md` | Backend architecture and API documentation | Understanding backend design, API reference |
@@ -40,6 +41,7 @@ WebSocket data streaming and HTTP API backend service.
 | Directory | What | When to read |
 | --------- | ---- | ------------ |
 | `utils/` | Shared utility modules (ReconnectionManager, MessageBuilder) | Understanding reconnection logic, using message building utilities, adding shared utilities |
+| `supervision/` | Feed recovery & supervision tier: `FeedSupervisor` (lifecycle owner), `RetryPolicy` (never-terminating capped+jittered backoff), `FeedState` (explicit state machine, no terminal DEAD state), `HealthSensor` (data-tick vs heartbeat, never-received=stale), `CTraderTransportAdapter` (Transport over cTrader-Layer; resolves DNS→IP itself to bypass the WSL2 TLS fallback trap; per-RPC TTL + reject-on-close around `sendCommand`), `RealClock`, `interfaces.js` (Transport/Feed/Clock contracts) | Connection lifecycle, recovery, feed health, transport adapter (DNS/TTL) |
 | `specs/` | cTrader API specifications and OpenAPI definitions | Looking up cTrader API message schemas, debugging protobuf definitions |
 | `docs/` | Backend design documentation | Adding API endpoints, debugging WebSocket protocol, reviewing service design |
 | `UI/` | Backend UI design mockups and concept HTML files | Reviewing ADR visualization mockups, iterating on ticker bar design concepts |

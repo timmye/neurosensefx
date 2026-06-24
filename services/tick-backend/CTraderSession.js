@@ -1,7 +1,7 @@
 const EventEmitter = require('events');
 const path = require('path');
 const fs = require('fs');
-const { CTraderConnection } = require('../../libs/cTrader-Layer/build/entry/node/main');
+const { CTraderTransportAdapter } = require('./supervision/CTraderTransportAdapter');
 const { HealthMonitor } = require('./HealthMonitor');
 const { ReconnectionManager } = require('./utils/ReconnectionManager');
 const { CTraderSymbolLoader } = require('./CTraderSymbolLoader');
@@ -48,6 +48,12 @@ class CTraderSession extends EventEmitter {
         this.eventListenersAttached = false;
         this.connectedAt = null;
 
+        // Supervised mode: when a FeedSupervisor owns this session's lifecycle,
+        // the session does NOT self-reconnect or self-track staleness — it becomes
+        // a dumb I/O worker that emits connected/disconnected/tick, and the
+        // supervisor (monitoring the transport + its own HealthSensor) recovers.
+        this.supervised = false;
+
         // Track active subscriptions for restoration after reconnection
         this.activeSubscriptions = new Set();
 
@@ -58,7 +64,7 @@ class CTraderSession extends EventEmitter {
         this.lastBarTimestamps = new Map();
     }
 
-    async connect() {
+    async connect(transport) {
         if (this.isConnecting) {
             return;
         }
@@ -67,7 +73,12 @@ class CTraderSession extends EventEmitter {
 
         if (this.connection) this.connection.close();
 
-        this.connection = new CTraderConnection({
+        // Accept an injected transport (CTraderTransportAdapter in production, a
+        // FakeTransport in tests) so connection lifecycle is supervisor-driven
+        // and recovery is unit-testable offline. Default to the adapter, which
+        // resolves DNS→IP itself (bypassing the library's WSL2 TLS-hang fallback)
+        // and bounds every sendCommand with a per-RPC TTL (defect #4).
+        this.connection = transport || new CTraderTransportAdapter({
             host: config.ctraderHost,
             port: Number(config.ctraderPort),
         });
@@ -183,7 +194,12 @@ class CTraderSession extends EventEmitter {
                 // whereas bid/ask are live market quotes. Both can arrive in the
                 // same spot event, so process them independently.
                 if (event.bid != null && event.ask != null) {
-                    tickData = this.eventHandler.processSpotEvent(event, symbolName, symbolInfo);
+                    // Defect #3 fix: processSpotEvent can return null during quiet /
+                    // rollover windows (non-finite or inverted bid/ask). Only adopt the
+                    // spot-derived tick when it is valid, so a null does NOT clobber a
+                    // valid trendbar-derived tick, drop the emit, or skip recordTick().
+                    const spotTick = this.eventHandler.processSpotEvent(event, symbolName, symbolInfo);
+                    if (spotTick) tickData = spotTick;
                 }
 
                 if (tickData) {
@@ -217,8 +233,11 @@ class CTraderSession extends EventEmitter {
         this.connection.on('close', this.closeEventHandler);
         this.connection.on('error', this.errorEventHandler);
 
-        // Use health monitor for staleness detection
-        this.healthMonitor.on('stale', this.staleEventHandler);
+        // In supervised mode the supervisor's HealthSensor owns staleness; skip
+        // the session's own stale→disconnect trigger to avoid dual detection.
+        if (!this.supervised) {
+            this.healthMonitor.on('stale', this.staleEventHandler);
+        }
 
         this.eventListenersAttached = true;
     }
@@ -325,7 +344,9 @@ class CTraderSession extends EventEmitter {
         // Reset flag after cleanup
         this.isDisconnecting = false;
 
-        if (shouldScheduleReconnect) {
+        // In supervised mode the supervisor owns recovery (it observes the
+        // transport close / its HealthSensor and re-arms). Do not self-reconnect.
+        if (shouldScheduleReconnect && !this.supervised) {
             this.scheduleReconnect();
         }
     }
@@ -343,12 +364,17 @@ class CTraderSession extends EventEmitter {
         // but removeListener is NOT overridden - so we must use '51' for cleanup.
         this.heartbeatEventHandler = () => {
             this.healthMonitor.recordTick();
+            // Emit 'heartbeat' so a supervising FeedSupervisor's HealthSensor can
+            // track liveness distinctly from data ticks (DEGRADED vs STALE).
+            this.emit('heartbeat');
         };
         this.connection.on('ProtoHeartbeatEvent', this.heartbeatEventHandler);
 
         this.heartbeatInterval = setInterval(() => {
             try {
-                if (this.connection) this.connection.sendHeartbeat();
+                // sendRaw = fire-and-forget heartbeat (not routed through our
+                // tracked command map), per the defect-#4 fix in the transport tier.
+                if (this.connection) this.connection.sendRaw();
             } catch (e) { /* connection closing */ }
         }, 10000);
     }
@@ -364,17 +390,35 @@ class CTraderSession extends EventEmitter {
 
     /**
      * Restore all active subscriptions after reconnection.
-     * Called during connect() to resubscribe to all symbols that were active before disconnect.
+     * Called during connect() to resubscribe to every symbol/period that was
+     * active before the disconnect — on a possibly NEW transport.
      */
     async restoreSubscriptions() {
-        if (!this.connection || this.activeSubscriptions.size === 0) {
+        if (!this.connection) {
+            return;
+        }
+        if (this.activeSubscriptions.size === 0 && this.activeBarSubscriptions.size === 0) {
             return;
         }
 
-        // Restore subscriptions in order: ticks first, then M1 bars, then other bar subscriptions
-        for (const symbolName of this.activeSubscriptions) {
+        // Snapshot what to restore, then CLEAR the in-memory tracking. This may
+        // be a brand-new connection, so every subscription must be re-sent — but
+        // subscribeToTicks/M1Bars/Bars carry idempotency guards that short-
+        // circuit when the set already holds the key. Because the sets persist
+        // across reconnects (to remember what to restore), NOT clearing would
+        // leave the restored feed silent (the B0 baseline defect). Clearing first
+        // makes the guards pass and the sets repopulate exactly as on a fresh
+        // connect, so the restored set is symbol-for-symbol equal to the
+        // pre-disconnect set.
+        const tickNames = [...this.activeSubscriptions];
+        const barKeys = [...this.activeBarSubscriptions.keys()];
+        this.activeSubscriptions.clear();
+        this.activeBarSubscriptions.clear();
+
+        // Restore in order: ticks first (cTrader requires ticks before bars),
+        // then M1 bars, then any other bar subscriptions.
+        for (const symbolName of tickNames) {
             try {
-                // cTrader requires tick subscription before M1 bars
                 await this.subscribeToTicks(symbolName);
                 await new Promise(resolve => setTimeout(resolve, 50)); // Small delay to avoid overwhelming API
             } catch (error) {
@@ -382,7 +426,7 @@ class CTraderSession extends EventEmitter {
             }
         }
 
-        for (const symbolName of this.activeSubscriptions) {
+        for (const symbolName of tickNames) {
             try {
                 await this.subscribeToM1Bars(symbolName);
                 await new Promise(resolve => setTimeout(resolve, 50)); // Small delay to avoid overwhelming API
@@ -391,16 +435,13 @@ class CTraderSession extends EventEmitter {
             }
         }
 
-        // Restore non-M1 bar subscriptions
-        if (this.activeBarSubscriptions.size > 0) {
-            for (const [key] of this.activeBarSubscriptions) {
-                const [symbolName, period] = key.split(':');
-                try {
-                    await this.subscribeToBars(symbolName, period);
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                } catch (error) {
-                    log.error(`Failed to restore bar subscription for ${key}:`, error.message);
-                }
+        for (const key of barKeys) {
+            const [symbolName, period] = key.split(':');
+            try {
+                await this.subscribeToBars(symbolName, period);
+                await new Promise(resolve => setTimeout(resolve, 50));
+            } catch (error) {
+                log.error(`Failed to restore bar subscription for ${key}:`, error.message);
             }
         }
     }
@@ -583,14 +624,14 @@ class CTraderSession extends EventEmitter {
         this.handleDisconnect(null, false);
     }
 
-    async reconnect() {
+    async reconnect(transport) {
         this.healthMonitor.stop();
-        this.reconnection.cancelReconnect();
+        this.reconnection.reset();
         this.isConnecting = false;
         // Preserve subscriptions across reconnect — connect() → restoreSubscriptions()
         // repopulates the backend from the saved maps.
         await this.disconnect(false);
-        await this.connect();
+        await this.connect(transport);
     }
 }
 

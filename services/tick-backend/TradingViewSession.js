@@ -355,7 +355,7 @@ class TradingViewSession extends EventEmitter {
     async reconnect() {
         log.info('Manual reinit requested');
         this.healthMonitor.stop();
-        this.reconnection.cancelReconnect();
+        this.reconnection.reset();
         this.disconnect();
         await this.connect(this.sessionId);
     }

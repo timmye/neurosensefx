@@ -118,25 +118,14 @@ describe('1.7 handleUnsubscribe cleans up M1 bars', () => {
     });
 });
 
-describe('1.5 reconnect preserves subscriptions', () => {
-    it('disconnect(clearSubscriptions=false) preserves subscription maps', () => {
-        const source = require('fs').readFileSync(
-            require('path').resolve(__dirname, '../CTraderSession.js'), 'utf8'
-        );
-        // Verify disconnect accepts clearSubscriptions parameter
-        expect(source).toContain('disconnect(clearSubscriptions');
-        // Verify reconnect passes false
-        expect(source).toContain('disconnect(false)');
-    });
+// 1.5 RETIRED (B7): the source-text assertions here ("source contains
+// 'disconnect(false)'") gave false confidence — they checked that the string
+// existed, not that subscriptions were actually preserved/restored. Replaced by
+// BEHAVIORAL coverage: __tests__/characterization/ctraderConnect.test.js asserts
+// reconnect re-subscribes symbol-for-symbol (snapshot+clear in
+// restoreSubscriptions), and __tests__/supervision/recovery.test.js asserts
+// subscriptions survive a supervisor-driven reconnect.
 
-    it('disconnect defaults to clearing subscriptions', () => {
-        const source = require('fs').readFileSync(
-            require('path').resolve(__dirname, '../CTraderSession.js'), 'utf8'
-        );
-        // Verify default parameter is true
-        expect(source).toContain('clearSubscriptions = true');
-    });
-});
 
 describe('1.6 TradingView once->on listener race fix', () => {
     it('RequestCoordinator uses on instead of once for candle listener', () => {

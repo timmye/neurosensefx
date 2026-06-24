@@ -1,6 +1,6 @@
 # Bug: Frontend Shows Stale Data After Hours (Requires Restart)
 
-**Status:** Root cause identified. **Defect #1 (the live bug) FIXED 2026-06-22** — see "Fix applied" below. cTrader-path defects (#2–#5) remain latent (no price-stall observed yet).
+**Status:** Root cause identified. **Defects #1–#5 + the fallback trap are RESOLVED (2026-06-24)** by executing plan `plans/feed-recovery-supervision.md` (path A→B): a `FeedSupervisor` supervision tier was extracted (explicit state machine, injected clock/transport) and the entire defect cluster was fixed at the source; **recovery is now unit-tested offline** (`npx vitest run`, 149 tests green), including the hang-after-open and hung-command modes that were the next likely incident. **Defect #1 was earlier fixed 2026-06-22 and verified in production 2026-06-23** (MAX_LEVELS freezes ~90k→1,999, all on VIX). See **"Update (2026-06-24)"** below.
 **Date:** 2026-06-22
 **Area:** `services/tick-backend/`
 
@@ -19,6 +19,142 @@ Profile and TWAP subsystems:
 - Tests: `marketProfileNormalization.test.js` (5), `twapNormalization.test.js` (6, incl. the shared util), and `subscriptionManager.test.js` (6). All backend (83) and frontend (482) unit tests pass.
 
 **Not changed (deliberate):** `BUCKET_PERCENTAGE` left at `0.0001` (price-path buckets are fine after rounding); no level eviction (would corrupt TPO semantics). The tick path and `CTraderSymbolLoader.normalizeName` are untouched. **Live verification still pending** — needs a running backend (cTrader creds + PG + Redis) to confirm the mini-profile + TWAP stay live for jpn225/xagusd/etc. over hours.
+
+## Update (2026-06-23): Defect #1 verified FIXED in production; active stall moved to the feed-reconnection deadlock
+
+After ~17h of overnight testing with the defect #1 fix live, the *original* symptom
+(frozen mini market profiles in tickers) is gone — but a **different** stall appeared:
+the cTrader (and TradingView) data feeds silently die and never recover, again requiring
+a full restart. This is the deferred cTrader-path finally firing in production.
+
+> **Port note (corrects an earlier misread).** cTrader Open API is protobuf-over-TLS on
+> port **5035** (`config.js:41`, `.env PORT=5035`) — **not** HTTPS/443. An earlier
+> "443 unreachable" diagnosis was probing the wrong port and was incorrect.
+
+### Defect #1 fix — verified working
+
+`MAX_LEVELS` profile freezes dropped from ~90,000 (12 symbols) to **1,999, all on a
+single symbol — VIX**. The `normalizeSymbol` fix worked for every instrument except VIX,
+which legitimately accumulates >3000 levels under current bucket sizing. VIX is a minor
+residual (fix: make `MAX_LEVELS` degrade/re-bucket rather than freeze) — **not** the stall.
+
+### The active stall is the cTrader feed-reconnection deadlock
+
+**Network is healthy — verified live during the stall.** On port 5035: DNS resolves; raw
+TCP to `live.ctraderapi.com:5035` and its IP `13.248.223.213` is reachable; **TLS handshake
+completes cleanly** (cert `*.ctraderapi.com`, chain `GoGetSSL RSA DV CA` → `USERTrust`,
+`verify return:1` at every depth). TradingView host is also reachable.
+
+So the stall is **not** a network outage. The network path is fine; the code gave up trying
+and won't resume.
+
+#### Log signals during the stall (current `backend.log`, 3.02M lines, onset ~22:50 UTC)
+
+| Signal | Count | Meaning |
+|--------|------:|---------|
+| `Max reconnection attempts reached. Giving up.` | **8** | Defect #5 permanently surrendered (×8) |
+| `Scheduling reconnect attempt` | 1,409 | Reconnection churning |
+| `Reconnect attempt failed` | 491 | Attempts failing |
+| `CTraderConnection error` | 430 | Socket errors |
+| `DNS resolution failed … falling back to direct connect` | 468 | Fallback path invoked |
+| `connection timeout after 10 seconds` | 468 | 100% of fallback attempts timed out |
+| `getaddrinfo ENOTFOUND/EAI_AGAIN live.ctraderapi.com` | ~430 | Transient DNS blip (Docker resolver `192.168.65.7`) |
+| `Connection stale` (staleness watchdog) | **0** | Defect #2: watchdog never fires despite all the above |
+| `MAX_LEVELS` (defect #1) | 1,999 (all VIX) | Original bug essentially resolved |
+
+### Reconnection lifecycle (mapped)
+
+```
+              ┌──────────────────────────────────────────┐
+              │        CTraderSession.connect()   :61    │
+              └────────────────────┬─────────────────────┘
+                                   │
+        CTraderConnection.open()  ─┴─►  CTraderSocket.connect()   libs/.../CTraderSocket.ts:27
+        wrapped in Promise.race          ├─ primary: dns.lookup→IP → tls.connect(IP:5035)   ✓
+        with 10s timeout  (:85)         └─ fallback (on DNS throw): tls.connect(hostname) ← WSL2 TLS-hang
+                                   │
+                ┌──────────────────┴───────────────────┐
+             SUCCESS                              FAILURE  (10s timeout / err)
+                │                                      │
+   authenticate :100                                 ▼
+   loadAllSymbols :101                   handleDisconnect(err, true)   :96 / :208
+   restoreSubscriptions :104                      │
+   startHeartbeat :106                       reconnection.cancelReconnect()   :315
+   healthMonitor.start()+recordTick :111-112   ⚠ clears TIMER, NOT the attempt counter
+   reconnection.reset() :114  ◄── ONLY reset path      │
+   emit('connected') :115                            ▼
+                │                            scheduleReconnect()   :333
+          ✅ FEED ALIVE                              │
+                                          ReconnectionManager.scheduleReconnect()
+                                          reconnectAttempts++ (:36); backoff → connect()
+                                                │   (loop up to 20×)
+                                                ▼
+                                     reconnectAttempts ≥ 20   (ReconnectionManager.js:23)
+                                                ▼
+                                   silent no-op + log.error → 💀 DEADLOCK
+```
+
+### Exact failure chain (this incident)
+
+1. **~22:50 UTC** — the Docker-embedded DNS resolver (`192.168.65.7`) blips → `dns.lookup`
+   throws `ENOTFOUND`/`EAI_AGAIN` (`CTraderSocket.ts:33`).
+2. **Fallback path** runs (`CTraderSocket.ts:60-66`): it passes the **hostname** back to
+   `tls.connect`. The code's own comment (`:28-30`) says this exact call hangs the TLS
+   handshake on WSL2/Codespaces. → `secureConnect` never fires.
+3. The 10s Promise race (`CTraderSession.js:85,89`) fires → `handleDisconnect(error, true)` (`:96`).
+4. Loop: `handleDisconnect → scheduleReconnect → connect → fail` ×20.
+5. `reconnectAttempts` hits 20 → `ReconnectionManager.scheduleReconnect` becomes a
+   **silent no-op** (`ReconnectionManager.js:23-26`).
+6. **Deadlocked.** The network fully recovers minutes later (TLS handshake verified clean),
+   but nothing retries — the only counter-reset is a successful connect (`reset()` at
+   `ReconnectionManager.js:39` / `CTraderSession.js:114`), and `cancelReconnect`
+   (`ReconnectionManager.js:50`) never resets it.
+
+### Why there's no self-heal — compounding defects
+
+| Defect | Where | Effect |
+|--------|-------|--------|
+| **#5 — permanent give-up** | `ReconnectionManager.js:23-26`; `config.js:49` (=20) | After 20 failures the feed is dead for the process lifetime. No reset, no escalation, no event. `cancelReconnect` clears the timer but not the counter. |
+| **#2 — blind watchdog** | `HealthMonitor.js:34` (`isStale = this.lastTick && …`) | On a never-/fully-disconnected feed, `lastTick===null` → `null && …` is falsy → **staleness can never evaluate true.** When partially up, heartbeat-driven `recordTick` (`CTraderSession.js:345`) masks it. → `Connection stale: 0` despite 430 errors. |
+| **Fallback trap** | `CTraderSocket.ts:60-66` | The DNS-fallback re-introduces the exact WSL2 TLS-handshake hang the primary path was written to avoid. 100% of the 468 fallback attempts timed out. |
+
+`TradingViewSession` uses the **same** `ReconnectionManager` (class docstring, `:2-3`) and
+shows the same `Not connected` in the live tail — same latent bug, triggered later/less.
+
+### The "no downtime" problem
+
+There is currently **no recovery path shorter of a full process restart**:
+
+- No self-heal (defect #5 deadlock).
+- No reconnect/restart HTTP endpoint — `/api/dev/restart` in `docs/dev-lifecycle-modernization.md`
+  was **designed but never implemented** (`httpServer.js` has only `/api/candles` + auth/persistence).
+- No process supervisor in dev (`process.exit` kills the process permanently — `server.js:39,47,82`).
+- The only lever today is `run.sh` restart = client disconnects + full state rebuild = **downtime**.
+
+**Key architectural fact that makes zero-downtime recovery possible:** reconnecting the feeds
+does **not** require restarting the process. The WebSocket server and connected clients stay up;
+only `CTraderSession` / `TradingViewSession` need to `connect()` again. A fix can therefore
+recover feeds with **zero client downtime** — it's purely a matter of (a) breaking the give-up
+deadlock and (b) having something trigger reconnect.
+
+### Fix direction (zero-downtime, ordered — targeted, not a rewrite)
+
+1. **Break the deadlock (defect #5).** Make `ReconnectionManager` retry indefinitely with a
+   capped backoff (after 20 attempts, keep retrying every `maxDelay`), and expose a public
+   `reset()` / `forceReconnect()`. Smallest possible change; immediately turns "dead forever"
+   into "keeps trying."
+2. **Add an on-demand reconnect.** `CTraderSession.reconnect()` → `reconnection.reset()` +
+   `connect()`, wired to a dev HTTP endpoint. Recovers feeds without touching the process →
+   **no client downtime**. (Resurrects the half-built `/api/dev/restart` design, but as a
+   *feed reconnect*, not a process kill.)
+3. **Fix the fallback trap** (`CTraderSocket.ts:60-66`): on a DNS throw, retry `dns.lookup`
+   a couple of times and/or fall back to a **cached last-known-good IP** instead of handing
+   the hostname back to `tls.connect`. Removes the 100% fallback-timeout mode at its source.
+4. **Fix the watchdog (defect #2).** Track `lastDataTick` separately from heartbeat, and
+   treat `lastTick===null && connected` as stale so a never-connected feed is detected.
+
+Items 1+2 alone convert "must restart (downtime)" into "self-heals, or one curl (no downtime)."
+Items 3+4 harden the trigger so it's rarer and always caught.
 
 ## Symptom
 
@@ -400,3 +536,116 @@ radius.
   latent-confirmed to firing-confirmed.
 - Before fixing #1(a), verify no symbol is *intended* to keep separate per-source
   profiles (the dual-source architecture may rely on per-source keys in places).
+
+## Update (2026-06-24): Defect cluster RESOLVED — supervision tier built and offline-tested
+
+Plan `plans/feed-recovery-supervision.md` (path **A → B**) was executed in full. The
+cTrader feed-reconnection deadlock and its sibling defects are resolved **at the source**,
+not patched line-by-line. Defects **#2/#3/#4/#5 and the fallback trap** are all closed:
+
+- **#5 (give-up)** — `utils/ReconnectionManager.js` no longer permanently surrenders. After
+  `maxAttempts` it keeps retrying indefinitely at the capped, jittered `maxDelay`, with a
+  periodic escalation `log.warn` so a genuinely-broken feed is detectable rather than
+  silent; `reset()` zeroes counter+delay and cancels the pending timer.
+- **#2 (blind watchdog)** — a new `HealthSensor` (`services/tick-backend/supervision/`)
+  splits data-tick vs heartbeat and treats never-received-data as **stale**, so a
+  never-/fully-disconnected feed is now detected.
+- **#3 (null-tick clobber)** — `CTraderSession` only adopts a spot tick when
+  `processSpotEvent` returns non-null, so a quiet/rollover null no longer clobbers a valid
+  trendbar tick or skips `recordTick`.
+- **#4 (hung command / handshake hang)** — a new transport adapter
+  (`supervision/CTraderTransportAdapter.js`) wraps every `sendCommand` with a per-RPC TTL
+  and reject-on-close; the supervisor also enforces a connect-phase deadline
+  (CONNECTING/HANDSHAKING held too long → BACKOFF), which is the **hang-after-open fix**.
+- **Fallback trap (WSL2 TLS)** — the adapter passes the **hostname** straight through to the
+  library (the library's primary path already does `dns.lookup(host) → tls.connect({ host: ip,
+  servername: host })`, so the `*.ctraderapi.com` cert verifies). Pre-resolving to an IP in the
+  adapter was tried in the first live run and **rejected**: it made the library use the IP as the
+  TLS ServerName → cert mismatch (`Hostname/IP does not match certificate's altnames`). The
+  remaining failure mode — the library's *fallback* (`tls.connect(hostname)` on a DNS throw),
+  which hung on WSL2 during the incident — is instead mitigated one tier up: the supervisor's
+  connect-phase deadline now covers the **open** phase too, so a hanging `open()` is bounded and
+  the never-give-up retry re-arms until DNS recovers and the primary path succeeds. (The original
+  incident's harm was the permanent *give-up*, not the bounded hang — that give-up is gone.)
+
+### A new supervision tier owns recovery
+
+`services/tick-backend/supervision/` houses `FeedSupervisor` (lifecycle owner), `RetryPolicy`
+(never-terminating capped+jittered backoff), `FeedState` (explicit state machine with **no
+terminal DEAD state** and a `HANDSHAKING` stall path), `HealthSensor`, transport/clock
+contracts (`interfaces.js`), and `CTraderTransportAdapter`. The clock and transport are
+**injected**, making recovery deterministic and unit-testable. `server.js` constructs the
+supervisor and runs the cTrader session in `supervised` mode (a dumb I/O worker that emits
+connected/disconnected/tick/heartbeat; the supervisor owns recovery). New surface:
+`GET /health` (reads `supervisor.observableState()`) and dev-only
+`POST /admin/reconnect {feed}`; `WebSocketServer.handleReinit` rewires to
+`supervisor.reset('ctrader')`.
+
+### Recovery is now provable offline
+
+The North Star of the plan — *"does it recover?" is a unit test, not an overnight run* — is
+met. `services/tick-backend/__tests__/supervision/recovery.test.js` exercises every
+connect/reconnect/recovery path with the backend fully **offline** (no creds/PG/Redis/network):
+self-heal after a failure burst; hang-after-open (#4) rescued by the deadline; hung-command
+backstop; DEGRADED→reconnect; quiet-window false-staleness (#3) does **not** trip;
+never-received→STALE→reconnect; `reset()`; subscriptions preserved across reconnect; and
+per-feed isolation. A B0 characterization safety net
+(`__tests__/characterization/{ctraderConnect,tradingviewConnect}.test.js`) scripts the full
+cTrader protobuf handshake and asserts subscription restore symbol-for-symbol. Full suite:
+`cd services/tick-backend && npx vitest run` → 13 files, **149 tests passing** (+1 skipped
+integration).
+
+### TradingView scoping (deliberate)
+
+TradingView keeps its **own** self-recovery (Phase A fixed its defect #5 give-up via
+`reconnection.reset()`). It is **not** wired through the supervisor — its connection model
+(`tradingview-ws`, no protobuf `sendCommand`/TTL concern) is different, so full
+supervisor-integration is a documented follow-up rather than a current gap. `/health`
+currently surfaces the supervised cTrader feed's state.
+
+See `docs/architecture/feed-recovery-supervision-review.md` (the design rationale) and
+`plans/feed-recovery-supervision.md` (the executed plan) for full detail.
+
+### Open finding from the first live run (2026-06-24): cTrader reconnects every ~30s
+
+The refactor's first live run (`./run.sh start`, prod) confirmed the supervision tier works
+end-to-end — cTrader authenticates and connects, `/health` reports `CONNECTED`, and recovery is
+driven by the supervisor — **but** it also surfaced an **unresolved** behavior to track:
+
+- **Symptom:** cTrader reconnects roughly **every ~30 s** — connect → clean broker close →
+  supervisor recovers (`BACKOFF` → `CONNECTED` in ~1 s), repeat. Over ~7 min uptime: **13
+  connects / 12 disconnects**. Every disconnect is a **clean broker-initiated close** (logged
+  `connection lost: feed disconnected`, no error).
+- **Ruled out (not the cause):**
+  - **Not credentials** — `.env` is untouched during the run (no `persistTokens` write), and there
+    are **no** `CH_ACCESS_TOKEN_INVALID` / refresh-token lines, so the access token authenticates
+    cleanly.
+  - **Not the supervisor's health logic** — **0** `DEGRADED`/`STALE`/forcing-reconnect lines; the
+    new health sensor is not churning. Every reconnect is a genuine broker close it recovers from.
+  - **Not the heartbeat change** — the session now calls `connection.sendRaw()` which the adapter
+    forwards to the library's `sendHeartbeat()`; this is **byte-for-byte equivalent** to the
+    original `connection.sendHeartbeat()`.
+- **Leading hypothesis:** the ~30 s cadence matches a **cTrader keepalive / heartbeat-timeout**
+  pattern (broker closing a connection it considers idle/unhealthy). It is **unknown whether this
+  is pre-existing** broker behavior that the *old* code also exhibited but recovered from silently
+  (only becoming the incident when recovery failed and gave up) **or** something new — the owner
+  is unsure. **Status: UNRESOLVED, needs investigation.**
+- **Diagnostic gaps blocking root-cause (fix these to finish the diagnosis):**
+  1. `backend.log` has **no per-line wall-clock timestamps** (only a date at startup) — so the
+     exact disconnect cadence and correlation with heartbeats can't be read from the log. The
+     `Logger` should emit timestamps.
+  2. The `cTrader-Layer` library does **not log socket close reasons**, so the broker's
+     close cause isn't captured. Consider an adapter-level hook or lib instrumentation to surface
+     why the socket closed.
+- **Impact today:** data delivery has ~1 s gaps every ~30 s during reconnects; the feed **does**
+  reconnect and re-subscribe automatically and never gives up, so this is a stability/noise issue,
+  not a re-introduction of the original permanent-stall bug.
+
+**Also fixed during this first live run (3 adapter bugs offline tests couldn't catch):**
+(1) `CTraderTransportAdapter`'s default factory required the lib with a path one level too shallow
+(`../../libs/...` instead of `../../../libs/...` — the adapter sits in `supervision/`) →
+`Cannot find module`; (2) `dns.promises.lookup()` returns `{ address, family }` (an object), not a
+string, so the resolved "IP" logged as `[object Object]`; (3) pre-resolving to an IP broke TLS
+ServerName matching (see the corrected fallback-trap note above). A regression test now guards the
+lib require path. Minor: the library prints cosmetic `Attempted to listen for unknown event type:
+close/error` warnings — these are harmless (it still registers and fires those listeners).

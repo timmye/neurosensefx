@@ -80,6 +80,44 @@ function addCandleApiRoutes(cTraderSession) {
     app.use(persistenceRoutes);
 }
 
+/**
+ * Register recovery surface routes: GET /health (observable, no auth) and
+ * POST /admin/reconnect (dev-only; disabled in production). Called from
+ * server.js after the supervisor and TradingView session are instantiated.
+ * Mounted on the same `app` as candles/persistence; /health and
+ * /admin/reconnect don't shadow /api/* so order is flexible.
+ */
+function addRecoveryRoutes(supervisor, tradingViewSession) {
+    // Observable health check — no auth. Exposes feed state for monitoring.
+    app.get('/health', (req, res) => {
+        res.json({ status: 'ok', feeds: supervisor.observableState() });
+    });
+
+    // Dev-only manual reconnect trigger. Guarded so a production deployment
+    // can't be prodded into a forced reconnect by an unauthenticated caller.
+    app.post('/admin/reconnect', (req, res) => {
+        if (config.nodeEnv === 'production') {
+            return res.status(403).json({ error: 'admin endpoint disabled in production' });
+        }
+
+        const feed = req.body && req.body.feed;
+        const target = feed || 'all';
+
+        if (!['ctrader', 'tradingview', 'all'].includes(target)) {
+            return res.status(400).json({ error: `Invalid feed: ${feed} (expected one of: ctrader, tradingview, all)` });
+        }
+
+        if (target === 'ctrader' || target === 'all') {
+            supervisor.reset('ctrader');
+        }
+        if (target === 'tradingview' || target === 'all') {
+            tradingViewSession.reconnect();
+        }
+
+        res.json({ ok: true, feed: target });
+    });
+}
+
 const server = http.createServer(app);
 
 /**
@@ -98,4 +136,4 @@ function listen(port) {
     });
 }
 
-module.exports = { server, listen, addCandleApiRoutes };
+module.exports = { server, listen, addCandleApiRoutes, addRecoveryRoutes };

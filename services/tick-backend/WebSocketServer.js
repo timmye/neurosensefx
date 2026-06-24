@@ -15,10 +15,14 @@ const log = createLogger('WebSocketServer');
 class WebSocketServer {
     // Constructor receives an http.Server instead of a port number (ref: DL-002).
     // The ws.Server attaches to the same HTTP server that Express uses.
-    constructor(server, cTraderSession, tradingViewSession, twapService = null, marketProfileService = null) {
+    constructor(server, cTraderSession, tradingViewSession, twapService = null, marketProfileService = null, supervisor = null) {
         this.wss = new WebSocket.Server({ server });
         this.cTraderSession = cTraderSession;
         this.tradingViewSession = tradingViewSession;
+        // Optional FeedSupervisor: when present, cTrader recovery is driven by
+        // the supervisor (reset('ctrader')) instead of the session's own
+        // reconnect(). Trailing optional param keeps existing callers/tests working.
+        this.supervisor = supervisor;
 
         // Registry of active WebSocket connections by userId.
         // Used to close old connections when a new login invalidates the session (ref: DL-023).
@@ -429,7 +433,15 @@ class WebSocketServer {
         const source = data.source || 'all';
 
         if (source === 'ctrader' || source === 'all') {
-            await this.cTraderSession.reconnect();
+            // When supervised, the FeedSupervisor owns cTrader recovery: reset()
+            // is a sync fire-and-forget reconnect (clears timers, zeroes attempts,
+            // force-closes, re-arms). Don't await it. Fall back to the session's
+            // own reconnect() only when no supervisor is wired in.
+            if (this.supervisor) {
+                this.supervisor.reset('ctrader');
+            } else {
+                await this.cTraderSession.reconnect();
+            }
         }
         if (source === 'tradingview' || source === 'all') {
             await this.tradingViewSession.reconnect();
