@@ -32,6 +32,10 @@ Implementation plans for features, refactors, and operational tasks.
 | `data-pipeline-fixes.md` | Data pipeline fix plan | Debugging data pipeline issues |
 | `drawing-persistence-100-reliable.md` | Drawing persistence 100% reliability fix plan (implemented, reviewed) | Reviewing drawing persistence implementation history |
 | `drawing-persistence-reliability.md` | Drawing persistence reliability analysis: 6 sync boundary bugs (IndexedDB to PostgreSQL) and migration fix | Debugging drawing sync issues, understanding persistence architecture |
+| `drawing-architecture-redesign.md` | Drawing architecture redesign implementation plan — Complete (2026-06-01, 125 tests) | Understanding drawing system architecture, reviewing redesign outcomes |
+| `marketDataStore-decomposition.md` | marketDataStore.js decomposition plan — DONE (361→205 LOC, 79 new tests) | Understanding store decomposition approach, verifying refactor results |
+| `workspace-decomposition.md` | workspace.js god-store (657 LOC) decomposition plan into focused modules | Planning store splits, understanding decomposition strategy |
+| `orchestrator-compute-render-split.md` | Orchestrator compute/render split plan (incremental per-domain) | Planning orchestrator refactor, reviewing compute/render separation |
 | `event-markers-design.md` | Event markers feature design (vertical line markers for custom events) | Planning event marker implementation |
 | `price-flicker-fix.md` | Current price line flicker fix: 4 causes identified across 3 audit rounds | Debugging price display flicker |
 | `price-flicker-reconcile.md` | Single-writer reconciliation architecture to eliminate developing bar flicker | Understanding tick-to-bar reconciliation, preventing flicker regression |

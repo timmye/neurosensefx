@@ -14,7 +14,12 @@ Svelte state management stores for frontend application.
 | `authStore.js` | Svelte store for authentication state (login, logout, session) | Modifying login/logout UI, checking auth status |
 | `themeStore.js` | Svelte store for light/dark theme preference | Changing theme, persisting theme choice |
 | `timezoneStore.js` | Svelte store for timezone preference (user → browser local → UTC fallback) | Changing timezone display, debugging timezone labels |
-| `volatilityStore.js` | Svelte store for volatility data and state | Accessing volatility data, debugging volatility display |
 | `dailyResetHandler.js` | Daily reset logic (OHLC bars, market profile, subscriptions) | Modifying daily reset behavior, debugging midnight transitions |
 | `marketDataNormalizer.js` | Normalizes raw tick data into structured market data format | Adding new data fields, debugging data normalization |
 | `marketProfileHandler.js` | Market profile computation handler triggered by daily resets | Modifying market profile calculation timing, debugging profile generation |
+
+## Subdirectories
+
+| Directory | What | When to read |
+| --------- | ---- | ------------ |
+| `__tests__/` | Unit tests for decomposed store handlers (`dailyResetHandler`, `marketDataNormalizer`, `marketProfileHandler`) | Running store tests, adding test coverage |

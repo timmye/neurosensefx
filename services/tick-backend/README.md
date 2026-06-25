@@ -38,6 +38,14 @@ The backend follows **Crystal Clarity principles** with modular, focused compone
 
 ## Module Structure
 
+### Supervision Tier (cTrader feed recovery)
+
+The cTrader feed is owned by a supervision tier in `supervision/`, not by `CTraderSession` itself. `FeedSupervisor` drives the full connect/reconnect/recovery lifecycle through an explicit state machine, applies a never-terminating retry policy, observes a health sensor that separates data-ness from liveness, and enforces a connect-phase deadline so a feed that opens but never handshakes cannot stall forever. In `server.js` the session is registered with `session.supervised = true`, which makes it a dumb I/O worker — it does **not** self-reconnect or self-track staleness; the supervisor recovers it. The full architecture rationale (why the tier was added, the ports/adapters design, state machine, retry policy, the hang-after-open and partial-stall fixes) is in `supervision/README.md`.
+
+> The TradingView session is **not** supervised: it still self-recovers via `ReconnectionManager` + `HealthMonitor` (see those sections below). The supervised cTrader feed uses `supervision/HealthSensor` instead of `HealthMonitor`, and `supervision/RetryPolicy` instead of `ReconnectionManager`.
+
+Operational surfaces for the supervised feed: `GET /health` (per-feed state snapshot from the supervisor) and dev-only `POST /admin/reconnect` (forces a supervisor `reset()`), both mounted in `server.js`.
+
 ### CTraderSession Module
 
 **Responsibility**: cTrader connection lifecycle and event orchestration

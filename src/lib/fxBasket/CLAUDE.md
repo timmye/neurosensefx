@@ -14,5 +14,10 @@ FX basket calculations, state management, and rendering for currency strength di
 | `fxBasketOrchestrator.js` | Compute/render split — `computeFxBasketLayout()` + render functions, fixed baseline at 100wt | Rendering basket display, testing layout logic, debugging visual issues |
 | `fxBasketStateMachine.js` | Basket state machine transitions (IDLE, WAITING, READY, ERROR) | Understanding basket state flow |
 | `fxBasketSubscription.js` | Basket WebSocket subscription management, re-exports `BasketState` | Subscribing to basket data, checking basket state |
-| `fxBasketVolatility.js` | FX basket volatility calculations | Implementing volatility display, debugging volatility data |
 | `README.md` | FX Basket architecture and design | Understanding basket system design |
+
+## Subdirectories
+
+| Directory | What | When to read |
+| --------- | ---- | ------------ |
+| `__tests__/` | Unit tests for basket compute/layout logic (`computeFxBasket.test.js`) | Running basket tests, adding test coverage |

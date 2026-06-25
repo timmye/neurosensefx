@@ -6,10 +6,12 @@ A foreign exchange trading visualization platform that provides visual patterns 
 
 ## Features
 
-- Real-time FX market data visualization via cTrader integration
+- Real-time FX market data visualization via cTrader integration (with TradingView as a secondary feed)
+- Supervised feed reliability: the backend detects stale/offline data and auto-recovers feeds (see Backend Feed Reliability below)
 - Multiple display types with configuration management
 - Drag-and-drop workspace management with persistence
 - Canvas rendering with DPR-aware crisp text
+- Light/dark chart theme with `localStorage` persistence
 - WebSocket-based real-time data streaming
 - User authentication (register/login/logout) with session management
 - Server-side persistence for workspaces, chart drawings, and price markers (PostgreSQL)
@@ -52,15 +54,29 @@ Tests cover the complete application workflow including display creation, intera
 
 ## Environment Variables
 
-Create a `.env` file based on `.env.example`. Required variables include cTrader API credentials and database connection settings:
+Create a `.env` file based on `.env.example`. Required variables include cTrader API credentials, the frontend WebSocket URL, and PostgreSQL/Redis connection settings:
 ```
-CTRADER_API_ID=your_api_id
-CTRADER_API_SECRET=your_api_secret
+# cTrader API credentials (obtain from cTrader)
+CTRADER_CLIENT_ID=your_client_id
+CTRADER_CLIENT_SECRET=your_client_secret
+CTRADER_ACCESS_TOKEN=your_access_token
+CTRADER_REFRESH_TOKEN=your_refresh_token
+CTRADER_ACCOUNT_ID=your_account_id
+CTRADER_HOST_TYPE=LIVE
+HOST=live.ctraderapi.com
+PORT=5035
+
+# Frontend -> backend WebSocket URL (dev port 8080; production 8081)
+VITE_BACKEND_URL=ws://localhost:8080
+
+# PostgreSQL (auth + persistence)
 PG_HOST=localhost
 PG_PORT=5432
 PG_DATABASE=neurosensefx_dev
 PG_USER=neurosensefx
 PG_PASSWORD=your_password
+
+# Redis (sessions)
 REDIS_URL=redis://localhost:6379
 ```
 
@@ -70,11 +86,21 @@ See [docs/local-dev-setup.md](docs/local-dev-setup.md) for the full setup guide.
 
 Use the provided scripts for service management:
 ```bash
-./run.sh start      # Start all services
+./run.sh dev        # Start development with HMR (backend :8080, frontend :5174)
+./run.sh start      # Start all services (production mode; backend :8081, frontend :4173)
 ./run.sh stop       # Stop all services
 ./run.sh status     # Check service status
 ./run.sh logs       # View service logs
 ```
+
+### Backend Feed Reliability
+
+The backend runs a feed-supervision tier (`services/tick-backend/supervision/`) that owns the cTrader connection lifecycle: it detects stale/offline conditions and recovers the feed automatically (capped+jittered backoff, never gives up). TradingView runs as a standalone self-recovering session. Two operational endpoints are exposed alongside the WebSocket/HTTP server:
+
+- `GET http://localhost:8080/health` — no-auth health check returning current feed state.
+- `POST http://localhost:8080/admin/reconnect` — dev-only manual reconnect trigger; body `{ "feed": "ctrader" | "tradingview" | "all" }` (returns 403 in production).
+
+> Port note: dev backend is `8080`; production backend is `8081`.
 
 ## Strategy Backtesting
 
@@ -98,8 +124,9 @@ Results (cumulative P/L charts, per-trade CSVs) are saved to `backtester/results
 
 - **Frontend**: Svelte 4.x with Vite build system
 - **Rendering**: Canvas 2D API with DPR-aware rendering
-- **State Management**: Svelte stores
-- **Backend**: Node.js WebSocket server with cTrader Open API, Express HTTP server for auth and persistence
+- **State Management**: Svelte stores (incl. theme, timezone, market data stores)
+- **Backend**: Node.js (>=18) WebSocket server with cTrader Open API, plus a TradingView WebSocket feed, and an Express HTTP server for auth and persistence
+- **Feed Reliability**: FeedSupervisor tier driving the cTrader connection lifecycle (auto-recovery on stale/offline); TradingView self-recovers
 - **Authentication**: bcrypt password hashing, Redis-backed sessions (HTTP-only cookies, 30-day TTL)
 - **Database**: PostgreSQL 15 for workspaces, drawings, and price markers
 - **Cache**: Redis 7 for session storage
@@ -115,7 +142,8 @@ src/                    # Frontend Svelte application
 └── App.svelte         # Main application component
 
 services/              # Backend services
-├── tick-backend/      # WebSocket backend, Express HTTP server, auth, persistence
+├── tick-backend/      # WebSocket backend, Express HTTP server, auth, persistence,
+│                      #   and supervision/ (feed-supervisor tier + /health, /admin/reconnect)
 └── ...
 
 backtester/            # SL/TP walk-forward backtester (Python)
@@ -124,17 +152,6 @@ backtester/            # SL/TP walk-forward backtester (Python)
 ├── data/              # Input trade logs, ADR reference data, SL overrides
 ├── docs/              # Bug analysis, implementation plans
 └── results/           # Generated output (gitignored)
-
-skills/                # Solatis claude-config skills
-├── deepthink/         # Structured reasoning for questions with unknown answer structure
-├── problem-analysis/  # Root cause identification (does NOT propose solutions)
-├── codebase-analysis/ # Systematic codebase exploration with evidence requirements
-├── decision-critic/   # Decision stress-testing (adversarial, not sycophantic)
-├── planner/           # Implementation planning/execution with quality gates
-├── refactor/          # Technical debt analysis (10 smell categories in parallel)
-├── prompt-engineer/   # Prompt optimization with 100+ research papers
-├── doc-sync/          # CLAUDE.md/README.md hierarchy synchronization
-└── scripts/           # Python skill implementations
 ```
 
 ## License

@@ -11,3 +11,9 @@ Market Profile visualization with orchestrator pattern.
 | `rendering.js` | Canvas drawing (bars, value area, POC) | Customizing Market Profile appearance |
 | `calculations.js` | POC, value area, intensity computations | Adding calculation types, tuning algorithms |
 | `README.md` | Market Profile architecture overview | Understanding Market Profile rendering pipeline |
+
+## Subdirectories
+
+| Directory | What | When to read |
+| --------- | ---- | ------------ |
+| `__tests__/` | Unit tests for Market Profile compute logic (`computeMarketProfile.test.js`) | Running profile tests, adding test coverage |

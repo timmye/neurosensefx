@@ -3,7 +3,8 @@
 ## Project Context
 
 - **Deployment model**: Local-first development. Remote VPS deployment is a future option but not a current priority — incomplete Docker/infra configs for remote hosting are expected and not urgent.
-- **Backend**: Open to incremental improvements for robustness and reliability. Not looking for big rewrites — small targeted fixes.
+- **Backend**: Open to incremental improvements for robustness and reliability. Not looking for big rewrites — small targeted fixes — BUT core reliability/connection fixes may warrant larger changes when they solve problems at the root (e.g. the feed-supervision tier).
+- **Feed reliability**: Backend reliability is a first-class concern. The cTrader feed lifecycle is owned by a supervision tier (`services/tick-backend/supervision/`, see `FeedSupervisor.js`) that detects stale/offline conditions and recovers feeds automatically; backend exposes `GET /health` and dev-only `POST /admin/reconnect` for operations. TradingView runs standalone (self-recovers, not supervised).
 - **Backtester** (`backtester/`): Side project, not core or critical. May or may not stay in the repo. Findings are valid but should not drive priority work.
 - **Focus area**: Frontend + backend service reliability are the primary concerns. Infrastructure hardening is deferred until remote deployment becomes a priority.
 
@@ -74,7 +75,7 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `libs/` | External library integrations | Integrating with cTrader API |
 | `plans/` | Implementation plans for features and refactors | Executing planned work, reviewing feature scope |
 | `scripts/` | Utility and setup scripts | Setting up development environment, running diagnostics |
-| `services/` | Backend WebSocket and API services | Working on backend, data streaming |
+| `services/` | Backend WebSocket and API services (tick-backend: feeds, supervision tier, HTTP API, auth, persistence) | Working on backend, data streaming, feed reliability |
 | `src/` | Frontend Svelte application | Developing UI, adding visualizations |
 | `tests/` | Additional E2E test suites (connection stress, reconnect reliability, subscription queue) | Running E2E tests |
 | `.devcontainer/` | VS Code Dev Container configuration | Setting up Codespace or containerized dev environment |
@@ -85,11 +86,20 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 Requires PostgreSQL 15+ and Redis 7+ running (see `docs/local-dev-setup.md`).
 
 ```bash
-./run.sh dev              # Start development with HMR
-./run.sh start            # Start services (production mode)
+./run.sh dev              # Start development with HMR (backend :8080, frontend :5174)
+./run.sh start            # Start services (production mode; backend :8081, frontend :4173)
 ./run.sh stop             # Stop all services
 ./run.sh status           # Check service health
 ```
+
+Backend (dev) ports: WebSocket/HTTP on `8080`, Vite frontend on `5174`. Production: backend `8081`, preview `4173`.
+
+### Backend operations (dev)
+
+The backend exposes a small recovery surface (see `services/tick-backend/httpServer.js`):
+
+- `GET http://localhost:8080/health` — no-auth health check; returns feed state from the supervisor (`observableState()`).
+- `POST http://localhost:8080/admin/reconnect` — dev-only manual reconnect; body `{ "feed": "ctrader" | "tradingview" | "all" }`. Returns 403 in production.
 
 ## Test
 
@@ -97,5 +107,6 @@ E2E tests require a running backend with PostgreSQL and Redis. Pre-auth test sui
 
 ```bash
 npm test                 # Run all E2E tests (requires running backend + PG + Redis)
+npm run test:unit        # Run Vitest unit tests
 npx playwright test --ui    # Run tests with Playwright UI
 ```

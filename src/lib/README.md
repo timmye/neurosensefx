@@ -132,16 +132,15 @@ marketProfile/rendering.js → Canvas 2D bars, value area, POC
 
 **By functionality:**
 
-- `dayRange*.js`: Day Range visualization system
+- `dayRange/`: Day Range visualization system (orchestrator, core, calculations, config, elements, rendering utils, ADR boundary)
 - `marketProfile/`: Market Profile module (orchestrator, scaling, rendering, calculations)
 - `fxBasket/`: FX Basket module (calculations, state machine, rendering, subscriptions)
 - `connection/`: WebSocket connection management (handler, subscription, reconnection)
 - `chart/`: KLineChart configuration, drawing persistence, undo/redo commands
-- `websocket/`: WebSocket utilities (message coordinator)
-- `priceMarker*.js`: Price marker state, rendering, interaction
-- `display*.js`: WebSocket data processing and Canvas rendering
-- `canvas*.js`: Canvas 2D utilities and status display
-- `colors.js`, `keyboardHandler.js`: Shared utilities
+- `priceMarkers/`: Price marker compute/render split (base, compute, coordinates, dropdown, interaction, renderer)
+- `display*.js`: WebSocket data processing and Canvas rendering (top-level flat files)
+- `canvas*.js`, `colors.js`: Canvas 2D utilities, status display, shared color constants
+- `keyManager.js`: Centralized keyboard event handling (shared utility)
 
 ## Performance Characteristics
 

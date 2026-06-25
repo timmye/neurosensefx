@@ -26,11 +26,14 @@ Architecture, design, and implementation documentation.
 | `timeframe-switching-regression.md` | Regression analysis of timeframe switching bug | Debugging timeframe switch issues, understanding regression history |
 | `tradingview-subscription-latency-analysis.md` | TradingView subscription latency analysis | Debugging subscription latency, tuning timing thresholds |
 | `tradingview-symbol-expressions.md` | TradingView symbol expression reference | Understanding symbol format, adding new symbol types |
+| `backend-architecture-assessment-2026-06.md` | Backend architecture assessment (`services/tick-backend/`, 25 files, ~4,500 LOC, dual cTrader + TradingView sources) | Starting backend structural work, understanding backend data flow |
+| `backend-assessment-plain-english-2026-06.md` | Non-technical backend summary (companion to backend-architecture-assessment) | Explaining backend state to non-developers, high-level overview |
 | `frontend-architecture-assessment-2026-06.md` | Original architecture assessment — completed. All P0/P1 resolved. Historical record. | Understanding why decisions were made, verifying past findings |
 | `frontend-architecture-reassessment-2026-06.md` | **Current frontend architecture state, active targets, and deferred items.** | **Starting any frontend structural work.** Read this first. |
 | `frontend-audit-2026-06-23.md` | Dead code, inefficiencies & UX debt inventory (follow-up to background removal). Verified findings + debunked agent claims. | Planning frontend cleanup; deciding which dead code/UX debt to tackle |
 | `architecture-assessment-non-frontend-2026-06.md` | Backend, backtester, and infra assessment. Categorized: actionable now vs deferred (remote deployment) vs informational (backtester). | **Starting any backend structural work.** Read for current known issues. |
 | `orchestrator-unification-reassessment.md` | Orchestrator compute/render split — done, 51 unit tests added | Understanding orchestrator compute functions, testing layout/scaling logic |
+| `price-scale-unification-report.md` | Price-scale unification report — DONE (2026-06-03), implemented and verified | Understanding price-scale handling, verifying unification outcomes |
 
 ## Subdirectories
 
@@ -45,3 +48,5 @@ Architecture, design, and implementation documentation.
 | `bugs/` | Bug investigation reports and root cause analyses | Debugging recurring issues, understanding known bugs |
 | `debug/` | Debug investigation notes and root cause analyses | Reading past debug investigations, understanding known issues |
 | `klinecharts/` | KLineChart API reference, upstream PR strategy, custom feature inventory | Debugging KLineChart integration, assessing upstream contributions |
+| `architecture/` | Architecture review and redesign documents (feed recovery & supervision) | Reviewing architecture redesigns, understanding supervision tier design |
+| `refactor/` | Refactoring and dead-code analysis reports | Planning cleanup, identifying dead code before removal |

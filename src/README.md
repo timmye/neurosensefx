@@ -1,126 +1,53 @@
-# Simple Implementation
+# Frontend (src/)
 
-This directory contains the crystal-clear implementation of NeuroSense FX's three MUST HAVEs.
+NeuroSense FX is a local-first Svelte SPA. The UI is a fixed-viewport "workspace" of draggable, canvas-rendering floating displays fed by a backend WebSocket gateway.
 
-## Principles
+## Auth Gate
 
-1. **Simple**: Each file does ONE thing
-2. **Performant**: Sub-100ms interaction latency
-3. **Maintainable**: Readable in under 1 hour
+`App.svelte` is an auth gate, not an anonymous-mode shell (ref: DL-011). On mount it calls `checkSession()` against `authStore`. While `isLoading` is true it shows a loading state; otherwise it renders either `Workspace` (authenticated) or `LoginForm` (not). There is no anonymous/public mode — every user must register. The cutover is hard, so any feature assuming unauthenticated access is invalid.
 
-## Line Count Targets (HARD LIMITS)
+## Display Creation Model
 
-- `stores/workspace.js`: 150 lines MAX
-- `components/Workspace.svelte`: 80 lines MAX
-- `components/FloatingDisplay.svelte`: 100 lines MAX
-- `lib/visualizers.js`: 60 lines MAX
+Displays are created exclusively via Alt-key shortcuts handled in `lib/workspaceKeyboardShortcuts.js` (extracted from `Workspace.svelte`). There is no menu/toolbar to spawn displays:
 
-**Total Target**: 390 lines for all three MUST HAVEs
+- **Alt+A** — cTrader-backed currency display (Day Range Meter + Market Profile)
+- **Alt+T** — TradingView-backed display
+- **Alt+B** — FX Basket strength display (8 baskets, 28 pairs)
+- **Alt+I** — Price Ticker
+- **Alt+W** — workspace configuration modal
+- **Alt+R** — reinitialize all connections
+- **?** / **/** — keyboard shortcuts help overlay
 
-## The Three MUST HAVEs
+Each Alt shortcut creates one display of a fixed type; the display type is bound to its shortcut, not user-selectable after creation.
 
-### MUST HAVE 1: Establish Floating Interface Workspace
-- Draggable workspace container
-- Position persistence via localStorage
-- Basic z-index management
+## Rendering Dispatch
 
-### MUST HAVE 2: Create Interactive Floating Element
-- Individual draggable displays
-- Basic resize capability
-- Focus management
+`lib/visualizers.js` is imported for side effects by `App.svelte` and provides the top-level render dispatch used by `FloatingDisplay`. It wires the Day Range orchestrator, Market Profile orchestrator, and status renderer together. Two entry points: `renderDayRange` (Day Range Meter only) and `renderDayRangeWithMarketProfile` (composite: Market Profile background + Day Range Meter overlay, with a "Waiting for market data…" status fallback).
 
-### MUST HAVE 3: Show Live Visualizations Inside
-- Canvas rendering with DPR awareness
-- WebSocket real-time data integration
-- Day Range Meter visualization
+## Persistence Surfaces
 
-## Rules for Implementation
+- **Workspace layout** — `stores/workspace.js`: localStorage + server sync, plus headlines widget state and import/export.
+- **Display state** — `stores/displayStore.js`: display Map, z-index, selection, chart ghost.
+- **Chart theme** — `stores/themeStore.js`: light/dark preference, persisted to `localStorage` under `nsfx-chart-theme`.
+- **Chart drawings** — `lib/chart/drawingStore.js`: IndexedDB (Dexie.js), scoped by `symbol+resolution`.
 
-### ALLOWED:
-- Framework documentation (Svelte, interact.js, Canvas API)
-- Reading src/ ONLY for data shapes and types
-- Using Plan 1 code examples as starting templates
+## Dependencies (intentionally minimal)
 
-### FORBIDDEN:
-- Copying implementation patterns from src/
-- Building abstractions or utility layers
-- Adding validation, monitoring, or performance infrastructure
-- "Improving" existing complex patterns
+- Svelte stores as the single source of reactive truth.
+- interact.js (drag/drop/resize) loaded via CDN — no npm wrapper.
+- Canvas 2D for all non-chart visualization (DPR-aware via `displayCanvasRenderer.js`).
+- KLineChart for the candlestick chart window (see `lib/chart/`).
+- Dexie.js for IndexedDB-backed caches (bars, drawings).
 
-## Framework Usage
+No lodash, no d3, no three.js. All non-chart rendering is custom Canvas 2D code.
 
-**Svelte Stores**: Single source of truth
-- Use writable() for workspace state
-- No derived stores unless absolutely necessary
-- No complex synchronization logic
-
-**interact.js**: Direct usage
-- draggable() for movement
-- resizable() for sizing
-- No custom wrappers or abstractions
-
-**Canvas Rendering**: DPR-aware basics
-- Standard Canvas 2D API
-- Device pixel ratio handling
-- No custom rendering engines
-
-**WebSocket**: Direct data flow
-- Subscribe to symbol data
-- Render on data receive
-- No worker processing initially
 ## Development
 
-**Start (Recommended for Shadow Implementation):**
 ```bash
-
-Development Environment:
-```bash
-# From project root (not /src-simple)
-./run.sh backend 
-./run.sh dev-simple
-
-# Opens:
-# - Backend: ws://localhost:8080
-# - Frontend: http://localhost:5175 (Simple front end)
-# Stop: ./run.sh stop
+# From project root
+./run.sh dev          # Vite dev server with HMR (frontend), backend auto-started
+./run.sh status       # Check service health
+./run.sh stop         # Stop all services
 ```
 
-### Crystal Clarity Frontend Testing
-```bash
-# Enhanced Console Monitoring
-npm run test:console             # Comprehensive console logging analysis
-npm run test:console:headed      # Console monitoring with visible browser
-npm run test:console:ui          # Interactive console debugging with UI
-```
-
-### Enhanced Console Monitoring System
-The enhanced console monitoring provides comprehensive system visibility with emoji-based classification:
-
-**Features:**
-- 🌐 **Network Activity**: HTTP requests, WebSocket connections, API calls
-- ⌨️ **User Interactions**: Keyboard events, mouse actions, shortcut processing
-- ❌ **System Errors**: JavaScript errors, component failures, initialization issues
-- ✅ **Success Events**: Successful operations, completed workflows
-- 🔥 **Critical Issues**: Server errors, network failures, system crashes
-- ⚠️ **Warnings**: Deprecation notices, performance warnings
-- 💡 **Debug Information**: Development logs, performance metrics
-- 📦 **Asset Loading**: Static resource requests, module loading
-
-**Quick Console Debugging:**
-```bash
-npm run test:console              # Full console analysis with classification
-npm run test:console:headed       # See browser activity in real-time
-npm run test:console:ui           # Interactive debugging interface
-```
-
-## Usage Instructions
-
-**Creating Displays:**
-- Press **Alt+A** to create a new trading display
-- Enter a currency symbol (e.g., EUR/USD, GBP/USD)
-- Display appears as a draggable floating window
-
-**Interactive Features:**
-- Drag displays by their headers to reposition
-- Click the × button to close displays
-- Displays automatically persist between sessions
+Frontend dev requires PostgreSQL 15+ and Redis 7+ running (see `docs/local-dev-setup.md`). E2E tests require a running backend — see `tests/CLAUDE.md`.
