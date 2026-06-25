@@ -1,5 +1,7 @@
 # Frontend Architecture Assessment — June 2026
 
+> ⚠️ **SUPERSEDED (2026-06).** This assessment predates the removal of three.js and the BackgroundShader/volatility pipeline. For the current frontend state, see [`frontend-architecture-reassessment-2026-06.md`](./frontend-architecture-reassessment-2026-06.md). Treat three.js/BackgroundShader references below as historical.
+
 **Status:** Assessment resolved. All P0, P1, and Tier 2 items complete. Only P2 deferred items remain. Forward-looking guide: `docs/frontend-architecture-reassessment-2026-06.md`.
 **Scope:** Frontend only (`src/`). Backend services are out of scope per project owner.
 **Audience:** Project owner / lead developer.

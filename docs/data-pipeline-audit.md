@@ -422,4 +422,3 @@ projectedAdrLow  = todaysOpen - (adr / 2)
 | `src/components/FloatingDisplay.svelte` | Floating display container, passes data to DisplayCanvas |
 | `src/components/displays/DisplayCanvas.svelte` | Canvas element, reactive render dispatch |
 | `src/components/FxBasketDisplay.svelte` | FX basket display (independent subscription) |
-| `src/components/BackgroundShader.svelte` | Volatility-driven background (uses volatilityStore, not price data) |
