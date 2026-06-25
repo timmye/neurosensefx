@@ -1,9 +1,12 @@
 # Credential Exposure Remediation — cTrader Open API (LIVE)
 
 > **Status:** Live credential exposure on a **public** repo (`github.com/timmye/neurosensefx`).
-> **Trigger file:** `.idx/dev.nix` — tracked, pushed to 7 branches incl. `origin/main`.
+> **Trigger file:** `.idx/dev.nix` — was tracked, pushed to 7 branches incl. `origin/main`.
 > **Severity:** HIGH — a live, never-rotated app secret matching the active backend config.
-> Created 2026-06-25. This is an operational runbook, not a code feature.
+> Created 2026-06-25. Operational runbook, not a code feature.
+>
+> **Progress (2026-06-25):** Phase 4 prep **DONE** — `.idx/dev.nix` + leaked configs untracked, `.gitignore` broadened (commit `86dc80e`). Tracker: `plans/tidiness-remediation.md`.
+> **Rotation strategy:** cTrader won't let us regenerate an existing app's secret, so we will **register a 3rd app**, cut the backend over + verify it's live, then **delete apps #1 + #2** (deletion = revocation). Phases 1–3 + 5 are **BLOCKED on app #3 authorization** (approval may take hours/days). **The secret remains LIVE until apps #1+#2 are deleted** — untracking ≠ revocation.
 
 ## Objective
 
