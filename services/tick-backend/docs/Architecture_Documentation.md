@@ -21,7 +21,7 @@ This document describes the architecture of the real-time cTrader Tick Streamer 
 
 The backend service comprises three main layers:
 
-1.  **cTrader Communication Layer (cTrader-Layer):** Handles the low-level cTrader Open API protocol. This is the forked and fixed `@reiryoku/ctrader-layer` library.
+1.  **cTrader Communication Layer (cTrader-Layer):** Handles the low-level cTrader Open API protocol. This is the **internal vendored fork** (`@neurosensefx/ctrader-layer` in `libs/cTrader-Layer/`), derived from Reiryoku's MIT-licensed library and patched in-repo — free to modify.
 2.  **cTrader Session Management Layer (CTraderSession):** Manages the application-level logic for the cTrader connection, authentication, heartbeats, and a comprehensive list of all available symbols. It emits events reflecting its connection state.
 3.  **WebSocket Server Layer (WebSocketServer):** Provides the external interface for frontend clients, maintains the unified backend status, broadcasts status updates and tick data, and dynamically manages cTrader API subscriptions based on client demand.
 
@@ -63,8 +63,8 @@ graph TD
 
 ## Component Breakdown
 
-### 1. `cTrader-Layer` (Forked Library - `ctrader_tick_backend/cTrader-Layer/`) 
-This is the patched version of the `@reiryoku/ctrader-layer` NPM package. It's responsible for:
+### 1. `cTrader-Layer` (Forked Library - `ctrader_tick_backend/cTrader-Layer/`) — **now an internal vendored fork at `libs/cTrader-Layer/`** (`@neurosensefx/ctrader-layer`)
+This is our internal vendored fork (`@neurosensefx/ctrader-layer`), derived from Reiryoku's cTrader-Layer and patched in-repo (free to modify). It's responsible for:
 
 *   **TLS Connection:** Establishing and maintaining a secure TLS socket connection to cTrader.
 *   **Protocol Encoding/Decoding:** Handling the low-level protobuf serialization and deserialization of cTrader messages.
@@ -154,7 +154,7 @@ Environment variables are used for configuration, stored in `ctrader_tick_backen
 
 ## Dependencies
 
-*   `@reiryoku/ctrader-layer`: Our locally fixed version for robust cTrader API communication.
+*   `@neurosensefx/ctrader-layer`: Internal vendored fork (in `libs/cTrader-Layer/`) for robust cTrader API communication; free to modify in-repo.
 *   `ws`: For efficient WebSocket server functionality.
 *   `dotenv`: For securely loading environment variables.
 *   `events`: Node.js built-in for event handling.

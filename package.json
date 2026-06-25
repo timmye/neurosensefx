@@ -15,7 +15,7 @@
     "logs": "./run.sh logs"
   },
   "dependencies": {
-    "@reiryoku/ctrader-layer": "file:libs/cTrader-Layer",
+    "@neurosensefx/ctrader-layer": "file:libs/cTrader-Layer",
     "dexie": "^4.4.2",
     "interactjs": "^1.10.27",
     "klinecharts": "^9.8.12",

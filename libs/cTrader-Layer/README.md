@@ -1,10 +1,21 @@
-# cTrader Layer
-A Node.js communication layer for the cTrader [Open API](https://connect.spotware.com).<br>
-This implementation is created and maintained by Reiryoku Technologies and its contributors.
+# cTrader Layer (NeuroSense FX — internal vendored fork)
+
+> **Internal vendored copy — free to modify.** This library lives directly inside the
+> NeuroSense FX repo at `libs/cTrader-Layer/` and is consumed via a local `file:`
+> dependency (`@neurosensefx/ctrader-layer`). It is **not** installed from npm and is
+> **never published**; treat it as part of this project and edit it freely. It is derived
+> from the MIT-licensed [cTrader-Layer](https://github.com/Reiryoku-Technologies/cTrader-Layer)
+> by Reiryoku Technologies — attribution and license are preserved in `LICENSE`.
+
+A Node.js communication layer for the cTrader [Open API](https://connect.spotware.com).
+Originally created and maintained by Reiryoku Technologies and its contributors; locally
+forked and patched for NeuroSense FX.
 
 ## Installation
 ```console
-npm install @reiryoku/ctrader-layer
+# Internal dependency — already present at libs/cTrader-Layer/ and wired via a file: link
+# in package.json (as @neurosensefx/ctrader-layer). A normal `npm install` resolves it.
+# Do NOT run: npm install @reiryoku/ctrader-layer
 ```
 
 ## Usage
@@ -12,7 +23,7 @@ For the cTrader Open API usage refer to the [Open API Documentation](https://spo
 
 ### How to establish a connection
 ```javascript
-const { CTraderConnection } = require("@reiryoku/ctrader-layer");
+const { CTraderConnection } = require("@neurosensefx/ctrader-layer");
 
 const connection = new CTraderConnection({
     host: "demo.ctraderapi.com",

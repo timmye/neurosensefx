@@ -409,7 +409,7 @@ PORT=8080  # Development
 ## Dependencies
 
 ### Core
-- `@reiryoku/ctrader-layer`: cTrader API wrapper
+- `@neurosensefx/ctrader-layer`: Internal vendored cTrader API wrapper (in `libs/cTrader-Layer/`)
 - `tradingview-ws`: TradingView WebSocket client
 - `ws`: WebSocket server implementation
 - `eventemitter3`: Enhanced EventEmitter

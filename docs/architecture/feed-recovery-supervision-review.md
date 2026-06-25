@@ -48,9 +48,10 @@ incident doc did not:
 
 - `services/tick-backend/` — the **single backend app** (Node, `server.js`), ~25 JS files. Talks to two external feeds.
 - **cTrader is split across two places:** orchestration in `CTraderSession.js`, and the
-  low-level protobuf/socket code in `libs/cTrader-Layer/` — a **separate git repository**
-  (own `.git`), packaged as `@reiryoku/ctrader-layer` and consumed as a local `file:`
-  dependency; the backend imports its compiled `build/entry/node/main`. ~11 TS files. The
+  low-level protobuf/socket code in `libs/cTrader-Layer/` — now an **internal vendored
+  fork** tracked in this repo (previously a separate git repository with its own `.git`;
+  since absorbed), packaged as `@neurosensefx/ctrader-layer` and consumed as a local
+  `file:` dependency; the backend imports its compiled `build/entry/node/main`. ~11 TS files. The
   TLS primary/fallback logic (`CTraderSocket.ts`) lives *here*, in the library — not in the
   backend. This split is part of why the failure is hard to trace (fallback bug in the
   library, give-up in the backend).

@@ -1,6 +1,6 @@
 # libs/
 
-External library wrappers and integrations.
+Library wrappers and integrations. `cTrader-Layer/` is an **internal vendored fork** tracked in this repo (not an npm dependency) — consumed via a `file:` link as `@neurosensefx/ctrader-layer`; free to modify. See its README.
 
 ## Files
 

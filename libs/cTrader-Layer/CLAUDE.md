@@ -1,5 +1,7 @@
 # libs/cTrader-Layer/
 
+**Internal vendored fork** of Reiryoku's MIT-licensed cTrader-Layer — tracked in this repo (not installed from npm), consumed as `@neurosensefx/ctrader-layer` via a `file:` link in the root and backend `package.json`. Free to modify; see `README.md` for provenance + license attribution.
+
 cTrader Open API TypeScript integration library — protobuf messaging, socket connections, and command encoding.
 
 ## Files

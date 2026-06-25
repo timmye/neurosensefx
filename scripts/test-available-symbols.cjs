@@ -137,7 +137,7 @@ console.log('    5. ProtoOASymbolsListReq       -- ctidTraderAccountId -> all sy
 console.log('    6. ProtoOASubscribeSpotsReq    -- symbolId[] -> live tick stream');
 console.log('    7. ProtoOASubscribeLiveTrendbarReq -- symbolId + period -> candle stream');
 
-console.log('\n  Library: @reiryoku/ctrader-layer (libs/cTrader-Layer/)');
+console.log('\n  Library: @neurosensefx/ctrader-layer (libs/cTrader-Layer/ — internal vendored fork)');
 console.log('  Entry:   libs/cTrader-Layer/build/entry/node/main.js');
 console.log('  API:     CTraderConnection class (EventEmitter)');
 console.log('           - open() : Promise<void>');

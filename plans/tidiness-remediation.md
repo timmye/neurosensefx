@@ -1,8 +1,8 @@
 # Tidiness Remediation — Status Tracker
 
-> Living document. Last updated 2026-06-25. Branch: `feed-supervision` (commits local, **not pushed**).
+> Living document. Last updated 2026-06-25. Branch: `main` (single branch, pushed; `feed-supervision` merged + deleted).
 > Tracks the **re-verified** tidiness audit + the cTrader credential exposure.
-> The credential cutover is **blocked on cTrader app #3 registration** (approval may take hours/days).
+> Credential exposure **RESOLVED**: app #2 live & verified, app #1 deleted (revoked). History scrub skipped (inert). Authoritative status in `plans/credential-exposure-remediation.md`.
 
 ## Legend
 `DONE` · `PENDING-CREDENTIAL` (blocked on app #3) · `DECISION-NEEDED` (your call) · `NO-ACTION` (intentional/leave) · `INVALID` (original audit wrong)
@@ -43,7 +43,7 @@
 ### 🟡 DECISION-NEEDED (your call — facts verified, safe defaults suggested)
 | Item | Verified fact | Safe default |
 | --- | --- | --- |
-| `@reiryoku/ctrader-layer` (root pkg dep) | Zero `src/` imports; backend has its own `file:` ref; build + 482 tests pass without it | `npm uninstall @reiryoku/ctrader-layer` (severs root symlink only; `libs/` untouched). Low risk. |
+| ~~`@reiryoku/ctrader-layer`~~ → renamed `@neurosensefx/ctrader-layer` | **LOAD-BEARING — original audit was WRONG.** The live cTrader connection runs through `libs/cTrader-Layer/` (a vendored fork); the `file:` link is what installs its deps (`protobufjs`/`axios`/`uuid`), which are declared nowhere else. "Zero `src/` imports / tests pass without it" was misleading — unit tests mock the lib; the live backend needs it. | ✅ DONE (2026-06-25): **kept** (do NOT uninstall). Renamed to internal scope `@neurosensefx/ctrader-layer`, marked `private:true`, severed the leftover nested-repo `.git`, documented as an internal vendored fork (free to modify). See `libs/cTrader-Layer/README.md`. |
 | `backtester/` | Self-contained (no `src/`/`services/` imports); 46 throwaway files in `results/`; `__pycache__` | Keep & trim cruft, OR remove the whole dir (clean isolated cut). CLAUDE.md: "may or may not stay." |
 | `services/tick-backend/UI/` | Empty placeholder (only a CLAUDE.md) | Remove (UI lives in `src/`). |
 | `services/tick-backend/docs/initial api/` | Self-labeled legacy IDX setup guide | Remove (IDX abandoned for devcontainer). |
