@@ -14,12 +14,12 @@
 | Phase | Status |
 | --- | --- |
 | 4 — untrack `.idx/dev.nix` + leaked configs + junk; broaden `.gitignore` | ✅ DONE (commit `86dc80e`) |
-| 1–3 — register app #3, authorize acct `38998989`, update `.env`, verify backend | ⏳ PENDING app #3 |
-| Delete apps #1 + #2 (this is what actually kills the LIVE secret) | ⏳ after cutover verified |
+| 1–3 — cut backend over to **app #2**, authorize acct `38998989`, update `.env`, verify | ⏳ PENDING app #2 tokens |
+| **Delete app #1** (this is what actually secures the repo — kills the LIVE leaked secret) | ⏳ after cutover verified |
 | 5 — history scrub across all 7 branches | ⏳ only meaningful AFTER rotation |
 | 6 — gitleaks pre-commit + GitHub Push Protection | ⏳ after scrub |
 
-> **Reminder:** the leaked `CLIENT_SECRET` stays **LIVE** until apps #1+#2 are deleted. Untracking ≠ revocation. Switching the backend to app #3 alone does not close the exposure.
+> **Reminder:** the leaked `CLIENT_SECRET` (app #1) stays **LIVE** until **app #1 is deleted**. Untracking ≠ revocation. Switching the backend to app #2 alone does not close the exposure.
 
 ---
 
@@ -60,9 +60,9 @@ The committed value in `src/.claude/settings.json` was **dead** (already rotated
 
 ---
 
-## Next actions (when app #3 is authorized)
-1. **You** — authorize app #3 for account `38998989` (LIVE) → obtain `access_token` + `refresh_token`.
-2. **You/Me** — write the 4 new values into root `.env` (`CLIENT_ID` if new app, `CLIENT_SECRET`, `ACCESS_TOKEN`, `REFRESH_TOKEN`; `ACCOUNT_ID` unchanged).
-3. **Me** — `./run.sh stop && ./run.sh dev`; verify `GET /health` healthy + ticks flowing + `persistTokens` advanced.
-4. **You** — delete apps #1 + #2 in the portal (kills the leaked secret).
-5. **Me** — history scrub across all 7 branches + wire gitleaks + GitHub Push Protection.
+## Next actions (app #2 cutover)
+1. **You** — ensure app #2 is authorized for account `38998989` (LIVE); obtain its `access_token` + `refresh_token`.
+2. **You/Me** — write app #2's values into root `.env` (`CLIENT_ID`, `CLIENT_SECRET`, `ACCESS_TOKEN`, `REFRESH_TOKEN`; `ACCOUNT_ID` unchanged).
+3. **Me** — `./run.sh stop && ./run.sh dev`; verify `GET /health` healthy + ticks flowing + `persistTokens` advanced (proves refresh works under app #2).
+4. **You** — **delete app #1** in the portal (this is what secures the repo — kills the leaked LIVE secret).
+5. **Me** — history scrub of `.idx/dev.nix` across all 7 branches (now cosmetic, since app #1 will be dead) + wire gitleaks + GitHub Push Protection.

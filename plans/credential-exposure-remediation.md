@@ -6,7 +6,7 @@
 > Created 2026-06-25. Operational runbook, not a code feature.
 >
 > **Progress (2026-06-25):** Phase 4 prep **DONE** — `.idx/dev.nix` + leaked configs untracked, `.gitignore` broadened (commit `86dc80e`). Tracker: `plans/tidiness-remediation.md`.
-> **Rotation strategy:** cTrader won't let us regenerate an existing app's secret, so we will **register a 3rd app**, cut the backend over + verify it's live, then **delete apps #1 + #2** (deletion = revocation). Phases 1–3 + 5 are **BLOCKED on app #3 authorization** (approval may take hours/days). **The secret remains LIVE until apps #1+#2 are deleted** — untracking ≠ revocation.
+> **Rotation strategy (revised 2026-06-25):** cTrader won't let us regenerate an existing app's secret, so we will **cut the backend over to app #2** (verified clean — never committed) + verify it's live, then **delete app #1** (deletion = revocation — this is what secures the repo). App #2 becomes production. Phases 1–3 are BLOCKED on obtaining app #2's access/refresh tokens for account `38998989` (OAuth authorization). **The repo stays exposed until app #1 is deleted** — switching the backend to app #2 alone does not revoke app #1's leaked secret. (App #2's secret was pasted into the chat transcript and can't be regenerated; user accepts that residual. It is clean in the repo.)
 
 ## Objective
 
