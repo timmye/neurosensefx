@@ -10,6 +10,7 @@ Architecture, design, and implementation documentation.
 | `centralized-data-function-post-implementation-review.md` | Post-implementation review of centralized data function | Reviewing centralized data function outcomes, auditing implementation |
 | `currency_basket_indicator.txt` | Currency basket indicator reference material | Understanding basket currency composition |
 | `dev-lifecycle-modernization.md` | Dev service recovery endpoint design | Implementing backend reinit, debugging service restart behavior |
+| `health-endpoint.md` | `/health` + `/admin/reconnect` practical usage: how to invoke, read the feed state, monitor/alert, and force reconnects | Operating/monitoring the backend, debugging feed recovery, wiring Docker healthchecks |
 | `hosting.md` | Hosting and deployment guide | Setting up hosting infrastructure, evaluating deployment options |
 | `vps-deployment-pathway.md` | VPS deployment steps and configuration | Planning VPS deployment, infrastructure provisioning |
 | `tunnel-optimization.md` | Tunnel (zrok) optimization notes | Debugging connection tunnel performance, optimizing remote access |
