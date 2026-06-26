@@ -27,8 +27,18 @@ A foreign exchange trading visualization platform that provides visual patterns 
 
 ### Installation
 ```bash
-npm install
+./setup_project.sh
 ```
+Installs all three dependency trees (frontend, backend, and the vendored cTrader layer) and builds the layer. Safe to re-run (use `--clean` to start fresh).
+
+> The cTrader integration layer (`libs/cTrader-Layer/`) is an **internal vendored fork** — its
+> compiled output is committed to this repo, so a fresh clone needs no submodule init, no external
+> clone, and no npm fetch. The setup script rebuilds it to stay in sync; (re)build it manually only
+> when editing its sources: `cd libs/cTrader-Layer && npx ttsc` (see `libs/cTrader-Layer/CLAUDE.md`).
+
+PostgreSQL 15+, Redis 7+, and a populated `.env` are also required. **New here?** Start with the
+[developer onboarding journey](docs/onboarding.md), then see [docs/local-dev-setup.md](docs/local-dev-setup.md)
+for the exact commands.
 
 ### Development
 ```bash

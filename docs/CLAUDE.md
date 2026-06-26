@@ -6,6 +6,7 @@ Architecture, design, and implementation documentation.
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
+| `onboarding.md` | Developer onboarding journey — what the app needs, the two setup paths (DevContainer / manual), and the resource map | First read for new developers getting the project running |
 | `admin-panel-scope.md` | System admin panel scope document | Planning admin panel features, reviewing scope requirements |
 | `centralized-data-function-post-implementation-review.md` | Post-implementation review of centralized data function | Reviewing centralized data function outcomes, auditing implementation |
 | `currency_basket_indicator.txt` | Currency basket indicator reference material | Understanding basket currency composition |

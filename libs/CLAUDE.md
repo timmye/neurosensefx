@@ -6,7 +6,7 @@ Library wrappers and integrations. `cTrader-Layer/` is an **internal vendored fo
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
-| `README.md` | External libraries overview | Understanding library integrations |
+| `README.md` | Vendored libraries overview | Understanding library integrations |
 
 ## Subdirectories
 

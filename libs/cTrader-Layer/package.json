@@ -4,9 +4,9 @@
     "private": true,
     "description": "A Node.js communication layer for the cTrader Open API.",
     "license": "MIT",
-    "homepage": "https://github.com/Reiryoku-Technologies/cTrader-Layer",
+    "homepage": "https://github.com/timmye/neurosensefx",
     "bugs": {
-        "url": "https://github.com/Reiryoku-Technologies/cTrader-Layer/issues"
+        "url": "https://github.com/timmye/neurosensefx/issues"
     },
     "author": {
         "name": "Vasile Pește / Reiryoku Technologies",
@@ -14,7 +14,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/Reiryoku-Technologies/cTrader-Layer.git"
+        "url": "https://github.com/timmye/neurosensefx.git"
     },
     "scripts": {
         "lint": "eslint . --ext .ts,.js",

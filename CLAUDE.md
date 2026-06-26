@@ -72,7 +72,7 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `data/` | Runtime data files (historical analysis JSON) | Working with historical basket data |
 | `docker/` | Container configurations (nginx, postgres, performance monitoring) | Deploying, containerizing services |
 | `docs/` | Architecture and design documentation | Understanding system design decisions |
-| `libs/` | External library integrations | Integrating with cTrader API |
+| `libs/` | In-repo vendored libraries (`cTrader-Layer` fork, consumed via a `file:` dep — not an npm/external dependency) | Integrating with cTrader, modifying the cTrader layer |
 | `plans/` | Implementation plans for features and refactors | Executing planned work, reviewing feature scope |
 | `scripts/` | Utility and setup scripts | Setting up development environment, running diagnostics |
 | `services/` | Backend WebSocket and API services (tick-backend: feeds, supervision tier, HTTP API, auth, persistence) | Working on backend, data streaming, feed reliability |

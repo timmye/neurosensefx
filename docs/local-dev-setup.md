@@ -2,12 +2,21 @@
 
 A step-by-step guide to get NeuroSense FX running on your machine with authentication, PostgreSQL persistence, and Redis sessions.
 
+> **New to the project?** Read [`onboarding.md`](onboarding.md) first for the guided developer journey
+> (the big picture + which path to choose). This page is the detailed command cookbook.
+
 ---
 
 ## Prerequisites
 
 - **Node.js** (v18+) and **npm**
 - **Docker** (recommended) OR native **PostgreSQL 15+** and **Redis 7+**
+
+> **Note on the cTrader layer:** `libs/cTrader-Layer/` is an **internal vendored fork** — its
+> compiled output is committed to this repo, so there is **no submodule to initialize, no separate
+> repo to clone, and no npm package to fetch.** The `./setup_project.sh` step below rebuilds it to
+> stay in sync with the source; you only need to (re)build manually if you edit its TypeScript:
+> `cd libs/cTrader-Layer && npx ttsc` (see `libs/cTrader-Layer/CLAUDE.md`).
 
 ---
 
@@ -18,10 +27,9 @@ This is the simplest path. Docker handles PostgreSQL, Redis, and database initia
 ### 1. Clone and install dependencies
 
 ```bash
-git clone <repo-url> neurosensefx
+git clone https://github.com/timmye/neurosensefx.git neurosensefx
 cd neurosensefx
-npm install
-cd services/tick-backend && npm install && cd ../..
+./setup_project.sh
 ```
 
 ### 2. Create your `.env` file
@@ -84,10 +92,9 @@ Use this if you cannot run Docker (e.g., GitHub Codespaces with limited permissi
 ### 1. Install dependencies
 
 ```bash
-git clone <repo-url> neurosensefx
+git clone https://github.com/timmye/neurosensefx.git neurosensefx
 cd neurosensefx
-npm install
-cd services/tick-backend && npm install && cd ../..
+./setup_project.sh
 ```
 
 ### 2. Install PostgreSQL and Redis
