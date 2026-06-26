@@ -5,11 +5,13 @@ export class CTraderCommand {
     readonly #clientMsgId: string;
     readonly #responsePromise: Promise<GenericObject>;
     #response?: GenericObject;
+    #settled: boolean;
     #resolve?: (response: GenericObject) => void;
     #reject?: (response: GenericObject) => void;
 
     public constructor ({ clientMsgId, }: CTraderCommandParameters) {
         this.#clientMsgId = clientMsgId;
+        this.#settled = false;
         this.#responsePromise = new Promise((resolve: (response: GenericObject) => void, reject: (response: GenericObject) => void) => {
             this.#resolve = resolve;
             this.#reject = reject;
@@ -30,11 +32,19 @@ export class CTraderCommand {
     }
 
     public resolve (response: GenericObject): void {
+        if (this.#settled) {
+            return;
+        }
+        this.#settled = true;
         this.#response = response;
         this.#resolve?.(response);
     }
 
     public reject (response: GenericObject): void {
+        if (this.#settled) {
+            return;
+        }
+        this.#settled = true;
         this.#response = response;
         this.#reject?.(response);
     }

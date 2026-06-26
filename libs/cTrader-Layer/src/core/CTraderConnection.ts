@@ -16,11 +16,19 @@ export class CTraderConnection extends EventEmitter {
     readonly #socket: CTraderSocket;
     #resolveConnectionPromise?: (...parameters: any[]) => void;
     #rejectConnectionPromise?: (...parameters: any[]) => void;
+    #connectionSettled: boolean;
+    #closed: boolean;
 
-    public constructor ({ host, port, }: CTraderConnectionParameters) {
+    public constructor ({ host, port, commandTtlMs, }: CTraderConnectionParameters) {
         super();
 
-        this.#commandMap = new CTraderCommandMap({ send: (data: any): void => this.#send(data), });
+        this.#connectionSettled = false;
+        this.#closed = false;
+        this.#commandMap = new CTraderCommandMap({
+            send: (data: any): void => this.#send(data),
+            onCommandTimeout: (): void => { this.close(); },
+            commandTtlMs,
+        });
         this.#encoderDecoder = new CTraderEncoderDecoder();
         // eslint-disable-next-line max-len
         this.#protobufReader = new CTraderProtobufReader([ {
@@ -69,10 +77,24 @@ export class CTraderConnection extends EventEmitter {
     }
 
     public sendHeartbeat (): void {
-        this.sendCommand("ProtoHeartbeatEvent");
+        const payloadType = this.#protobufReader.resolveIdentifierToPayloadType("ProtoHeartbeatEvent");
+
+        if (payloadType === undefined) {
+            return;
+        }
+
+        const encodedPayload = this.#protobufReader.encode(payloadType, {}, undefined as any);
+
+        this.#socket.send(this.#encoderDecoder.encode(encodedPayload));
+    }
+
+    public get pendingCommandCount (): number {
+        return this.#commandMap.pendingCommandCount;
     }
 
     public open (): Promise<unknown> {
+        this.#connectionSettled = false;
+        this.#closed = false;
         const connectionPromise = new Promise((resolve, reject) => {
             this.#resolveConnectionPromise = resolve;
             this.#rejectConnectionPromise = reject;
@@ -103,7 +125,8 @@ export class CTraderConnection extends EventEmitter {
     }
 
     #onOpen (): void {
-        if (this.#resolveConnectionPromise) {
+        if (this.#resolveConnectionPromise && !this.#connectionSettled) {
+            this.#connectionSettled = true;
             this.#resolveConnectionPromise();
         }
 
@@ -135,10 +158,33 @@ export class CTraderConnection extends EventEmitter {
     }
 
     #onClose (): void {
+        // Emit 'close' exactly once. The socket binds BOTH 'end' and 'close' to this
+        // handler (a clean FIN fires 'end' then 'close'); without this guard a single
+        // disconnect would emit 'close' twice and re-run rejectAll. Consumers are
+        // idempotent today, but this removes the latent double-emit (also L5's guard).
+        if (this.#closed) {
+            return;
+        }
+        this.#closed = true;
+
+        // If the connection was never settled (e.g. a hung TLS handshake where
+        // socket.destroy() emits only 'close', no 'error'), reject open() here so
+        // the awaiting caller doesn't hang forever. Idempotent via the settled guard.
+        if (!this.#connectionSettled && this.#rejectConnectionPromise) {
+            this.#connectionSettled = true;
+            this.#rejectConnectionPromise(new Error("cTrader connection closed"));
+        }
+
+        this.#commandMap.rejectAll(new Error("cTrader connection closed"));
         this.emit('close');
     }
 
     #onError (error: Error): void {
+        if (!this.#connectionSettled && this.#rejectConnectionPromise) {
+            this.#connectionSettled = true;
+            this.#rejectConnectionPromise(error);
+        }
+
         this.emit('error', error);
     }
 

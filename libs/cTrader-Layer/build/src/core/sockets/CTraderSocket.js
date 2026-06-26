@@ -51,6 +51,7 @@ class CTraderSocket {
                     servername: __classPrivateFieldGet(this, _CTraderSocket_host, "f"),
                     timeout: 10000
                 });
+                socket.on("timeout", () => socket.destroy());
                 socket.on("secureConnect", () => {
                     if (this.onOpen && typeof this.onOpen === 'function') {
                         this.onOpen();
@@ -58,6 +59,7 @@ class CTraderSocket {
                 });
                 socket.on("data", this.onData);
                 socket.on("end", this.onClose);
+                socket.on("close", this.onClose);
                 socket.on("error", this.onError);
                 __classPrivateFieldSet(this, _CTraderSocket_socket, socket, "f");
                 return;
@@ -72,6 +74,7 @@ class CTraderSocket {
                 servername: __classPrivateFieldGet(this, _CTraderSocket_host, "f"),
                 timeout: 10000
             });
+            socket.on("timeout", () => socket.destroy());
             socket.on("secureConnect", () => {
                 if (this.onOpen && typeof this.onOpen === 'function') {
                     this.onOpen();
@@ -79,6 +82,7 @@ class CTraderSocket {
             });
             socket.on("data", this.onData);
             socket.on("end", this.onClose);
+            socket.on("close", this.onClose);
             socket.on("error", this.onError);
             __classPrivateFieldSet(this, _CTraderSocket_socket, socket, "f");
         });

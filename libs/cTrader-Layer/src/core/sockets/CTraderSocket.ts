@@ -38,6 +38,12 @@ export class CTraderSocket {
                     timeout: 10000
                 });
 
+                // A hung TLS handshake (e.g. WSL2) never fires 'secureConnect'; the
+                // socket's 'timeout' is the only signal. Destroy on timeout so the
+                // handshake aborts -> 'error'/'end' fires -> open() rejects instead
+                // of hanging forever.
+                socket.on("timeout", () => socket.destroy());
+
                 // Use secureConnect event instead of callback to ensure proper binding
                 socket.on("secureConnect", () => {
                     if (this.onOpen && typeof this.onOpen === 'function') {
@@ -47,6 +53,7 @@ export class CTraderSocket {
 
                 socket.on("data", this.onData);
                 socket.on("end", this.onClose);
+                socket.on("close", this.onClose);
                 socket.on("error", this.onError);
 
                 this.#socket = socket;
@@ -65,6 +72,8 @@ export class CTraderSocket {
                 timeout: 10000
             });
 
+            socket.on("timeout", () => socket.destroy());
+
             socket.on("secureConnect", () => {
                 if (this.onOpen && typeof this.onOpen === 'function') {
                     this.onOpen();
@@ -73,6 +82,7 @@ export class CTraderSocket {
 
             socket.on("data", this.onData);
             socket.on("end", this.onClose);
+            socket.on("close", this.onClose);
             socket.on("error", this.onError);
 
             this.#socket = socket;
