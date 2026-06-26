@@ -410,7 +410,8 @@ class CTraderSession extends EventEmitter {
         if (!this.connection) return;
 
         if (this.spotEventHandler) {
-            // Must use numeric payload type '2131' because removeListener is not overridden
+            // Event names normalize via the layer's on()/removeListener() override (Plan L6);
+            // numeric '2131' is kept here for parity with the attach site (both forms resolve).
             this.connection.removeAllListeners('2131');
             this.spotEventHandler = null;
         }
@@ -527,8 +528,8 @@ class CTraderSession extends EventEmitter {
 
         // The server echoes ProtoHeartbeatEvent back as a push event (payloadType 51),
         // NOT as a command response with clientMsgId. sendCommand().then() never fires.
-        // CTraderConnection.on() normalizes 'ProtoHeartbeatEvent' to numeric '51',
-        // but removeListener is NOT overridden - so we must use '51' for cleanup.
+        // CTraderConnection normalizes event names on on()/removeListener()/removeAllListeners()
+        // (Plan L6), so named and numeric forms both resolve to '51'; cleanup below uses '51'.
         //
         // B3: the handler translates the library's echo (payloadType 51) into the
         // session 'heartbeat' event. The library does NOT emit a domain
@@ -556,7 +557,7 @@ class CTraderSession extends EventEmitter {
     stopHeartbeat() {
         if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
         if (this.connection && this.heartbeatEventHandler) {
-            // Must use numeric payload type '51' because removeListener is not overridden
+            // Event names normalize via the layer's override (Plan L6); numeric '51' kept for parity.
             this.connection.removeAllListeners('51');
             this.heartbeatEventHandler = null;
         }
@@ -783,14 +784,14 @@ class CTraderSession extends EventEmitter {
      * matters: it keeps the runner's concurrency slots free).
      *
      * FIX M1: RESTORE_COMMAND_TIMEOUT_MS is intentionally STRICTLY LESS than the
-     * CTraderTransportAdapter's own per-RPC TTL (15s) so the restore budget
-     * rejects a stalled command BEFORE the adapter's TTL force-closes the whole
+     * cTrader-Layer library's per-RPC command TTL (15s, Plan L4) so the restore
+     * budget rejects a stalled command BEFORE the layer's TTL force-closes the
      * transport. In PRODUCTION a genuinely stalled command therefore still
-     * triggers the adapter's 15s transport-wide force-close (defect-#4 hang
+     * triggers the layer's 15s transport-wide force-close (defect-#4 hang
      * breaker) → a reconnect the supervisor handles via backoff; the light
      * post-connect handshake keeps each cycle fast. The offline stall-isolation
      * test models LOGIC-level isolation with FakeTransport and does NOT replicate
-     * the adapter's transport-wide force-close.
+     * the layer's transport-wide force-close.
      * @private
      */
     _sendWithBudget(send) {

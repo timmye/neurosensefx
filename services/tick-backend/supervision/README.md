@@ -36,7 +36,7 @@ The supervisor does **not** know about cTrader, protobuf, symbols, or auth. It s
 
 JavaScript has no interfaces, so `interfaces.js` records the contracts as JSDoc typedefs. This is deliberate: it lets the supervisor and the test fakes (`FakeTransport`, `FakeFeed`, `FakeClock`) be built against a stable spec, and it keeps the supervisor's only dependencies on the outside world to three narrow, mockable ports:
 
-- **Transport** — the raw connection primitive (`open`/`close`/`sendCommand`/`sendRaw`, emits `close`/`error` and data frames). It knows nothing about auth, symbols, or subscriptions.
+- **Transport** — the raw connection primitive (`open`/`close`/`sendCommand`/`sendHeartbeat`, emits `close`/`error` and data frames). It knows nothing about auth, symbols, or subscriptions.
 - **Feed** — the domain handshake on top of a Transport (`connect(transport)`, `disconnect`, `restoreSubscriptions`, subscription methods, emits `connected`/`disconnected`/`tick`/`heartbeat`).
 - **Clock** — `setTimeout`/`clearTimeout`/`now`, so all scheduling is injectable.
 
@@ -55,9 +55,9 @@ This is why `CTraderSession` sets `session.supervised = true` in `server.js`: in
 - a hanging `open()` (the cTrader-Layer library's WSL2 TLS fallback trap, where `tls.connect(hostname)` can hang on a DNS throw), and
 - a hung handshake (auth/subscribe reply never arrives).
 
-On deadline the transport is force-closed and the race rejects → `_onConnectFailure` → `BACKOFF` → re-arm. The library's own `open()` promise may stay pending after the force-close; that is a harmless leak, because the supervisor has already moved on to a fresh transport.
+On deadline the transport is force-closed and the race rejects → `_onConnectFailure` → `BACKOFF` → re-arm. (Since Plan L1 the library's own `open()` rejects on failure/timeout rather than hanging, so there is no pending-open leak.)
 
-The cTrader specifics that make the deadline effective live in `CTraderTransportAdapter`: every `sendCommand` is wrapped in a per-RPC TTL and tracked, so a reply that never arrives rejects and the transport force-closes (rather than hanging the handshake). `open()` is **idempotent** (`_opened` guard) because the supervisor opens the transport and then `CTraderSession.connect()` calls `open()` again on the same transport — without the guard that created a second live cTrader connection, which the broker kills after ~28s ("at most one connection" rule). Heartbeats use `sendRaw`, which writes a raw `ProtoHeartbeatEvent` frame **without** a `clientMsgId` directly to the captured TLS socket — cTrader ignores heartbeats that carry a `clientMsgId` and closes idle connections after ~30s, and the bare frame also bypasses the library's command map (no leaked heartbeat promise).
+The cTrader specifics that make the deadline effective now live in the **cTrader-Layer library** (Plan L1–L4), not the adapter: `open()` rejects on failure/timeout (L1); `sendHeartbeat()` writes a leak-free raw `ProtoHeartbeatEvent` frame with no `clientMsgId` (L2 — cTrader ignores heartbeats that carry one and closes idle connections); `close()` rejects all in-flight commands (L3); and every command has a per-RPC TTL that force-closes the transport on timeout (L4). `CTraderTransportAdapter` is now a **thin pass-through** — `sendCommand`/`sendHeartbeat` delegate straight to the library, plus an idempotent `open()` guard (the supervisor opens the transport and then `CTraderSession.connect()` calls `open()` again on the same transport — without the guard that created a second live cTrader connection, which the broker kills after ~28s, its "at most one connection" rule) and the `on`/`removeListener`/`removeAllListeners` pass-throughs so the supervisor still observes the library's `close`/`error`.
 
 ### Data-ness vs liveness (the partial-stall fix)
 

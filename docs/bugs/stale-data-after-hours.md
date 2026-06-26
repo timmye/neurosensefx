@@ -622,9 +622,9 @@ driven by the supervisor — **but** it also surfaced an **unresolved** behavior
     cleanly.
   - **Not the supervisor's health logic** — **0** `DEGRADED`/`STALE`/forcing-reconnect lines; the
     new health sensor is not churning. Every reconnect is a genuine broker close it recovers from.
-  - **Not the heartbeat change** — the session now calls `connection.sendRaw()` which the adapter
-    forwards to the library's `sendHeartbeat()`; this is **byte-for-byte equivalent** to the
-    original `connection.sendHeartbeat()`.
+  - **Not the heartbeat change** — the session calls `connection.sendHeartbeat()`, which the adapter
+    delegates straight to the library's leak-free raw-frame writer (Plan L2); this is
+    **byte-for-byte equivalent** to the original raw heartbeat.
 - **Leading hypothesis:** the ~30 s cadence matches a **cTrader keepalive / heartbeat-timeout**
   pattern (broker closing a connection it considers idle/unhealthy). It is **unknown whether this
   is pre-existing** broker behavior that the *old* code also exhibited but recovered from silently
