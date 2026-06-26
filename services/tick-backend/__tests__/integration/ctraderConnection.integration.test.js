@@ -224,6 +224,33 @@ describe("CTraderConnection (real lib) vs mock cTrader server", () => {
         expect(closeCount).toBe(1);
     });
 
+    test("L1-regression: an idle connected socket is NOT destroyed after 10s (setTimeout(0) after secureConnect)", async () => {
+        // Phase-4 live run caught this: L1's tls.connect({timeout:10000}) is a
+        // socket-INACTIVITY timer. It was meant only to catch a hung HANDSHAKE
+        // (open() must not hang), but it persisted post-connect -> an idle
+        // no-subscription socket was destroyed at ~10s (just before the first
+        // heartbeat), causing a tight ~10s reconnect loop in the supervised feed.
+        // Fix: secureConnect calls socket.setTimeout(0). This asserts a connected
+        // socket with NO traffic survives well past the old 10s threshold.
+        const { port } = await startServer("happy");
+        const conn = new CTraderConnection({ host: "127.0.0.1", port });
+        await conn.open();
+        // One command so the handshake completes; then NO further traffic (no
+        // heartbeats from this test) -> the socket is idle.
+        await conn.sendCommand("ProtoOAApplicationAuthReq", { clientId: "c", clientSecret: "s" });
+
+        let closed = false;
+        conn.addListener("close", () => { closed = true; });
+
+        // Idle 13s — strictly past the old 10s inactivity-destroy, under the 15s suite timeout.
+        await new Promise((r) => setTimeout(r, 13000));
+
+        expect(closed).toBe(false);
+        expect(conn.pendingCommandCount).toBe(0);
+
+        conn.close();
+    });
+
     test("L8: a server errorCode response rejects sendCommand with an Error carrying errorCode", async () => {
         // L8 (FIXED): #onDecodedData used to call sentCommand.reject(payload) — a
         // raw object, not an Error, so callers couldn't `instanceof Error` or read

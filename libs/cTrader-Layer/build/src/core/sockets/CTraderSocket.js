@@ -53,6 +53,7 @@ class CTraderSocket {
                 });
                 socket.on("timeout", () => socket.destroy());
                 socket.on("secureConnect", () => {
+                    socket.setTimeout(0);
                     if (this.onOpen && typeof this.onOpen === 'function') {
                         this.onOpen();
                     }

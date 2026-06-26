@@ -46,6 +46,13 @@ export class CTraderSocket {
 
                 // Use secureConnect event instead of callback to ensure proper binding
                 socket.on("secureConnect", () => {
+                    // L1 fix: `timeout: 10000` above is a socket-INACTIVITY timer
+                    // meant only to catch a hung TLS HANDSHAKE (open() must not
+                    // hang forever). Once the handshake succeeds, disable it —
+                    // otherwise an idle no-subscription socket is destroyed after
+                    // 10s of inactivity (the heartbeat keepalive owns post-connect
+                    // liveness, not this timeout). Caught by the Phase-4 live run.
+                    socket.setTimeout(0);
                     if (this.onOpen && typeof this.onOpen === 'function') {
                         this.onOpen();
                     }

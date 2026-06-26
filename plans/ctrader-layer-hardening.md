@@ -25,7 +25,7 @@ the **retirement of the "library read-only" guardrail** that every prior feed pl
 > regression guard); **L2** encode is two-stage (`reader.encode` → protobufjs Writer →
 > `encoder.encode` → the 8-byte frame). **Phase 1 DONE** (L1–L4 + a once-guard caught in review);
 > L1/L2 live-smoke gate **PASSED 2026-06-26** (live.ctraderapi.com:5035: open 1194ms, pendingCount=0,
-> 91.5s no-FIN); Phase 2 (L6–L10) DONE (suite 232/5); Phase 3 B1+B2 DONE (adapter 287→123 LOC); B3–B6 DONE (offline); Phase 4 supervised-feed live run = remaining gate.
+> 91.5s no-FIN); Phase 2 (L6–L10) DONE (suite 232/5); Phase 3 B1+B2 DONE (adapter 287→123 LOC); B3–B6 DONE; Phase 4 live run DONE — caught+fixed an L1 regression (socket inactivity timeout post-connect); re-validated clean.
 
 **North Star (definition of done).** After this plan: the cTrader layer is a
 **trustworthy transport on its own** — `open()` rejects on failure, `sendHeartbeat()` does
@@ -445,6 +445,18 @@ clean heartbeat path; no dead monitors/reconnect-managers in the supervised path
 ## Phase 4 — Live validation & completion (data-gated)
 
 **Goal:** earn "done" against a live cTrader server. Mirror `feed-loop-stabilization.md` Phase 5.
+
+**✅ LIVE RUN 2026-06-26 (5-min supervised monitor, backend-only / 0 subscribers) — caught + fixed an L1 regression.**
+The first live run revealed a tight **~10s reconnect loop**: the cTrader transport closed every ~10s
+("connection lost: feed disconnected"), NOT the expected ~60s no-data DEGRADED cycle. Root cause =
+**L1's `tls.connect({timeout:10000})` is a socket-INACTIVITY timer that persisted post-connect** — an
+idle no-subscription socket was destroyed at ~10s (just before the first heartbeat). Missed by the offline
+suite (fakes, no real socket) AND the layer/adapter smokes (they send an *immediate* heartbeat, masking it).
+**Fix:** `secureConnect` now calls `socket.setTimeout(0)` — the timeout still protects the handshake, but
+no longer destroys an idle connected socket. Added a 13s-idle regression test. **Re-validated:** the
+connection now survives ~60s, then does the expected `DEGRADED — data not flowing → reconnect` cycle every
+~60s, **zero errors/errorCodes/crashes**, reconnects converge in ≤1 cycle. (Backend-only/0-subs is the
+harshest case; with frontend subscribers, data flows and the feed stays HEALTHY.)
 
 ### 4.1 Deploy + harvest
 Rebuild `build/`, deploy, run the supervised feed against `live.ctraderapi.com:5035` under the
