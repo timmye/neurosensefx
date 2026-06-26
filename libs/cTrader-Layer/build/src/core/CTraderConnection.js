@@ -19,7 +19,7 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
-var _CTraderConnection_instances, _CTraderConnection_commandMap, _CTraderConnection_encoderDecoder, _CTraderConnection_protobufReader, _CTraderConnection_socket, _CTraderConnection_resolveConnectionPromise, _CTraderConnection_rejectConnectionPromise, _CTraderConnection_connectionSettled, _CTraderConnection_closed, _CTraderConnection_send, _CTraderConnection_onOpen, _CTraderConnection_onData, _CTraderConnection_onDecodedData, _CTraderConnection_onClose, _CTraderConnection_onError, _CTraderConnection_onPushEvent;
+var _CTraderConnection_instances, _CTraderConnection_commandMap, _CTraderConnection_encoderDecoder, _CTraderConnection_protobufReader, _CTraderConnection_socket, _CTraderConnection_resolveConnectionPromise, _CTraderConnection_rejectConnectionPromise, _CTraderConnection_connectionSettled, _CTraderConnection_closed, _CTraderConnection_normalizeEventType, _CTraderConnection_send, _CTraderConnection_onOpen, _CTraderConnection_onData, _CTraderConnection_onDecodedData, _CTraderConnection_onClose, _CTraderConnection_onError, _CTraderConnection_onPushEvent;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CTraderConnection = void 0;
 const EventEmitter = require("events");
@@ -85,7 +85,9 @@ class CTraderConnection extends EventEmitter {
             try {
                 return yield this.sendCommand(payloadType, data);
             }
-            catch (_a) {
+            catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                console.warn(`[CTraderConnection] trySendCommand failed for payloadType ${payloadType}: ${message}`);
                 return undefined;
             }
         });
@@ -112,17 +114,16 @@ class CTraderConnection extends EventEmitter {
         return connectionPromise;
     }
     on(type, listener) {
-        let normalizedType = type;
-        if (typeof type === "string") {
-            const resolvedPayloadType = __classPrivateFieldGet(this, _CTraderConnection_protobufReader, "f").resolveIdentifierToPayloadType(type);
-            if (resolvedPayloadType !== undefined) {
-                normalizedType = resolvedPayloadType.toString();
-            }
-            else if (!Number.isFinite(Number.parseInt(type, 10))) {
-                console.warn(`Attempted to listen for unknown event type: ${type}. Listener might not be triggered.`);
-            }
-        }
-        return super.on(normalizedType, listener);
+        return super.on(__classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_normalizeEventType).call(this, type, "listen for"), listener);
+    }
+    off(type, listener) {
+        return super.off(__classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_normalizeEventType).call(this, type), listener);
+    }
+    removeListener(type, listener) {
+        return super.removeListener(__classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_normalizeEventType).call(this, type), listener);
+    }
+    removeAllListeners(type) {
+        return super.removeAllListeners(type === undefined ? undefined : __classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_normalizeEventType).call(this, type));
     }
     close() {
         __classPrivateFieldGet(this, _CTraderConnection_socket, "f").close();
@@ -143,7 +144,19 @@ class CTraderConnection extends EventEmitter {
     }
 }
 exports.CTraderConnection = CTraderConnection;
-_CTraderConnection_commandMap = new WeakMap(), _CTraderConnection_encoderDecoder = new WeakMap(), _CTraderConnection_protobufReader = new WeakMap(), _CTraderConnection_socket = new WeakMap(), _CTraderConnection_resolveConnectionPromise = new WeakMap(), _CTraderConnection_rejectConnectionPromise = new WeakMap(), _CTraderConnection_connectionSettled = new WeakMap(), _CTraderConnection_closed = new WeakMap(), _CTraderConnection_instances = new WeakSet(), _CTraderConnection_send = function _CTraderConnection_send(data) {
+_CTraderConnection_commandMap = new WeakMap(), _CTraderConnection_encoderDecoder = new WeakMap(), _CTraderConnection_protobufReader = new WeakMap(), _CTraderConnection_socket = new WeakMap(), _CTraderConnection_resolveConnectionPromise = new WeakMap(), _CTraderConnection_rejectConnectionPromise = new WeakMap(), _CTraderConnection_connectionSettled = new WeakMap(), _CTraderConnection_closed = new WeakMap(), _CTraderConnection_instances = new WeakSet(), _CTraderConnection_normalizeEventType = function _CTraderConnection_normalizeEventType(type, warnVerb) {
+    if (typeof type !== "string") {
+        return type;
+    }
+    const resolvedPayloadType = __classPrivateFieldGet(this, _CTraderConnection_protobufReader, "f").resolveIdentifierToPayloadType(type);
+    if (resolvedPayloadType !== undefined) {
+        return resolvedPayloadType.toString();
+    }
+    if (warnVerb !== undefined && !Number.isFinite(Number.parseInt(type, 10))) {
+        console.warn(`Attempted to ${warnVerb} unknown event type: ${type}. Listener might not be triggered.`);
+    }
+    return type;
+}, _CTraderConnection_send = function _CTraderConnection_send(data) {
     __classPrivateFieldGet(this, _CTraderConnection_socket, "f").send(__classPrivateFieldGet(this, _CTraderConnection_encoderDecoder, "f").encode(data));
 }, _CTraderConnection_onOpen = function _CTraderConnection_onOpen() {
     if (__classPrivateFieldGet(this, _CTraderConnection_resolveConnectionPromise, "f") && !__classPrivateFieldGet(this, _CTraderConnection_connectionSettled, "f")) {
@@ -160,15 +173,21 @@ _CTraderConnection_commandMap = new WeakMap(), _CTraderConnection_encoderDecoder
     const clientMsgId = data.clientMsgId;
     const sentCommand = __classPrivateFieldGet(this, _CTraderConnection_commandMap, "f").extractById(clientMsgId);
     if (sentCommand) {
-        if (typeof payload.errorCode === "string" || typeof payload.errorCode === "number") {
-            sentCommand.reject(payload);
+        if (payload !== null && (typeof payload.errorCode === "string" || typeof payload.errorCode === "number")) {
+            sentCommand.reject(Object.assign(new Error(`cTrader rejected: ${payload.errorCode}`), payload));
         }
         else {
             sentCommand.resolve(payload);
         }
     }
     else {
-        __classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_onPushEvent).call(this, payloadType, data.payload);
+        if (clientMsgId) {
+            console.warn(`[CTraderConnection] received response with no pending command (clientMsgId=${clientMsgId}, payloadType=${payloadType}); treating as push event`);
+        }
+        if (payload === null) {
+            console.warn(`[CTraderConnection] decoded message has no registered payloadType (${payloadType}); payload is null`);
+        }
+        __classPrivateFieldGet(this, _CTraderConnection_instances, "m", _CTraderConnection_onPushEvent).call(this, payloadType, payload);
     }
 }, _CTraderConnection_onClose = function _CTraderConnection_onClose() {
     if (__classPrivateFieldGet(this, _CTraderConnection_closed, "f")) {

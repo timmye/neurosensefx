@@ -25,7 +25,7 @@ the **retirement of the "library read-only" guardrail** that every prior feed pl
 > regression guard); **L2** encode is two-stage (`reader.encode` → protobufjs Writer →
 > `encoder.encode` → the 8-byte frame). **Phase 1 DONE** (L1–L4 + a once-guard caught in review);
 > L1/L2 live-smoke gate **PASSED 2026-06-26** (live.ctraderapi.com:5035: open 1194ms, pendingCount=0,
-> 91.5s no-FIN); Phase 3 **B1+B2 DONE** (adapter 287→123 LOC, live-validated 76.6s no-FIN); B3–B6 remain.
+> 91.5s no-FIN); Phase 2 (L6–L10) DONE (suite 232/5); Phase 3 B1+B2 DONE (adapter 287→123 LOC); B3–B6 remain.
 
 **North Star (definition of done).** After this plan: the cTrader layer is a
 **trustworthy transport on its own** — `open()` rejects on failure, `sendHeartbeat()` does
@@ -287,6 +287,13 @@ Adapter still works unchanged (Tier 3 deletions come next, gated).
 
 ## Phase 2 — Tier 2: independent layer hardening (additive, lower-risk)
 
+**✅ DONE 2026-06-26 (full suite 232 passed / 5 skipped).** L6 (`removeListener`/`removeAllListeners`/`off`
+normalization via a shared `#normalizeEventType` helper), L7 (`trySendCommand` logs instead of bare
+`catch {}`), L8 (Error-wrapped rejections on the errorCode path — `Object.assign(new Error(...), payload)`,
+null-payload guarded), L9 (orphaned-`clientMsgId` + unknown-payloadType logging in `#onDecodedData` +
+`CTraderProtobufReader.decode`), L10 (decode length-prefix guard: reset-on-0, NOT a recursion fix — confirms
+the Phase-0 refutation). L5 already landed in Phase 1. Rebuilt via `ttsc`.
+
 **Goal:** retire the remaining fragilities found in verification + the adversarial scan.
 Each item shippable independently; pure-logic items unit-tested, socket items via harness.
 
@@ -459,13 +466,13 @@ Phase 1 — Tier 1: layer lifecycle (structural core)               [✅ DONE 20
    1.1 L1 open() rejects  →  1.2 L2 sendHeartbeat raw  →  1.3 L3 close() rejects  →  1.4 L4 layer TTL
         │                                                            (L3+L4 together enable B2)
         ▼
-Phase 2 — Tier 2: independent hardening (additive)                [each shippable alone]
+Phase 2 — Tier 2: independent hardening (additive)                [✅ DONE 2026-06-26 — L6–L10, suite 232/5]
    2.1 L5 bind close  ·  2.2 L6 removeListener  ·  2.3 L7 trySendCommand
    2.4 L8 reject-as-Error  ·  2.5 L9 orphan logging  ·  2.6 L10 decode guard
         │
         ▼
 Phase 3 — Tier 3: backend consolidation (GATED on enabling layer fix)
-   3.1 B1 raw-heartbeat apparatus  (needs L2)          — SAFE-TO-REMOVE
+   3.1 B1 raw-heartbeat apparatus  (needs L2)          — ✅ DONE (live-validated)
    3.2 B2 _pending/TTL             (needs L3 AND L4)    — CONDITIONAL
    3.3 B3 heartbeat chain          (needs L2 emit + B5)  — CONDITIONAL
    3.4 B4 10s connect timeout      (needs L1)           — CONDITIONAL
@@ -480,6 +487,9 @@ Tier 1 (Phase 1) and Tier 2 (Phase 2) are **layer-only** and can proceed once Ph
 Tier 3 (Phase 3) items are unlocked as their enablers land and may be done incrementally —
 B1 is the cleanest early win (single-purpose, SAFE-TO-REMOVE); B2 is the highest-value but
 must wait for L3+L4; B5/B6 are independent rewires that can be slotted anywhere.
+
+**Progress (2026-06-26):** Phase 0 + Phase 1 + Phase 3 (B1+B2) are DONE & live-validated.
+Phase 2 (L6–L10) and Phase 3 B3–B6 are in progress.
 
 ---
 

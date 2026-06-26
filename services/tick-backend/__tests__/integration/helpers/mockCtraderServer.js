@@ -33,6 +33,10 @@
  *   "closeOnCommand" — TLS server; answers nothing; on receiving ANY frame it
  *                      destroys the socket. Pins L3/L5 behavior.
  *   "malformed"      — TLS server; on connect writes a length prefix of 0.
+ *   "errorRes"       — TLS server; on receipt of any request frame, replies
+ *                      with a ProtoOAErrorRes carrying an errorCode (matched by
+ *                      clientMsgId) so the awaiting sendCommand REJECTS. Drives
+ *                      the #onDecodedData errorCode path for L8.
  *
  * This file is a TEST HELPER ONLY. It must never be imported by production code.
  */
@@ -61,6 +65,7 @@ const PAYLOAD_TYPE = Object.freeze({
     PROTO_HEARTBEAT_EVENT: 51,
     PROTO_OA_APPLICATION_AUTH_REQ: 2100,
     PROTO_OA_APPLICATION_AUTH_RES: 2101,
+    PROTO_OA_ERROR_RES: 2142,
 });
 
 /** Build a shared ProtobufReader + EncoderDecoder mirroring the real connection. */
@@ -110,10 +115,11 @@ function createMockCtraderServer({ mode = "happy" } = {}) {
         return dec;
     }
 
-    function buildResponseFrame(payloadType, clientMsgId) {
+    function buildResponseFrame(payloadType, clientMsgId, fields) {
         // reader.encode returns a protobufjs Writer (has .toBuffer()), which is
         // exactly what CTraderEncoderDecoder.encode invokes.
-        return encoderDecoder.encode(reader.encode(payloadType, { payloadType }, clientMsgId));
+        const payload = fields ? { payloadType, ...fields } : { payloadType };
+        return encoderDecoder.encode(reader.encode(payloadType, payload, clientMsgId));
     }
 
     // Track every accepted socket so stop() can force-destroy lingering ones
@@ -152,6 +158,16 @@ function createMockCtraderServer({ mode = "happy" } = {}) {
 
                 if (mode === "closeOnCommand") {
                     try { socket.destroy(); } catch { /* ignore */ }
+                    return;
+                }
+
+                if (mode === "errorRes") {
+                    // Reply to any request with a ProtoOAErrorRes carrying an
+                    // errorCode, matched by the same clientMsgId so the awaiting
+                    // sendCommand REJECTS (drives #onDecodedData's errorCode path).
+                    socket.write(buildResponseFrame(
+                        PAYLOAD_TYPE.PROTO_OA_ERROR_RES, clientMsgId,
+                        { errorCode: "CH_BAD_REQUEST", description: "mock error response" }));
                     return;
                 }
 

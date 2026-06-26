@@ -58,6 +58,15 @@ class CTraderEncoderDecoder {
         else {
             if (usedBuffer.length >= __classPrivateFieldGet(this, _CTraderEncoderDecoder_sizeLength, "f")) {
                 __classPrivateFieldSet(this, _CTraderEncoderDecoder_size, usedBuffer.readUInt32BE(0), "f");
+                if (__classPrivateFieldGet(this, _CTraderEncoderDecoder_size, "f") === 0) {
+                    console.warn(`[CTraderEncoderDecoder] received a zero-length frame (size=0); dropping frame and resetting framing state`);
+                    __classPrivateFieldSet(this, _CTraderEncoderDecoder_size, undefined, "f");
+                    const remainder = usedBuffer.slice(__classPrivateFieldGet(this, _CTraderEncoderDecoder_sizeLength, "f"));
+                    if (remainder.length > 0) {
+                        this.decode(remainder);
+                    }
+                    return;
+                }
                 if (usedBuffer.length !== __classPrivateFieldGet(this, _CTraderEncoderDecoder_sizeLength, "f")) {
                     this.decode(usedBuffer.slice(__classPrivateFieldGet(this, _CTraderEncoderDecoder_sizeLength, "f")));
                 }

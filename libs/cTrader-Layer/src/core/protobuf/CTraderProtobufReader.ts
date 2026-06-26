@@ -35,6 +35,7 @@ export class CTraderProtobufReader {
         const messageDecoder = this.getMessageByPayloadType(payloadType);
 
         if (!messageDecoder) {
+            console.warn(`[CTraderProtobufReader] no message decoder registered for payloadType ${payloadType}; returning null payload`);
             return {
                 payload: null,
                 payloadType: payloadType,

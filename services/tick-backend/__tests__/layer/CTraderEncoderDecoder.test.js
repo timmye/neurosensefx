@@ -149,29 +149,25 @@ describe("CTraderEncoderDecoder (built module)", () => {
     });
   });
 
-  describe("DEFECT — size === 0 frame (L10)", () => {
-    // TODO(L10): CTraderEncoderDecoder.decode() trusts the Int32BE length
-    // prefix and has no guard against size === 0. A zero-length frame header
-    // (`00 00 00 00`) leaves the internal `size` state set to 0 and the handler
-    // is never invoked for that frame; the frame is effectively swallowed and
-    // the decoder is left in a poisoned state. L10 must guard size<=0 (reject
-    // / reset / throw) instead of trusting the prefix.
+  describe("size === 0 frame (L10 — FIXED: drop + reset, no state poisoning)", () => {
+    // L10 (FIXED): CTraderEncoderDecoder.decode() now guards the length prefix.
+    // A zero-length frame header (`00 00 00 00`) is dropped with a warning and
+    // framing state is reset to undefined, so a malformed frame can no longer
+    // poison the NEXT frame's decode. Before the fix, internal `size` was left
+    // at 0 (falsy but set), mis-decoding the following frame.
     //
-    // NOTE on the plan's hypothesis: the plan suggested size=0 causes
-    // "unbounded recursion". The ACTUAL committed behavior (pinned below) is
-    // NOT a hang — decode() returns normally without throwing and without
-    // invoking the handler. The defects pinned here are the real ones:
-    //   (a) a lone size=0 header returns normally (no throw, no handler call),
-    //   (b) the decoder is left in a poisoned size=0 state.
+    // NOTE on the plan's original hypothesis: the plan suggested size=0 caused
+    // "unbounded recursion / stack overflow". Phase-0 characterization REFUTED
+    // that — a lone `00 00 00 00` returned normally. The real defect was silent
+    // frame drop + poisoned `size` state, which L10 now fixes.
 
     it("a lone size=0 header does NOT throw and does NOT hang (returns normally)", async () => {
       const ed = new CTraderEncoderDecoder();
       const handler = vi.fn();
       ed.setDecodeHandler(handler);
 
-      // Guard the assertion: even though the pinned behavior is "returns
-      // normally", wrap in a Promise.race timeout so a future regression that
-      // DID introduce unbounded recursion cannot hang the test runner.
+      // Wrap in a Promise.race timeout so a future regression that DID
+      // introduce unbounded recursion cannot hang the test runner.
       const sentinel = Symbol("returned");
       const result = await Promise.race([
         new Promise((resolve) => {
@@ -182,10 +178,10 @@ describe("CTraderEncoderDecoder (built module)", () => {
       ]);
 
       expect(result).toBe(sentinel); // did not hang
-      expect(handler).toHaveBeenCalledTimes(0); // frame swallowed
+      expect(handler).toHaveBeenCalledTimes(0); // zero-length frame contributes no body
     });
 
-    it("coalesced [size=0][real frame]: the real frame body is still delivered (size=0 frame is silently skipped)", () => {
+    it("coalesced [size=0][real frame]: the real frame body is still delivered (size=0 frame dropped)", () => {
       const ed = new CTraderEncoderDecoder();
       const handler = vi.fn();
       ed.setDecodeHandler(handler);
@@ -193,23 +189,22 @@ describe("CTraderEncoderDecoder (built module)", () => {
       const realFrame = makeFrame([0xde, 0xad]);
       ed.decode(Buffer.concat([Buffer.from([0x00, 0x00, 0x00, 0x00]), realFrame]));
 
-      // The well-formed frame following the zero-length header is decoded.
-      // (The zero-length header itself contributes no handler call.)
+      // The zero-length header is dropped; the well-formed frame following it is
+      // decoded intact as a single clean handler call.
       expect(handler).toHaveBeenCalledTimes(1);
       expect(Array.from(handler.mock.calls[0][0])).toEqual([0xde, 0xad]);
     });
 
-    it("DEFECT pin: a lone size=0 header poisons the decoder state for the NEXT frame", () => {
-      // Feeding size=0 alone leaves internal `size === 0`. The proof that the
-      // state is poisoned (not reset): feed the zero header in one call, then a
-      // fresh real frame in a SEPARATE call. Because size is still 0 from the
-      // first call, the real frame's 4-byte length header is consumed as a
-      // zero-length body slice and the real body is mis-decoded.
+    it("L10 FIX: a lone size=0 header no longer poisons the NEXT frame (frame arrives intact in a separate call)", () => {
+      // Before the fix: feeding size=0 alone left internal `size === 0`, so a
+      // fresh real frame in a SEPARATE call was mis-decoded. After L10, size is
+      // reset to undefined on a zero-length frame, so the next frame arrives
+      // clean.
       const ed = new CTraderEncoderDecoder();
       const handler = vi.fn();
       ed.setDecodeHandler(handler);
 
-      // Call 1: poison state with a lone size=0 header.
+      // Call 1: zero-length frame — dropped, state reset.
       ed.decode(Buffer.from([0x00, 0x00, 0x00, 0x00]));
       expect(handler).toHaveBeenCalledTimes(0);
 
@@ -217,21 +212,27 @@ describe("CTraderEncoderDecoder (built module)", () => {
       const realFrame = makeFrame([0xbe, 0xef]);
       ed.decode(realFrame);
 
-      // Because internal size was left at 0 (not reset), the decoder treats the
-      // incoming buffer as a continuation: it slices [0..0) for the "pending"
-      // zero-length frame — producing an EMPTY handler call — then re-reads the
-      // remainder. Either way the real frame does NOT arrive intact as [0xbe,0xef]
-      // in a single clean call (the well-formed path in the test above does).
-      // Pin the divergence: at least one handler call fires with a body that is
-      // NOT the clean [0xbe,0xef] we'd expect from a healthy decoder.
-      const bodies = handler.mock.calls.map((c) => Array.from(c[0]));
-      const hasCleanBody = bodies.some((b) => b.length === 2 && b[0] === 0xbe && b[1] === 0xef);
-      // On a poisoned decoder the clean body does not arrive as expected; if the
-      // implementation changes to reset size on 0, this assertion flips and
-      // signals the L10 fix landed.
-      // (We assert the handler was invoked at least once regardless, to lock
-      // observable behavior; the empty-body slice is the defect signature.)
-      expect(handler.mock.calls.length).toBeGreaterThanOrEqual(1);
+      // The real frame now arrives INTACT as a single clean call (this assertion
+      // FLIPPED from the Phase-0 "poisoned state" pin when L10 landed).
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(Array.from(handler.mock.calls[0][0])).toEqual([0xbe, 0xef]);
+    });
+
+    it("L10 emits a warning when a zero-length frame is dropped", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const ed = new CTraderEncoderDecoder();
+      ed.setDecodeHandler(vi.fn());
+
+      let warned = false;
+      try {
+        ed.decode(Buffer.from([0x00, 0x00, 0x00, 0x00]));
+        // Capture the assertion BEFORE mockRestore() clears the calls.
+        warned = warnSpy.mock.calls.some((c) =>
+          typeof c[0] === "string" && c[0].includes("zero-length frame"));
+      } finally {
+        warnSpy.mockRestore();
+      }
+      expect(warned).toBe(true);
     });
   });
 });

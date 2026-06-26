@@ -223,4 +223,34 @@ describe("CTraderConnection (real lib) vs mock cTrader server", () => {
         // guard a single disconnect would emit 'close' twice. This count catches that.
         expect(closeCount).toBe(1);
     });
+
+    test("L8: a server errorCode response rejects sendCommand with an Error carrying errorCode", async () => {
+        // L8 (FIXED): #onDecodedData used to call sentCommand.reject(payload) — a
+        // raw object, not an Error, so callers couldn't `instanceof Error` or read
+        // `.message` and the backend worked around it with `err?.message || err`.
+        // The call site now wraps the payload: Object.assign(new Error(...), payload),
+        // so the rejection IS an Error AND still carries errorCode/description. The
+        // errorRes server replies to any request with a ProtoOAErrorRes (matched by
+        // clientMsgId), driving this path end-to-end through the real connection.
+        const { port } = await startServer("errorRes");
+        const conn = new CTraderConnection({ host: "127.0.0.1", port });
+        await conn.open();
+
+        let caught;
+        try {
+            await conn.sendCommand("ProtoOAApplicationAuthReq", {
+                clientId: "c", clientSecret: "s",
+            });
+        } catch (e) {
+            caught = e;
+        }
+
+        expect(caught).toBeInstanceOf(Error);
+        // The wrapped Error preserves the errorCode + description from the payload.
+        expect(caught.errorCode).toBe("CH_BAD_REQUEST");
+        expect(typeof caught.message).toBe("string");
+        expect(caught.message).toContain("CH_BAD_REQUEST");
+
+        conn.close();
+    });
 });

@@ -58,6 +58,16 @@ export class CTraderEncoderDecoder {
             if (usedBuffer.length >= this.#sizeLength) {
                 this.#size = usedBuffer.readUInt32BE(0);
 
+                if (this.#size === 0) {
+                    console.warn(`[CTraderEncoderDecoder] received a zero-length frame (size=0); dropping frame and resetting framing state`);
+                    this.#size = undefined;
+                    const remainder = usedBuffer.slice(this.#sizeLength);
+                    if (remainder.length > 0) {
+                        this.decode(remainder);
+                    }
+                    return;
+                }
+
                 if (usedBuffer.length !== this.#sizeLength) {
                     this.decode(usedBuffer.slice(this.#sizeLength));
                 }

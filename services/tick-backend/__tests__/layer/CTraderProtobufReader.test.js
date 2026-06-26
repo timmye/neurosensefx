@@ -13,7 +13,7 @@
  * `// TODO(Lxx): ...` marker.
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 const { buildReader } = require("./_protobufReader");
 
 describe("CTraderProtobufReader (built module)", () => {
@@ -93,17 +93,25 @@ describe("CTraderProtobufReader (built module)", () => {
       expect(decoded.payload).not.toBe(null);
     });
 
-    it("DEFECT (L9): decode of an unknown payloadType returns { payload: null, ... } with NO logging", () => {
-      // TODO(L9): CTraderProtobufReader.js:45-51 — when no message decoder is
-      // registered for the decoded payloadType, decode() returns a stub object
-      // with payload:null and silently returns. There is NO logging at all on
-      // the unknown-type path, so dropped/undecodable frames are invisible to
-      // operators. L9 will add a warn/error log on this branch. Until then this
-      // silent-stub behavior is pinned.
+    it("L9 (FIXED): decode of an unknown payloadType returns { payload: null, ... } AND emits a warning", () => {
+      // L9 (FIXED): CTraderProtobufReader.decode() previously returned a stub
+      // object with payload:null and NO logging on the unknown-type path, so
+      // dropped/undecodable frames were invisible to operators. decode() now
+      // emits a console.warn naming the unknown payloadType before returning.
       // Build a synthetic ProtoMessage: field-1 (payloadType) varint = 9999 (unknown).
       // 0x08 = field1 tag; 9999 varint = 0x8f 0x4e. No payload, no clientMsgId.
       const unknown = Buffer.from([0x08, 0x8f, 0x4e]);
-      const decoded = reader.decode(unknown);
+
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      let decoded;
+      let warnCalls;
+      try {
+        decoded = reader.decode(unknown);
+        // Capture calls BEFORE mockRestore() clears them.
+        warnCalls = [...warnSpy.mock.calls];
+      } finally {
+        warnSpy.mockRestore();
+      }
 
       expect(decoded).toEqual({
         payload: null,
@@ -112,6 +120,10 @@ describe("CTraderProtobufReader (built module)", () => {
       });
       // The unknown payloadType is genuinely unregistered.
       expect(reader.getMessageByPayloadType(9999)).toBeUndefined();
+      // L9: a warning was emitted naming the unknown payloadType.
+      const warned = warnCalls.some((c) =>
+        typeof c[0] === "string" && c[0].includes("9999") && c[0].includes("CTraderProtobufReader"));
+      expect(warned).toBe(true);
     });
   });
 });

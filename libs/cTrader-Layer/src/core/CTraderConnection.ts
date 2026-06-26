@@ -71,7 +71,9 @@ export class CTraderConnection extends EventEmitter {
         try {
             return await this.sendCommand(payloadType, data);
         }
-        catch {
+        catch (error: any) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn(`[CTraderConnection] trySendCommand failed for payloadType ${payloadType}: ${message}`);
             return undefined;
         }
     }
@@ -106,18 +108,36 @@ export class CTraderConnection extends EventEmitter {
     }
 
     public override on (type: string | symbol, listener: (...parameters: any) => any): this {
-        let normalizedType: string | symbol = type;
+        return super.on(this.#normalizeEventType(type, "listen for"), listener);
+    }
 
-        if (typeof type === "string") {
-            const resolvedPayloadType = this.#protobufReader.resolveIdentifierToPayloadType(type);
-            if (resolvedPayloadType !== undefined) {
-                normalizedType = resolvedPayloadType.toString();
-            }
-            else if (!Number.isFinite(Number.parseInt(type, 10))) {
-                console.warn(`Attempted to listen for unknown event type: ${type}. Listener might not be triggered.`);
-            }
+    public override off (type: string | symbol, listener: (...parameters: any) => any): this {
+        return super.off(this.#normalizeEventType(type), listener);
+    }
+
+    public override removeListener (type: string | symbol, listener: (...parameters: any) => any): this {
+        return super.removeListener(this.#normalizeEventType(type), listener);
+    }
+
+    public override removeAllListeners (type?: string | symbol): this {
+        return super.removeAllListeners(type === undefined ? undefined : this.#normalizeEventType(type));
+    }
+
+    #normalizeEventType (type: string | symbol, warnVerb?: string): string | symbol {
+        if (typeof type !== "string") {
+            return type;
         }
-        return super.on(normalizedType, listener);
+
+        const resolvedPayloadType = this.#protobufReader.resolveIdentifierToPayloadType(type);
+        if (resolvedPayloadType !== undefined) {
+            return resolvedPayloadType.toString();
+        }
+
+        if (warnVerb !== undefined && !Number.isFinite(Number.parseInt(type, 10))) {
+            console.warn(`Attempted to ${warnVerb} unknown event type: ${type}. Listener might not be triggered.`);
+        }
+
+        return type;
     }
 
     #send (data: GenericObject): void {
@@ -145,15 +165,24 @@ export class CTraderConnection extends EventEmitter {
         const sentCommand = this.#commandMap.extractById(clientMsgId);
 
         if (sentCommand) {
-            if (typeof payload.errorCode === "string" || typeof payload.errorCode === "number") {
-                sentCommand.reject(payload);
+            if (payload !== null && (typeof payload.errorCode === "string" || typeof payload.errorCode === "number")) {
+                sentCommand.reject(Object.assign(
+                    new Error(`cTrader rejected: ${payload.errorCode}`),
+                    payload,
+                ));
             }
             else {
                 sentCommand.resolve(payload);
             }
         }
         else {
-            this.#onPushEvent(payloadType, data.payload);
+            if (clientMsgId) {
+                console.warn(`[CTraderConnection] received response with no pending command (clientMsgId=${clientMsgId}, payloadType=${payloadType}); treating as push event`);
+            }
+            if (payload === null) {
+                console.warn(`[CTraderConnection] decoded message has no registered payloadType (${payloadType}); payload is null`);
+            }
+            this.#onPushEvent(payloadType, payload);
         }
     }
 

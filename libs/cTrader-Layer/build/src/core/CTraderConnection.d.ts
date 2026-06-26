@@ -12,6 +12,9 @@ export declare class CTraderConnection extends EventEmitter {
     get pendingCommandCount(): number;
     open(): Promise<unknown>;
     on(type: string | symbol, listener: (...parameters: any) => any): this;
+    off(type: string | symbol, listener: (...parameters: any) => any): this;
+    removeListener(type: string | symbol, listener: (...parameters: any) => any): this;
+    removeAllListeners(type?: string | symbol): this;
     close(): void;
     static getAccessTokenProfile(accessToken: string): Promise<GenericObject>;
     static getAccessTokenAccounts(accessToken: string): Promise<GenericObject[]>;
