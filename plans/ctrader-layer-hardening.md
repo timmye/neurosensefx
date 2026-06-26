@@ -25,7 +25,7 @@ the **retirement of the "library read-only" guardrail** that every prior feed pl
 > regression guard); **L2** encode is two-stage (`reader.encode` → protobufjs Writer →
 > `encoder.encode` → the 8-byte frame). **Phase 1 DONE** (L1–L4 + a once-guard caught in review);
 > L1/L2 live-smoke gate **PASSED 2026-06-26** (live.ctraderapi.com:5035: open 1194ms, pendingCount=0,
-> 91.5s no-FIN); Phase 2 (L6–L10) DONE (suite 232/5); Phase 3 B1+B2 DONE (adapter 287→123 LOC); B3–B6 remain.
+> 91.5s no-FIN); Phase 2 (L6–L10) DONE (suite 232/5); Phase 3 B1+B2 DONE (adapter 287→123 LOC); B3–B6 DONE (offline); Phase 4 supervised-feed live run = remaining gate.
 
 **North Star (definition of done).** After this plan: the cTrader layer is a
 **trustworthy transport on its own** — `open()` rejects on failure, `sendHeartbeat()` does
@@ -362,6 +362,18 @@ one-connection guard; `on`/`removeListener`/`removeAllListeners` pass-throughs p
 225 passed / 5 skipped; **live-validated** via an adapter smoke (open 1298ms, app-auth 292ms,
 `pendingCommandCount=0`, heartbeat echoes through `adapter.on`, 76.6s no-FIN). **B3–B6 remain**
 (independent rewires, lower priority).
+
+**✅ B3 + B4 + B5 + B6 DONE 2026-06-26 (offline, full suite 232/5).** Conservative gating (not deletion):
+**B4** dropped the redundant 10s `open()` wrapper (L1 self-rejects now); updated the characterization test.
+**B5** gated every supervised-path `HealthMonitor` call (`start`/`recordTick`/`stop`) on `!this.supervised`
+(mirrors the existing `'stale'` gating) + trimmed the dead `tick_resumed` emit (kept `isStale` — it's the
+dedup flag for the live `'stale'` event). **B3** the heartbeat handler is now a clean `emit('heartbeat')`
+pass-through in supervised mode (the `recordTick` double-feed is gone); the echo→`'heartbeat'` translation
+stays (the lib emits no domain event). **B6** gated the remaining `ReconnectionManager` calls (`reset`/
+`cancelReconnect`) on `!this.supervised`; kept construction (characterization tests assert `session.reconnection`);
+audited `WebSocketServer.handleReinit` (no change needed). **TradingView's unsupervised use of
+`HealthMonitor`/`ReconnectionManager` is byte-for-byte preserved.** Remaining gate: a full supervised-feed
+live run (Phase 4) to validate the B3–B6 backend changes end-to-end before merge.
 
 ### 3.1 B1 — delete the raw-heartbeat apparatus (gates on L2) — SAFE-TO-REMOVE
 `CTraderTransportAdapter.js`: delete `_installSocketCapture`/`_uninstallSocketCapture`,

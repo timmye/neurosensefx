@@ -225,11 +225,14 @@ describe('CTraderSession connect/reconnect characterization (B0)', () => {
     });
 
     // ─── 3. Mid-handshake hang (BASELINE capture) ─────────────────────────────
-    //   BASELINE: today connect() hangs after open() if auth never responds.
-    //   The 10s timeout only wraps open(), NOT the authenticate() step. The
-    //   supervisor's connect-phase deadline (B3) is what rescues this in
-    //   production; the raw session still hangs.
-    it('BASELINE: connect() hangs if auth never responds (10s timeout only wraps open())', async () => {
+    //   BASELINE: connect() hangs after open() if auth never responds.
+    //   B4 removed the session's 10s open() wrapper (now redundant — the layer's
+    //   open() self-rejects on socket failure per L1, live-validated). That
+    //   wrapper only ever raced open() anyway, NOT authenticate(). The raw
+    //   session therefore STILL hangs inside authenticate() on a dead auth
+    //   response; the supervisor's connect-phase deadline is what rescues this
+    //   in production.
+    it('BASELINE: connect() hangs if auth never responds (open() self-rejects only on socket failure, not on a dead auth response)', async () => {
         vi.useFakeTimers();
 
         const fake = createFakeConnection({
@@ -248,8 +251,10 @@ describe('CTraderSession connect/reconnect characterization (B0)', () => {
 
         const connectPromise = session.connect(fake);
 
-        // Advance PAST the 10s open-timeout. open() already resolved so the
-        // timeout was cleared; connect() is now stuck inside authenticate().
+        // Flush pending microtasks. open() resolved (openResult: true) and the
+        // session now awaits authenticate()'s account-auth, which never responds.
+        // (B4: the former 10s open() wrapper is gone; open() no longer arms a
+        // timer here. advanceTimersByTimeAsync still flushes the microtask queue.)
         await vi.advanceTimersByTimeAsync(12000);
 
         // BASELINE assertion: still hanging — no connected, no disconnected.

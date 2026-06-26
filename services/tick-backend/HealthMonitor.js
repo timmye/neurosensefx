@@ -36,8 +36,11 @@ class HealthMonitor extends EventEmitter {
             this.isStale = true;
             this.emit('stale', { session: this.sessionName });
         } else if (!isStale && this.isStale) {
+            // Stale→fresh transition. B5: the former 'tick_resumed' event had
+            // zero consumers (supervised cTrader uses HealthSensor; TradingView
+            // only listens for 'stale') and was trimmed. isStale is reset here
+            // so a subsequent stall re-emits 'stale' (dedup).
             this.isStale = false;
-            this.emit('tick_resumed', { session: this.sessionName });
         }
     }
 }

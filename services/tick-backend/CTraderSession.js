@@ -122,12 +122,6 @@ class CTraderSession extends EventEmitter {
         this.removeEventListeners();
         this.setupEventListeners();
 
-        // Add timeout to detect hanging connection
-        let timeoutHandle;
-        const timeout = new Promise((_, reject) => {
-            timeoutHandle = setTimeout(() => reject(new Error('cTrader connection timeout after 10 seconds')), 10000);
-        });
-
         // Connect-cycle timing markers (Phase 1.3). Combined with timestamped log
         // lines (Phase 1.1) these reconstruct the full handshake timeline from
         // backend.log alone — proving whether the connect-phase deadline (Loop-B)
@@ -135,14 +129,16 @@ class CTraderSession extends EventEmitter {
         const connectStart = Date.now();
         log.info(`connect-start: restoring ${this.activeSubscriptions.size} tick + ${this.activeBarSubscriptions.size} bar subscriptions`);
 
+        // B4: the layer's open() now self-rejects on socket timeout/error
+        // (Plan Phase 1 / L1, live-validated), so the former 10s Promise.race
+        // wrapper around open() is redundant. The supervisor's connect-phase
+        // deadline still bounds the whole handshake as a backstop.
         let stepStart = Date.now();
         try {
-            await Promise.race([this.connection.open(), timeout]);
-            clearTimeout(timeoutHandle);
+            await this.connection.open();
             this.isConnecting = false;
             log.info(`connect-step open: ${Date.now() - stepStart}ms`);
         } catch (error) {
-            clearTimeout(timeoutHandle);
             this.isConnecting = false;
             log.error('Connection failed:', error.message);
             this.handleDisconnect(error, true);
@@ -169,12 +165,20 @@ class CTraderSession extends EventEmitter {
         this.startHeartbeat();
 
         // Initialize health monitor with grace period - start first (resets lastTick),
-        // then record tick immediately to prevent immediate staleness
+        // then record tick immediately to prevent immediate staleness.
+        // B5: in supervised mode the supervisor's HealthSensor owns liveness, so
+        // the session's own HealthMonitor is inert (mirrors the 'stale' gating at
+        // the listener wiring) — don't start it or feed it recordTick().
         this.connectedAt = Date.now();
-        this.healthMonitor.start();
-        this.healthMonitor.recordTick();
+        if (!this.supervised) {
+            this.healthMonitor.start();
+            this.healthMonitor.recordTick();
+        }
 
-        this.reconnection.reset();
+        // B6: in supervised mode the supervisor owns recovery (its own RetryPolicy
+        // + backoff), so the session's ReconnectionManager is inert — mirror the
+        // HealthMonitor gating. scheduleReconnect() is already gated out above.
+        if (!this.supervised) this.reconnection.reset();
 
         // Phase 2.2 / Loop-B: emit 'connected' as soon as the FAST handshake
         // (open + auth + symbol-map + heartbeat) is done. The supervisor's
@@ -361,7 +365,9 @@ class CTraderSession extends EventEmitter {
                 }
 
                 if (tickData) {
-                    this.healthMonitor.recordTick();
+                    // B5: HealthMonitor is inert in supervised mode (HealthSensor
+                    // owns liveness); only feed it on the unsupervised path.
+                    if (!this.supervised) this.healthMonitor.recordTick();
                     this.emit('tick', tickData);
                 }
 
@@ -489,9 +495,12 @@ class CTraderSession extends EventEmitter {
 
         this.isDisconnecting = true;
         if (error) log.error('connection failed:', describeError(error));
-        this.reconnection.cancelReconnect();
+        // B6: ReconnectionManager is inert in supervised mode (supervisor owns
+        // recovery). cancelReconnect() only matters on the self-reconnect path.
+        if (!this.supervised) this.reconnection.cancelReconnect();
         this.isConnecting = false;
-        this.healthMonitor.stop();
+        // B5: HealthMonitor is inert in supervised mode (never started).
+        if (!this.supervised) this.healthMonitor.stop();
         this.stopHeartbeat();
         this.emit('disconnected');
 
@@ -520,10 +529,16 @@ class CTraderSession extends EventEmitter {
         // NOT as a command response with clientMsgId. sendCommand().then() never fires.
         // CTraderConnection.on() normalizes 'ProtoHeartbeatEvent' to numeric '51',
         // but removeListener is NOT overridden - so we must use '51' for cleanup.
+        //
+        // B3: the handler translates the library's echo (payloadType 51) into the
+        // session 'heartbeat' event. The library does NOT emit a domain
+        // 'heartbeat' event, so this translation must stay — its single consumer is
+        // FeedSupervisor's HealthSensor.recordHeartbeat (FeedSupervisor.js). The
+        // former recordTick() double-feed is now dead in supervised mode (B5: the
+        // supervisor's HealthSensor owns liveness, and the session's HealthMonitor
+        // is inert), so the handler is a clean emit('heartbeat') pass-through there.
         this.heartbeatEventHandler = () => {
-            this.healthMonitor.recordTick();
-            // Emit 'heartbeat' so a supervising FeedSupervisor's HealthSensor can
-            // track liveness distinctly from data ticks (DEGRADED vs STALE).
+            if (!this.supervised) this.healthMonitor.recordTick();
             this.emit('heartbeat');
         };
         this.connection.on('ProtoHeartbeatEvent', this.heartbeatEventHandler);
@@ -1035,8 +1050,12 @@ class CTraderSession extends EventEmitter {
     }
 
     async reconnect(transport) {
-        this.healthMonitor.stop();
-        this.reconnection.reset();
+        // B5: HealthMonitor is inert in supervised mode (never started).
+        if (!this.supervised) this.healthMonitor.stop();
+        // B6: ReconnectionManager is inert in supervised mode. reconnect() is
+        // only reachable unsupervised (WebSocketServer.handleReinit's no-
+        // supervisor else branch), so this guard is defensive self-consistency.
+        if (!this.supervised) this.reconnection.reset();
         this.isConnecting = false;
         // FIX m3: a reconnect must not start a second restore while the first is
         // still settling. Await the in-flight restore (if any) first; it will be
