@@ -4,7 +4,7 @@
  * FakeTransport — a scriptable Transport for FeedSupervisor tests.
  *
  * Mirrors the Transport contract (see supervision/interfaces.js): open /
- * sendCommand / sendRaw / close / on / removeListener. Behaviors are
+ * sendCommand / sendHeartbeat / close / on / removeListener. Behaviors are
  * configurable per instance so the supervisor's recovery paths can be driven
  * deterministically:
  *
@@ -66,7 +66,7 @@ class FakeTransport {
         return Promise.resolve(script);
     }
 
-    sendRaw(payload) {
+    sendHeartbeat(payload) {
         this.rawSent.push(payload);
     }
 

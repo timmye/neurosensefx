@@ -16,7 +16,8 @@
  * The defect-#4 fixes live at this layer (implemented by CTraderTransportAdapter):
  *   - `sendCommand` MUST respect a per-call TTL and reject on `close`, so a
  *     reply that never arrives cannot hang the connect/handshake forever.
- *   - heartbeats use `sendRaw` (NOT `sendCommand`) so they never leak into the
+ *   - `sendHeartbeat` writes a leak-free raw keepalive frame (owned by the layer
+ *     after Plan Phase 1 / L2) so heartbeats never leak into the
  *     command-response map (`#openCommands`).
  *
  * @typedef {Object} Transport
@@ -24,8 +25,8 @@
  * @property {(name: string, payload: object) => Promise<object>} sendCommand
  *           Send a request command; resolves with the framed response, rejects
  *           on error, on close, or after the per-call TTL (defect #4).
- * @property {(payload: *) => void} sendRaw         Send a frame that expects no
- *           response (e.g. a heartbeat) — bypasses the command map.
+ * @property {() => void} sendHeartbeat             Send a leak-free raw
+ *           keepalive frame (delegates to the layer's sendHeartbeat).
  * @property {() => void} close                     Close the socket.
  * @property {(event: string, handler: Function) => void} on
  *           Subscribe to: feed-specific data frames, 'close', 'error'.

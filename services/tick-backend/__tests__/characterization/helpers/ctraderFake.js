@@ -71,8 +71,8 @@ function createFakeConnection({ openResult = true, scripts = {} } = {}) {
         sendHeartbeat() {
             fake.receivedCommands.push({ name: '__heartbeat__', payload: undefined });
         },
-        // Fire-and-forget frame send (heartbeats after the defect-#4 rework).
-        sendRaw() {
+        // Leak-free raw keepalive (delegates to the layer's sendHeartbeat post-L2).
+        sendHeartbeat() {
             fake.receivedCommands.push({ name: '__heartbeat__', payload: undefined });
         },
         close() {},

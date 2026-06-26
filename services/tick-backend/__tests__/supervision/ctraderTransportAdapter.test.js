@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 const fs = require('fs');
 const path = require('path');
 const { CTraderTransportAdapter } = require('../../supervision/CTraderTransportAdapter');
@@ -37,21 +37,7 @@ function fakeLibConn({ openResolves = true, sendCommandImpl } = {}) {
     return conn;
 }
 
-// Manual timer scheduler so the TTL is deterministic without real timers.
-function manualTimers() {
-    const timers = [];
-    return {
-        scheduleTimeout: (fn) => { const t = { fn, cancelled: false }; timers.push(t); return t; },
-        cancelTimeout: (t) => { if (t) t.cancelled = true; },
-        fireAll() { for (const t of [...timers]) if (!t.cancelled) t.fn(); },
-        pendingCount: () => timers.filter((t) => !t.cancelled).length,
-    };
-}
-
-describe('CTraderTransportAdapter (B4)', () => {
-    let timers;
-    beforeEach(() => { timers = manualTimers(); });
-
+describe('CTraderTransportAdapter (thin pass-through — post B1/B2)', () => {
     it('passes the HOSTNAME (not a pre-resolved IP) to the library — lets the lib do DNS+TLS ServerName', async () => {
         // The library's primary path resolves DNS→IP AND sets the TLS ServerName
         // to the hostname, so the *.ctraderapi.com cert verifies. Pre-resolving to
@@ -62,8 +48,6 @@ describe('CTraderTransportAdapter (B4)', () => {
         const adapter = new CTraderTransportAdapter({
             host: 'live.ctraderapi.com', port: 5035,
             connectionFactory: (opts) => { constructedOpts = opts; return conn; },
-            scheduleTimeout: timers.scheduleTimeout,
-            cancelTimeout: timers.cancelTimeout,
         });
 
         await adapter.open();
@@ -83,7 +67,6 @@ describe('CTraderTransportAdapter (B4)', () => {
         const adapter = new CTraderTransportAdapter({
             host: 'live.ctraderapi.com', port: 5035,
             connectionFactory: () => { factoryCalls++; return conn; },
-            scheduleTimeout: timers.scheduleTimeout, cancelTimeout: timers.cancelTimeout,
         });
         await adapter.open();       // supervisor open
         await adapter.open();       // session.connect() open (must be a no-op)
@@ -91,106 +74,85 @@ describe('CTraderTransportAdapter (B4)', () => {
         expect(conn.opened).toBe(true);
     });
 
-    it('sendCommand resolves with the connection response', async () => {
+    // sendCommand is now a thin delegate to conn.sendCommand (the per-RPC TTL and
+    // reject-on-close are layer-owned — L4/L3 — and proven in
+    // __tests__/layer/CTraderCommandMap.test.js). The adapter just passes through.
+    it('sendCommand delegates to the underlying connection and resolves with its result', async () => {
         const conn = fakeLibConn({ sendCommandImpl: (name) => Promise.resolve({ name, ok: true }) });
         const adapter = new CTraderTransportAdapter({
-            host: 'h', port: 5035, dnsLookup: async () => '1.1.1.1',
+            host: 'h', port: 5035,
             connectionFactory: () => conn,
-            scheduleTimeout: timers.scheduleTimeout, cancelTimeout: timers.cancelTimeout,
         });
         await adapter.open();
         await expect(adapter.sendCommand('ProtoOASymbolsListReq', { x: 1 })).resolves.toEqual({ name: 'ProtoOASymbolsListReq', ok: true });
     });
 
-    // #4: a sendCommand whose reply never arrives rejects within the TTL and force-closes.
-    it('#4 hung command: rejects within the TTL and closes the transport', async () => {
-        const conn = fakeLibConn({ sendCommandImpl: () => new Promise(() => {}) }); // never resolves
+    it('sendCommand rejects if the underlying connection rejects', async () => {
+        const conn = fakeLibConn({ sendCommandImpl: () => Promise.reject(new Error('CH_ACCESS_DENIED')) });
         const adapter = new CTraderTransportAdapter({
-            host: 'h', port: 5035, commandTtlMs: 5000,
-            dnsLookup: async () => '1.1.1.1', connectionFactory: () => conn,
-            scheduleTimeout: timers.scheduleTimeout, cancelTimeout: timers.cancelTimeout,
-        });
-        await adapter.open();
-
-        const p = adapter.sendCommand('ProtoOAAccountAuthReq', {});
-        // TTL not yet fired ⇒ still pending.
-        expect(timers.pendingCount()).toBe(1);
-
-        timers.fireAll(); // TTL expires
-        await expect(p).rejects.toThrow(/timed out/);
-        expect(conn.close).toHaveBeenCalled(); // force-close to break the hang
-    });
-
-    // #4: pending RPCs reject when the transport closes (no unbounded awaits).
-    it('#4 reject-on-close: pending sendCommand rejects when the socket closes', async () => {
-        const conn = fakeLibConn({ sendCommandImpl: () => new Promise(() => {}) });
-        const adapter = new CTraderTransportAdapter({
-            host: 'h', port: 5035, dnsLookup: async () => '1.1.1.1',
+            host: 'h', port: 5035,
             connectionFactory: () => conn,
-            scheduleTimeout: timers.scheduleTimeout, cancelTimeout: timers.cancelTimeout,
         });
         await adapter.open();
-
-        const p = adapter.sendCommand('ProtoOASymbolsListReq', {});
-        conn.emit('close'); // socket drops mid-RPC
-        await expect(p).rejects.toThrow(/closed/);
+        await expect(adapter.sendCommand('ProtoOAAccountAuthReq', {})).rejects.toThrow('CH_ACCESS_DENIED');
     });
 
-    it('sendRaw falls back to the library heartbeat when no raw socket is captured (e.g. fakes)', async () => {
+    it('sendCommand rejects before open() is called', () => {
+        const adapter = new CTraderTransportAdapter({ host: 'h', port: 5035, connectionFactory: () => fakeLibConn() });
+        return expect(adapter.sendCommand('X', {})).rejects.toThrow(/not open/);
+    });
+
+    // Heartbeats delegate straight to the layer's leak-free sendHeartbeat()
+    // (Plan Phase 1 / L2). The byte-frame correctness of the raw keepalive is
+    // proven in __tests__/layer/CTraderProtobufReader.test.js — not duplicated here.
+    it('sendHeartbeat delegates to the layer connection (leak-free raw frame)', async () => {
         const conn = fakeLibConn();
         const adapter = new CTraderTransportAdapter({
-            host: 'h', port: 5035, dnsLookup: async () => '1.1.1.1',
+            host: 'h', port: 5035,
             connectionFactory: () => conn,
-            scheduleTimeout: timers.scheduleTimeout, cancelTimeout: timers.cancelTimeout,
         });
         await adapter.open();
-        adapter.sendRaw();
+        adapter.sendHeartbeat();
         expect(conn.sendHeartbeat).toHaveBeenCalledTimes(1);
-        expect(timers.pendingCount()).toBe(0); // heartbeat not tracked as an RPC
-    });
-
-    // Loop-A/F: the raw keepalive frame is a bare ProtoHeartbeatEvent with NO
-    // clientMsgId (re-derived from the library's own encoder; drift guard).
-    it('raw heartbeat frame is a clientMsgId-free ProtoHeartbeatEvent (Loop-A/F)', () => {
-        const { buildHeartbeatFrame, PINNED_RAW_HEARTBEAT_FRAME } = require('../../supervision/CTraderTransportAdapter');
-        const frame = buildHeartbeatFrame();
-        // Verified-empirically bytes: Int32BE(4) + payloadType=51 + empty payload, NO clientMsgId.
-        expect(frame.toString('hex')).toBe(PINNED_RAW_HEARTBEAT_FRAME.toString('hex'));
-        expect(frame.toString('hex')).toBe('000000040833' + '1200'); // 0a.. never appears (no clientMsgId)
-        expect(frame.toString('hex')).not.toMatch(/1a/); // field-3 clientMsgId tag absent
-    });
-
-    // Loop-A/F: with a captured raw socket, sendRaw writes the frame directly and
-    // does NOT route through the library command map (no leak / no clientMsgId).
-    it('sendRaw writes the raw frame to the captured socket, bypassing the command map', async () => {
-        const conn = fakeLibConn();
-        const adapter = new CTraderTransportAdapter({
-            host: 'h', port: 5035, dnsLookup: async () => '1.1.1.1',
-            connectionFactory: () => conn,
-            scheduleTimeout: timers.scheduleTimeout, cancelTimeout: timers.cancelTimeout,
-        });
-        await adapter.open();
-        const writes = [];
-        // Inject a fake captured socket (as the tls.connect capture would).
-        adapter._rawSocket = { destroyed: false, writable: true, write: (b) => writes.push(b) };
-        adapter.sendRaw();
-        expect(writes).toHaveLength(1);
-        expect(writes[0].toString('hex')).toBe('000000040833' + '1200');
-        expect(conn.sendHeartbeat).not.toHaveBeenCalled(); // command map NOT touched
-        expect(timers.pendingCount()).toBe(0);
     });
 
     it('delegates on/removeListener to the underlying connection', async () => {
         const conn = fakeLibConn();
         const adapter = new CTraderTransportAdapter({
-            host: 'h', port: 5035, dnsLookup: async () => '1.1.1.1',
+            host: 'h', port: 5035,
             connectionFactory: () => conn,
-            scheduleTimeout: timers.scheduleTimeout, cancelTimeout: timers.cancelTimeout,
         });
         await adapter.open();
         const fn = vi.fn();
         adapter.on('PROTO_OA_SPOT_EVENT', fn);
         conn.emit('PROTO_OA_SPOT_EVENT', { bid: 1 });
         expect(fn).toHaveBeenCalledWith({ bid: 1 });
+    });
+
+    // The supervisor's mid-stream re-arm depends on this: a layer close flows
+    // through the adapter's `on` pass-through to FeedSupervisor._onTransportClosed.
+    it('passes the conn "close" event through to a registered listener (supervisor re-arm path)', async () => {
+        const conn = fakeLibConn();
+        const adapter = new CTraderTransportAdapter({
+            host: 'h', port: 5035,
+            connectionFactory: () => conn,
+        });
+        await adapter.open();
+        const onClose = vi.fn();
+        adapter.on('close', onClose);
+        conn.emit('close');
+        expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('close() closes the underlying connection and is idempotent', async () => {
+        const conn = fakeLibConn();
+        const adapter = new CTraderTransportAdapter({
+            host: 'h', port: 5035,
+            connectionFactory: () => conn,
+        });
+        await adapter.open();
+        adapter.close();
+        adapter.close(); // idempotent — conn.close called exactly once
+        expect(conn.close).toHaveBeenCalledTimes(1);
     });
 });

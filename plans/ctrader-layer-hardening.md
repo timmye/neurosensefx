@@ -25,7 +25,7 @@ the **retirement of the "library read-only" guardrail** that every prior feed pl
 > regression guard); **L2** encode is two-stage (`reader.encode` → protobufjs Writer →
 > `encoder.encode` → the 8-byte frame). **Phase 1 DONE** (L1–L4 + a once-guard caught in review);
 > L1/L2 live-smoke gate **PASSED 2026-06-26** (live.ctraderapi.com:5035: open 1194ms, pendingCount=0,
-> 91.5s no-FIN); Tier 3 unblocked; next Phase 2 or 3.
+> 91.5s no-FIN); Phase 3 **B1+B2 DONE** (adapter 287→123 LOC, live-validated 76.6s no-FIN); B3–B6 remain.
 
 **North Star (definition of done).** After this plan: the cTrader layer is a
 **trustworthy transport on its own** — `open()` rejects on failure, `sendHeartbeat()` does
@@ -346,6 +346,16 @@ a well-formed frame following a zero-length header still arrives intact.
 **Goal:** delete/simplify the external workarounds now that the layer owns the behavior.
 Each item is independently shippable and **gated** — do not precede its enabler.
 
+**✅ B1 + B2 DONE + live-validated 2026-06-26.** The adapter thinned from **287 → 123 LOC**:
+deleted the raw-heartbeat apparatus (`tls.connect` monkey-patch, `sendRaw`, `buildHeartbeatFrame`,
+`PINNED_RAW_HEARTBEAT_FRAME`, `_rawSocket`, socket-capture) and the external `_pending`/TTL/
+`_rejectAllPending`. `sendCommand`/`sendHeartbeat` are thin delegates; `open()` keeps the idempotent
+one-connection guard; `on`/`removeListener`/`removeAllListeners` pass-throughs preserve the supervisor's
+`'close'`/`'error'` observation (its mid-stream re-arm now comes from the layer's L4). Full suite
+225 passed / 5 skipped; **live-validated** via an adapter smoke (open 1298ms, app-auth 292ms,
+`pendingCommandCount=0`, heartbeat echoes through `adapter.on`, 76.6s no-FIN). **B3–B6 remain**
+(independent rewires, lower priority).
+
 ### 3.1 B1 — delete the raw-heartbeat apparatus (gates on L2) — SAFE-TO-REMOVE
 `CTraderTransportAdapter.js`: delete `_installSocketCapture`/`_uninstallSocketCapture`,
 `_tlsPatched`/`_origTlsConnect`, `sendRaw`, `buildHeartbeatFrame`, `PINNED_RAW_HEARTBEAT_FRAME`,
@@ -445,7 +455,7 @@ Phase 0 — Test enabler (mock-server harness + layer unit tests)   [✅ DONE 20
    0.1 mock cTrader TCP server  →  0.2 pure-logic unit tests
         │
         ▼  (unlocks confident layer changes)
-Phase 1 — Tier 1: layer lifecycle (structural core)               [each retires a workaround]
+Phase 1 — Tier 1: layer lifecycle (structural core)               [✅ DONE 2026-06-26 — L1–L4 + once-guard; live-validated (91.5s no-FIN)]
    1.1 L1 open() rejects  →  1.2 L2 sendHeartbeat raw  →  1.3 L3 close() rejects  →  1.4 L4 layer TTL
         │                                                            (L3+L4 together enable B2)
         ▼

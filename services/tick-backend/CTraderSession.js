@@ -530,9 +530,10 @@ class CTraderSession extends EventEmitter {
 
         this.heartbeatInterval = setInterval(() => {
             try {
-                // sendRaw = fire-and-forget heartbeat (not routed through our
-                // tracked command map), per the defect-#4 fix in the transport tier.
-                if (this.connection) this.connection.sendRaw();
+                // sendHeartbeat writes a leak-free raw ProtoHeartbeatEvent frame
+                // (no clientMsgId, no command-map entry) — owned by the layer
+                // after Plan Phase 1 / L2 (live-validated).
+                if (this.connection) this.connection.sendHeartbeat();
             } catch (e) { /* connection closing */ }
         }, 10000);
     }
