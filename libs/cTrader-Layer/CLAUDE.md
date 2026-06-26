@@ -4,6 +4,19 @@
 
 cTrader Open API TypeScript integration library — protobuf messaging, socket connections, and command encoding.
 
+> **Self-healing transport (since `plans/ctrader-layer-hardening.md`, 2026-06-26).** This layer is
+> no longer a passive read-only transport — it now **owns transport reliability**:
+> **L1** `open()` rejects on error/timeout (no more open-hang); **L2** `sendHeartbeat()` writes a
+> raw leak-free frame via `encode(51, {}, undefined)` (replaces the old external `tls.connect`
+> monkey-patch); **L3** `close()` rejects all in-flight commands; **L4** per-RPC command TTL
+> (default 15 s) with `onCommandTimeout → reject + close()`. Retires the "library read-only"
+> guardrail; supervision-tier core unchanged.
+>
+> **Rebuild workflow** (the backend `require`s compiled `build/`, not `src/`): edit
+> `src/*.ts` → `cd libs/cTrader-Layer && npx ttsc` (the **ttypescript** compiler, **not**
+> standard `tsc` — it chokes on the `typescript-transform-paths` plugin) → `git add build/` →
+> commit the compiled output (34 files) alongside the source change.
+
 ## Files
 
 | File | What | When to read |

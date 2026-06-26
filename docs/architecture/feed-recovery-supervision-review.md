@@ -28,6 +28,17 @@ and offline-tested, 168 tests green; Phase 5 heartbeat commandMap leak data-gate
 documented previously are symptoms of a **missing architectural tier**. This doc steps
 back from line-level bugs to the design of connection lifecycle, recovery, and supervision.
 
+> **Update (2026-06-26): supervision tier unchanged; cTrader layer is now the reliability owner
+> for transport lifecycle.** The supervision tier described here (`FeedSupervisor`, `FeedState`,
+> `HealthSensor`, `RetryPolicy`, `CTraderTransportAdapter`) is **unchanged**. What changed is that
+> the cTrader **layer** (`libs/cTrader-Layer/`, now an internal fork) now **owns transport
+> reliability** directly: `open()` rejects on failure, `sendHeartbeat()` is leak-free,
+> `close()` rejects in-flight commands, and per-RPC command TTL (default 15 s) lives in the layer
+> — see `plans/ctrader-layer-hardening.md` (Phase 1 L1–L4 + Phase 2 L6–L10 + Phase 3 B1–B6;
+> layer + adapter live-validated, full suite 232/5). The adapter thinned to a pass-through; the
+> external `tls.connect` heartbeat monkey-patch is deleted. The analysis below is preserved
+> unchanged as the rationale.
+
 ---
 
 ## 1. How this doc differs from the incident doc

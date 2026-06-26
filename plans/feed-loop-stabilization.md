@@ -369,6 +369,16 @@ Each implemented Loop must be confirmed resolved by live evidence before declari
 **Gate to 5.2:** every row confirmed. If any Loop is NOT confirmed (e.g., restore still > 60 s, or the deadline still aborts), **stop and re-open that phase** — the offline logic was insufficient and the fix needs live-driven tuning (e.g., lower `CTRADER_RESTORE_CONCURRENCY`, raise `CTRADER_RESTORE_SPACING_MS`, adjust `restoreCommandTimeoutMs`) before proceeding. Record the tuning and re-validate.
 
 ### 5.2 Settle the heartbeat (Loop-A + Loop-F) — evidence, not theory
+
+> **SUPERSEDED 2026-06-26:** the external `tls.connect` monkey-patch described below
+> ("library source stays read-only"; "scoped `tls.connect` wrap") is **DELETED**.
+> `sendHeartbeat()` is now fixed properly **in the layer itself** — a raw leak-free frame
+> via `encode(51, {}, undefined)` — by `plans/ctrader-layer-hardening.md` Phase 1 / L2, and
+> the external apparatus was removed in Phase 3 / B1. The **"library read-only"
+> guardrail this phase operated under is retired** (the layer is now an internal fork we
+> own and modify; see `libs/cTrader-Layer/CLAUDE.md`). The historical text below is
+> preserved as the record of what was done at the time; the in-layer fix supersedes it.
+
 From the timed log:
 - Do clean FINs (Loop-A: stack `endReadableNT → TLSSocket.emit → _onClose`) coincide with **idle lulls** where only heartbeats were sent?
 - Are heartbeats actually **sent** (interval firing) and **received** (`ProtoHeartbeatEvent` echoes) in the ~30 s before a FIN?
