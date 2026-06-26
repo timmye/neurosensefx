@@ -24,7 +24,8 @@ the **retirement of the "library read-only" guardrail** that every prior feed pl
 > server-side `destroy()` already emits `'close'` today (downgraded to defensive hardening +
 > regression guard); **L2** encode is two-stage (`reader.encode` → protobufjs Writer →
 > `encoder.encode` → the 8-byte frame). **Phase 1 DONE** (L1–L4 + a once-guard caught in review);
-> L1/L2 live-smoke gate pending; next Phase 2.
+> L1/L2 live-smoke gate **PASSED 2026-06-26** (live.ctraderapi.com:5035: open 1194ms, pendingCount=0,
+> 91.5s no-FIN); Tier 3 unblocked; next Phase 2 or 3.
 
 **North Star (definition of done).** After this plan: the cTrader layer is a
 **trustworthy transport on its own** — `open()` rejects on failure, `sendHeartbeat()` does
@@ -226,9 +227,11 @@ mock server, and pure-logic layer modules are unit-testable.
 binding landed here, so Phase 2's L5 reduces to verification). L4 wires `timeout → reject + close()`
 via an injected `onCommandTimeout` callback, preserving the supervisor's hung-command re-arm. The L2
 unit test proves the heartbeat leak is gone (`pendingCommandCount` stays 0); the L3 test proves
-`close()` rejects in-flight commands as `Error`. **Remaining gate:** L1/L2 are socket-dependent —
-offline harness + unit tests prove the logic, but a **live cTrader smoke** (connect + heartbeat echo,
-no 28s FIN) must be run by a human before Tier 3 deletes the external workarounds. Adapter UNCHANGED.
+`close()` rejects in-flight commands as `Error`. **Live gate — PASSED 2026-06-26** via `services/tick-backend/scripts/ctrader-layer-live-smoke.cjs`
+(bounded, read-only: app-auth + heartbeat only): `open()` 1194ms, app-auth 289ms, `pendingCommandCount=0`
+across 9 heartbeats (L2 leak-free, measured live), server echoed `ProtoHeartbeatEvent` (3 echoes at ~30s
+cadence — server-side throttle, not a defect), connection survived **91.5s with zero** `'close'`/`'error'`
+(well past the 28s FIN threshold). **Tier 3 (B1/B2) is now unblocked.** Adapter UNCHANGED.
 
 **Goal:** the layer is a trustworthy transport on its own. Each fix retires a specific
 external workaround (Tier 3). Socket items gated on Phase 0.
