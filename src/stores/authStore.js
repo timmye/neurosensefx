@@ -4,7 +4,7 @@
  * On first login, migrates existing localStorage/IndexedDB data to server (ref: DL-007).
  * All API calls use credentials: 'include' to send session cookies (ref: DL-005).
  */
-import { writable, get } from 'svelte/store';
+import { writable } from 'svelte/store';
 import Dexie from 'dexie';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
@@ -98,7 +98,7 @@ async function migrateLocalData() {
             body: JSON.stringify(data)
         });
         if (resp.ok) {
-            console.log('[Auth] Local data migrated to server');
+            if (import.meta.env.DEV) console.log('[Auth] Local data migrated to server');
             localStorage.setItem('data-migrated', 'true');
         } else {
             console.warn('[Auth] Migration upload failed, local data preserved:', resp.status);
@@ -175,7 +175,7 @@ export async function register(email, password, displayName) {
 }
 
 /** Logout and reload to clear all client state. */
-export async function logout() {
+async function logout() {
     try {
         await fetch(API_BASE + '/api/logout', { method: 'POST', credentials: 'include' });
     } catch (err) {

@@ -1,7 +1,7 @@
 // Day Range Meter drawing elements - Crystal Clarity Compliant
 // Framework-first: Individual drawing functions, <15 lines each
 
-import { COLORS, FONT_SIZES, LINE_WIDTHS, SYSTEM_FONT_FAMILY } from '../colors.js';
+import { FONT_SIZES, LINE_WIDTHS, SYSTEM_FONT_FAMILY } from '../colors.js';
 
 export function drawPriceMarker(ctx, x, y, label, color, showBackground = false, textAlign = 'left', subtitle = null) {
   // Draw marker line

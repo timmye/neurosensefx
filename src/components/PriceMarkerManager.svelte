@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { displayStore } from '../stores/displayStore.js';
-  import { markerActions, loadMarkers, saveMarkers } from '../stores/markerStore.js';
+  import { markerActions, loadMarkers, saveMarkers } from '../stores/markerActions.js';
   import { formatSymbol } from '../lib/displayDataProcessor.js';
   import { createPriceMarkerInteraction } from '../lib/priceMarkers/priceMarkerInteraction.js';
 

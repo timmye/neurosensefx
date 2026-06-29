@@ -85,12 +85,12 @@ function finalizeState(sm) {
 
   // Require 100% coverage to align with fxBasketCalculations.js requirement
   if (coverage >= 1.0) {
-    console.log(`[FX BASKET] All pairs received: ${sm.receivedPairs.size}/${sm.expectedPairs.length}`);
+    if (import.meta.env.DEV) console.log(`[FX BASKET] All pairs received: ${sm.receivedPairs.size}/${sm.expectedPairs.length}`);
     sm.state = BasketState.READY;
   } else {
-    console.error(`[FX BASKET] Insufficient data: ${sm.receivedPairs.size}/${sm.expectedPairs.length} pairs (${(coverage * 100).toFixed(0)}%)`);
-    console.error(`[FX BASKET] Missing pairs: ${sm.missingPairs.join(', ')}`);
-    console.error(`[FX BASKET] Failed pairs: ${Array.from(sm.failedPairs).join(', ')}`);
+    console.warn(`[FX BASKET] Insufficient data: ${sm.receivedPairs.size}/${sm.expectedPairs.length} pairs (${(coverage * 100).toFixed(0)}%)`);
+    console.warn(`[FX BASKET] Missing pairs: ${sm.missingPairs.join(', ')}`);
+    console.warn(`[FX BASKET] Failed pairs: ${Array.from(sm.failedPairs).join(', ')}`);
     sm.state = BasketState.ERROR;
   }
 }

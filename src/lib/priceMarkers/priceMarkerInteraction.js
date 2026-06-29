@@ -1,7 +1,7 @@
 // Price Marker Interaction System - Crystal Clarity: Simple, Performant, Maintainable
 // Framework-first: Direct DOM APIs, no custom libraries
 
-import { markerActions } from '../../stores/markerStore.js';
+import { markerActions } from '../../stores/markerActions.js';
 import { displayStore } from '../../stores/displayStore.js';
 import { createMarker, getMarkerAtPosition } from './priceMarkers.js';
 import { toPrice } from './priceMarkerCoordinates.js';

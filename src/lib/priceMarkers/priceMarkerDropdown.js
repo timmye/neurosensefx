@@ -1,7 +1,7 @@
 // Price Marker Dropdown System - Crystal Clarity Compliant
 // Framework-first: Direct DOM APIs, no custom dropdown libraries
 
-import { markerActions } from '../../stores/markerStore.js';
+import { markerActions } from '../../stores/markerActions.js';
 import { MARKER_TYPES } from './priceMarkers.js';
 
 // Create and show dropdown menu at position

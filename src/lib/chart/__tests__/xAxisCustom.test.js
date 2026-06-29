@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  snapToBar,
-  formatBoundaryLabel,
-  generateTicks,
-  setAxisWindow,
-} from '../xAxisCustom.js';
+import { snapToBar, formatBoundaryLabel, generateTicks } from '../xAxisTickGenerator.js';
+import { setAxisWindow } from '../xAxisCustom.js';
 
 // ---------------------------------------------------------------------------
 // Test helpers

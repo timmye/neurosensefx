@@ -24,7 +24,7 @@ export function setupDailyResetHandler(connectionManager, resetCallback) {
   _dailyResetSetup = true;
   connectionManager.addSystemSubscription((msg) => {
     if (msg.type === 'dailyReset' && msg.symbols) {
-      console.log('[dailyResetHandler] Daily reset — clearing session data for:', msg.symbols);
+      if (import.meta.env.DEV) console.log('[dailyResetHandler] Daily reset — clearing session data for:', msg.symbols);
       for (const symbol of msg.symbols) {
         resetCallback(symbol);
       }

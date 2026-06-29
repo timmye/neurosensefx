@@ -38,7 +38,7 @@
   async function exportWorkspace() {
     try {
       await workspaceActions.exportWorkspace();
-      console.log('✅ Workspace export initiated');
+      if (import.meta.env.DEV) console.log('✅ Workspace export initiated');
     } catch (error) {
       console.error('❌ Workspace export failed:', error);
       alert('Export failed. Please try again.');
@@ -94,7 +94,7 @@
   function reinitAll() {
     if (connectionManager?.status === 'connected') {
       connectionManager.sendRaw({ type: 'reinit', source: 'all' });
-      console.log('[Workspace] Reinit requested for: all (cTrader + TradingView)');
+      if (import.meta.env.DEV) console.log('[Workspace] Reinit requested for: all (cTrader + TradingView)');
     } else {
       console.warn('[Workspace] Cannot reinit: WebSocket not connected. Status:', connectionManager?.status || 'unknown');
       alert('Cannot reinit: Backend not connected. Please wait for connection.');
@@ -164,7 +164,7 @@
     // Listen for reinit confirmation from backend
     const systemCallback = (d) => {
       if (d.type === 'reinit_started') {
-        console.log(`[Workspace] Backend acknowledged reinit for: ${d.source}`);
+        if (import.meta.env.DEV) console.log(`[Workspace] Backend acknowledged reinit for: ${d.source}`);
       }
     };
     // Add callback for system messages (no backend subscription needed)
@@ -172,7 +172,7 @@
 
     const workspaceEl = document.querySelector('.workspace');
     if (workspaceEl) workspaceEl.focus();
-    console.log('[WORKSPACE] Ready - Alt+A (cTrader), Alt+T (TV), Alt+I (Ticker), Alt+R (reinit all)');
+    if (import.meta.env.DEV) console.log('[WORKSPACE] Ready - Alt+A (cTrader), Alt+T (TV), Alt+I (Ticker), Alt+R (reinit all)');
   });
 
   onDestroy(() => {

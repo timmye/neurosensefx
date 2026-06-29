@@ -11,7 +11,7 @@ const formatterCache = new Map();
  * @param {string} tz - IANA timezone string
  * @returns {Intl.DateTimeFormat}
  */
-export function getFormatter(tz) {
+function getFormatter(tz) {
   if (formatterCache.has(tz)) return formatterCache.get(tz);
   const fmt = new Intl.DateTimeFormat('en-GB', {
     timeZone: tz,

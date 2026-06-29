@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeProfileUpdate } from '../marketProfileHandler.js';
+import { mergeProfileUpdate } from '../marketProfileMerger.js';
 
 const baseCurrent = {
   marketProfile: [],

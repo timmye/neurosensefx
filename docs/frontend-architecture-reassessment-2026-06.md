@@ -12,7 +12,7 @@ Svelte 4 SPA. Single WebSocket to backend. Workspace of floating chart displays 
 
 ### Key architectural patterns
 
-- **Store decomposition** — Workspace state split across `displayStore` (display CRUD, focus, z-index), `markerStore` (marker actions), `workspace.js` (persistence, import/export, headlines). Components import directly from the store they need.
+- **Store decomposition** — Workspace state split across `displayStore` (display CRUD, focus, z-index), `markerActions` (marker actions), `workspace.js` (persistence, import/export, headlines). Components import directly from the store they need.
 - **Compute/render split** — All feature domain orchestrators follow: `data → compute(data) → result → draw(ctx, result) → canvas`. Compute functions are pure, testable with synthetic data.
 - **Connection facade + modular layer** — `connectionManager.js` orchestrates `connection/connectionHandler.js` (WS lifecycle), `connection/subscriptionManager.js` (tracking/dispatch), `connection/reconnectionHandler.js` (exponential backoff). Reconnect sequence: WS close → backoff → connect → wait for `ready` (15s timeout) → flush pending → subscribe.
 - **Command-pattern drawing** — `drawingCoordinator.js` + `drawingStore.js` with undo/redo, IndexedDB persistence, server sync.
@@ -59,7 +59,7 @@ All three main feature domains have clean compute/render splits with tests. Pric
 | File | LOC | Role |
 |------|-----|------|
 | `src/stores/displayStore.js` | 254 | Display CRUD, selection/focus, z-index, chart ghosting |
-| `src/stores/markerStore.js` | 173 | Marker actions (operates on displayStore) |
+| `src/stores/markerActions.js` | 173 | Marker actions (operates on displayStore) |
 | `src/stores/workspace.js` | 389 | Persistence (localStorage + server), import/export, headlines |
 | `src/components/Workspace.svelte` | ~220 | Shell component. Keyboard shortcuts extracted to `workspaceKeyboardShortcuts.js`. Connection wiring, focus restoration. |
 
@@ -79,7 +79,7 @@ All three main feature domains have clean compute/render splits with tests. Pric
 | `src/lib/connection/reconnectionHandler.js` | Backoff | Exponential with jitter, 15s cap, 60s reset |
 | `src/stores/marketDataStore.js` | 205 | Subscription lifecycle, message routing. Normalization, profile merge, daily reset extracted to pure modules. |
 | `src/stores/marketDataNormalizer.js` | 69 | `normalizeSymbolDataPackage()` + `normalizeTick()` — pure functions |
-| `src/stores/marketProfileHandler.js` | 40 | `mergeProfileUpdate()` — source precedence, delta merging |
+| `src/stores/marketProfileMerger.js` | 40 | `mergeProfileUpdate()` — source precedence, delta merging |
 | `src/stores/dailyResetHandler.js` | 33 | `createResetFields()` + `setupDailyResetHandler()` |
 
 **Reconnect path (verified working):**

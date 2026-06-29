@@ -11,7 +11,7 @@ const basketStores = new Map();
 
 export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
   const key = 'fx-basket-' + pairs.sort().join('-');
-  console.log(`[FX BASKET] Starting subscription to ${pairs.length} FX pairs...`);
+  if (import.meta.env.DEV) console.log(`[FX BASKET] Starting subscription to ${pairs.length} FX pairs...`);
   const connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
 
   // Clean up existing state machine if present
@@ -89,12 +89,12 @@ export function subscribeBasket(pairs, onUpdate, timeoutMs = 60000) {
   };
 
   for (const pair of pairs) {
-    console.log(`[FX BASKET] Subscribing to ${pair}`);
+    if (import.meta.env.DEV) console.log(`[FX BASKET] Subscribing to ${pair}`);
     const unsub = connectionManager.subscribeAndRequest(pair, processorCallback, 14, 'ctrader');
     subscriptions.push(unsub);
   }
 
-  console.log(`[FX BASKET] All ${pairs.length} subscriptions complete`);
+  if (import.meta.env.DEV) console.log(`[FX BASKET] All ${pairs.length} subscriptions complete`);
 
   return () => {
     subscriptions.forEach(unsub => unsub());

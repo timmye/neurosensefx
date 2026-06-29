@@ -15,7 +15,7 @@ Findings are tagged:
 
 **Debunked agent claims (not acted on):**
 - *"Two divergent symbol normalizers (`formatSymbol` vs `normalizeSymbol`) — consolidation needed."* **False.** They are different functions with different jobs: `normalizeSymbol` (`subscriptionManager.js:13`) is a canonical subscription-key matcher mirroring the backend; `formatSymbol` (`displayDataProcessor.js:34`) is a per-source display formatter. This branch's HEAD commit already canonicalized keys.
-- *"`markerStore.mergeWithPersisted` is dead."* **False** — it has a caller (2 refs).
+- *"`markerActions.mergeWithPersisted` is dead."* **False** — it has a caller (2 refs).
 - *"`FxBasketDisplay` leaks its freshness interval."* **False** — cleared in `onDestroy` (`:61`).
 
 ---

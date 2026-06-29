@@ -44,7 +44,7 @@ KLineChart integration: configuration constants, custom calendar x-axis, drawing
 | `rulerOverlays.js` | Ruler overlay create/update/remove | Debugging ruler overlay rendering |
 | `rulerPosition.js` | Pixel offset + data window style computation | Debugging ruler positioning |
 | `styleUtils.js` | Color fade utilities + re-export getFadedStyles | Modifying overlay color fading |
-| `xAxisCustom.js` | Re-export barrel for xAxisTickGenerator + calendarBoundaries + dataSearch | Modifying x-axis — prefer importing from specific modules |
+| `xAxisCustom.js` | Calendar-aware custom X-axis registration: per-chart window/timezone registry + registerXAxis delegation to xAxisTickGenerator | Modifying x-axis registration, debugging per-chart axis state |
 | `xAxisTickGenerator.js` | Tick generation pipeline: collect candidates, dedup, emit labeled ticks | Debugging tick density, modifying tick generation |
 | `BAR_SPACE_RENDERING.md` | How barSpace controls candle width, viewport positioning, and the time window logic chain | Debugging candle rendering, understanding bar spacing |
 

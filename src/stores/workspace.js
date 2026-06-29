@@ -3,14 +3,14 @@
 // Server is the source of truth; localStorage is fallback if server load fails.
 //
 // Display state and actions: displayStore.js
-// Marker actions and persistence: markerStore.js
+// Marker actions and persistence: markerActions.js
 // This file: headlines state, workspace persistence, import/export.
 import { writable } from 'svelte/store';
 import { get } from 'svelte/store';
 import { authStore } from './authStore.js';
 import { drawingStore } from '../lib/chart/drawingStore.js';
 import { displayStore, displayActions } from './displayStore.js';
-import { markerActions, saveMarkers } from './markerStore.js';
+import { markerActions, saveMarkers } from './markerActions.js';
 
 function compareSemver(a, b) {
   const pa = a.split('.').map(Number);
@@ -29,7 +29,7 @@ export const headlinesStore = writable({
   headlinesSize: { width: 500, height: 600 }
 });
 
-// --- Marker actions imported from markerStore.js ---
+// --- Marker actions imported from markerActions.js ---
 
 // --- Headlines actions ---
 const headlinesActions = {
@@ -80,7 +80,7 @@ const actions = {
         nextZIndex: data.workspace.nextZIndex || 1
       }));
 
-      // Restore price markers via markerStore persistence (routes through
+      // Restore price markers via markerActions persistence (routes through
       // proper persistence layer instead of raw localStorage manipulation).
       if (data.priceMarkers) {
         for (const [key, markers] of Object.entries(data.priceMarkers)) {
@@ -116,7 +116,7 @@ const actions = {
                   const { id, createdAt, updatedAt, ...rest } = drawing;
                   await drawingStore.save(symbol, resolution, rest);
                 } catch (saveErr) {
-                  console.error(`Failed to save drawing for ${symbol}/${resolution}:`, saveErr);
+                  console.warn(`Failed to save drawing for ${symbol}/${resolution}:`, saveErr);
                   // Abort remaining saves for this pair, attempt rollback
                   try {
                     for (const s of snapshot) {
@@ -124,20 +124,20 @@ const actions = {
                       await drawingStore.save(symbol, resolution, s);
                     }
                   } catch (rollbackErr) {
-                    console.error(`Rollback failed for ${symbol}/${resolution}:`, rollbackErr);
+                    console.warn(`Rollback failed for ${symbol}/${resolution}:`, rollbackErr);
                   }
                   break;
                 }
               }
             } catch (clearErr) {
-              console.error(`Failed to clear drawings for ${symbol}/${resolution}:`, clearErr);
+              console.warn(`Failed to clear drawings for ${symbol}/${resolution}:`, clearErr);
               continue;
             }
           }
         }
       } catch (drawingErr) {
         // Drawing restore failures do not block display restoration
-        console.error('Drawing restoration error (non-fatal):', drawingErr);
+        console.warn('Drawing restoration error (non-fatal):', drawingErr);
       }
 
       // Add displays in batches to avoid rate limiting
@@ -158,7 +158,7 @@ const actions = {
         }
       }
 
-      console.log(`✅ Workspace imported successfully (${displays.length} displays)`);
+      if (import.meta.env.DEV) console.log(`✅ Workspace imported successfully (${displays.length} displays)`);
     } catch (error) {
       console.error('❌ Failed to import workspace:', error);
     }
@@ -216,7 +216,7 @@ const actions = {
       a.click();
       URL.revokeObjectURL(url);
 
-      console.log('Workspace exported successfully');
+      if (import.meta.env.DEV) console.log('Workspace exported successfully');
     } catch (error) {
       console.error('Failed to export workspace:', error);
       throw error;
@@ -273,6 +273,7 @@ const persistence = {
       return () => {};
     }
     let debounceTimer = null;
+    let lsTimer = null;
 
     const syncToStorage = () => {
       const displayState = displayStore.getState();
@@ -285,12 +286,18 @@ const persistence = {
         headlinesPosition: headlinesState.headlinesPosition,
         headlinesSize: headlinesState.headlinesSize
       };
+      // Kept immediate: beforeunload beacon (flushPending) reads _lastWorkspaceData.
       _lastWorkspaceData = data;
-      try {
-        localStorage.setItem('workspace-state', JSON.stringify(data));
-      } catch (error) {
-        console.warn('Failed to save workspace to storage:', error);
-      }
+      // Debounced localStorage write: batches rapid displayStore changes (e.g. drag frames).
+      clearTimeout(lsTimer);
+      lsTimer = setTimeout(() => {
+        lsTimer = null;
+        try {
+          localStorage.setItem('workspace-state', JSON.stringify(_lastWorkspaceData));
+        } catch (error) {
+          console.warn('Failed to save workspace to storage:', error);
+        }
+      }, 300);
       // Debounced server sync: 2-second delay to batch rapid workspace changes (ref: DL-007).
       if (get(authStore).isAuthenticated) {
         clearTimeout(debounceTimer);

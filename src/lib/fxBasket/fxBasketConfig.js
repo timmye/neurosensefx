@@ -26,8 +26,6 @@ export function getConfig(overrides = {}) {
   return { ...defaultConfig, ...overrides };
 }
 
-export const fxBasketConfig = defaultConfig;
-
 // Zone colors for ADR-based display
 export const ZONE_COLORS = {
   QUIET: '#6B7280',    // Gray - below normal activity

@@ -20,8 +20,6 @@ import {
   formatBoundaryLabel,
 } from './xAxisTickGenerator.js';
 
-export { snapToBar, formatBoundaryLabel, generateTicks };
-
 // ---------------------------------------------------------------------------
 // Per-chart state tracking
 // ---------------------------------------------------------------------------

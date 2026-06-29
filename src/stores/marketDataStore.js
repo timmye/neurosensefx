@@ -3,7 +3,7 @@ import { ConnectionManager } from '../lib/connectionManager.js';
 import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
 import { validateWebSocketMessage, logValidationResult } from '../lib/dataContracts.js';
 import { normalizeSymbolDataPackage, normalizeTick } from './marketDataNormalizer.js';
-import { mergeProfileUpdate } from './marketProfileHandler.js';
+import { mergeProfileUpdate } from './marketProfileMerger.js';
 import { createResetFields, setupDailyResetHandler } from './dailyResetHandler.js';
 
 const marketDataStores = new Map();
@@ -190,7 +190,7 @@ export function getConnectionStatus() {
   return _connectionStatusStore;
 }
 
-export function clearStore(symbol) {
+function clearStore(symbol) {
   for (const key of [...activeSubscriptions.keys()]) {
     if (key.startsWith(`${symbol}:`)) {
       const sub = activeSubscriptions.get(key);
@@ -203,7 +203,7 @@ export function clearStore(symbol) {
   }
 }
 
-export function clearAllStores() {
+function clearAllStores() {
   for (const key of activeSubscriptions.keys()) {
     const sub = activeSubscriptions.get(key);
     sub.unsubscribe();

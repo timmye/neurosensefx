@@ -167,7 +167,7 @@ function renderMissingLines(ctx, centerX, y, missingPairs) {
   return y;
 }
 
-export function detectClusters(basketPositions, textHeight) {
+function detectClusters(basketPositions, textHeight) {
   const positions = basketPositions.map((bp, i) => ({ ...bp, index: i })).sort((a, b) => a.y - b.y);
   const clusters = [];
   let current = [positions[0]];

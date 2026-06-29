@@ -255,7 +255,7 @@ Deeper investigation of `workspace.js` (654 LOC) produced a concrete decompositi
 | New store | LOC | Contents |
 |---|---|---|
 | `displayStore.js` | ~225 | Display lifecycle CRUD, selection/focus, z-index, chart ghosting |
-| `markerStore.js` | ~90 | Price marker state. Absorbs existing `priceMarkerPersistence.js`. |
+| `markerActions.js` | ~90 | Price marker state. Absorbs existing `priceMarkerPersistence.js`. |
 | `workspaceStore.js` (slimmed) | ~339 | Persistence (localStorage + server), import/export, headlines |
 
 **Risks identified during deep-dive:**
@@ -404,18 +404,18 @@ P1 #6 was executed as a dedicated project on 2026-06-03. Plan documented in `pla
 | New store | LOC | Contents |
 |---|---|---|
 | `displayStore.js` | 254 | Display lifecycle CRUD, selection/focus, z-index, chart ghosting, navigation |
-| `markerStore.js` | 173 | Marker CRUD actions (operate on displayStore) + absorbed `priceMarkerPersistence.js` |
+| `markerActions.js` | 173 | Marker CRUD actions (operate on displayStore) + absorbed `priceMarkerPersistence.js` |
 | `workspace.js` (slimmed) | 389 | Persistence (localStorage + server), import/export, headlines state |
 
-`priceMarkerPersistence.js` deleted — its contents absorbed into `markerStore.js`.
+`priceMarkerPersistence.js` deleted — its contents absorbed into `markerActions.js`.
 
 ### 11.2 Key decisions
 
-1. **Marker actions have no own writable state.** Markers are nested in display objects (`display.priceMarkers`). `markerStore.js` exports pure action functions that operate on `displayStore`. This avoids state duplication while giving marker logic a clear home.
+1. **Marker actions have no own writable state.** Markers are nested in display objects (`display.priceMarkers`). `markerActions.js` exports pure action functions that operate on `displayStore`. This avoids state duplication while giving marker logic a clear home.
 
 2. **Combined derived store for backward compat.** `workspace.js` originally exported a Svelte `derived` store that merged `displayStore` + `_headlinesStore`. This was later removed (Tier 1 #3) after both remaining consumers were migrated to direct imports.
 
-3. **Import/export routes through markerStore.** The original `importWorkspace` wrote price markers to localStorage directly, bypassing the persistence layer. Fixed to call `markerStore.saveMarkers()` instead, routing through the proper persistence path.
+3. **Import/export routes through markerActions.** The original `importWorkspace` wrote price markers to localStorage directly, bypassing the persistence layer. Fixed to call `markerActions.saveMarkers()` instead, routing through the proper persistence path.
 
 4. **Persistence subscribes to both stores.** `initPersistence()` subscribes to `displayStore` and `_headlinesStore` separately, combining their state for localStorage sync and server push. The `beforeunload` sendBeacon reads the combined `_lastWorkspaceData`.
 
@@ -429,9 +429,9 @@ P1 #6 was executed as a dedicated project on 2026-06-03. Plan documented in `pla
 | `PriceTicker.svelte` | `displayStore.js` |
 | `FxBasketDisplay.svelte` | `displayStore.js` |
 | `FloatingDisplay.svelte` | `displayStore.js` |
-| `PriceMarkerManager.svelte` | `displayStore.js` + `markerStore.js` |
-| `priceMarkerInteraction.js` | `markerStore.js` + `displayStore.js` |
-| `priceMarkerDropdown.js` | `markerStore.js` |
+| `PriceMarkerManager.svelte` | `displayStore.js` + `markerActions.js` |
+| `priceMarkerInteraction.js` | `markerActions.js` + `displayStore.js` |
+| `priceMarkerDropdown.js` | `markerActions.js` |
 
 `Workspace.svelte` and `HeadlinesWidget.svelte` remain on `workspace.js` — they legitimately need the combined workspace store (persistence, import/export, headlines).
 
@@ -465,7 +465,7 @@ Full analysis documented in `docs/orchestrator-unification-reassessment.md`. Thi
 
 Two P1 items directly reduced the scope of this problem:
 
-- **P1 #6 (workspace.js decomposition)** — Subscription lifecycle, the messiest inconsistency, is now managed by decomposed stores (`chartDataStore`, `displayStore`, `markerStore`), not by orchestrators.
+- **P1 #6 (workspace.js decomposition)** — Subscription lifecycle, the messiest inconsistency, is now managed by decomposed stores (`chartDataStore`, `displayStore`, `markerActions`), not by orchestrators.
 - **P1 #8 (price-scale unification)** — Price-to-pixel calculation, one of the three key differences between domains, now uses shared code in `dayRangeRenderingUtils.js`.
 
 ### 12.3 Key finding — orchestrators are already pure functions
@@ -532,7 +532,7 @@ The last god store was decomposed following the same pattern as the workspace.js
 | Module | LOC | Contents |
 |---|---|---|
 | `marketDataNormalizer.js` | 69 | `normalizeSymbolDataPackage()` + `normalizeTick()` — field fallback chains, mid-price calc, direction inference, running H/L |
-| `marketProfileHandler.js` | 40 | `mergeProfileUpdate()` — source precedence (TV > cTrader), delta merging, profile-derived H/L |
+| `marketProfileMerger.js` | 40 | `mergeProfileUpdate()` — source precedence (TV > cTrader), delta merging, profile-derived H/L |
 | `dailyResetHandler.js` | 33 | `createResetFields()` + `setupDailyResetHandler()` — session field reset, daily system message subscription |
 | `marketDataStore.js` (slimmed) | 205 | Store Map, subscription lifecycle, `handleStoreUpdate()` wiring, connection status, devtools exposure |
 

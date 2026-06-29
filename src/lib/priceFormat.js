@@ -10,7 +10,7 @@ export function formatPrice(price, pipPosition) {
   return price.toFixed(pipPosition);
 }
 
-// Legacy alias for backward compatibility - DEPRECATED
+// Supported alias that delegates to formatPrice (kept for the price-marker call sites).
 export function formatPriceWithPipPosition(price, pipPosition) {
   return formatPrice(price, pipPosition);
 }

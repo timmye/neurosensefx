@@ -39,7 +39,7 @@ Commits `7cd003e`..`2f1ac24`. The 654-line god store was split into focused stor
 | `workspace.js` | 389 | Workspace layout, floating displays, import/export |
 | `chartDataStore.js` | 115 | OHLC bar management per symbol:resolution |
 | `displayStore.js` | 254 | Display lifecycle, z-index, CRUD |
-| `markerStore.js` | 173 | Price marker persistence |
+| `markerActions.js` | 173 | Price marker persistence |
 
 **Relevance:** Subscription lifecycle — which was the messiest inconsistency across the three domains — is now managed by the decomposed stores, not by the orchestrators.
 

@@ -90,4 +90,3 @@ export function setupTextRendering(ctx, font, baseline = 'middle', align = 'cent
 }
 
 // Centralized price formatting - uses priceFormat.js utility
-export { formatPrice } from '../priceFormat.js';
