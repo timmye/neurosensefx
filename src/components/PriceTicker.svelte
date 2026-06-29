@@ -28,6 +28,12 @@
   let unsubscribeSymbol;
   let previousSymbol = null;
 
+  // rAF coalescing: at most one mini-profile paint per animation frame for the
+  // reactive (tick-driven) path. Synchronous paths (resize via renderMarketProfile)
+  // call renderProfile() directly so a resize never flashes stale content while
+  // waiting a frame.
+  let profileRenderScheduled = false;
+
   $: isSelected = $displayStore.selectedDisplayId === ticker.id;
 
   // Flash state
@@ -148,25 +154,10 @@
   $: tickerSource = ticker.source || 'tradingview';
   $: formattedSymbol = formatSymbol(ticker.symbol, tickerSource);
 
-  // Function to re-render market profile (called on zoom/resize)
-  function renderMarketProfile() {
-    if (canvasRef && lastMarketProfileData) {
-      renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
-        width: 37.5,
-        height: 80,
-        pipPosition: pipPosition,
-        currentPrice,
-        openPrice,
-        twapPrice,
-        highPrice,
-        lowPrice
-      });
-    }
-  }
-
-  // Reactive: render market profile whenever data, canvas, or prices change
-  // Depends on currentPrice, openPrice, pipPosition which are derived from lastData
-  $: if (currentPrice !== null && canvasRef && lastMarketProfileData) {
+  // Core paint: reads the live reactive values (component lets reassigned in
+  // place) at call time, so invoking it inside a rAF yields fresh values.
+  function renderProfile() {
+    if (!canvasRef || !lastMarketProfileData) return;
     try {
       renderMiniMarketProfile(canvasRef, lastMarketProfileData, {
         width: 37.5,
@@ -181,6 +172,28 @@
     } catch (e) {
       console.error('[PriceTicker] Market profile render error:', e);
     }
+  }
+
+  // Coalesced scheduler: dedupes so at most one renderProfile() runs per frame.
+  function scheduleProfileRender() {
+    if (profileRenderScheduled) return;
+    profileRenderScheduled = true;
+    requestAnimationFrame(() => {
+      profileRenderScheduled = false;
+      renderProfile();
+    });
+  }
+
+  // Function to re-render market profile synchronously (called on zoom/resize)
+  function renderMarketProfile() {
+    renderProfile();
+  }
+
+  // Reactive: render market profile whenever data, canvas, or prices change.
+  // Coalesced via rAF so a fast market can't trigger more than one paint/frame.
+  // Depends on currentPrice, openPrice, pipPosition which are derived from lastData
+  $: if (currentPrice !== null && canvasRef && lastMarketProfileData) {
+    scheduleProfileRender();
   }
 
   onMount(() => {
@@ -218,6 +231,7 @@
     clearAllFlashTimers();
     if (resizeObserver) resizeObserver.disconnect();
     interactable?.unset();
+    profileRenderScheduled = false;
   });
 
   // Track previous symbol to detect changes and resubscribe

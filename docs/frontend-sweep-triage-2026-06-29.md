@@ -35,7 +35,7 @@ This is the single most important conclusion of the sweep.
 | Chart-config consolidation (8 files) | **Deferred** — reassessment §4: "Each file exists for a reason (lazy loading, runtime swap)." | Do not re-recommend. |
 | Overlay registration factory (dedupe 5 overlay modules) | **Rejected after investigation** — reassessment Tier 2 #9: "the 'boilerplate' is the klinecharts API config shape, not duplicated logic; a factory would add more LOC than it saves." | Do not re-recommend. |
 | Decompose `ChartDisplay.svelte` (god component) into smaller parts | **Already done and reversed** — commit `b2f4e5f` deleted `chartDrawingHandlers.js`, `chartOverlayRestore.js`, `overlayMeta.js` and consolidated into a single `drawingCoordinator.js`. User confirms the decomposition was *less efficient*. | **Do not re-decompose.** (Confirming via agent — see §3.4.) |
-| `PriceTicker` mini-profile re-rendered per tick | **Known** — frontend-audit Tier 2 #4 (runtime-verify pending). | Not new. Fold into the existing runtime-verification task. |
+| `PriceTicker` mini-profile re-rendered per tick | **Known → RESOLVED** — frontend-audit Tier 2 #4. | ✅ Resolved 2026-06-29: rAF-coalesced (mirrors `DisplayCanvas.scheduleRender()`); see §3.2. |
 | `App.svelte` top-level `authStore.subscribe` (no unsubscribe) | **Known** — frontend-audit Tier 2b #8 (bounded — root singleton). | Not new. Low priority. |
 | `connectionManager` `visibilitychange` listener not removed | **Known** — frontend-audit Tier 2b #9 (singleton-bounded). | Not new. Low priority. |
 | `displayStore.updatePosition` clones entire `Map` per drag frame | **Known** — frontend-audit Tier 2 #3 (runtime-verify pending). | Not new. |
@@ -138,16 +138,23 @@ as a zero-risk stopgap. **Not a reliability emergency.** (This is genuinely NEW 
   60 fps, but it stacks on the known Tier 2 #3 Map-clone. **Safe fix (~5 lines):** debounce the
   `localStorage.setItem` exactly like the server fetch, but keep `_lastWorkspaceData = data` immediate
   so the `beforeunload` beacon still works. No reactivity/persistence-semantics change.
-- **PriceTicker per-tick mini-profile (`:169-184`) — KNOWN = Tier 2 #4.** Fold into the existing
-  runtime-verification task; apply the DisplayCanvas `scheduleRender()` rAF gate in that pass.
+- **PriceTicker per-tick mini-profile (`:169-184`) — ✅ RESOLVED (Tier 2 #4).** Applied the
+  DisplayCanvas `scheduleRender()` rAF-coalescing pattern (at most one mini-profile paint per frame;
+  resize path stays synchronous; `onDestroy` resets the flag). Implemented + reviewed 2026-06-29 on
+  branch `perf/marketdata-store-gate`. With the gate below, per-tick paint cost is now bounded to
+  one-per-frame × price-change ticks only.
 - **~13 `$:` blocks per tick — DROP (theoretical).** Svelte no-ops DOM patches on unchanged
   primitives; the only real cost in those blocks is the `:169` canvas redraw (= #4).
 - **Eager bundle / static ChartDisplay import — DEFERRED.** Bundle ~622 kB, no new trigger.
 
-**Root-cause note (out of scope here):** `marketDataStore.js:60-76` emits a brand-new spread object
-every tick, which is the common driver behind Tier 2 #1 (fixed via DisplayCanvas rAF) and #4 (still
-open). A future pass that gates that spread on "did price-relevant fields change" would retire
-several items at once.
+**Root-cause note — ✅ DONE (2026-06-29, commit `7da78be`, branch `perf/marketdata-store-gate`):**
+`marketDataStore.js:60-76` was emitting a brand-new spread object every tick — the common driver
+behind Tier 2 #1 (DisplayCanvas rAF) and #4 (PriceTicker rAF). That spread is now gated on "did
+price-relevant fields change" (`handleStoreUpdate` skips `store.update` entirely on same-mid ticks;
+verified no `.svelte` consumer reads the frozen metadata fields), and normalize/merge errors now
+surface `status:'error'` instead of being silently swallowed at the dispatch layer. Spec:
+`plans/marketDataStore-refresh.md`. Items #1 and #4 are now addressed at both the notification
+source (gate) and the render sink (rAF coalescing).
 
 ### 3.3 Dead-code + prod-noise — verified list
 
