@@ -46,6 +46,26 @@ function createInitialData(symbol) {
   };
 }
 
+// Fields whose change is the ONLY reason to notify subscribers. Pure-metadata
+// fields (timestamps, latency, status, error) are excluded — verified 2026-06-29:
+// no .svelte component reads them reactively. If a latency/status indicator is
+// ever added, revisit this set (or split the store).
+const METADATA_KEYS = new Set([
+  'receivedAt', 'sentAt', 'clientReceivedAt', 'latency', 'lastUpdate', 'status', 'error'
+]);
+
+// Returns true if `normalized` changes a field subscribers render. Reference
+// equality is safe here: normalizeSymbolDataPackage reuses currentState.marketProfile
+// (same ref) and prevDayOHLC is either null or a fresh object; all other gated
+// fields are primitives.
+function priceRelevantChanged(current, normalized) {
+  for (const k in normalized) {
+    if (METADATA_KEYS.has(k)) continue;
+    if (normalized[k] !== current[k]) return true;
+  }
+  return false;
+}
+
 function handleStoreUpdate(symbol, data) {
   const store = getMarketDataStore(symbol);
   const clientReceivedAt = Date.now();
@@ -55,25 +75,44 @@ function handleStoreUpdate(symbol, data) {
     logValidationResult('marketDataStore', validation, data);
   }
 
-  const latency = calculateLatency(data, clientReceivedAt);
+  const current = get(store);
 
-  store.update(current => {
-    const normalized = data.type === 'symbolDataPackage'
+  let normalized;
+  try {
+    normalized = data.type === 'symbolDataPackage'
       ? normalizeSymbolDataPackage(data, current)
       : data.type === 'tick'
         ? normalizeTick(data, current)
         : {};
-
-    return {
-      ...current,
-      ...normalized,
-      clientReceivedAt,
-      latency,
-      status: 'connected',
-      error: null,
+  } catch (e) {
+    // Surface the error state; PRESERVE current price (no UI flicker on a
+    // transient bad frame). console.warn — console-check.spec asserts zero
+    // console.error on expected paths. Dispatch-layer catch stays as backstop.
+    console.warn('[marketDataStore] normalize failed — surfacing error, preserving price:', e);
+    store.update(cur => ({
+      ...cur,
+      status: 'error',
+      error: e?.message || 'Normalize failed',
       lastUpdate: clientReceivedAt
-    };
-  });
+    }));
+    return;
+  }
+
+  // Skip the notification when no price-relevant field changed — UNLESS we are
+  // currently in an error state, so the next good tick can recover status to
+  // 'connected' even if the price itself did not move (see test #4).
+  if (!priceRelevantChanged(current, normalized) && current.status !== 'error') return;
+
+  const latency = calculateLatency(data, clientReceivedAt);
+  store.update(cur => ({
+    ...cur,
+    ...normalized,
+    clientReceivedAt,
+    latency,
+    status: 'connected',
+    error: null,
+    lastUpdate: clientReceivedAt
+  }));
 }
 
 export function getMarketDataStore(symbol) {
@@ -110,8 +149,13 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
     if (data.type === 'profileUpdate') {
       const store = getMarketDataStore(symbol);
       store.update(current => {
-        const updated = mergeProfileUpdate(current, data);
-        return updated ?? current;
+        try {
+          const updated = mergeProfileUpdate(current, data);
+          return updated ?? current;
+        } catch (e) {
+          console.warn('[marketDataStore] profile merge failed:', e);
+          return { ...current, status: 'error', error: e?.message || 'Profile merge failed', lastUpdate: Date.now() };
+        }
       });
     }
     if (data.type === 'twapUpdate') {
