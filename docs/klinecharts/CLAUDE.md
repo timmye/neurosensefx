@@ -6,6 +6,7 @@ KLineChart library API reference, upstream PR analysis, and custom feature inven
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
+| `upstream-strategy.md` | **Entry point.** Version snapshot, v10 adoption decision (stay/watch), and contribution tiering. | "What's our KLineChart situation?" — version, whether to migrate, what to contribute |
 | `custom-chart-features.md` | Inventory of custom chart extensions beyond KLineChart built-ins | Assessing upstream contribution candidates, onboarding new developers |
 | `styles.md` | KLineChart style system reference | Customizing chart appearance, debugging style overrides |
 | `upstream-pr-calendar-axis.md` | v9 vs v10 API analysis and PR strategy for calendar X-axis | Preparing upstream contribution, understanding axis module changes |
