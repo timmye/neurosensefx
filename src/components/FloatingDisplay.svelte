@@ -40,6 +40,17 @@
     onTap: () => displayActions.bringToFront(display.id)
   };
 
+  // Stable callback identities handed to child components. Inline arrows in the
+  // markup (e.g. `bindElement={(n) => (element = n)}`) get a NEW identity on every
+  // render → the child prop is invalidated every flush. Combined with Svelte's
+  // safe_not_equal (which returns true even for identical object refs), an inline
+  // arrow that writes a bound/element variable can self-reinforce into a
+  // make_dirty cycle. Hoisting to a const kills the churn at the source.
+  // (DisplayFrame also calls bindElement only from onMount, so the cycle is doubly
+  // broken — this just removes the residual per-render invalidation.)
+  const bindElementCb = (node) => { element = node; };
+  const noopResize = () => {};
+
   // Compute source and formattedSymbol first (needed for store subscription)
   $: source = display.source || 'ctrader';
   $: formattedSymbol = formatSymbol(display.symbol, source);
@@ -124,12 +135,12 @@
   dataId={display.id}
   onFocus={handlers.focus}
   interactCallbacks={interactCallbacks}
-  bindElement={(n) => (element = n)}>
+  bindElement={bindElementCb}>
   <DisplayHeader slot="header" symbol={display.symbol} {source} {connectionStatus} {showMarketProfile}
     onClose={handlers.close} onFocus={handlers.focus} onRefresh={handlers.refresh} initiallyVisible={display.showHeader !== false} />
   <DisplayCanvas bind:this={canvasRef} data={lastData} marketProfileData={lastMarketProfileData} {showMarketProfile}
     width={display.size.width} height={display.size.height} {connectionStatus} symbol={formattedSymbol}
-    priceMarkers={priceMarkers} {selectedMarker} hoverPrice={hoverPrice} deltaInfo={deltaInfo} onResize={() => {}} />
+    priceMarkers={priceMarkers} {selectedMarker} hoverPrice={hoverPrice} deltaInfo={deltaInfo} onResize={noopResize} />
   <PriceMarkerManager {display} {lastData} {canvasRef} {formattedSymbol}
     bind:priceMarkers bind:selectedMarker bind:hoverPrice bind:deltaInfo />
 </DisplayFrame>
