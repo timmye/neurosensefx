@@ -4,7 +4,8 @@
   import { themeStore } from '../stores/themeStore.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
-  import { getMarketDataStore, subscribeToSymbol } from '../stores/marketDataStore.js';
+  import { getMarketDataStore, subscribeToSymbol, getConnectionStatus } from '../stores/marketDataStore.js';
+  import { tickerSymbolStatus } from '../lib/symbolStatusMessage.js';
   import { calculateDayRangePercentage } from '../lib/dayRange/dayRangeCalculations.js';
   import { formatPrice, formatPriceToPip, getPipetteDigit, splitByPipPosition } from '../lib/priceFormat.js';
   import { renderMiniMarketProfile } from '../lib/marketProfile/orchestrator.js';
@@ -56,6 +57,18 @@
   $: rangePercent = calculateDayRangePercentage(lastData);
   $: direction = lastData?.direction ?? 'neutral';
   $: pipPosition = lastData?.pipPosition ?? 4;
+
+  // Per-symbol subscription status (§6.1). Only the terminal-error state swaps
+  // the symbol field to a status word; pending is left untouched (symbol + the
+  // existing "…" price placeholder already reads as "loading"). The status text
+  // reuses the symbol field's styling (uppercase via text-transform:uppercase).
+  $: connectionStatusStore = getConnectionStatus();
+  $: globalConnected = ($connectionStatusStore?.status ?? 'disconnected') === 'connected';
+  $: tickerStatusText = tickerSymbolStatus(lastData?.status, {
+    hasData: currentPrice != null,
+    globalConnected
+  });
+  $: symbolLabel = tickerStatusText ?? ticker.symbol;
 
   // Split price into larger digits (smaller font) and pip digits (normal font)
   $: priceParts = currentPrice ? splitByPipPosition(formatPriceToPip(currentPrice, pipPosition), pipPosition) : null;
@@ -541,7 +554,7 @@
 
   <!-- Column 1: Identity -->
   <div class="identity-column">
-    <div class="symbol-label">{ticker.symbol}</div>
+    <div class="symbol-label">{symbolLabel}</div>
     <div class="price-value">
       {#if currentPrice}
         <span class="price-larger-digits">{priceParts.largerDigits}</span><span class="price-pip-digits">{priceParts.pipDigits}</span><span class="pipette">{getPipetteDigit(currentPrice, pipPosition)}</span>

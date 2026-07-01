@@ -16,6 +16,7 @@
   export let data, showMarketProfile, marketProfileData, width, height, onResize;
   export let connectionStatus = null;
   export let symbol = '';
+  export let symbolStatusMessage = null;
   export let priceMarkers = [];
   export let selectedMarker = null;
   export let hoverPrice = null;
@@ -43,6 +44,16 @@
     }
 
     try {
+      // Per-symbol no-data status (G2): render BEFORE the data block. The store
+      // object (lastData) is always truthy once subscribed — even with no price —
+      // so a status check placed after `if (data)` was unreachable. symbolStatusMessage
+      // is null whenever real price data exists, so this never interferes with data
+      // rendering.
+      if (symbolStatusMessage) {
+        renderStatusMessage(ctx, symbolStatusMessage, { width, height });
+        return;
+      }
+
       const displayType = getDisplayType(symbol, showMarketProfile, marketProfileData);
 
       if (data) {
@@ -66,7 +77,7 @@
         return;
       }
 
-      // Handle connection status
+      // Handle connection status (global fallback when no per-symbol status)
       if (renderConnStatus(ctx, connectionStatus, symbol, width, height)) {
         return;
       }
@@ -110,6 +121,7 @@
     const _data = data;
     const _marketProfileData = marketProfileData;
     const _connectionStatus = connectionStatus;
+    const _symbolStatusMessage = symbolStatusMessage;
     const _showMarketProfile = showMarketProfile;
     const _priceMarkers = priceMarkers;
     const _selectedMarker = selectedMarker;
@@ -117,8 +129,8 @@
     const _deltaInfo = deltaInfo;
 
     if (_ctx && (_data || _marketProfileData || _connectionStatus ||
-        _showMarketProfile || _priceMarkers || _selectedMarker ||
-        _hoverPrice || _deltaInfo)) {
+        _symbolStatusMessage || _showMarketProfile || _priceMarkers ||
+        _selectedMarker || _hoverPrice || _deltaInfo)) {
       scheduleRender();
     }
   }

@@ -5,6 +5,7 @@
   import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
   import { keyManager } from '../lib/keyManager.js';
   import { getMarketDataStore, subscribeToSymbol, getConnectionStatus } from '../stores/marketDataStore.js';
+  import { symbolStatusMessage } from '../lib/symbolStatusMessage.js';
   import DisplayFrame from './displays/DisplayFrame.svelte';
   import DisplayHeader from './displays/DisplayHeader.svelte';
   import DisplayCanvas from './displays/DisplayCanvas.svelte';
@@ -78,6 +79,16 @@
     })()
   );
 
+  // Per-symbol no-data status message (G2). Only resolved while there is no
+  // price data; once data arrives this is null and normal rendering resumes.
+  // When the socket itself is down the helper yields a disconnected message,
+  // so this stays consistent with the global-disconnected path below.
+  $: effectiveStatusMessage = symbolStatusMessage(lastData?.status, {
+    hasData: lastData?.current != null,
+    symbol: formattedSymbol,
+    globalConnected: connectionStatus === 'connected'
+  });
+
   $: if (formattedSymbol && formattedSymbol !== previousSymbol && previousSymbol !== null) {
     // Unsubscribe from old symbol
     unsubscribeSymbol?.();
@@ -140,6 +151,7 @@
     onClose={handlers.close} onFocus={handlers.focus} onRefresh={handlers.refresh} initiallyVisible={display.showHeader !== false} />
   <DisplayCanvas bind:this={canvasRef} data={lastData} marketProfileData={lastMarketProfileData} {showMarketProfile}
     width={display.size.width} height={display.size.height} {connectionStatus} symbol={formattedSymbol}
+    symbolStatusMessage={effectiveStatusMessage}
     priceMarkers={priceMarkers} {selectedMarker} hoverPrice={hoverPrice} deltaInfo={deltaInfo} onResize={noopResize} />
   <PriceMarkerManager {display} {lastData} {canvasRef} {formattedSymbol}
     bind:priceMarkers bind:selectedMarker bind:hoverPrice bind:deltaInfo />
