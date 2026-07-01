@@ -54,7 +54,7 @@ export function drawPOC(ctx, poc, priceScale, startX, width) {
 /**
  * Draw mini profile bars with DPR-aware bar height derived from price scale.
  */
-export function drawMiniBars(ctx, profile, priceScale, maxTpo, width, height, dpr) {
+export function drawMiniBars(ctx, profile, priceScale, maxTpo, width, height, dpr, isLight = false) {
   const adaptiveScale = {
     min: profile.reduce((min, l) => l.price < min ? l.price : min, Infinity),
     max: profile.reduce((max, l) => l.price > max ? l.price : max, -Infinity),
@@ -68,7 +68,10 @@ export function drawMiniBars(ctx, profile, priceScale, maxTpo, width, height, dp
     const y = Math.round(priceScale(level.price));
     const barWidth = (level.tpo / maxTpo) * (width - 2);
     const intensity = level.tpo / maxTpo;
-    ctx.fillStyle = `rgba(0, 210, 255, ${0.2 + (intensity * 0.4)})`;
+    // Standard blue (--accent #4a9eff = rgb 74,158,255). More opaque on the light
+    // canvas so the bars keep contrast on a light-grey background.
+    const alpha = isLight ? (0.55 + intensity * 0.4) : (0.2 + intensity * 0.4);
+    ctx.fillStyle = `rgba(74, 158, 255, ${alpha})`;
 
     const nextPriceY = Math.round(priceScale(level.price + (adaptiveScale.range / profile.length)));
     const barHeight = Math.max(1, Math.abs(nextPriceY - y) - gap);
@@ -115,11 +118,13 @@ export function drawMiniOpenPrice(ctx, priceScale, openPrice, minPrice, maxPrice
 /**
  * Draw TWAP price marker (green dot).
  */
-export function drawMiniTwapPrice(ctx, priceScale, twapPrice, minPrice, maxPrice) {
+export function drawMiniTwapPrice(ctx, priceScale, twapPrice, minPrice, maxPrice, isLight = false) {
   if (twapPrice == null || twapPrice < minPrice || twapPrice > maxPrice) return;
   const y = Math.round(priceScale(twapPrice));
 
-  ctx.fillStyle = '#00FF66';
+  // Green that complements the blue bars. Neon green pops on dark; a deeper green
+  // reads on the light-grey canvas.
+  ctx.fillStyle = isLight ? '#2ea043' : '#00FF66';
   ctx.beginPath();
   ctx.arc(5, y, 2, 0, Math.PI * 2);
   ctx.fill();

@@ -116,9 +116,9 @@ export function renderMiniMarketProfile(canvas, profile, size) {
   ctx.restore();
 
   // Profile bars, price markers
-  drawMiniBars(ctx, profile, computed.priceScale, computed.maxTpo, computed.width, computed.height, dpr);
+  drawMiniBars(ctx, profile, computed.priceScale, computed.maxTpo, computed.width, computed.height, dpr, isLight);
   drawMiniCurrentPrice(ctx, computed.priceScale, size.currentPrice, computed.minPrice, computed.maxPrice, computed.width);
   drawMiniOpenPrice(ctx, computed.priceScale, size.openPrice, computed.minPrice, computed.maxPrice, computed.height);
-  drawMiniTwapPrice(ctx, computed.priceScale, size.twapPrice, computed.minPrice, computed.maxPrice);
+  drawMiniTwapPrice(ctx, computed.priceScale, size.twapPrice, computed.minPrice, computed.maxPrice, isLight);
 }
 
