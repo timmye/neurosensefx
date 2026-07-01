@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { keyManager } from '../lib/keyManager.js';
-  import { themeStore } from '../stores/themeStore.js';
+  import { chartThemeStore } from '../stores/chartThemeStore.js';
 
   export let visible = false;
   export let x = 0;
@@ -47,7 +47,7 @@
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="context-menu-backdrop" on:click|self={handleClickOutside}>
-    <div class="context-menu" class:dark={$themeStore === 'dark'} style="left: {x}px; top: {y}px;">
+    <div class="context-menu" class:dark={$chartThemeStore === 'dark'} style="left: {x}px; top: {y}px;">
       <button class="menu-item delete" on:click={handleDelete}>Delete</button>
       <button class="menu-item" on:click={handleToggleLock}>{isLocked ? 'Unlock' : 'Lock'}</button>
       <button class="menu-item" on:click={handleTogglePin}>{isPinned ? 'Unpin' : 'Pin as Key Level'}</button>

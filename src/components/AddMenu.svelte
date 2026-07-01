@@ -2,6 +2,8 @@
   import { displayStore } from '../stores/displayStore.js';
   import { workspaceActions, headlinesStore } from '../stores/workspace.js';
   import { logout } from '../stores/authStore.js';
+  import { themeStore, toggleTheme } from '../stores/themeStore.js';
+  import { chartThemeStore, toggleChartTheme } from '../stores/chartThemeStore.js';
   import { formatSymbol } from '../lib/displayDataProcessor.js';
   import { keyManager } from '../lib/keyManager.js';
 
@@ -24,6 +26,8 @@
   // Singleton toggle states.
   $: chartOpen = Array.from($displayStore.displays.values()).some(d => d.type === 'chart');
   $: newsOpen = $headlinesStore.headlinesVisible;
+  $: workspaceDark = $themeStore === 'dark';
+  $: chartDark = $chartThemeStore === 'dark';
 
   // Consume a keyboard preselect (jump straight to symbol entry); reset on close.
   // Inlined so Svelte tracks open/preselect as dependencies (reads inside a called fn are not tracked).
@@ -107,6 +111,8 @@
         <div class="section-label">Toggle</div>
         <button type="button" class="item" role="menuitem" on:click={() => { onToggleChart(); close(); }}>Chart<span class="kbd">c · {chartOpen ? 'Open' : 'Closed'}</span></button>
         <button type="button" class="item" role="menuitem" on:click={() => { workspaceActions.toggleHeadlines(); close(); }}>News<span class="kbd">H · {newsOpen ? 'Open' : 'Closed'}</span></button>
+        <button type="button" class="item" role="menuitem" on:click={toggleTheme}>Workspace Theme<span class="kbd">{workspaceDark ? 'Dark' : 'Light'}</span></button>
+        <button type="button" class="item" role="menuitem" on:click={toggleChartTheme}>Chart Theme<span class="kbd">{chartDark ? 'Dark' : 'Light'}</span></button>
 
         <div class="section-label"></div>
         <button type="button" class="item" role="menuitem" on:click={() => { onOpenShortcuts(); close(); }}>Shortcuts<span class="kbd">?</span></button>

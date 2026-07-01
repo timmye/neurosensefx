@@ -2,7 +2,7 @@
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { RESOLUTION_GROUPS, TIME_WINDOW_GROUPS, RESOLUTION_LABELS } from '../lib/chart/chartConfig.js';
   import { timezoneStore, TIMEZONE_PRESETS } from '../stores/timezoneStore.js';
-  import { themeStore, toggleTheme } from '../stores/themeStore.js';
+  import { chartThemeStore, toggleChartTheme } from '../stores/chartThemeStore.js';
 
   export let currentResolution = '4h';
   export let currentWindow = '3M';
@@ -87,7 +87,7 @@
     // Fibonacci lines use dark red, everything else uses default (dk green)
     const fibStyles = tool.id === 'fibonacciLine' ? {
       line: { color: '#bb2719' },
-      text: { color: $themeStore === 'dark' ? '#f87171' : '#bb2719', backgroundColor: 'transparent' }
+      text: { color: $chartThemeStore === 'dark' ? '#f87171' : '#bb2719', backgroundColor: 'transparent' }
     } : undefined;
 
     const overlayCreate = {
@@ -156,7 +156,7 @@
   }
 </script>
 
-<div class="chart-toolbar" class:dark={$themeStore === 'dark'} style="position: relative; z-index: 15;">
+<div class="chart-toolbar" class:dark={$chartThemeStore === 'dark'} style="position: relative; z-index: 15;">
   <div class="toolbar-row">
     {#each resolutionGroups as group, gi}
       {#if gi > 0}<span class="separator">|</span>{/if}
@@ -209,10 +209,10 @@
     </select>
     <button
       class="action-btn theme-toggle-btn"
-      on:click={toggleTheme}
+      on:click={toggleChartTheme}
       title="Toggle dark mode"
     >
-      {#if $themeStore === 'dark'}☾{:else}☀{/if}
+      {#if $chartThemeStore === 'dark'}☾{:else}☀{/if}
     </button>
   </div>
   <div class="toolbar-row drawing-row">

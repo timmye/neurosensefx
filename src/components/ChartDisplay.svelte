@@ -13,7 +13,7 @@
   import { setAxisChart, setAxisWindow, removeAxisChart } from '../lib/chart/xAxisCustom.js';
   import { LIGHT_THEME } from '../lib/chart/chartThemeLight.js';
   import { DARK_THEME } from '../lib/chart/chartThemeDark.js';
-  import { themeStore } from '../stores/themeStore.js';
+  import { chartThemeStore } from '../stores/chartThemeStore.js';
   import '../lib/chart/overlaysIndicators.js';
   import '../lib/chart/overlaysPriceLines.js';
   import '../lib/chart/overlaysShapes.js';
@@ -355,9 +355,9 @@
   }
   function applyTheme() {
     if (!chart) return;
-    chart.setStyles($themeStore === 'dark' ? DARK_THEME : LIGHT_THEME);
+    chart.setStyles($chartThemeStore === 'dark' ? DARK_THEME : LIGHT_THEME);
   }
-  $: if (chart) applyTheme(), $themeStore;
+  $: if (chart) applyTheme(), $chartThemeStore;
   $: if (currentDisplay.isMinimized !== undefined && currentDisplay.isMinimized !== isMinimized) {
     isMinimized = currentDisplay.isMinimized;
     if (!isMinimized) {
@@ -369,7 +369,7 @@
           if (!coordinator) {
             coordinator = createDrawingCoordinator({ drawingStore, onLog: (level, ...args) => console.warn('[DrawingCoordinator]', level, ...args) });
           }
-          chart = initChart(chartContainer, { init, theme: $themeStore === 'dark' ? DARK_THEME : LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
+          chart = initChart(chartContainer, { init, theme: $chartThemeStore === 'dark' ? DARK_THEME : LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
           if (chart) {
             chart.setZoomEnabled(false);
             chart.setScrollEnabled(true);
@@ -407,7 +407,7 @@
     // so clientWidth/clientHeight are correct when initChart reads them.
     const initTimer = setTimeout(() => {
       coordinator = createDrawingCoordinator({ drawingStore, onLog: (level, ...args) => console.warn('[DrawingCoordinator]', level, ...args) });
-      chart = initChart(chartContainer, { init, theme: $themeStore === 'dark' ? DARK_THEME : LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
+      chart = initChart(chartContainer, { init, theme: $chartThemeStore === 'dark' ? DARK_THEME : LIGHT_THEME, formatAxisLabel, setAxisChart, setAxisWindow, currentWindow, timezone: $resolvedTimezone });
       if (chart) {
         chart.setZoomEnabled(false);
         chart.setScrollEnabled(true);
@@ -461,7 +461,7 @@
 
 <div class="chart-window" bind:this={element} data-display-id={display.id}
      class:minimized={isMinimized}
-     class:dark={$themeStore === 'dark'}
+     class:dark={$chartThemeStore === 'dark'}
      tabindex="0" role="region" aria-label="{display.symbol} chart"
      on:focus={handlers?.focus}
      style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};

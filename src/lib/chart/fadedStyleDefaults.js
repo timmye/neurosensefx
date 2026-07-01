@@ -13,10 +13,10 @@
 
 import { fadeStyles } from './styleUtils.js';
 import { get } from 'svelte/store';
-import { themeStore } from '../../stores/themeStore.js';
+import { chartThemeStore } from '../../stores/chartThemeStore.js';
 
 function makeFadedDefaults() {
-  const isDark = get(themeStore) === 'dark';
+  const isDark = get(chartThemeStore) === 'dark';
   const base = isDark ? '38, 166, 154' : '72, 117, 44';
   return {
     line: { color: `rgba(${base}, 0.5)` },
