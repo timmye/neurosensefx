@@ -122,9 +122,11 @@ export function drawMiniTwapPrice(ctx, priceScale, twapPrice, minPrice, maxPrice
   if (twapPrice == null || twapPrice < minPrice || twapPrice > maxPrice) return;
   const y = Math.round(priceScale(twapPrice));
 
-  // Green that complements the blue bars. Neon green pops on dark; a deeper green
-  // reads on the light-grey canvas.
-  ctx.fillStyle = isLight ? '#2ea043' : '#00FF66';
+  // Green that complements the blue bars. Uses the app's --status-ok green
+  // (#4CAF50, rgb 76,175,80) on the light canvas — its low blue channel (B=80)
+  // reads unambiguously green next to the blue bars (B=255), and it contrasts on
+  // the light-grey bg. Neon #00FF66 kept on dark where it pops.
+  ctx.fillStyle = isLight ? '#4CAF50' : '#00FF66';
   ctx.beginPath();
   ctx.arc(5, y, 2, 0, Math.PI * 2);
   ctx.fill();
