@@ -95,11 +95,11 @@
 
     if (isFlashing && currentFlashDirection === direction) {
       // Same direction while flashing — force neutral gap then re-flash
-      element.style.borderColor = '#333';
+      element.style.borderColor = 'var(--border)';
       borderFlashClass = '';
       isFlashing = false;
       currentFlashDirection = null;
-      void element.offsetHeight; // force reflow — border snaps to #333 instantly
+      void element.offsetHeight; // force reflow — border snaps to neutral instantly
       element.style.removeProperty('border-color');
       gapTimeout = setTimeout(() => {
         gapTimeout = null;
@@ -115,7 +115,7 @@
     } else {
       // Direction change or not flashing — instant override with state tracking
       if (isFlashing) {
-        element.style.borderColor = '#333';
+        element.style.borderColor = 'var(--border)';
         borderFlashClass = '';
         void element.offsetHeight;
         element.style.removeProperty('border-color');
@@ -285,8 +285,8 @@
 
 <style>
   :global(.ticker-container) {
-    --flash-color-up: #00d4ff;
-    --flash-color-down: #e040fb;
+    --flash-color-up: var(--flash-up);
+    --flash-color-down: var(--flash-down);
     --flash-duration: 500ms;
   }
 
@@ -296,21 +296,20 @@
     width: 240px;
     height: 80px;
     box-sizing: border-box;
-    background: #141414; /* Card BG from spec */
-    border: 1px solid #333; /* Border Line from spec */
-    border-radius: 4px;
+    background: var(--bg-frame); /* Card BG from spec */
+    border: 1px solid var(--border); /* Border Line from spec */
+    border-radius: var(--r-md);
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-ui);
     font-variant-numeric: tabular-nums;
     cursor: move;
     user-select: none;
   }
 
   .ticker-container.selected {
-    outline: 2px solid #00ff00;
+    outline: 2px solid var(--select);
     outline-offset: -2px;
-    box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
-    border-color: #00d4ff;
+    box-shadow: var(--glow-select);
   }
 
   /* Border flash transitions.
@@ -341,14 +340,14 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    border-right: 1px solid #333;
-    background: #141414; /* Card BG from spec */
+    border-right: 1px solid var(--border);
+    background: var(--bg-frame); /* Card BG from spec */
   }
 
   .symbol-label {
-    font-size: 16px; /* Spec: 14px, 600, #888888 */
+    font-size: 16px; /* Spec: 14px, 600, --text-label */
     font-weight: 600;
-    color: #888888;
+    color: var(--text-label);
     text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
@@ -357,9 +356,9 @@
 
 
   .price-value {
-    font-size: 32px; /* Spec: 24px, 700, #FFFFFF */
+    font-size: 32px; /* Spec: 24px, 700, --text-primary */
     font-weight: 600;
-    color: #FFFFFF;
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: visible;
     transition: color var(--flash-duration) ease-out;
@@ -389,8 +388,8 @@
     width: 37.5px;
     flex-shrink: 0;
     position: relative;
-    background: #141414; /* Card BG - match other columns */
-    border-right: 1px solid #333;
+    background: var(--bg-frame); /* Card BG - match other columns */
+    border-right: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -410,14 +409,14 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    background: #141414; /* Card BG from spec */
+    background: var(--bg-frame); /* Card BG from spec */
   }
 
   .stat-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 11px; /* Spec: Mid Stats 10px, 400, #666666 */
+    font-size: 11px; /* Spec: Mid Stats 10px, 400, --text-muted */
   }
 
   .stat-spacer {
@@ -425,12 +424,12 @@
   }
 
   .stat-label {
-    color: #666666; /* Spec: Mid Stats 10px, 400, #666666 */
+    color: var(--text-muted); /* Spec: Mid Stats 10px, 400, --text-muted */
     font-weight: 400;
   }
 
   .stat-value {
-    color: #CCCCCC; /* Spec: High/Low Price 12px, 500, #CCCCCC */
+    color: var(--text-secondary); /* Spec: High/Low Price 12px, 500, --text-secondary */
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -438,11 +437,11 @@
   }
 
   .stat-value.positive {
-    color: #00d4ff;
+    color: var(--flash-up);
   }
 
   .stat-value.negative {
-    color: #e040fb;
+    color: var(--flash-down);
   }
 
   .daily-change {
@@ -458,14 +457,14 @@
     height: 18px;
     border: none;
     background: rgba(255, 0, 0, 0.5);
-    color: #fff;
+    color: var(--text-primary);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
     font-weight: bold;
-    border-radius: 2px;
+    border-radius: var(--r-sm);
     transition: opacity 0.15s;
     opacity: 0;
     pointer-events: auto;
@@ -479,14 +478,14 @@
     height: 18px;
     border: none;
     background: rgba(0, 150, 255, 0.5);
-    color: #fff;
+    color: var(--text-primary);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
     font-weight: bold;
-    border-radius: 2px;
+    border-radius: var(--r-sm);
     transition: opacity 0.15s;
     opacity: 0;
     pointer-events: auto;
@@ -507,7 +506,7 @@
 
   /* Loading state */
   .loading {
-    color: #666;
+    color: var(--text-muted);
     font-style: italic;
   }
 

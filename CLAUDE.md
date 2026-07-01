@@ -52,7 +52,7 @@ This project uses [Solatis claude-config skills](https://github.com/solatis/clau
 | `playwright.config.cjs` | Playwright E2E test configuration | Setting up E2E tests, debugging test runner |
 | `vitest.config.js` | Vitest unit test configuration | Running unit tests, configuring test runner |
 | `vite.config.js` | Vite build configuration with Svelte plugin | Modifying build settings, adding Vite plugins |
-| `index.html` | Vite SPA entry point | Modifying HTML shell, adding global scripts |
+| `src/index.html` | Vite SPA entry point — `vite.config.js` sets `root: 'src'`, so THIS is the real entry (build → `src/dist/`), not any root-level `index.html`. Pre-JS shell bg/font live here as literals (CSS vars unavailable before `main.js`) | Modifying HTML shell, adding global scripts, debugging pre-JS load |
 | `Dockerfile` | Production Docker build | Building production Docker image |
 | `Dockerfile.frontend` | Frontend-specific Dockerfile | Building frontend container |
 | `Dockerfile.performance` | Performance monitoring Dockerfile | Building performance monitoring stack |

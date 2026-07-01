@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 
 const KEY = 'nsfx-chart-theme';
 const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null;
-export const themeStore = writable(stored === 'dark' ? 'dark' : 'light');
+export const themeStore = writable(stored ?? 'dark');
 
 themeStore.subscribe(value => {
   if (typeof localStorage !== 'undefined') localStorage.setItem(KEY, value);

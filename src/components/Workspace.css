@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: radial-gradient(rgb(26, 26, 46), rgb(15, 15, 30));
+  background: var(--bg-app);
   isolation: isolate;
 }
 

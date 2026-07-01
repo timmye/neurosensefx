@@ -1,0 +1,55 @@
+/*
+ * NeuroSense FX — design tokens (2-tier, role-locked).
+ *
+ * Primitive tier = raw values; NEVER consume these directly in components.
+ * Semantic tier = what components consume; swapped per theme via [data-theme].
+ *
+ * Color role map (one job per color — see plan §1.2):
+ *   --flash-up/down  cyan/magenta  → PriceTicker tick flash ONLY
+ *   --select         green          → selected / chart-bound display
+ *   --accent         blue           → focus rings, active menu, hovers (chrome)
+ *   --status-*       green/orange/red/grey → connection state dots
+ *
+ * Import once globally in src/main.js (before `new App`).
+ */
+
+:root,
+[data-theme="dark"] {
+  /* ---- primitive (do not consume directly) ---- */
+  --black-900:#0a0a0a; --black-800:#141414; --black-700:#1a1a1a; --line:#333333;
+  --grey-100:#ffffff; --grey-200:#cccccc; --grey-400:#888888; --grey-500:#666666;
+  --cyan:#00d4ff;   /* TICKER FLASH ONLY */
+  --magenta:#e040fb;/* TICKER FLASH ONLY */
+  --green:#00ff00;  /* SELECTION / chart-bound ONLY */
+  --blue:#4a9eff;   /* CHROME ACCENT */
+  --ok:#4CAF50; --warn:#FF9800; --bad:#F44336; --idle:#9E9E9E;
+
+  /* ---- semantic (components consume these) ---- */
+  --bg-app:var(--black-900); --bg-frame:var(--black-800); --bg-header:rgba(42,42,42,.95);
+  --border:var(--line);
+  --text-primary:var(--grey-100); --text-secondary:var(--grey-200);
+  --text-label:var(--grey-400); --text-muted:var(--grey-500);
+  --flash-up:var(--cyan); --flash-down:var(--magenta);   /* PriceTicker only */
+  --select:var(--green);                                  /* selected/chart-bound */
+  --accent:var(--blue);                                   /* focus/active/hover */
+  --status-ok:var(--ok); --status-warn:var(--warn); --status-bad:var(--bad); --status-idle:var(--idle);
+
+  /* ---- non-color ---- */
+  --sp-1:2px; --sp-2:4px; --sp-3:6px; --sp-4:8px; --sp-6:12px; --sp-8:16px;
+  --r-0:0; --r-sm:2px; --r-md:4px;
+  --fs-10:10px; --fs-11:11px; --fs-12:12px; --fs-14:14px; --fs-16:16px; --fs-20:20px; --fs-32:32px;
+  --lh-tight:1.2;
+  --font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-mono:"SF Mono",Monaco,"Cascadia Code",monospace;
+  --z-frame:1; --z-header:10; --z-overlay:10000; --z-modal:10001;
+  --glow-select:0 0 8px rgba(0,255,0,.5);
+  --glow-focus:0 0 8px rgba(74,158,255,.4);
+}
+
+[data-theme="light"] {
+  /* semantic overrides only — flip the semantic layer here, primitives unchanged */
+  --bg-app:#e8e8e8; --bg-frame:#f4f4f4; --bg-header:rgba(224,224,224,.95);
+  --border:#cccccc;
+  --text-primary:#1a1a1a; --text-secondary:#333333; --text-label:#555555; --text-muted:#888888;
+  /* flash/select/accent hues unchanged; status unchanged */
+}

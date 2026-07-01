@@ -102,7 +102,7 @@ WS close → onClose → tryScheduleReconnect() → backoff → connect()
 | Code splitting | None. 1.1MB eager. `three.js` (BackgroundShader only) is lowest-effort lazy-load target. |
 | Error handling | Console-only. No toast, no error boundary, no user-facing error display. |
 | API secrets in `.env` | `CTRADER_CLIENT_ID` and `CTRADER_CLIENT_SECRET` committed. Move to `.env.local` for shared hosting. |
-| Theme system | `themeStore.js` with localStorage persistence. CSS custom properties. Dark/light. Mix of inline styles and classes. No design tokens. |
+| Theme system | `themeStore.js` (localStorage, default **dark**) wired to `<html data-theme>`. Token-driven: 2-tier role-locked tokens (`src/styles/tokens.css`, primitive→semantic); shell skins via `[data-theme]`. See `docs/frontend-cohesion-design-2026-06-30.md`. |
 | `ws` dependency | Required by vendored cTrader layer (`libs/cTrader-Layer/.../RealTimeClient.js`). Cannot remove. |
 
 ---
@@ -147,6 +147,7 @@ These were explicitly considered. They are not forgotten — they are **deferred
 | Svelte 4→5 migration | Works fine. Runes migration touches every component. No concrete pain. | Component complexity becomes unmanageable; Svelte 4 security EOL |
 | TypeScript migration | JSDoc + `dataContracts.js` validators get most of the value at none of the migration cost. | Team grows; onboarding new developers who expect types |
 | ~~three.js removal~~ | **Done (2026-06-23).** BackgroundShader + backgroundStore removed; bundle ~1.1 MB → ~622 kB. | N/A |
+| ~~Design tokens + shared display primitives~~ | **Done (2026-07-01).** 2-tier role-locked tokens (`src/styles/tokens.css`); `<DisplayFrame>`, `<IconButton>`, `<AddMenu>` extracted; shell migrated to tokens; green selection ring propagates; default theme dark. Design ref: `docs/frontend-cohesion-design-2026-06-30.md`, plan: `plans/frontend-cohesion-design-system.md`. | N/A |
 | Chart config consolidation (8 files) | Low benefit. Each file exists for a reason (lazy loading, runtime swap). | Adding new themes or chart types makes the sprawl actively confusing |
 | Theme file splits (443/438 LOC) | No user-facing benefit. Mechanical but noisy refactor. | Theme files need significant modification for a new feature |
 | Code splitting / lazy loading | 1.1MB loads fast on broadband. No user complaint about load time. | Mobile users; measurable load-time regression; bundle exceeds 2MB |
@@ -154,7 +155,7 @@ These were explicitly considered. They are not forgotten — they are **deferred
 | Broad test coverage expansion | 444 tests cover all pure-logic modules. Higher-value targets are in Tier 2 #7–#9. | Regression incident that tests would have caught; team grows |
 | Full E2E suite | No userbase pressure. Playwright config exists and is ready when needed. | Multiple users reporting UI bugs; CI/CD pipeline requires it |
 | Composables pattern resurrection | Was a completed migration *away* from composables to stores. The pattern didn't stick. | Never. Svelte stores are the right idiom here. |
-| Shared modal base component | 3 modal patterns is annoying but not actively harmful. | Adding a 4th modal type; modal accessibility requirements |
+| Shared modal base component | 3 modal patterns is annoying but not actively harmful. Shared *display* primitives (`<DisplayFrame>`/`<IconButton>`) now exist (2026-07-01); modals themselves remain independent. | Adding a 4th modal type; modal accessibility requirements |
 | FX Basket Map cleanup | `basketStateMachines`/`basketStores` Maps have manual cleanup. Works. | Memory profiling shows actual leak; adding many more basket currencies |
 
 ---

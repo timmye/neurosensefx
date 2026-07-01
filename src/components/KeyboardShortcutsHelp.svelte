@@ -107,7 +107,7 @@
     justify-content: center;
     z-index: 10001;
     backdrop-filter: blur(8px);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-ui);
     animation: fadeIn 0.15s ease;
   }
 
@@ -117,18 +117,17 @@
   }
 
   .shortcuts-content {
-    background: rgb(20, 20, 35);
-    border: 1px solid rgb(79, 70, 229);
-    border-radius: 8px;
+    background: var(--bg-frame);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
     padding: 16px;
     min-width: 260px;
     max-width: 90vw;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   }
 
   .shortcuts-content h2 {
     margin: 0 0 12px 0;
-    color: white;
+    color: var(--text-primary);
     font-size: 16px;
     text-align: center;
     font-weight: 600;
@@ -144,7 +143,7 @@
 
   .shortcut-section h3 {
     margin: 0 0 6px 0;
-    color: rgb(167, 139, 250);
+    color: var(--accent);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -163,12 +162,12 @@
     justify-content: space-between;
     padding: 4px 6px;
     background: rgba(255, 255, 255, 0.03);
-    border-radius: 4px;
+    border-radius: var(--r-md);
     font-size: 13px;
   }
 
   .shortcut-item span:last-child {
-    color: rgb(199, 210, 254);
+    color: var(--text-secondary);
   }
 
   .keys {
@@ -184,13 +183,13 @@
     min-width: 20px;
     height: 20px;
     padding: 0 5px;
-    background: linear-gradient(180deg, rgb(60, 60, 80) 0%, rgb(40, 40, 55) 100%);
-    border: 1px solid rgb(80, 80, 100);
-    border-radius: 4px;
-    color: white;
-    font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+    background: var(--bg-app);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 500;
-    box-shadow: 0 1px 0 rgb(30, 30, 40);
+    box-shadow: 0 1px 0 var(--border);
   }
 </style>

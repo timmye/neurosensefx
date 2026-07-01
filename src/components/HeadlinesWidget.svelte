@@ -1,9 +1,10 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { createInteractConfig } from '../lib/interactSetup.js';
   import { workspaceActions, headlinesStore } from '../stores/workspace.js';
+  import DisplayFrame from './displays/DisplayFrame.svelte';
+  import DisplayHeader from './displays/DisplayHeader.svelte';
 
-  let element, interactable, scriptTag;
+  let scriptTag;
   let resizeTimeout;
 
   function createWidget(width, height) {
@@ -21,23 +22,25 @@
     }
   }
 
-  onMount(() => {
-    interactable = createInteractConfig(element, {
-      ignoreFrom: '.financialjuice-container',
-      onDragMove: (e) => workspaceActions.updateHeadlinesPosition({ x: e.rect.left, y: e.rect.top }),
-      onResizeMove: (e) => {
-        workspaceActions.updateHeadlinesSize({ width: e.rect.width, height: e.rect.height });
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-          const container = document.getElementById('financialjuice-news-widget-container');
-          if (container && window.FJWidgets) {
-            container.innerHTML = '';
-            createWidget(e.rect.width, e.rect.height);
-          }
-        }, 300);
-      }
-    });
+  // interact.js drag/resize/snap — handed to <DisplayFrame>, which owns the setup.
+  // ignoreFrom lets pointer events reach the news widget; resize debounces widget recreation.
+  const interactCallbacks = {
+    ignoreFrom: '.financialjuice-container',
+    onDragMove: (e) => workspaceActions.updateHeadlinesPosition({ x: e.rect.left, y: e.rect.top }),
+    onResizeMove: (e) => {
+      workspaceActions.updateHeadlinesSize({ width: e.rect.width, height: e.rect.height });
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        const container = document.getElementById('financialjuice-news-widget-container');
+        if (container && window.FJWidgets) {
+          container.innerHTML = '';
+          createWidget(e.rect.width, e.rect.height);
+        }
+      }, 300);
+    }
+  };
 
+  onMount(() => {
     scriptTag = document.createElement('script');
     scriptTag.src = `https://feed.financialjuice.com/widgets/widgets.js?r=${Date.now()}`;
     scriptTag.onerror = () => {
@@ -55,7 +58,6 @@
 
   onDestroy(() => {
     clearTimeout(resizeTimeout);
-    interactable?.unset();
     if (scriptTag && scriptTag.parentNode) {
       scriptTag.parentNode.removeChild(scriptTag);
     }
@@ -64,26 +66,14 @@
   });
 </script>
 
-<div class="floating-display" bind:this={element}
-  style="left: {$headlinesStore.headlinesPosition.x}px; top: {$headlinesStore.headlinesPosition.y}px; width: {$headlinesStore.headlinesSize.width}px; height: {$headlinesStore.headlinesSize.height}px;">
-  <div class="display-header">
-    <span class="display-symbol">HEADLINES</span>
-    <button class="display-close-btn" on:click={workspaceActions.toggleHeadlines}>×</button>
-  </div>
+<DisplayFrame
+  position={$headlinesStore.headlinesPosition}
+  size={$headlinesStore.headlinesSize}
+  interactCallbacks={interactCallbacks}>
+  <DisplayHeader slot="header" minimal symbol="HEADLINES" onClose={workspaceActions.toggleHeadlines} />
   <div id="financialjuice-news-widget-container" class="financialjuice-container"></div>
-  <div class="resize-handle"></div>
-</div>
+</DisplayFrame>
 
 <style>
-  .floating-display{position:absolute;background:#1a1a1a;border:1px solid #333;border-radius:4px;overflow:hidden;user-select:none;outline:none;transition:border-color .2s ease,box-shadow .2s ease;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-  .display-header{display:flex;justify-content:space-between;align-items:center;height:40px;background:rgba(42,42,42,0.95);backdrop-filter:blur(4px);padding:0 4px;cursor:move}
-  .display-symbol{color:#fff;font-weight:600;font-size:16px}
-  .display-close-btn{background:none;border:none;color:#999;font-size:14px;cursor:pointer;padding:2px 3px;border-radius:2px;transition:background .2s ease,color .2s ease;line-height:1}
-  .display-close-btn:hover,.display-close-btn:focus{background:#3a3a3a;color:#fff}
-  .display-close-btn:focus{outline:1px solid #4a9eff}
-  .floating-display:focus{border-color:#4a9eff;box-shadow:0 0 8px rgba(74,158,255,.4)}
-  .floating-display:focus-visible{border-color:#4a9eff;box-shadow:0 0 12px rgba(74,158,255,.6);outline:2px solid rgba(74,158,255,.3);outline-offset:2px}
   .financialjuice-container{width:100%;height:calc(100% - 36px);overflow:hidden}
-  .resize-handle{position:absolute;right:0;bottom:0;width:16px;height:16px;background:linear-gradient(135deg,transparent 50%,#555 50%);cursor:se-resize;opacity:.6;transition:opacity .2s ease}
-  .resize-handle:hover{opacity:1}
 </style>

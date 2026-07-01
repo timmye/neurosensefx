@@ -1,4 +1,4 @@
-export function initWorkspaceShortcuts({ keyManager, workspaceActions, setShowKeyboardHelp, showWorkspaceDialog, reinitAll, formatSymbol, toggleChart }) {
+export function initWorkspaceShortcuts({ keyManager, workspaceActions, setShowKeyboardHelp, showWorkspaceDialog, reinitAll, toggleChart, openAddMenu }) {
   const unsubs = [];
 
   // Initialize KeyManager document listener
@@ -27,39 +27,27 @@ export function initWorkspaceShortcuts({ keyManager, workspaceActions, setShowKe
     { key: 'c', ctrl: false, alt: false, meta: false }, () => { toggleChart(); return true; }, { priority: 10 }
   ));
 
-  // Alt+A: create cTrader display
+  // Alt+A: add cTrader display (opens AddMenu w/ native symbol field — replaces prompt())
   unsubs.push(keyManager.register(
-    { key: 'a', alt: true }, () => {
-      const symbol = prompt('Enter symbol:');
-      if (symbol) workspaceActions.addDisplay(formatSymbol(symbol, 'ctrader'), null, 'ctrader', { width: 220, height: 360 });
-      return true;
-    }, { priority: 0 }
+    { key: 'a', alt: true }, () => { openAddMenu('ctrader'); return true; }, { priority: 0 }
   ));
 
-  // Alt+B: create FX Basket display
+  // Alt+B: create FX Basket display (no symbol needed — direct add at compact size)
   unsubs.push(keyManager.register(
     { key: 'b', alt: true }, () => {
-      workspaceActions.addDisplay('FX_BASKET', null, 'ctrader');
+      workspaceActions.addDisplay('FX_BASKET', null, 'ctrader', { width: 360, height: 360 });
       return true;
     }, { priority: 0 }
   ));
 
-  // Alt+T: create TradingView display
+  // Alt+T: add TradingView display (opens AddMenu — replaces prompt())
   unsubs.push(keyManager.register(
-    { key: 't', alt: true }, () => {
-      const symbol = prompt('Enter symbol (TradingView):');
-      if (symbol) workspaceActions.addDisplay(formatSymbol(symbol, 'tradingview'), null, 'tradingview', { width: 220, height: 360 });
-      return true;
-    }, { priority: 0 }
+    { key: 't', alt: true }, () => { openAddMenu('tradingview'); return true; }, { priority: 0 }
   ));
 
-  // Alt+I: create Price Ticker
+  // Alt+I: add Price Ticker (opens AddMenu — replaces prompt())
   unsubs.push(keyManager.register(
-    { key: 'i', alt: true }, () => {
-      const symbol = prompt('Enter symbol for Price Ticker:');
-      if (symbol) workspaceActions.addPriceTicker(formatSymbol(symbol, 'tradingview'), null, 'tradingview');
-      return true;
-    }, { priority: 0 }
+    { key: 'i', alt: true }, () => { openAddMenu('ticker'); return true; }, { priority: 0 }
   ));
 
   // Arrow keys: navigate between displays

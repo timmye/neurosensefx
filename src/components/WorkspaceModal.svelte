@@ -96,23 +96,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10000;
+    z-index: var(--z-modal);
     backdrop-filter: blur(4px);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-ui);
   }
 
   .workspace-modal {
-    background: rgb(26, 26, 46);
-    border: 1px solid rgb(79, 70, 229);
-    border-radius: 8px;
-    padding: 24px;
+    background: var(--bg-frame);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-6);
     min-width: 300px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   }
 
   .workspace-modal h2 {
     margin: 0 0 20px 0;
-    color: white;
+    color: var(--text-primary);
     font-size: 20px;
     text-align: center;
   }
@@ -128,44 +127,41 @@
     flex: 1;
     padding: 12px 24px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--r-md);
     font-size: 16px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: filter 0.2s ease;
   }
 
   .export-btn {
-    background: rgb(79, 70, 229);
-    color: white;
+    background: var(--accent);
+    color: var(--text-primary);
   }
 
   .export-btn:hover,
   .export-btn:focus-visible {
-    background: rgb(67, 56, 202);
-    outline: 2px solid rgb(129, 140, 248);
-    outline-offset: 2px;
+    filter: brightness(0.9);
   }
 
   .import-btn {
-    background: rgb(59, 130, 246);
-    color: white;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
   }
 
   .import-btn:hover,
   .import-btn:focus-visible {
-    background: rgb(37, 99, 235);
-    outline: 2px solid rgb(96, 165, 250);
-    outline-offset: 2px;
+    background: var(--bg-frame);
   }
 
   .cancel-btn {
     width: 100%;
     padding: 10px;
     background: transparent;
-    border: 1px solid rgb(107, 114, 128);
-    border-radius: 6px;
-    color: rgb(156, 163, 175);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--text-muted);
     font-size: 14px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -173,9 +169,9 @@
 
   .cancel-btn:hover,
   .cancel-btn:focus-visible {
-    background: rgba(107, 114, 128, 0.1);
-    color: white;
-    outline: 2px solid rgb(107, 114, 128);
+    background: var(--bg-frame);
+    color: var(--text-primary);
+    outline: 2px solid var(--border);
     outline-offset: 2px;
   }
 </style>

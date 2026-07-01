@@ -16,6 +16,7 @@ Frontend Svelte application.
 | Directory | What | When to read |
 | --------- | ---- | ------------ |
 | `components/` | Svelte UI components | Adding/modifying UI elements |
+| `styles/` | Design tokens — `tokens.css` (2-tier role-locked CSS custom properties, primitive→semantic; themed via `[data-theme]`). Imported once in `main.js` | Adding/changing design tokens, theming |
 | `lib/` | Visualizers, utilities, calculations | Implementing visualizations, business logic |
 | `stores/` | Svelte state management | Working with application state |
 | `tests/` | Unit and E2E tests | Writing, running tests |

@@ -1,3 +1,4 @@
+import './styles/tokens.css';
 import App from './App.svelte';
 
 document.fonts.load('400 16px "Georgia Pro"').then(() => {

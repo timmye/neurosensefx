@@ -97,40 +97,40 @@
         align-items: center;
         justify-content: center;
         height: 100vh;
-        background: #1a0a1a;
+        background: var(--bg-app);
     }
     .login-card {
-        background: #2a1a2a;
-        border: 1px solid #3a2a3a;
-        border-radius: 8px;
-        padding: 2rem;
+        background: var(--bg-frame);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        padding: var(--sp-8);
         width: 360px;
-        color: #e0d0e0;
+        color: var(--text-primary);
     }
     .login-card h1 { margin: 0 0 0.25rem 0; font-size: 1.5rem; }
-    .subtitle { margin: 0 0 1.5rem 0; color: #a090a0; font-size: 0.875rem; }
-    .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 1px solid #3a2a3a; }
+    .subtitle { margin: 0 0 1.5rem 0; color: var(--text-muted); font-size: 0.875rem; }
+    .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
     .tabs button {
         flex: 1; padding: 0.5rem; border: none; background: none;
-        color: #a090a0; cursor: pointer; font-size: 0.875rem;
+        color: var(--text-muted); cursor: pointer; font-size: 0.875rem;
         border-bottom: 2px solid transparent;
     }
-    .tabs button.active { color: #e0d0e0; border-bottom-color: #7c5caf; }
-    .tabs button:focus-visible { outline: 2px solid #7c5caf; outline-offset: -2px; border-radius: 2px; }
-    form label { display: block; margin-bottom: 1rem; font-size: 0.875rem; color: #a090a0; }
+    .tabs button.active { color: var(--text-primary); border-bottom-color: var(--accent); }
+    .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--r-sm); }
+    form label { display: block; margin-bottom: 1rem; font-size: 0.875rem; color: var(--text-muted); }
     form input {
         width: 100%; padding: 0.5rem; margin-top: 0.25rem;
-        background: #1a0a1a; border: 1px solid #3a2a3a; border-radius: 4px;
-        color: #e0d0e0; box-sizing: border-box;
+        background: var(--bg-app); border: 1px solid var(--border); border-radius: var(--r-md);
+        color: var(--text-primary); box-sizing: border-box;
     }
-    form input:focus-visible { outline: 2px solid #7c5caf; outline-offset: -2px; }
+    form input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
     form input:disabled { opacity: 0.6; }
-    .error { color: #e74c3c; font-size: 0.8rem; margin-bottom: 0.5rem; }
+    .error { color: var(--status-bad); font-size: 0.8rem; margin-bottom: 0.5rem; }
     form button[type="submit"] {
         width: 100%; padding: 0.75rem; margin-top: 0.5rem;
-        background: #7c5caf; border: none; border-radius: 4px;
-        color: white; cursor: pointer; font-size: 0.875rem;
+        background: var(--accent); border: none; border-radius: var(--r-md);
+        color: var(--text-primary); cursor: pointer; font-size: 0.875rem;
     }
-    form button[type="submit"]:focus-visible { outline: 2px solid #e0d0e0; outline-offset: 2px; }
+    form button[type="submit"]:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
     form button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

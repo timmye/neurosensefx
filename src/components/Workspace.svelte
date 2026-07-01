@@ -8,11 +8,12 @@
   import WorkspaceModal from './WorkspaceModal.svelte';
   import KeyboardShortcutsHelp from './KeyboardShortcutsHelp.svelte';
   import HeadlinesWidget from './HeadlinesWidget.svelte';
+  import AddMenu from './AddMenu.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { initWorkspaceShortcuts } from '../lib/workspaceKeyboardShortcuts.js';
   import { keyManager } from '../lib/keyManager.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
-  import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
+  import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
   import './Workspace.css';
 
   let fileInput;
@@ -62,6 +63,14 @@
 
   let showWorkspaceModal = false;
   let showKeyboardHelp = false;
+  let addMenuOpen = false;
+  let addMenuPreselect = null;
+
+  // Keyboard add-shortcuts open the AddMenu with a type pre-selected (replaces browser prompt()).
+  function openAddMenu(type) {
+    addMenuPreselect = type;
+    addMenuOpen = true;
+  }
 
   function showWorkspaceDialog() {
     showWorkspaceModal = true;
@@ -153,8 +162,8 @@
       setShowKeyboardHelp: (v) => { showKeyboardHelp = v; },
       showWorkspaceDialog,
       reinitAll,
-      formatSymbol,
       toggleChart,
+      openAddMenu,
     });
 
     // Setup connection
@@ -217,4 +226,11 @@
 />
 
 <KeyboardShortcutsHelp bind:show={showKeyboardHelp} />
+
+<AddMenu
+  bind:open={addMenuOpen}
+  bind:preselect={addMenuPreselect}
+  onToggleChart={toggleChart}
+  onOpenShortcuts={() => { showKeyboardHelp = true; }}
+/>
 

@@ -175,7 +175,7 @@ export async function register(email, password, displayName) {
 }
 
 /** Logout and reload to clear all client state. */
-async function logout() {
+export async function logout() {
     try {
         await fetch(API_BASE + '/api/logout', { method: 'POST', credentials: 'include' });
     } catch (err) {

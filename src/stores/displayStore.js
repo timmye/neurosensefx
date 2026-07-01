@@ -45,13 +45,13 @@ const actions = {
     displayStore.update(state => ({ ...state, selectedDisplayId: null }));
   },
 
-  addDisplay: (symbol, position = null, source = 'tradingview') => {
+  addDisplay: (symbol, position = null, source = 'tradingview', size = null) => {
     displayStore.update(state => {
       const id = `display-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const display = {
         id, symbol, source, created: Date.now(),
         position: position || state.config.defaultPosition,
-        size: { ...state.config.defaultSize },
+        size: size ? { ...size } : { ...state.config.defaultSize },
         zIndex: state.nextZIndex,
         showMarketProfile: true,
         showHeader: false,
@@ -66,13 +66,13 @@ const actions = {
     });
   },
 
-  addPriceTicker: (symbol, position = null, source = 'tradingview') => {
+  addPriceTicker: (symbol, position = null, source = 'tradingview', size = null) => {
     displayStore.update(state => {
       const id = `ticker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const ticker = {
         id, symbol, source, created: Date.now(), type: 'priceTicker',
         position: position || state.config.defaultPosition,
-        size: { width: 240, height: 80 },
+        size: size ? { ...size } : { width: 240, height: 80 },
         zIndex: state.nextZIndex
       };
 

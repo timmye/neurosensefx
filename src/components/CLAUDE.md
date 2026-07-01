@@ -7,7 +7,9 @@ Svelte UI components for the workspace and visualization displays.
 | File | What | When to read |
 | ---- | ---- | ------------ |
 | `Workspace.svelte` | Drag-drop workspace container with persistence | Implementing workspace features, debugging persistence |
-| `FloatingDisplay.svelte` | Floating display component with interact.js | Modifying displays, debugging drag/resize |
+| `AddMenu.svelte` | Floating `+` button + expand menu — native symbol field, Chart/News toggles, shortcuts, logout; replaces browser `prompt()` for adding displays | Adding displays, modifying the add menu |
+| `FloatingDisplay.svelte` | Floating display component with interact.js (adopted by `<DisplayFrame>`) | Modifying displays, debugging drag/resize |
+| `IconButton.svelte` | Shared icon-button chrome (↻ refresh, × close); variants `ghost`/`subtle` | Reusing icon buttons, modifying button chrome |
 | `PriceTicker.svelte` | Price ticker display with flash animation and mini Market Profile | Implementing price tickers, customizing flash behavior |
 | `FxBasketDisplay.svelte` | FX Basket currency pair visualization | Implementing FX pair display |
 | `PriceMarkerManager.svelte` | Price marker UI management | Adding marker features |

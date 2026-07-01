@@ -1,6 +1,5 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { createInteractConfig } from '../lib/interactSetup.js';
   import { displayActions, displayStore } from '../stores/displayStore.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl } from '../lib/displayDataProcessor.js';
@@ -9,12 +8,13 @@
   import { createDebugAPI, exposeDebugAPI } from '../lib/fxBasket/fxBasketDebug.js';
   import { subscribeBasket, getBasketState, BasketState } from '../lib/fxBasket/fxBasketSubscription.js';
   import { renderFxBasket } from '../lib/fxBasket/fxBasketOrchestrator.js';
+  import DisplayFrame from './displays/DisplayFrame.svelte';
   import DisplayHeader from './displays/DisplayHeader.svelte';
 
   const MAX_CANVAS_SETUP_RETRIES = 100;
 
   export let display;
-  let element, interactable, connectionManager;
+  let connectionManager;
   let connectionStatus = 'disconnected';
   let basketData = null;
   let fxPairs = [];
@@ -32,7 +32,6 @@
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());
     fxPairs = getAllPairs();
 
-    setupInteract();
     setupCanvas();
     setupConnectionMonitoring();
     if (import.meta.env.DEV) {
@@ -57,7 +56,6 @@
   });
 
   onDestroy(() => {
-    interactable?.unset();
     if (freshnessCheckInterval) clearInterval(freshnessCheckInterval);
     if (unsubscribe) unsubscribe();
     if (resizeObserver) resizeObserver.disconnect();
@@ -65,13 +63,12 @@
     if (unsubscribeDailyReset) { unsubscribeDailyReset(); unsubscribeDailyReset = null; }
   });
 
-  function setupInteract() {
-    interactable = createInteractConfig(element, {
-      onDragMove: (e) => displayActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
-      onResizeMove: (e) => displayActions.updateSize(display.id, { width: e.rect.width, height: e.rect.height }),
-      onTap: () => displayActions.bringToFront(display.id)
-    });
-  }
+  // interact.js drag/resize/snap — handed to <DisplayFrame>, which owns the setup.
+  const interactCallbacks = {
+    onDragMove: (e) => displayActions.updatePosition(display.id, { x: e.rect.left, y: e.rect.top }),
+    onResizeMove: (e) => displayActions.updateSize(display.id, { width: e.rect.width, height: e.rect.height }),
+    onTap: () => displayActions.bringToFront(display.id)
+  };
 
   function finishSetup(rect) {
     const dpr = window.devicePixelRatio || 1;
@@ -171,12 +168,19 @@
   }
 </script>
 
-<div class="floating-display" bind:this={element} data-display-id={display.id}
-     tabindex="0" role="application" aria-label="FX Basket display"
-     on:focus={handleFocus}
-     style="left: {display.position.x}px; top: {display.position.y}px; z-index: {display.zIndex};
-            width: {display.size.width}px; height: {display.size.height}px;">
+<DisplayFrame
+  position={display.position}
+  size={display.size}
+  zIndex={display.zIndex}
+  selected={$displayStore.selectedDisplayId === display.id}
+  tabindex="0"
+  role="application"
+  ariaLabel="FX Basket display"
+  dataId={display.id}
+  onFocus={handleFocus}
+  interactCallbacks={interactCallbacks}>
   <DisplayHeader
+    slot="header"
     symbol="FX BASKET"
     source="ctrader"
     connectionStatus={connectionStatus}
@@ -187,14 +191,8 @@
     initiallyVisible={display.showHeader !== false}
   />
   <canvas bind:this={canvas} class="fx-basket-canvas"></canvas>
-  <div class="resize-handle"></div>
-</div>
+</DisplayFrame>
 
 <style>
-  .floating-display{position:absolute;background:#1a1a1a;border:1px solid #333;border-radius:4px;overflow:hidden;user-select:none;outline:none;transition:border-color .2s ease,box-shadow .2s ease;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-  .floating-display:focus{border-color:#4a9eff;box-shadow:0 0 8px rgba(74,158,255,.4)}
-  .floating-display:focus-visible{border-color:#4a9eff;box-shadow:0 0 12px rgba(74,158,255,.6);outline:2px solid rgba(74,158,255,.3);outline-offset:2px}
-  .fx-basket-canvas{width:100%;height:100%;display:block;background:#0a0a0a}
-  .resize-handle{position:absolute;right:0;bottom:0;width:16px;height:16px;background:linear-gradient(135deg,transparent 50%,#555 50%);cursor:se-resize;opacity:.6;transition:opacity .2s ease}
-  .resize-handle:hover{opacity:1}
+  .fx-basket-canvas{width:100%;height:100%;display:block;background:var(--bg-app)}
 </style>
