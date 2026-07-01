@@ -122,10 +122,9 @@ export function drawMiniTwapPrice(ctx, priceScale, twapPrice, minPrice, maxPrice
   if (twapPrice == null || twapPrice < minPrice || twapPrice > maxPrice) return;
   const y = Math.round(priceScale(twapPrice));
 
-  // TWAP marker matches the ticker's symbol-font colour (--text-label): a dark
-  // grey (#555 light / #888 dark) that contrasts cleanly against both the
-  // canvas bg and the blue bars, instead of a coloured dot that blended in.
-  ctx.fillStyle = isLight ? '#555555' : '#888888';
+  // TWAP marker: dark grey matching the ticker symbol font (--text-label #555) on
+  // the light canvas; original neon green #00FF66 on dark.
+  ctx.fillStyle = isLight ? '#555555' : '#00FF66';
   ctx.beginPath();
   ctx.arc(5, y, 2, 0, Math.PI * 2);
   ctx.fill();
