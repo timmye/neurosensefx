@@ -8,6 +8,7 @@ Implementation plans for features, refactors, and operational tasks.
 | ---- | ---- | ------------ |
 | `frontend-debt-remediation.md` | Frontend debt remediation plan (57 findings, 6 milestones) | Understanding frontend cleanup scope, tracking debt reduction |
 | `frontend-cohesion-design-system.md` | Frontend cohesion & design-system implementation plan (tokens + `<DisplayFrame>`/`<IconButton>`/`<AddMenu>`; 8 tasks, staged). Implemented 2026-07-01 | Reviewing the design-system work, extending tokens/display primitives |
+| `canvas-theme-system.md` | Cohesive shell-canvas theme system plan — `src/lib/canvasTheme.js` resolver centralizing all shell-canvas colors (mirrors chart-canvas idiom, reads `themeStore`). Implemented 2026-07-01 | Theming shell-canvas renderers, debugging light-theme canvas bugs |
 | `frontend-debt-remediation-plan.json` | Machine-readable plan with findings, milestones, and status | Tracking debt remediation progress programmatically |
 | `centralized-data-function-implementation.md` | Centralized data function implementation plan | Understanding market data centralization approach |
 | `centralized-data-function-implementation-plan.json` | Machine-readable plan for data function centralization | Tracking centralization progress |

@@ -6,6 +6,7 @@ Utility modules, visualizers, and domain-specific libraries for the frontend app
 
 | File | What | When to read |
 | ---- | ---- | ------------ |
+| `canvasTheme.js` | Centralized shell-canvas theme resolver — `getCanvasColors()` returns the cached themed color set for every shell `<canvas>` (mini profile, day-range meter, FX basket, price markers, status text); `withAlpha()` precomputes alpha variants. Mirrors the chart-canvas idiom (`chart/themeColors.js`) but reads the shell `themeStore`. Built-once DARK/LIGHT constants; single app-lifetime subscription | Theming shell-canvas renderers, adding/changing a shell-canvas color role, debugging light-theme canvas bugs |
 | `visualizers.js` | Day range and combined visualization renderers | Registering new visualization types |
 | `connectionManager.js` | WebSocket connection lifecycle singleton facade (delegates to `connection/` modules) | Debugging connection issues, implementing reconnection |
 | `dataContracts.js` | WebSocket message type definitions and runtime validation | Understanding data shapes, adding new message types, debugging contract violations |

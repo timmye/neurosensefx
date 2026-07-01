@@ -1,25 +1,13 @@
 // Day Range Meter Configuration - Crystal Clarity Compliant
 // Framework-first: Centralized configuration system
 
-export const defaultConfig = {
-  // Visual elements
-  colors: {
-    axisPrimary: '#4B5563',
-    axisReference: '#f66a51ff',
-    currentPrice: '#6B7280',
-    priceUp: '#4a9eff', //cde0f6ff
-    priceDown: '#8f6ce0ff', //4a9eff
-    sessionPrices: '#f69051ff',
-    openPrice: '#6B7280',
-    adrRange: 'rgba(224, 224, 224, 0.3)',
-    sessionRange: 'rgba(59, 130, 246, 0.3)',
-    boundaryLine: '#854be8',
-    percentageLabels: '#9CA3AF',
-    markers: '#374151',
-    previousDay: '#414141', // Dark gray for previous day markers
-    twapMarker: '#10b981' // Emerald green for TWAP marker
-  },
+import { getCanvasColors } from '../canvasTheme.js';
 
+// Colors are intentionally NOT defined here. They are injected by getConfig()
+// from the centralized shell-canvas theme resolver (canvasTheme.js) so every
+// shell canvas reads the current workspace theme at paint time. Renderers and
+// compute functions keep reading config.colors.* — they never need to change.
+const baseConfig = {
   // Typography - matching mini market profile (ticker) fonts
   fonts: {
     currentPrice: '900 36px "Georgia Pro", Georgia, serif',
@@ -64,6 +52,20 @@ export const defaultConfig = {
   }
 };
 
+// Kept as a named export for the few consumers that import defaultConfig for
+// its fonts/emphasis (e.g. priceMarkerBase.js). It deliberately carries NO
+// colors — color-bearing paths must go through getConfig() below.
+export const defaultConfig = baseConfig;
+
+// Build a render config: base config + resolver-provided colors (themed) + any
+// caller overrides. A passed `colors` is injected into the colors slot (merged
+// over the resolver defaults) and stripped from the top-level spread so it
+// isn't double-merged.
 export function getConfig(overrides = {}) {
-  return { ...defaultConfig, ...overrides };
+  const { colors: _colorOverrides, ...rest } = overrides;
+  return {
+    ...baseConfig,
+    colors: { ...getCanvasColors().dayRange, ...(_colorOverrides || {}) },
+    ...rest
+  };
 }

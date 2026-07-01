@@ -1,15 +1,9 @@
-// Color system for Day Range Meter - Crystal Clarity Compliant
-// Centralized color palette for professional trading visualization
-
-export const COLORS = {
-  axis: '#4B5563',        // ADR Axis (Gray-600)
-  center: '#6B7280',      // Center Reference (Gray-500)
-  boundary: '#EF4444',    // ADR Boundaries (Red-500)
-  highLow: '#F59E0B',     // High/Low Prices (Amber-500)
-  current: '#10B981',     // Current Price (Green-500)
-  percentMarker: '#374151', // Percentage Markers (Gray-700)
-  percentLabel: '#9CA3AF'   // Percentage Labels (Gray-400)
-};
+// Font/line-width constants for Day Range Meter + price markers.
+//
+// NOTE: the legacy `COLORS` palette that lived here was retired — the shell
+// canvases now read every color from the centralized theme resolver
+// (canvasTheme.js). Only the non-color constants remain; shell-canvas colors
+// must not be re-introduced here.
 
 export { SYSTEM_FONT_FAMILY } from './canvasStatusRenderer.js';
 

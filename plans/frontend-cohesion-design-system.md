@@ -13,7 +13,7 @@
 >
 > **E2E caveat:** `console-check.spec.js` fails only on a **pre-existing 401** (`checkSession` on an unauthenticated browser — not this work; `authStore` only added `export` to `logout`). Spec hardcodes `localhost:5174` (flaky in WSL2). Full chart-interaction E2E pending a stable backend run.
 >
-> **Phase-2 carry-over:** chart chrome on tokens, z-index unification, PriceTicker→`<DisplayFrame>` wrap-up, light-theme polish on residual `rgba` overlays.
+> **Phase-2 carry-over:** chart chrome on tokens, z-index unification, PriceTicker→`<DisplayFrame>` wrap-up, light-theme polish on residual **DOM** `rgba` overlays (the canvas side — all shell-canvas colors — was resolved 2026-07-01 by `src/lib/canvasTheme.js`; see `plans/canvas-theme-system.md`).
 
 ---
 

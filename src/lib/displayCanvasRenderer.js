@@ -11,8 +11,7 @@ import { calculateAdaptiveScale } from './dayRange/dayRangeCalculations.js';
 import { getConfig } from './dayRange/dayRangeConfig.js';
 import { formatPipMovement, formatPriceWithPipPosition, formatPriceToPipLevel } from './priceFormat.js';
 import { drawPriceMarker } from './dayRange/dayRangeElements.js';
-
-const DELTA_MARKER_COLOR = '#FFD700';
+import { getCanvasColors } from './canvasTheme.js';
 
 export function resolveAxisX(axisXConfig, width) {
   if (typeof axisXConfig === 'number' && axisXConfig > 0 && axisXConfig <= 1) {
@@ -181,7 +180,10 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height, priceScale
     const dayRangeConfig = getConfig({ positioning: { adrAxisX: width * 0.75 } });
     let axisX = resolveAxisX(dayRangeConfig.positioning.adrAxisX, width);
 
-    ctx.strokeStyle = DELTA_MARKER_COLOR;
+    // Resolve themed colors once for this render entry (hot path: drawn per tick).
+    const { surfaces: { labelBackground }, overlays: { delta: deltaColor } } = getCanvasColors();
+
+    ctx.strokeStyle = deltaColor;
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 3]);
     ctx.beginPath();
@@ -190,8 +192,8 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height, priceScale
     ctx.stroke();
     ctx.setLineDash([]);
 
-    drawPriceMarker(ctx, axisX, startY, formattedStartPrice, DELTA_MARKER_COLOR, true, 'right');
-    drawPriceMarker(ctx, axisX, currentY, formattedCurrentPrice, DELTA_MARKER_COLOR, true, 'right', `(${deltaPips})`);
+    drawPriceMarker(ctx, axisX, startY, formattedStartPrice, deltaColor, true, 'right');
+    drawPriceMarker(ctx, axisX, currentY, formattedCurrentPrice, deltaColor, true, 'right', `(${deltaPips})`);
 
     // Setup font for percentage text
     ctx.font = config.fonts?.statusMessages || `400 12px ${SYSTEM_FONT_FAMILY}`;
@@ -206,7 +208,7 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height, priceScale
     const padding = 3;
     const backgroundHeight = fontHeight * 0.7;
 
-    ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
+    ctx.fillStyle = labelBackground;
     ctx.fillRect(
       percentX - padding - textWidth,
       midY - backgroundHeight / 2,
@@ -215,7 +217,7 @@ export function renderPriceDelta(ctx, deltaInfo, data, width, height, priceScale
     );
 
     // Draw percentage text
-    ctx.fillStyle = DELTA_MARKER_COLOR;
+    ctx.fillStyle = deltaColor;
     ctx.fillText(percentText, percentX, midY);
   } catch (error) {
     console.error('[DISPLAY_CANVAS_RENDERER] Error rendering price delta:', error);

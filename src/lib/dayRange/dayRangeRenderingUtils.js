@@ -2,6 +2,7 @@
 // Framework-first: Canvas 2D rendering utilities
 
 import { renderStatusMessage } from '../canvasStatusRenderer.js';
+import { getCanvasColors } from '../canvasTheme.js';
 
 export function validateMarketData(d, ctx, s) {
   if (!d || !d.current || !d.adrLow || !d.adrHigh) {
@@ -61,6 +62,6 @@ export function createMappedData(d) {
 }
 
 export function renderBackground(ctx, width, height) {
-  ctx.fillStyle = '#0a0a0a';
+  ctx.fillStyle = getCanvasColors().surfaces.canvasBackground;
   ctx.fillRect(0, 0, width, height);
 }

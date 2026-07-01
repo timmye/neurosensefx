@@ -5,6 +5,7 @@
 import { renderPixelPerfectLine } from '../dayRange/dayRangeCore.js';
 import { ZONE_COLORS, BASKET_ZONES } from './fxBasketConfig.js';
 import { SYSTEM_FONT_FAMILY } from '../canvasStatusRenderer.js';
+import { getCanvasColors } from '../canvasTheme.js';
 
 export function measureTextHeight(ctx, config) {
   ctx.font = config.fonts.basketLabel;
@@ -86,15 +87,16 @@ export function renderBasketLabel(ctx, basket, y, width, config, position = 'sta
 export function renderWaitingState(ctx, progress, config, dimensions) {
   const { width, height } = dimensions;
   const { received, total } = progress;
+  const colors = getCanvasColors();
 
-  ctx.fillStyle = '#1a1a1a';
+  ctx.fillStyle = colors.surfaces.fxBasketBackground;
   ctx.fillRect(0, 0, width, height);
 
   const barWidth = (width - 40) * (received / total);
-  ctx.fillStyle = '#F59E0B';
+  ctx.fillStyle = colors.text.warn;
   ctx.fillRect(20, height / 2 - 10, barWidth, 20);
 
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = colors.fxBasket.text;
   ctx.font = `400 14px ${SYSTEM_FONT_FAMILY}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -108,16 +110,26 @@ export function renderErrorState(ctx, missingPairs, failedPairs, totalPairs, con
   failedPairs = failedPairs || [];
   totalPairs = totalPairs || missingPairs.length;
 
-  ctx.fillStyle = '#1a1a1a';
+  // Resolve the themed color set once at the render entry and thread it down
+  // to the per-element helpers — never resolve per element/line.
+  const colors = getCanvasColors();
+  const errorColors = {
+    background: colors.surfaces.fxBasketBackground,
+    error: colors.text.error,
+    warn: colors.text.warn,
+    textSecondary: colors.fxBasket.textSecondary
+  };
+
+  ctx.fillStyle = errorColors.background;
   ctx.fillRect(0, 0, width, height);
-  renderErrorIcon(ctx, centerX, centerY);
-  renderErrorHeader(ctx, centerX, centerY, missingPairs.length, totalPairs);
-  renderPairList(ctx, centerX, centerY + 75, missingPairs, failedPairs);
+  renderErrorIcon(ctx, centerX, centerY, errorColors);
+  renderErrorHeader(ctx, centerX, centerY, missingPairs.length, totalPairs, errorColors);
+  renderPairList(ctx, centerX, centerY + 75, missingPairs, failedPairs, errorColors);
 }
 
-function renderErrorIcon(ctx, centerX, centerY) {
+function renderErrorIcon(ctx, centerX, centerY, errorColors) {
   const size = 30;
-  ctx.strokeStyle = '#EF4444';
+  ctx.strokeStyle = errorColors.error;
   ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.moveTo(centerX - size, centerY - size);
@@ -127,38 +139,39 @@ function renderErrorIcon(ctx, centerX, centerY) {
   ctx.stroke();
 }
 
-function renderErrorHeader(ctx, centerX, centerY, missingCount, totalPairs) {
-  ctx.fillStyle = '#EF4444';
+function renderErrorHeader(ctx, centerX, centerY, missingCount, totalPairs, errorColors) {
+  ctx.fillStyle = errorColors.error;
   ctx.font = `600 14px ${SYSTEM_FONT_FAMILY}`;
   ctx.textAlign = 'center';
   ctx.fillText(`Unable to initialize - ${missingCount} of ${totalPairs} pairs missing`, centerX, centerY + 50);
 }
 
-function renderPairList(ctx, centerX, startY, missingPairs, failedPairs) {
+function renderPairList(ctx, centerX, startY, missingPairs, failedPairs, errorColors) {
   ctx.font = `400 12px ${SYSTEM_FONT_FAMILY}`;
   ctx.textAlign = 'center';
   let y = startY;
   if (failedPairs.length > 0) {
-    y = renderFailedLines(ctx, centerX, y, missingPairs, failedPairs);
+    y = renderFailedLines(ctx, centerX, y, missingPairs, failedPairs, errorColors);
   } else {
-    y = renderMissingLines(ctx, centerX, y, missingPairs);
+    y = renderMissingLines(ctx, centerX, y, missingPairs, errorColors);
   }
+  return y;
 }
 
-function renderFailedLines(ctx, centerX, y, missingPairs, failedPairs) {
-  ctx.fillStyle = '#F59E0B';
+function renderFailedLines(ctx, centerX, y, missingPairs, failedPairs, errorColors) {
+  ctx.fillStyle = errorColors.warn;
   ctx.fillText(`Failed: ${failedPairs.slice(0, 6).join(', ')}${failedPairs.length > 6 ? ` +${failedPairs.length - 6} more` : ''}`, centerX, y);
   y += 20;
   const unreceived = missingPairs.filter(p => !failedPairs.includes(p));
   if (unreceived.length > 0) {
-    ctx.fillStyle = '#9CA3AF';
+    ctx.fillStyle = errorColors.textSecondary;
     ctx.fillText(`No response: ${unreceived.slice(0, 4).join(', ')}${unreceived.length > 4 ? ` +${unreceived.length - 4} more` : ''}`, centerX, y);
   }
   return y;
 }
 
-function renderMissingLines(ctx, centerX, y, missingPairs) {
-  ctx.fillStyle = '#9CA3AF';
+function renderMissingLines(ctx, centerX, y, missingPairs, errorColors) {
+  ctx.fillStyle = errorColors.textSecondary;
   ctx.fillText(missingPairs.slice(0, 8).join(', '), centerX, y);
   if (missingPairs.length > 8) {
     y += 20;

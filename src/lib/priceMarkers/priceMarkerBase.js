@@ -5,6 +5,7 @@ import { setupTextRendering } from '../dayRange/dayRangeCore.js';
 import { formatPriceWithPipPosition, emphasizeDigits } from '../priceFormat.js';
 import { defaultConfig } from '../dayRange/dayRangeConfig.js';
 import { SYSTEM_FONT_FAMILY } from '../colors.js';
+import { getCanvasColors } from '../canvasTheme.js';
 
 // Render a horizontal marker line with optional text label
 export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, config = {}) {
@@ -15,8 +16,13 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
     dashed = false,
     textBackground = false,
     emphasizePips = false,
-    pipPosition = null
+    pipPosition = null,
+    labelBackground = null
   } = config;
+  // Themed label-background: callers on hot per-marker paths thread the resolved
+  // color in (labelBackground) so the resolver isn't read per marker; other
+  // callers fall back to a single resolver read here.
+  const labelBg = labelBackground || getCanvasColors().surfaces.labelBackground;
   // Context is already scaled by ctx.scale(dpr, dpr) in setupCanvas()
   // So use logical pixels directly for all drawing operations
   ctx.save();
@@ -51,7 +57,7 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
         ctx.font = textFont;
         const textWidth = ctx.measureText(text).width;
 
-        ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
+        ctx.fillStyle = labelBg;
         ctx.fillRect(
           axisX - textWidth - 5 - padding,
           y - backgroundHeight / 2,
@@ -79,7 +85,7 @@ export function renderMarkerLine(ctx, y, axisX, color, lineWidth, markerLength, 
         const padding = Math.max(3, fontHeight * 0.08); // Dynamic padding based on font size
         const backgroundHeight = fontHeight * 0.7; // 70% of font height for proper text alignment
 
-        ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
+        ctx.fillStyle = labelBg;
         ctx.fillRect(
           axisX - metrics.width - 5 - padding,
           y - backgroundHeight / 2,

@@ -2,6 +2,7 @@
 // Framework-first: Individual drawing functions, <15 lines each
 
 import { FONT_SIZES, LINE_WIDTHS, SYSTEM_FONT_FAMILY } from '../colors.js';
+import { getCanvasColors } from '../canvasTheme.js';
 
 export function drawPriceMarker(ctx, x, y, label, color, showBackground = false, textAlign = 'left', subtitle = null) {
   // Draw marker line
@@ -19,6 +20,9 @@ export function drawPriceMarker(ctx, x, y, label, color, showBackground = false,
   const labelOffset = textAlign === 'right' ? -5 : 15;
   const textX = x + labelOffset;
 
+  // Resolve the themed label-background once for this marker draw.
+  const labelBackground = getCanvasColors().surfaces.labelBackground;
+
   // Draw background if enabled
   if (showBackground) {
     const textWidth = ctx.measureText(label).width;
@@ -28,7 +32,7 @@ export function drawPriceMarker(ctx, x, y, label, color, showBackground = false,
     const totalHeight = subtitle ? lineHeight * 2 + 2 : lineHeight * 0.7;
     const padding = 3;
 
-    ctx.fillStyle = 'rgba(10, 10, 10, 0.7)';
+    ctx.fillStyle = labelBackground;
 
     if (textAlign === 'right') {
       ctx.fillRect(

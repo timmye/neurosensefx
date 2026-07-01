@@ -10,16 +10,6 @@ export function calculateTpoScale(maxTpo, marketProfileWidth) {
   return maxTpo > 0 ? marketProfileWidth / maxTpo : 1;
 }
 
-export function getIntensityColor(level) {
-  // Cyan shades from dark to light (high intensity = brightest)
-  const colors = {
-    low: '#0891b2',    // deep cyan
-    medium: '#22d3ee', // medium cyan
-    high: '#67e8f9'    // bright cyan
-  };
-  return colors[level] || colors.low;
-}
-
 export function computePOC(profile) {
   if (!profile || profile.length === 0) {
     return null;

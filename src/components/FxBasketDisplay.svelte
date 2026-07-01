@@ -8,6 +8,7 @@
   import { createDebugAPI, exposeDebugAPI } from '../lib/fxBasket/fxBasketDebug.js';
   import { subscribeBasket, getBasketState, BasketState } from '../lib/fxBasket/fxBasketSubscription.js';
   import { renderFxBasket } from '../lib/fxBasket/fxBasketOrchestrator.js';
+  import { themeStore } from '../stores/themeStore.js';
   import DisplayFrame from './displays/DisplayFrame.svelte';
   import DisplayHeader from './displays/DisplayHeader.svelte';
 
@@ -27,6 +28,10 @@
   let renderPending = false;
 
   $: currentDisplay = $displayStore.displays.get(display.id);
+
+  // Repaint on workspace-theme change — canvas colors are resolved from
+  // canvasTheme.js at paint time, so a toggle needs a fresh renderCanvas().
+  $: if (ctx && canvas) { void $themeStore; renderCanvas(); }
 
   onMount(() => {
     connectionManager = ConnectionManager.getInstance(getWebSocketUrl());

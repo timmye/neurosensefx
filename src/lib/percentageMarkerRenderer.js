@@ -5,6 +5,7 @@ import { setupTextRendering, renderPixelPerfectLine } from './dayRange/dayRangeC
 import { calculateDayRangePercentage } from './dayRange/dayRangeCalculations.js';
 import { createPriceScale } from './dayRange/dayRangeRenderingUtils.js';
 import { resolveAxisX } from './displayCanvasRenderer.js';
+import { getCanvasColors } from './canvasTheme.js';
 
 // Main percentage markers orchestrator
 export function renderPercentageMarkers(ctx, config, d, adaptiveScale, height, padding, width) {
@@ -82,13 +83,12 @@ function renderDynamicMarker(ctx, dayRangePct, config, d, adaptiveScale, height,
   const dpr = window.devicePixelRatio || 1;
   const textX = (ctx.canvas.width / dpr) - 5;
   const backgroundPadding = 3;
-  const backgroundOpacity = 0.6;
 
   // Use actual Canvas font metrics instead of approximate height
   const actualHeight = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
 
   // Draw background rectangle using precise text measurements
-  ctx.fillStyle = `rgba(0, 0, 0, ${backgroundOpacity})`;
+  ctx.fillStyle = getCanvasColors().surfaces.percentageBackground;
   ctx.fillRect(
     textX - textMetrics.width - backgroundPadding,
     midY - actualHeight / 2 - backgroundPadding / 2,

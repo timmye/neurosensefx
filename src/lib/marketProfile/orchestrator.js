@@ -13,8 +13,7 @@ import {
 import { createDayRangeConfig } from '../dayRange/dayRangeRenderingUtils.js';
 import { getConfig } from '../dayRange/dayRangeConfig.js';
 import { setupCanvas, renderPixelPerfectLine } from '../dayRange/dayRangeCore.js';
-import { get } from 'svelte/store';
-import { themeStore } from '../../stores/themeStore.js';
+import { getCanvasColors } from '../canvasTheme.js';
 
 /**
  * Pure computation step for Market Profile rendering.
@@ -96,29 +95,27 @@ export function renderMiniMarketProfile(canvas, profile, size) {
 
   const computed = computeMiniMarketProfile(profile, size);
 
-  // Background — follow the workspace theme (the mini profile lives in the ticker,
-  // a shell component). Light theme gets a light-grey canvas so the profile
-  // doesn't sit on a hardcoded dark block. Mirrors the design tokens: light
-  // --bg-app #e8e8e8 (slightly darker than the ticker's light --bg-frame #f4f4f4),
-  // just as the dark #111111 sits slightly darker than the dark --bg-frame.
-  const isLight = get(themeStore) === 'light';
+  // Background — follow the workspace theme (the mini profile lives in the
+  // ticker, a shell component). The theme is read from the centralized
+  // shell-canvas resolver (canvasTheme.js), not a local isLight flag.
+  const surfaces = getCanvasColors().surfaces;
 
   // Background
-  ctx.fillStyle = isLight ? '#e8e8e8' : '#111111';
+  ctx.fillStyle = surfaces.miniProfileBackground;
   ctx.fillRect(0, 0, computed.width, computed.height);
 
   // Borders
   ctx.save();
-  ctx.strokeStyle = isLight ? '#ccc' : '#333';
+  ctx.strokeStyle = surfaces.miniProfileBorder;
   ctx.lineWidth = 1;
   renderPixelPerfectLine(ctx, 0, 0, computed.width, 0);
   renderPixelPerfectLine(ctx, 0, computed.height - 1, computed.width, computed.height - 1);
   ctx.restore();
 
   // Profile bars, price markers
-  drawMiniBars(ctx, profile, computed.priceScale, computed.maxTpo, computed.width, computed.height, dpr, isLight);
+  drawMiniBars(ctx, profile, computed.priceScale, computed.maxTpo, computed.width, computed.height, dpr);
   drawMiniCurrentPrice(ctx, computed.priceScale, size.currentPrice, computed.minPrice, computed.maxPrice, computed.width);
   drawMiniOpenPrice(ctx, computed.priceScale, size.openPrice, computed.minPrice, computed.maxPrice, computed.height);
-  drawMiniTwapPrice(ctx, computed.priceScale, size.twapPrice, computed.minPrice, computed.maxPrice, isLight);
+  drawMiniTwapPrice(ctx, computed.priceScale, size.twapPrice, computed.minPrice, computed.maxPrice);
 }
 

@@ -11,6 +11,7 @@
     renderPriceDelta,
     computePriceScale
   } from '../../lib/displayCanvasRenderer.js';
+  import { themeStore } from '../../stores/themeStore.js';
 
   export let data, showMarketProfile, marketProfileData, width, height, onResize;
   export let connectionStatus = null;
@@ -99,6 +100,10 @@
     }
   }
 
+  // Repaint on workspace-theme change — canvas colors are resolved from
+  // canvasTheme.js at paint time, so a toggle needs a fresh render.
+  $: if (canvas && ctx) { void $themeStore; scheduleRender(); }
+
   $: {
     // Force-read all dependencies to ensure tracking
     const _ctx = ctx;
@@ -155,7 +160,7 @@
 
   canvas {
     display: block;
-    background: #0a0a0a;
+    background: var(--bg-app);
     width: 100%;
     height: 100%;
   }

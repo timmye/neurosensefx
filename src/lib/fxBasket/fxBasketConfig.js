@@ -1,14 +1,14 @@
 // FX Basket visual configuration
-// Centralizes colors, fonts, positioning for consistency
+// Centralizes fonts, positioning for consistency.
+// Colors are injected by getConfig() from the centralized shell-canvas theme
+// resolver (canvasTheme.js) so the basket reads the workspace theme at paint
+// time. The volatility-zone ramp (ZONE_COLORS) is theme-invariant by design —
+// hue IS the information — but is sourced from the resolver so the values stay
+// centralized there.
+
+import { getCanvasColors } from '../canvasTheme.js';
 
 const defaultConfig = {
-  colors: {
-    baseline: '#6B7280',
-    positive: '#10b981',
-    negative: '#ef4444',
-    background: 'transparent',
-    text: '#ffffff'
-  },
   fonts: {
     basketLabel: '600 16px "Georgia Pro", Georgia, serif',
     basketValue: '400 11px "Georgia Pro", Georgia, serif',
@@ -23,16 +23,25 @@ const defaultConfig = {
 };
 
 export function getConfig(overrides = {}) {
-  return { ...defaultConfig, ...overrides };
+  const { colors: _colorOverrides, ...rest } = overrides;
+  return {
+    ...defaultConfig,
+    colors: { ...getCanvasColors().fxBasket, ...(_colorOverrides || {}) },
+    ...rest
+  };
 }
 
-// Zone colors for ADR-based display
-export const ZONE_COLORS = {
-  QUIET: '#6B7280',    // Gray - below normal activity
-  NORMAL: '#F59E0B',   // Yellow - typical day
-  ACTIVE: '#F97316',   // Orange - elevated volatility
-  EXTREME: '#EF4444'   // Red - unusual movement
-};
+// Volatility-zone ramp — theme-invariant encoding (gray→amber→orange→red),
+// but sourced from the resolver (fxBasketZones) so the values live in one place.
+export const ZONE_COLORS = (() => {
+  const zones = getCanvasColors().fxBasketZones;
+  return {
+    QUIET: zones.quiet,    // Gray - below normal activity
+    NORMAL: zones.normal,  // Amber - typical day
+    ACTIVE: zones.active,  // Orange - elevated volatility
+    EXTREME: zones.extreme // Red - unusual movement
+  };
+})();
 
 // Zone thresholds per basket (from 65-day empirical analysis)
 // Thresholds are absolute daily ranges: |close - open|

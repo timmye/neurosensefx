@@ -11,19 +11,24 @@ import {
   computePreviousDayOHLC,
   computeTwapMarker
 } from './priceMarkerCompute.js';
+import { getCanvasColors } from '../canvasTheme.js';
 
 // Render current price marker with color coding
 export function renderCurrentPrice(ctx, config, axisX, priceScale, price, symbolData) {
   const result = computeCurrentPrice(price, symbolData, config, priceScale);
   if (!result) return;
 
+  // Resolve the themed label-background once for this render entry and thread
+  // it down — renderMarkerLine is a per-marker helper and must not resolve per call.
+  const labelBackground = getCanvasColors().surfaces.labelBackground;
   renderMarkerLine(ctx, result.y, axisX, result.color, 4, 12, {
     text: result.text,
     textColor: result.color,
     textFont: config.fonts.currentPrice,
     textBackground: true,  // Enable semi-transparent background for current price
     emphasizePips: true,    // Enable pip emphasis for current price
-    pipPosition: symbolData?.pipPosition
+    pipPosition: symbolData?.pipPosition,
+    labelBackground
   });
 }
 
@@ -66,6 +71,8 @@ export function renderUserPriceMarkers(ctx, config, axisX, priceScale, markers, 
   if (computed.length === 0) return;
 
   const markerLength = 24;
+  // Resolve the themed selection color once for this render entry (loop is hot).
+  const selectedColor = getCanvasColors().overlays.selectedMarker;
 
   computed.forEach(({ y, color, lineWidth, alpha, isSelected, formattedPrice }) => {
     ctx.save();
@@ -79,9 +86,9 @@ export function renderUserPriceMarkers(ctx, config, axisX, priceScale, markers, 
     ctx.stroke();
 
     if (isSelected) {
-      renderMarkerLine(ctx, y, axisX, '#ff6b35', 0, 0, {
+      renderMarkerLine(ctx, y, axisX, selectedColor, 0, 0, {
         text: formattedPrice,
-        textColor: '#ff6b35',
+        textColor: selectedColor,
         textFont: config.fonts.priceLabels
       });
     }
@@ -95,10 +102,11 @@ export function renderHoverPreview(ctx, config, axisX, priceScale, hoverPrice, s
   const result = computeHoverPreview(hoverPrice, symbolData, priceScale);
   if (!result) return;
 
-  renderMarkerLine(ctx, result.y, axisX, 'rgba(255, 255, 255, 0.5)', 2, 80, {
+  const overlays = getCanvasColors().overlays;
+  renderMarkerLine(ctx, result.y, axisX, overlays.hoverLine, 2, 80, {
     dashed: true,
     text: result.formattedPrice,
-    textColor: 'rgba(255, 255, 255, 0.8)',
+    textColor: overlays.hoverText,
     textFont: config.fonts.priceLabels
   });
 }

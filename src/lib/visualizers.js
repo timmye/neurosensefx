@@ -2,13 +2,14 @@ import { renderDayRange as renderDayRangeOrchestrated } from './dayRange/dayRang
 import { getConfig } from './dayRange/dayRangeConfig.js';
 import { renderStatusMessage } from './canvasStatusRenderer.js';
 import { renderMarketProfile } from './marketProfile/orchestrator.js';
+import { getCanvasColors } from './canvasTheme.js';
 
 export function renderDayRange(ctx, d, s) {
   renderDayRangeOrchestrated(ctx, d, s, getConfig);
 }
 
 export function renderDayRangeWithMarketProfile(ctx, d, s) {
-  ctx.fillStyle = '#0a0a0a';
+  ctx.fillStyle = getCanvasColors().surfaces.canvasBackground;
   ctx.fillRect(0, 0, s.width, s.height);
 
   if (d && d.length > 0) {
