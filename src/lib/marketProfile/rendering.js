@@ -122,11 +122,10 @@ export function drawMiniTwapPrice(ctx, priceScale, twapPrice, minPrice, maxPrice
   if (twapPrice == null || twapPrice < minPrice || twapPrice > maxPrice) return;
   const y = Math.round(priceScale(twapPrice));
 
-  // Green that complements the blue bars. Uses the app's --status-ok green
-  // (#4CAF50, rgb 76,175,80) on the light canvas — its low blue channel (B=80)
-  // reads unambiguously green next to the blue bars (B=255), and it contrasts on
-  // the light-grey bg. Neon #00FF66 kept on dark where it pops.
-  ctx.fillStyle = isLight ? '#4CAF50' : '#00FF66';
+  // TWAP marker matches the ticker's symbol-font colour (--text-label): a dark
+  // grey (#555 light / #888 dark) that contrasts cleanly against both the
+  // canvas bg and the blue bars, instead of a coloured dot that blended in.
+  ctx.fillStyle = isLight ? '#555555' : '#888888';
   ctx.beginPath();
   ctx.arc(5, y, 2, 0, Math.PI * 2);
   ctx.fill();
