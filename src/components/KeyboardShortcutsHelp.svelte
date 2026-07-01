@@ -1,10 +1,34 @@
 <script>
+  import { onDestroy } from 'svelte';
+  import { keyManager } from '../lib/keyManager.js';
+
   export let show = false;
+
+  // Make the overlay dismissable however it was opened. The `?` / `/` hold
+  // shortcut still drives `show` directly (keydown→show, keyup→hide); this just
+  // guarantees the overlay is never stuck open when launched from the AddMenu
+  // "Shortcuts" item. Esc is handled via the keyManager escape stack (absolute
+  // priority); backdrop click closes too (clicking inside the content does not).
+  let escapePop = null;
+  $: {
+    if (show && !escapePop) {
+      escapePop = keyManager.pushEscape(() => { show = false; });
+    } else if (!show && escapePop) {
+      escapePop();
+      escapePop = null;
+    }
+  }
+  onDestroy(() => { escapePop?.(); });
+
+  function closeOnBackdrop() { show = false; }
 </script>
 
 {#if show}
-<div class="shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts">
-  <div class="shortcuts-content">
+<!-- svelte-ignore a11y-click-events-have-key-events (Esc is handled via the keyManager escape stack) -->
+<div class="shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts"
+     on:click={closeOnBackdrop}>
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="shortcuts-content" on:click|stopPropagation>
     <h2>Keyboard Shortcuts</h2>
 
     <div class="shortcut-section">
