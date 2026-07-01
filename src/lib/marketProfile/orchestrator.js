@@ -13,6 +13,8 @@ import {
 import { createDayRangeConfig } from '../dayRange/dayRangeRenderingUtils.js';
 import { getConfig } from '../dayRange/dayRangeConfig.js';
 import { setupCanvas, renderPixelPerfectLine } from '../dayRange/dayRangeCore.js';
+import { get } from 'svelte/store';
+import { themeStore } from '../../stores/themeStore.js';
 
 /**
  * Pure computation step for Market Profile rendering.
@@ -94,13 +96,20 @@ export function renderMiniMarketProfile(canvas, profile, size) {
 
   const computed = computeMiniMarketProfile(profile, size);
 
+  // Background — follow the workspace theme (the mini profile lives in the ticker,
+  // a shell component). Light theme gets a light-grey canvas so the profile
+  // doesn't sit on a hardcoded dark block. Mirrors the design tokens: light
+  // --bg-app #e8e8e8 (slightly darker than the ticker's light --bg-frame #f4f4f4),
+  // just as the dark #111111 sits slightly darker than the dark --bg-frame.
+  const isLight = get(themeStore) === 'light';
+
   // Background
-  ctx.fillStyle = '#111111';
+  ctx.fillStyle = isLight ? '#e8e8e8' : '#111111';
   ctx.fillRect(0, 0, computed.width, computed.height);
 
   // Borders
   ctx.save();
-  ctx.strokeStyle = '#333';
+  ctx.strokeStyle = isLight ? '#ccc' : '#333';
   ctx.lineWidth = 1;
   renderPixelPerfectLine(ctx, 0, 0, computed.width, 0);
   renderPixelPerfectLine(ctx, 0, computed.height - 1, computed.width, computed.height - 1);

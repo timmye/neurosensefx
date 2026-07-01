@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
   import { displayStore, displayActions } from '../stores/displayStore.js';
+  import { themeStore } from '../stores/themeStore.js';
   import { ConnectionManager } from '../lib/connectionManager.js';
   import { getWebSocketUrl, formatSymbol } from '../lib/displayDataProcessor.js';
   import { getMarketDataStore, subscribeToSymbol } from '../stores/marketDataStore.js';
@@ -193,6 +194,14 @@
   // Coalesced via rAF so a fast market can't trigger more than one paint/frame.
   // Depends on currentPrice, openPrice, pipPosition which are derived from lastData
   $: if (currentPrice !== null && canvasRef && lastMarketProfileData) {
+    scheduleProfileRender();
+  }
+
+  // The mini-profile canvas bg follows the workspace theme (see orchestrator's
+  // renderMiniMarketProfile). Re-paint on theme change so it updates immediately,
+  // not just on the next tick.
+  $: if (canvasRef && lastMarketProfileData) {
+    void $themeStore;
     scheduleProfileRender();
   }
 
