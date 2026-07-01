@@ -12,7 +12,8 @@ Svelte state management stores for frontend application.
 | `markerActions.js` | Price marker CRUD actions (add, remove, update, select) that operate on displayStore, plus marker persistence (localStorage + server sync). Absorbs former `priceMarkerPersistence.js` | Adding marker features, debugging marker persistence, marker import/export |
 | `workspace.js` | Workspace persistence (localStorage + server), import/export, headlines widget state (visibility, position, size). Exports combined derived store for backward compat | Implementing workspace persistence, import/export, headlines widget |
 | `authStore.js` | Svelte store for authentication state (login, logout, session) | Modifying login/logout UI, checking auth status |
-| `themeStore.js` | Svelte store for light/dark theme preference | Changing theme, persisting theme choice |
+| `themeStore.js` | Svelte store for SHELL/workspace light/dark theme (drives `<html data-theme>` → tokens.css) | Changing the workspace (shell) theme, persisting theme choice |
+| `chartThemeStore.js` | Svelte store for the CHART's light/dark color scheme — independent of `themeStore`; read by ChartDisplay/ChartToolbar/OverlayContextMenu + `lib/chart/themeColors`/`fadedStyleDefaults` | Changing the chart color scheme independently of the workspace |
 | `timezoneStore.js` | Svelte store for timezone preference (user → browser local → UTC fallback) | Changing timezone display, debugging timezone labels |
 | `dailyResetHandler.js` | Daily reset logic (OHLC bars, market profile, subscriptions) | Modifying daily reset behavior, debugging midnight transitions |
 | `marketDataNormalizer.js` | Normalizes raw tick data into structured market data format | Adding new data fields, debugging data normalization |
