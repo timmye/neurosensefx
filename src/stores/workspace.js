@@ -11,6 +11,8 @@ import { authStore } from './authStore.js';
 import { drawingStore } from '../lib/chart/drawingStore.js';
 import { displayStore, displayActions } from './displayStore.js';
 import { markerActions, saveMarkers } from './markerActions.js';
+import { themeStore } from './themeStore.js';
+import { chartThemeStore } from './chartThemeStore.js';
 
 function compareSemver(a, b) {
   const pa = a.split('.').map(Number);
@@ -227,6 +229,16 @@ const actions = {
 // Tracks last workspace data for beforeunload flush (module-scoped)
 let _lastWorkspaceData = null;
 
+// Apply persisted themes (workspace + chart) from a loaded layout. Both themes
+// ride on the workspace layout blob so they follow the account (server-side via
+// /api/workspace), not just the browser's localStorage. No-op if the layout
+// predates this field (existing users keep their localStorage/migrated value).
+function applyStoredThemes(layout) {
+  if (!layout) return;
+  if ('workspaceTheme' in layout) themeStore.set(layout.workspaceTheme);
+  if ('chartTheme' in layout) chartThemeStore.set(layout.chartTheme);
+}
+
 const persistence = {
   loadFromStorage: async () => {
     try {
@@ -253,6 +265,7 @@ const persistence = {
                 headlinesPosition: layout.headlinesPosition || state.headlinesPosition,
                 headlinesSize: layout.headlinesSize || state.headlinesSize
               }));
+              applyStoredThemes(layout);
               // Cache server data in localStorage for offline fallback
               localStorage.setItem('workspace-state', JSON.stringify(layout));
               return;
@@ -284,7 +297,9 @@ const persistence = {
         chartGhost: displayState.chartGhost || null,
         headlinesVisible: headlinesState.headlinesVisible,
         headlinesPosition: headlinesState.headlinesPosition,
-        headlinesSize: headlinesState.headlinesSize
+        headlinesSize: headlinesState.headlinesSize,
+        workspaceTheme: get(themeStore),
+        chartTheme: get(chartThemeStore)
       };
       // Kept immediate: beforeunload beacon (flushPending) reads _lastWorkspaceData.
       _lastWorkspaceData = data;
@@ -315,7 +330,9 @@ const persistence = {
 
     const unsub1 = displayStore.subscribe(syncToStorage);
     const unsub2 = headlinesStore.subscribe(syncToStorage);
-    return () => { unsub1(); unsub2(); };
+    const unsub3 = themeStore.subscribe(syncToStorage);
+    const unsub4 = chartThemeStore.subscribe(syncToStorage);
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
   },
 
   /**
@@ -354,6 +371,7 @@ function loadFromLocalStorage() {
         headlinesPosition: data.headlinesPosition || state.headlinesPosition,
         headlinesSize: data.headlinesSize || state.headlinesSize
       }));
+      applyStoredThemes(data);
   } catch (error) {
     console.warn('Failed to load workspace from localStorage:', error);
   }
