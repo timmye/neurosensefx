@@ -5,7 +5,39 @@
 const { calculateBucketSizeForSymbol } = require('./MarketProfileService');
 const { buildPrevDayFields } = require('./utils/MessageBuilder');
 const { createLogger, describeError } = require('./utils/Logger');
+const { classifyError, ctraderErrorCategory } = require('./utils/ctraderErrorCode');
 const log = createLogger('RequestCoordinator');
+
+/**
+ * Derive a structured client-facing `code` for a symbol-subscription error frame.
+ *
+ * The wire taxonomy (Layer A): the backend classifies cTrader rejections richly
+ * (errorCode/category) but previously folded that into the `message` string only,
+ * so the client could never tell SYMBOL_NOT_FOUND from RATE_LIMIT from TIMEOUT.
+ * This helper re-derives a short, stable `code` to attach to the error frame so
+ * the frontend can show a precise failure message instead of generic "No data".
+ *
+ * Derivation order matters — first match wins:
+ *   1. SYMBOL_NOT_FOUND — tagged on the thrown error by CTraderDataProcessor
+ *      (the authoritative rejector for the cTrader universe).
+ *   2. RATE_LIMIT — cTrader is throttling (REQUEST_FREQUENCY_EXCEEDED / SPEED_*
+ *      / BLOCKED_PAYLOAD_TYPE / TOO_MANY_REQUESTS), via ctraderErrorCode.
+ *   3. TIMEOUT — the Promise.race fetchTimeout throws exactly
+ *      'Request timed out' (see _processQueue).
+ *   4. undefined — unknown/anything else; the frontend then falls back to its
+ *      generic message. We deliberately do NOT force a wrong code.
+ *
+ * Pure + exported so it is unit-testable in isolation.
+ *
+ * @param {*} error - The error/payload rejected by the fetch path.
+ * @returns {string|undefined} One of the codes above, or undefined.
+ */
+function deriveClientCode(error) {
+    if (error && error.code === 'SYMBOL_NOT_FOUND') return 'SYMBOL_NOT_FOUND';
+    if (classifyError(error) === ctraderErrorCategory.RATE_LIMIT) return 'RATE_LIMIT';
+    if (error && error.message === 'Request timed out') return 'TIMEOUT';
+    return undefined;
+}
 
 class RequestCoordinator {
     constructor(wsServer, fetchTimeout = 30000) {
@@ -283,9 +315,11 @@ class RequestCoordinator {
      */
     notifyClientsError(clients, symbol, error, source = 'ctrader') {
         const detail = describeError(error);
+        const code = deriveClientCode(error);
         clients.forEach(client => {
             this.wsServer.sendToClient(client, {
                 type: 'error',
+                code: code || undefined,
                 message: `Failed to get data for ${symbol}: ${detail}`,
                 symbol: symbol,
                 source: source
@@ -358,6 +392,7 @@ class RequestCoordinator {
             log.error(`TradingView data timeout for ${symbol}`);
             this.wsServer.sendToClient(client, {
                 type: 'error',
+                code: 'TIMEOUT',
                 message: `Timeout waiting for TradingView data for ${symbol}`,
                 symbol: symbol,
                 source: 'tradingview'
@@ -392,6 +427,7 @@ class RequestCoordinator {
                 tvSession.removeListener('candle', onDataPackage);
                 this.wsServer.sendToClient(client, {
                     type: 'error',
+                    code: 'RESOLVE_FAILED',
                     message: `Failed to get TradingView data for ${symbol}: ${error.message}`,
                     symbol: symbol,
                     source: 'tradingview'
@@ -435,4 +471,4 @@ class RequestCoordinator {
 
 }
 
-module.exports = { RequestCoordinator };
+module.exports = { RequestCoordinator, deriveClientCode };

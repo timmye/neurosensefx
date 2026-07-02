@@ -41,6 +41,7 @@ function createInitialData(symbol) {
     clientReceivedAt: null,
     latency: { backend: null, network: null, e2e: null },
     error: null,
+    code: null,
     status: 'pending',
     lastUpdate: null,
   };
@@ -174,6 +175,7 @@ export function subscribeToSymbol(symbol, source = 'ctrader', options = {}) {
         ...current,
         status: 'error',
         error: data.message || 'Unknown error',
+        code: data.code || null,
         lastUpdate: Date.now()
       }));
     }

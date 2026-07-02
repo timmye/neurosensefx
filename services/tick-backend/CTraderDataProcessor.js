@@ -106,7 +106,9 @@ class CTraderDataProcessor {
 
         const symbolId = this.symbolLoader.getSymbolId(symbolName);
         if (!symbolId) {
-            throw new Error(`Symbol not found: ${symbolName}`);
+            const err = new Error(`Symbol not found: ${symbolName}`);
+            err.code = 'SYMBOL_NOT_FOUND';
+            throw err;
         }
 
         const rangeLimit = PERIOD_RANGE_LIMITS[period];
@@ -250,7 +252,11 @@ class CTraderDataProcessor {
      */
     async getSymbolDataPackage(symbolName, adrLookbackDays = 14) {
         const symbolId = this.symbolLoader.getSymbolId(symbolName);
-        if (!symbolId) throw new Error(`Symbol not found in map: ${symbolName}`);
+        if (!symbolId) {
+            const err = new Error(`Symbol not found in map: ${symbolName}`);
+            err.code = 'SYMBOL_NOT_FOUND';
+            throw err;
+        }
 
         const symbolInfo = await this.symbolLoader.getFullSymbolInfo(symbolId);
         const { digits } = symbolInfo;

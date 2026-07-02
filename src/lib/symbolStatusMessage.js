@@ -34,22 +34,60 @@ export function resolveSymbolStatus(status, hasData, globalConnected) {
 
 // Full-sentence variant for canvas displays (FloatingDisplay/DisplayCanvas).
 // Returns the message string, or null when the caller should render normally.
-export function symbolStatusMessage(status, { hasData = false, symbol = '', globalConnected = true } = {}) {
+//
+// When the backend attaches a structured `code` (Layer A) the error branch
+// returns a precise, actionable message keyed by source+code. When `code` is
+// absent or unrecognized it falls back to the generic "No data available" so it
+// stays backward-compatible with older backends/clients.
+export function symbolStatusMessage(status, { hasData = false, symbol = '', globalConnected = true, code = null, source = '' } = {}) {
   switch (resolveSymbolStatus(status, hasData, globalConnected)) {
     case 'offline':
       return 'Disconnected from server';
     case 'pending':
       return `Resolving ${symbol || 'symbol'}…`;
     case 'error':
-      return 'No data available';
+      return errorStatusMessage(code, source, symbol);
     default:
       return null;
   }
 }
 
+// Layer A: precise code-keyed error wording (canvas displays only). The ticker
+// (~8-char symbol field) can't fit the distinction, so tickerSymbolStatus below
+// stays terse — precise messages are canvas-only by design.
+function errorStatusMessage(code, source, symbol) {
+  switch (code) {
+    case 'SYMBOL_NOT_FOUND':
+      return source === 'ctrader'
+        ? `${symbol || 'Symbol'} isn't available on your cTrader account.`
+        : 'No data available';
+    case 'RATE_LIMIT':
+      return source === 'ctrader'
+        ? 'Broker is busy — retrying…'
+        : 'No data available';
+    case 'TIMEOUT':
+      return source === 'tradingview'
+        ? 'No data from TradingView for this symbol — check the symbol.'
+        : 'No response from the broker — try again.';
+    case 'RESOLVE_FAILED':
+      return source === 'tradingview'
+        ? 'TradingView couldn\'t resolve this symbol.'
+        : 'No data available';
+    case 'INVALID_SYMBOL':
+      return 'That doesn\'t look like a valid symbol.';
+    default:
+      return 'No data available';
+  }
+}
+
+
 // Terse variant for the PriceTicker symbol field (auto-uppercased by CSS;
 // stored in title case per §6.1). Returns null when the symbol should show
 // normally (pending leaves the symbol untouched — see §6.1).
+//
+// Deliberately UNCHANGED by Layer A: the ticker's ~8-char symbol field can't
+// fit the precise code-keyed distinction, so it keeps NO DATA/OFFLINE. Precise
+// messages are canvas-only (symbolStatusMessage above).
 export function tickerSymbolStatus(status, { hasData = false, globalConnected = true } = {}) {
   switch (resolveSymbolStatus(status, hasData, globalConnected)) {
     case 'offline':

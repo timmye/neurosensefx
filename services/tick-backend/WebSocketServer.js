@@ -379,7 +379,7 @@ class WebSocketServer {
 
     async handleSubscribe(ws, symbolName, adrLookbackDays = 14, source = 'ctrader') {
         if (!symbolName || typeof symbolName !== 'string' || symbolName.trim().length === 0) {
-            return this.sendToClient(ws, { type: 'error', message: `Invalid symbol name: ${symbolName}`, symbol: symbolName, source: source });
+            return this.sendToClient(ws, { type: 'error', code: 'INVALID_SYMBOL', message: `Invalid symbol name: ${symbolName}`, symbol: symbolName, source: source });
         }
 
         // Add client subscription first

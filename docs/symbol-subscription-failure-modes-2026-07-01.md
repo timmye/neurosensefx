@@ -1,7 +1,7 @@
 # Symbol Subscription — Failure Modes & Trader-Feedback Intelligence
 
 **Date:** 2026-07-01
-**Status:** Investigation complete. Reference doc; grounds the future `plans/symbol-entry-unified.md`. No code changed.
+**Status:** Investigation complete; **Layers B & A implemented 2026-07-01**. Reference doc; grounds the future `plans/symbol-entry-unified.md` (Layer C + history/autocomplete still deferred).
 **Scope:** Every way a symbol subscription can fail, what the server returns for each, and what we *can* tell the trader — with cTrader and TradingView distinguished so the nuances can be compared and reconciled.
 
 ---
@@ -105,7 +105,7 @@ Deliberately non-technical, actionable, and **consistent across sources where th
 
 A key upgrade vs today: **"Resolving EURUSD…"** replaces the indefinite **"Waiting for market data…"** — same pending state, but now bounded by an actual error at the end instead of silence.
 
-> **Note:** the precise code-keyed wording in the table above requires Layer A (error `code` on the wire). The current implementation pass is Layer B only and shows **generic state messages** (see §6.2).
+> **Note:** the precise code-keyed wording in the table above required Layer A (error `code` on the wire). **Layer A is now implemented (2026-07-01)** — see §8. The canvas displays (`FloatingDisplay`/`DisplayCanvas`) now render the precise messages below keyed by `source`+`code`; the PriceTicker's ~8-char symbol field stays terse (`NO DATA`/`OFFLINE`) by design (§6.1), so Layer A's precise wording is canvas-only.
 
 ### 6.1 Ticker rendering — symbol field, as-is (agreed 2026-07-01)
 
@@ -125,11 +125,13 @@ The status text occupies the **symbol field, rendered with its existing styling*
 
 **Trade-off (conscious):** the symbol is hidden while errored. Acceptable — the trader just typed it, the ticker is non-functional, and `↻`/`×` act on it. The symbol returns the moment it re-resolves (retry or workspace reload restarts the subscription → pending → symbol shows again).
 
-### 6.2 Implementation scope — Layer B only (this pass)
+### 6.2 Implementation scope — Layer B done, Layer A now done (2026-07-01)
 
-This pass implements **Layer B only** (§8): render the per-symbol `marketDataStore.status`/`error` that already exists but is currently ignored (G2). It does **not** add the error `code` to the wire (Layer A, deferred).
+**Layer B (status rendering) shipped first** and is in place: the per-symbol `marketDataStore.status`/`error` is rendered by the canvas displays and the ticker symbol field (G2 closed).
 
-Consequence: without Layer A the frontend cannot reliably distinguish `SYMBOL_NOT_FOUND` from `TIMEOUT` from `RATE_LIMIT`, so this pass shows **generic state messages** (pending → "Resolving…"; error → "No data available", or `NO DATA`/`OFFLINE` on the ticker), not the precise code-keyed wording in §6's table. The status plumbing is built so that swapping in precise messages later is a one-line map once Layer A ships.
+**Layer A (precise `code` on the wire) is now implemented** (2026-07-01): the backend attaches a structured `code` to symbol-subscription error frames (`SYMBOL_NOT_FOUND` / `RATE_LIMIT` / `TIMEOUT` / `RESOLVE_FAILED` / `INVALID_SYMBOL`; absent → generic), the store stashes it as `marketDataStore.code`, and `symbolStatusMessage` maps `source`+`code` to the precise §6 wording. The PriceTicker stays terse (§6.1).
+
+Unknown or unmatched codes still fall back to the generic state messages (pending → "Resolving…"; error → "No data available", or `NO DATA`/`OFFLINE` on the ticker), so the UI degrades gracefully against an older backend or an unrecognized failure.
 
 **Hard constraints for this pass:**
 - **No new buttons** — reuse existing `↻` (retry) / `×` (remove).
@@ -157,7 +159,7 @@ Consequence: without Layer A the frontend cannot reliably distinguish `SYMBOL_NO
 
 Each is shippable on its own; they compose.
 
-**Layer A — stop discarding the code (close G1).** Add `code`/`category` to the error frame in `notifyClientsError` + the TV/timeout emitters. Small, additive, backward-compatible. Unlocks precise messages (§6).
+**Layer A — stop discarding the code (close G1).** ✅ **DONE (2026-07-01).** The backend now attaches a structured `code` to symbol-subscription error frames: cTrader `SYMBOL_NOT_FOUND`/`RATE_LIMIT`/`TIMEOUT` are derived in `RequestCoordinator.deriveClientCode` (a pure, tested helper) and threaded onto the `notifyClientsError` frame; TradingView `TIMEOUT`/`RESOLVE_FAILED` and the early-reject `INVALID_SYMBOL` (`WebSocketServer`) carry explicit codes. The store stashes `code`, and `symbolStatusMessage` renders the precise §6 wording on canvas displays (the ticker stays terse per §6.1). Small, additive, backward-compatible (`code` omitted/undefined → generic fallback for older clients). Unlocks precise messages (§6).
 
 **Layer B — render per-symbol status (close G2).** Wire `marketDataStore.status`/`error` into the canvas + header; introduce the §6 vocabulary. **Pure frontend, highest leverage, lowest risk** — and it works even *before* Layer A (shows the free-text message until A lands).
 

@@ -86,7 +86,9 @@
   $: effectiveStatusMessage = symbolStatusMessage(lastData?.status, {
     hasData: lastData?.current != null,
     symbol: formattedSymbol,
-    globalConnected: connectionStatus === 'connected'
+    globalConnected: connectionStatus === 'connected',
+    code: lastData?.code,
+    source
   });
 
   $: if (formattedSymbol && formattedSymbol !== previousSymbol && previousSymbol !== null) {

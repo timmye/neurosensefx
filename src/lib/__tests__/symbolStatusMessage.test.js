@@ -80,6 +80,75 @@ describe('symbolStatusMessage', () => {
   });
 });
 
+// ── symbolStatusMessage — Layer A precise code-keyed error wording ──
+
+describe('symbolStatusMessage (Layer A code-keyed messages)', () => {
+  // Each row mirrors docs/...-failure-modes §6's code→message table.
+  it('ctrader + SYMBOL_NOT_FOUND → account-specific message', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: 'SYMBOL_NOT_FOUND', source: 'ctrader', symbol: 'EURUSD' }))
+      .toBe('EURUSD isn\'t available on your cTrader account.');
+  });
+
+  it('ctrader + RATE_LIMIT → broker busy message', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: 'RATE_LIMIT', source: 'ctrader' }))
+      .toBe('Broker is busy — retrying…');
+  });
+
+  it('ctrader + TIMEOUT → no broker response message', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: 'TIMEOUT', source: 'ctrader' }))
+      .toBe('No response from the broker — try again.');
+  });
+
+  it('tradingview + RESOLVE_FAILED → TV resolve message', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: 'RESOLVE_FAILED', source: 'tradingview' }))
+      .toBe('TradingView couldn\'t resolve this symbol.');
+  });
+
+  it('tradingview + TIMEOUT → TV no-data message', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: 'TIMEOUT', source: 'tradingview' }))
+      .toBe('No data from TradingView for this symbol — check the symbol.');
+  });
+
+  it('either source + INVALID_SYMBOL → invalid symbol message', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: 'INVALID_SYMBOL', source: 'ctrader' }))
+      .toBe('That doesn\'t look like a valid symbol.');
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: 'INVALID_SYMBOL', source: 'tradingview' }))
+      .toBe('That doesn\'t look like a valid symbol.');
+  });
+
+  it('falls back to generic "No data available" when code is absent', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, source: 'ctrader' }))
+      .toBe('No data available');
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: null, source: 'tradingview' }))
+      .toBe('No data available');
+  });
+
+  it('falls back to generic for an unrecognized code', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: 'SOMETHING_NEW', source: 'ctrader' }))
+      .toBe('No data available');
+  });
+
+  it('does NOT apply a precise message to the wrong source (graceful generic)', () => {
+    // SYMBOL_NOT_FOUND is cTrader-specific; a TV source keeps generic.
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true, code: 'SYMBOL_NOT_FOUND', source: 'tradingview' }))
+      .toBe('No data available');
+  });
+
+  it('code has no effect once data has arrived (render normally)', () => {
+    expect(symbolStatusMessage('error', { hasData: true, code: 'SYMBOL_NOT_FOUND', source: 'ctrader', symbol: 'EURUSD' }))
+      .toBe(null);
+  });
+
+  it('code has no effect when the socket is down (offline dominates)', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: false, code: 'SYMBOL_NOT_FOUND', source: 'ctrader' }))
+      .toBe('Disconnected from server');
+  });
+
+  it('keeps the generic fallback backward-compatible when code/source omitted entirely', () => {
+    expect(symbolStatusMessage('error', { hasData: false, globalConnected: true })).toBe('No data available');
+  });
+});
+
 // ── tickerSymbolStatus (terse ticker variant) ──
 
 describe('tickerSymbolStatus', () => {
